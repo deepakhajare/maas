@@ -1,0 +1,67 @@
+### apt-get install kvm-pxe ###
+
+## guest packages:
+ ## squid-deb-proxy-client
+
+http://blog.dustinkirkland.com/2011/03/ubuntu-server-quick-install-no.html
+
+qemu-img create -f qcow2 disk.img 8G
+kvm -m 1024 -drive file=disk.img,if=virtio,cache=unsafe -cdrom ../iso/natty-release/ubuntu-11.04-server-amd64.iso -boot d -no-reboot
+priority=critical locale=en_US url=http://bit.ly/uquick
+
+mv disk.img disk.img.dist
+qemu-img create -f qcow2 -b disk.img.dist disk.img
+
+kvm -m 1024 -drive file=disk.img,if=virtio,cache=unsafe -cdrom ../iso/natty-release/ubuntu-11.04-server-amd64.iso -boot d
+
+
+
+sudo apt-get install python-software-properties
+for p in ppa:orchestra/ppa ppa:dotdee/ppa; do sudo apt-add-repository $p; done
+sudo apt-get update
+sudo apt-get install ubuntu-orchestra-provisioning-server
+sudo apt-get dist-upgrade
+sudo apt-get clean
+sudo apt-get update
+sudo poweroff
+
+
+mv disk.img disk.installed.img
+qemu-img create -f qcow2 -b disk.installed.img trash.img
+qemu-img create -f qcow2 -b disk.installed.img source.img
+qemu-img create -f qcow2 target.img 8G
+
+kvm -m 1024 \
+   -drive file=trash.img,if=virtio,cache=unsafe,index=0  \
+   -drive file=source.img,if=virtio,cache=unsafe,index=1 \
+   -drive file=target.img,if=virtio,cache=unsafe,index=2 \
+   -net nic,model=virtio -net user,hostfwd=tcp:127.0.0.1:2222-:22 \
+
+ssh ubuntu@localhost -p 2222
+
+sudo sfdisk -uS -d /dev/vdb > out
+sed -i 's,/dev/vdb,/dev/vdc,' out
+sudo sfdisk -uS /dev/vdc --force < out
+sudo dd if=/dev/vdb of=/dev/vdc bs=512 count=2048
+sudo mkdir /mnt/src /mnt/target
+sudo mount -o ro /dev/vdb1 /mnt/src
+out=$(sudo blkid /dev/vdb1 | awk -F: '{print $2}')
+eval ${out}
+sudo mkfs.${TYPE} -U ${UUID} ${LABEL:+-L ${LABEL}} /dev/vdc1
+out=$(sudo blkid /dev/vdb5 | awk -F: '{print $2}')
+eval ${out}
+sudo mkswap ${UUID:+-U ${UUID} } ${LABEL:+-L ${LABEL}} /dev/vdb5
+sudo mount /dev/vdc1 /mnt/target
+sudo umount 
+sudo rsync -aXHAS /mnt/src/ /mnt/target
+echo "cobbler" | sudo tee /mnt/target/etc/hostname
+sudo poweroff
+
+virsh -c qemu:///system net-dumpxml default # get the default, modify a bit
+virsh net-create libvirt-network-cobbler.xml
+virsh net-define libvirt-network-cobbler.xml
+virsh net-start cobbler
+
+virsh destroy cobbler-server; virsh undefine cobbler-server; virsh define libvirt-cobbler.xml
+nn="cobbler"; virsh net-destroy $nn; virsh net-undefine $nn; virsh net-define libvirt-network-cobbler.xml; virsh net-start $nn
+
