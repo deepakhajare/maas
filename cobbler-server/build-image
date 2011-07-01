@@ -46,7 +46,7 @@ dl() {
 	[ $VERBOSITY -lt 1 ] && opts="-q"
 	case "$url" in
 		http://*|ftp://*) wget $opts "$url" -O "${out}";;
-		*) cat "${url}" -O "${out}";;
+		*) cat "${url}" > "${out}";;
 	esac
 }
 
@@ -104,6 +104,7 @@ TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
 	fail "failed to make tempdir"
 trap cleanup EXIT
 
+pre="${release}-${arch}"
 if [ -z "$iso" ]; then
 	iso="${release}-${arch}-mini.iso"
 	if [ -f "$iso" ]; then
@@ -115,23 +116,26 @@ if [ -z "$iso" ]; then
 	fi
 fi
 
-dl "$preseed" preseed.cfg ||
+dl "$preseed" $pre-preseed.cfg ||
 	fail "failed to download preseed: ${preseed}"
 
-update_latecommand preseed.cfg \
+update_latecommand $pre-preseed.cfg \
 	late_command.sh __LATE_COMMAND__ > "${TEMP_D}/preseed.cfg" || fail "failed to update_latecommand"
 
 debug 1 "extracting kernel and ramdisk"
 for f in /linux /initrd.gz ; do
-	isoinfo -RJ -x "$f" -i "$iso" > "${f##*/}.dist" ||
+	isoinfo -RJ -x "$f" -i "$iso" > "${pre}-${f##*/}.dist" ||
 		fail "failed to extract $f from $iso"
 done
 
+kernel="${pre}-linux.dist"
+initrd="${pre}-initrd.gz"
+
 debug 1 "repacking initramfs"
-zcat initrd.gz.dist > "${TEMP_D}/initrd" &&
+zcat "$initrd.dist" > "${TEMP_D}/initrd" &&
 	( cd "${TEMP_D}" && echo "./preseed.cfg" |
 		cpio -o --format=newc --append -F initrd &&
-		gzip -9 initrd -c ) > initrd.gz ||
+		gzip -9 initrd -c ) > "${initrd}" ||
 	fail "failed to repack initrd"
 
 debug 1 "creating a ${size}G disk in ${output}"
@@ -139,10 +143,10 @@ qemu-img create -f qcow2 "${output}" "${size}G" ||
 	fail "failed to create image"
 
 set -x
-${KVM:-kvm} -kernel linux.dist -initrd initrd.gz \
+time ${KVM:-kvm} -kernel "$kernel" -initrd "$initrd" \
 	-append "priority=critical locale=en_US" \
 	-drive "file=${output},if=virtio,cache=unsafe" \
-	-cdrom "${iso}" -m 512 -boot d -no-reboot \
+	-cdrom "${iso}" -m 512 -boot cd \
     -net nic,model=virtio -net user
 
 # vi: ts=4 noexpandtab
