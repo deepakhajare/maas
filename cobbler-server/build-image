@@ -156,7 +156,16 @@ set -x
 time ${KVM:-kvm} -kernel "$kernel" -initrd "$initrd" \
 	-append "priority=critical locale=en_US" \
 	-drive "file=${output},if=virtio,cache=unsafe" \
-	-cdrom "${iso}" -m 512 -boot cd \
-    -net nic,model=virtio -net user
+	-cdrom "${iso}" \
+	-m 512 -boot d -no-reboot \
+	-net nic,model=virtio -net user ||
+	fail "kvm failed"
+
+debug 1 "restarting for first boot"
+time ${KVM:-kvm} \
+	-drive "file=${output},if=virtio,cache=unsafe" \
+	-m 512 -boot c -no-reboot \
+	-net nic,model=virtio -net user ||
+	fail "failed to reboot"
 
 # vi: ts=4 noexpandtab
