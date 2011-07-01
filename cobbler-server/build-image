@@ -6,6 +6,8 @@ DEF_PRESEED="http://bit.ly/uquick"
 DEF_SIZE=4
 DEF_MIRROR="http://archive.ubuntu.com/ubuntu"
 DEF_ARCH=$(uname -m)
+MY_DIR=${0%/*}
+PATH=$MYDIR:$PATH
 
 [ "$DEF_ARCH" = "x86_64" ] && DEF_ARCH=amd64
 
@@ -117,7 +119,7 @@ dl "$preseed" preseed.cfg ||
 	fail "failed to download preseed: ${preseed}"
 
 update_latecommand preseed.cfg \
-	late_command.sh __IN_TARGET__ > "${TEMP_D}/preseed.cfg"
+	late_command.sh __LATE_COMMAND__ > "${TEMP_D}/preseed.cfg" || fail "failed to update_latecommand"
 
 debug 1 "extracting kernel and ramdisk"
 for f in /linux /initrd.gz ; do
