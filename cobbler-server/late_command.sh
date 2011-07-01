@@ -1,5 +1,6 @@
 #!/bin/bash
 
+{
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
 archs="i386 amd64"
@@ -14,6 +15,7 @@ done
 
 fb_d="/root/first-boot.d"
 mkdir -p "$fb_d"
+sed -i '/^exit 0/d' /etc/rc.local
 cat >> /etc/rc.local <<EOF
 ## first boot finish stuff
 if [ ! -f "$fb_d.done" ]; then
@@ -69,3 +71,4 @@ done
 EOF
 
 chmod u+x "$fb_d"/*
+} 2>&1 | tee /root/late.log
