@@ -46,7 +46,7 @@ dl() {
 	[ $VERBOSITY -lt 1 ] && opts="-q"
 	case "$url" in
 		http://*|ftp://*) wget $opts "$url" -O "${out}";;
-		*) cat "${url}" > "${out}";;
+		*) cp -a "${url}" "${out}";;
 	esac
 }
 
@@ -124,21 +124,31 @@ update_latecommand $pre-preseed.cfg \
 
 debug 1 "extracting kernel and ramdisk"
 for f in /linux /initrd.gz ; do
-	isoinfo -RJ -x "$f" -i "$iso" > "${pre}-${f##*/}.dist" ||
-		fail "failed to extract $f from $iso"
+	targ="${pre}-${f##*/}.dist"
+	if [ "$target" -nt "$iso" ]; then
+		isoinfo -RJ -x "$f" -i "$iso" > "${pre}-${f##*/}.dist" ||
+			fail "failed to extract $f from $iso"
+	else
+		debug 1 "skipping $targ, newer than $iso"
+	fi
 done
 
 kernel="${pre}-linux.dist"
 initrd="${pre}-initrd.gz"
 
-debug 1 "repacking initramfs"
-zcat "$initrd.dist" > "${TEMP_D}/initrd" &&
-	( cd "${TEMP_D}" && echo "./preseed.cfg" |
-		cpio -o --format=newc --append -F initrd &&
-		gzip -9 initrd -c ) > "${initrd}" ||
-	fail "failed to repack initrd"
+if [ "$pre-preseed.cfg" -nt "$initrd" ]; then
+	debug 1 "repacking initramfs"
+	zcat "$initrd.dist" > "${TEMP_D}/initrd" &&
+		( cd "${TEMP_D}" && echo "./preseed.cfg" |
+			cpio -o --format=newc --append -F initrd &&
+			gzip -9 initrd -c ) > "${initrd}" ||
+		fail "failed to repack initrd"
+else
+	debug 1 "not repacking $initrd, it is newer than $pre-preseed.cfg"
+fi
 
 debug 1 "creating a ${size}G disk in ${output}"
+rm -f "$output"
 qemu-img create -f qcow2 "${output}" "${size}G" || 
 	fail "failed to create image"
 
