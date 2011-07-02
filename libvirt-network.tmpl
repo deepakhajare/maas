@@ -1,0 +1,13 @@
+<network>
+  <name>$name</name>
+  <forward mode='nat'/>
+  <bridge name='$bridge' stp='on' delay='0' />
+  <ip address='$ip_pre.$ip' netmask='$netmask'>
+    <dhcp>
+      <range start='$ip_pre.$dhcp['range']['start']' end='$ip_pre.$dhcp['range']['start']' />
+      <bootp server="$ip_pre.$systems['cobbler']['ip']" file="pxelinux.0" />
+      <host mac="$systems['cobbler']['mac']" name="cobbler" ip="$ip_pre.$systems['cobbler']['ip']" />
+    </dhcp>
+  </ip>
+</network>
+
