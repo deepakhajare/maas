@@ -2,7 +2,7 @@
   <name>$name</name>
   <forward mode='nat'/>
   <bridge name='$bridge' stp='on' delay='0' />
-  <ip address='$ip_pre.$ip' netmask='$netmask'>
+  <ip address='$ip_pre.1' netmask='$netmask'>
     <dhcp>
       <range start='$ip_pre.$dhcp['range']['start']' end='$ip_pre.$dhcp['range']['start']' />
       <bootp server="$ip_pre.$systems['cobbler']['ip']" file="pxelinux.0" />
