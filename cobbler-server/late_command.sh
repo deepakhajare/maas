@@ -48,8 +48,8 @@ cat >"$fb_d/50-setup-cobbler" <<"EOF"
 #!/bin/sh
 
 cp -a /etc/cobbler/settings /etc/cobbler/settings.dist
-sed -i 's,^next_server: .*,next_server: cobbler' /etc/cobbler/settings
-sed -i 's,^server: .*,server: cobbler' /etc/cobbler/settings
+sed -i 's,^next_server: .*,next_server: cobbler,' /etc/cobbler/settings
+sed -i 's,^server: .*,server: cobbler,' /etc/cobbler/settings
 
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
