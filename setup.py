@@ -118,6 +118,10 @@ def libvirt_setup(config):
 		conn.defineXML(sys.toLibVirtXml())
 		print "defined domain %s" % sys.name
 
+def cobbler_setup(config)
+	cob = System(config, "cobbler")
+	
+
 def main():
 	outpre = "libvirt-cobbler-"
 	cfg_file = "settings.cfg"
@@ -130,6 +134,9 @@ def main():
 
 	if sys.argv[1] == "libvirt-setup":
 		libvirt_setup(config)
+		sys.exit(0)
+	elif sys.argv[1] == "cobbler-setup":
+		cobbler_setup(config)
 		sys.exit(0)
 
 if __name__ == '__main__':

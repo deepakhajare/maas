@@ -1,0 +1,29 @@
+- build a cobbler image with 'cobber-server' dir
+  $ cd cobber-server
+  $ ./build-image -vv --preseed preseed.cfg oneiric amd64 8G
+
+- create libvirt xml files for nodes, cobbler, network
+  $ ./setup.py libvirt-setup
+
+- start cobbler-devnet network
+  $ virsh -c qemu:///system net-start cobbler-devnet
+
+- start cobbler domain
+  $ qemu-img create -f qcow2 -b cobbler-server/oneiric-amd64.img  cobbler-disk0.img
+  $ virsh -c qemu:///system start cobbler
+
+- libvirt populate a node
+  $ qemu-img create -f qcow2 node01-disk0.img 4G
+  $ virsh -c qemu:///system define libvirt-node01.xml
+
+- start cobbler instance
+  $ virsh -c qemu:///system start cobbler
+
+Now, 
+ * you can ssh ubuntu@192.168.123.2 (password ubuntu)
+   Then run 'ssh-import-id' or sudo.
+ * http://192.168.123.2/cobbler_web should have cobbler web
+
+- populate the nodes into the cobbler server
+  $ TODO
+  $ ./setup.py cobbler-setup
