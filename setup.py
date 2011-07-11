@@ -6,6 +6,7 @@ import os
 import sys
 import copy
 import pprint
+import libvirt
 from Cheetah.Template import Template
 
 def yaml_loadf(fname):
@@ -51,7 +52,7 @@ class Domain:
 class Node(Domain):
 	def _setcfg(self, cfg, num):
 		cfg = cfg['nodes']
-		self.name = "%s%02s" % (cfg['prefix'],num)
+		self.name = "%s%02i" % (cfg['prefix'],num)
 		self.mac = "%s:%02x" % (cfg['mac_pre'],num)
 		self.ipnum = num + 100
 		self.template = cfg['template']
@@ -81,21 +82,55 @@ def renderSysDom(config, syscfg, stype="node"):
 # mac_pre: 00:16:3e:3e:aa
 # mam: 256
 
-def main():
+def writeDomXmlFile(dom, outpre=""):
+	fname="%s%s.xml" % (outpre, dom.name)
+	output = open(fname,"w")
+	output.write(dom.toLibVirtXml())
+	output.close()
+	return fname
 
+def libvirt_setup(config):
+	conn = libvirt.open("qemu:///system")
+	netname = config['network']['name']
+	if netname in conn.listDefinedNetworks():
+		net = conn.networkLookupByName(netname)
+		if net.isActive():
+			net.destroy()
+		net.undefine()
+	conn.networkDefineXML(Template(file=config['network']['template'],
+	                      searchList=[config['network'], config]).respond())
+
+	print "defined network %s " % netname
+
+	cob = System(config, "cobbler")
+	systems = [ cob ]
+
+	for node in range(1,4):
+		systems.append(Node(config, node))
+
+	defined_systems = conn.listDefinedDomains()
+	for sys in systems:
+		if sys.name in defined_systems:
+			dom = conn.lookupByName(sys.name)
+			if dom.isActive():
+				dom.destroy()
+			dom.undefine()
+		conn.defineXML(sys.toLibVirtXml())
+		print "defined domain %s" % sys.name
+
+def main():
+	outpre = "libvirt-cobbler-"
 	cfg_file = "settings.cfg"
-	if len(sys.argv) > 1:
-		cfg_file = sys.argv[1]
+
+	if len(sys.argv) == 1:
+		print "Usage: setup.py action\n  action one of: libvirt-setup"
+		sys.exit(1)
 
 	config = yaml_loadf(cfg_file)
 
-	cob = System(config, "cobbler")
-	pprint.pprint(cob)
-	for node in range(1,5):
-		print Node(config, node)
-
-	print cob.toLibVirtXml()
-
+	if sys.argv[1] == "libvirt-setup":
+		libvirt_setup(config)
+		sys.exit(0)
 
 if __name__ == '__main__':
 	main()
