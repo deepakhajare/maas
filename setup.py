@@ -39,7 +39,7 @@ class Node(Domain):
 		cfg = cfg['nodes']
 		self.name = "%s%02s" % (cfg['prefix'],num)
 		self.mac = "%s:%02x" % (cfg['mac_pre'],num)
-		self.ipnum = ident
+		self.ipnum = num + 100
 		self.template = cfg['template']
 		return
 
@@ -75,6 +75,8 @@ def main():
 
 	cob = System(config, "cobbler")
 	pprint.pprint(cob)
+	for node in range(1,5):
+		print Node(config, node)
 
 
 if __name__ == '__main__':
