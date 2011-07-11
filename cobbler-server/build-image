@@ -125,8 +125,8 @@ update_latecommand $pre-preseed.cfg \
 debug 1 "extracting kernel and ramdisk"
 for f in /linux /initrd.gz ; do
 	targ="${pre}-${f##*/}.dist"
-	if [ "$target" -nt "$iso" ]; then
-		isoinfo -RJ -x "$f" -i "$iso" > "${pre}-${f##*/}.dist" ||
+	if [ ! "$targ" -nt "$iso" ]; then
+		isoinfo -RJ -x "$f" -i "$iso" > "$targ" ||
 			fail "failed to extract $f from $iso"
 	else
 		debug 1 "skipping $targ, newer than $iso"
@@ -152,7 +152,6 @@ rm -f "$output"
 qemu-img create -f qcow2 "${output}" "${size}G" || 
 	fail "failed to create image"
 
-set -x
 time ${KVM:-kvm} -kernel "$kernel" -initrd "$initrd" \
 	-append "priority=critical locale=en_US" \
 	-drive "file=${output},if=virtio,cache=unsafe" \
