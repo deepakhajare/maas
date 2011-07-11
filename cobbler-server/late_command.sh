@@ -51,6 +51,10 @@ cp -a /etc/cobbler/settings /etc/cobbler/settings.dist
 sed -i 's,^next_server: .*,next_server: cobbler,' /etc/cobbler/settings
 sed -i 's,^server: .*,server: cobbler,' /etc/cobbler/settings
 
+cat > /etc/cobbler/users.digest <<ENDUSERDIGEST
+cobbler:Cobbler:a2d6bae81669d707b72c0bd9806e01f3
+ENDUSERDIGEST
+
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
 [ $# -eq 0 ] && set -- natty:i386 natty:amd64
