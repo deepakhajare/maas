@@ -1,9 +1,14 @@
 #!/bin/sh
 
+# replace 'replace' in file 'infile' with a sh snippit that will execute the
+# file/shell-script 'program' as a late-command.
 infile="${1}"
 program="$2"
 replace="${3:-__LATE_COMMAND__}"
+
 base64=$(base64 --wrap 0 "${program}")
 # the '&' have to be escaped through sed
 str='f=$1; shift ; echo $0 | base64 --decode > "$f" \&\& chmod u+x "$f" \&\& "$f" "$@"'
-sed -e "s,$replace,in-target sh -c '$str' ${base64} /root/late-command," "${infile}" 
+
+val="in-target sh -c '$str' ${base64} /root/late-command"
+sed -e "s,$replace,$val," "${infile}" 
