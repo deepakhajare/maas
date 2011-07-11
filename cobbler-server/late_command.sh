@@ -46,6 +46,11 @@ EOF
 
 cat >"$fb_d/50-setup-cobbler" <<"EOF"
 #!/bin/sh
+
+cp -a /etc/cobbler/settings /etc/cobbler/settings.dist
+sed -i 's,^next_server: .*,next_server: cobbler' /etc/cobbler/settings
+sed -i 's,^server: .*,server: cobbler' /etc/cobbler/settings
+
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
 [ $# -eq 0 ] && set -- natty:i386 natty:amd64
@@ -58,7 +63,7 @@ for t in "$@"; do
    wget -O "$iso" "$u"
 done
 
-seed="/etc/orchestra/ubuntu-orchestra-client.seed"
+seed="/etc/orchestra/ubuntu-orchestra-client.preseed"
 for t in "$@"; do
    rel=${t%:*}; arch=${t#*:}
    xa=$arch; [ "$arch" = "amd64" ] && xa=x86_64
