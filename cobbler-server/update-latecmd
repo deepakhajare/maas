@@ -5,10 +5,17 @@
 infile="${1}"
 program="$2"
 replace="${3:-__LATE_COMMAND__}"
+gzip=1
 
-base64=$(base64 --wrap 0 "${program}")
+if [ "${gzip}" != "0" ]; then
+   base64=$(gzip -c "${program}" | base64 --wrap 0)
+   pipe_gunzip="| gunzip"
+else
+   base64=$(base64 --wrap 0 "${program}" )
+   pipe_gunzip=""
+fi
 # the '&' have to be escaped through sed
-str='f=$1; shift ; echo $0 | base64 --decode > "$f" \&\& chmod u+x "$f" \&\& "$f" "$@"'
+str='f=$1; shift ; echo $0 | base64 --decode '"$pipe_gunzip"' > "$f" \&\& chmod u+x "$f" \&\& "$f" "$@"'
 
 val="in-target sh -c '$str' ${base64} /root/late-command"
 sed -e "s,$replace,$val," "${infile}" 
