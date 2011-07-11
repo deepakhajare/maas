@@ -70,9 +70,12 @@ for t in "$@"; do
    mount -o loop $rel-$arch-mini.iso /mnt 
    cobbler import --name=$rel-$arch --path=/mnt --breed=ubuntu --os-version=$rel --arch=$xa
    umount /mnt
-   cobbler profile edit --name $rel-$arch --kickstart=$seed --kopts="priority=critical locale=en_US"
-  done 
-done
+   if [ "$xa" != "$arch" ]; then
+      # for some reason, --name doesn't define the name, so rename it (x86_64)
+      cobbler profile rename --name $rel-$xa --newname $rel-$arch
+   fi
+   cobbler profile edit --name $rel-$xa --kickstart=$seed --kopts="priority=critical locale=en_US"
+done 
 EOF
 
 chmod u+x "$fb_d"/*
