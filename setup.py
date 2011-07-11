@@ -21,6 +21,7 @@ class Domain:
 			basedir = os.path.abspath(os.curdir)
 		self.basedir = basedir
 		self._setcfg(syscfg,ident)
+		self.network = syscfg['network']['name']
 
 	def __repr__(self):
 		return("== %s ==\n ip: %s\n mac: %s\n template: %s\n" %
@@ -33,6 +34,19 @@ class Domain:
 	@property
 	def disk0(self):
 		return("%s/%s-disk0.img" % (self.basedir, self.name))
+
+	def dictInfo(self):
+		ret = vars(self)
+		# have to add the getters
+		for prop in ( "ipaddr", "disk0" ):
+			ret[prop] = getattr(self,prop)
+		return ret
+
+	def toLibVirtXml(self):
+		return(Template(file=self.template, searchList=[self.dictInfo()]).respond())
+
+	def cobblerRegister(self, connection, profile):
+		pass
 		
 class Node(Domain):
 	def _setcfg(self, cfg, num):
@@ -41,6 +55,7 @@ class Node(Domain):
 		self.mac = "%s:%02x" % (cfg['mac_pre'],num)
 		self.ipnum = num + 100
 		self.template = cfg['template']
+		self.mem = cfg['mem']
 		return
 
 class System(Domain):
@@ -50,6 +65,7 @@ class System(Domain):
 		self.mac = cfg['mac']
 		self.ipnum = cfg['ip']
 		self.template = cfg['template']
+		self.mem = cfg['mem']
 
 def renderSysDom(config, syscfg, stype="node"):
 	return(Template(file=syscfg['template'], searchList=[config, syscfg]).respond())
@@ -77,6 +93,8 @@ def main():
 	pprint.pprint(cob)
 	for node in range(1,5):
 		print Node(config, node)
+
+	print cob.toLibVirtXml()
 
 
 if __name__ == '__main__':
