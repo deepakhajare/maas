@@ -65,7 +65,7 @@ for t in "$@"; do
    mount -o loop $rel-$arch-mini.iso /mnt 
    cobbler import --name=$rel-$arch --path=/mnt --breed=ubuntu --os-version=$rel --arch=$xa
    umount /mnt
-   cobbler profile edit --name $release-$arch --kickstart=$seed --kopts="priority=critical locale=en_US"
+   cobbler profile edit --name $rel-$arch --kickstart=$seed --kopts="priority=critical locale=en_US"
   done 
 done
 EOF
