@@ -92,7 +92,7 @@ def writeDomXmlFile(dom, outpre=""):
 def libvirt_setup(config):
 	conn = libvirt.open("qemu:///system")
 	netname = config['network']['name']
-	if netname in conn.listDefinedNetworks():
+	if netname in conn.listDefinedNetworks() or netname in conn.listNetworks():
 		net = conn.networkLookupByName(netname)
 		if net.isActive():
 			net.destroy()
