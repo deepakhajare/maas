@@ -1,4 +1,4 @@
-<domain type='kvm' id='3'>
+<domain type='kvm'>
   <name>$name</name>
   <memory>$mem</memory>
   <currentMemory>$mem</currentMemory>
@@ -6,7 +6,7 @@
   <os>
     <type arch='x86_64' machine='pc-0.12'>hvm</type>
     <boot dev='network' />
-    <boot dev='disk' />
+    <boot dev='hd' />
   </os>
   <features>
     <acpi/>
