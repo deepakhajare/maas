@@ -14,62 +14,42 @@ def yaml_loadf(fname):
 	fp.close()
 	return(ret)
 
-def getIp(cfg,num):
-
-def Class Domain():
-	def __init__(syscfg, ident):
+class Domain:
+	def __init__(self, syscfg, ident, basedir=None):
 		self.ip_pre = syscfg['network']['ip_pre']
-		self._getcfg(syscfg,ident)
+		if basedir == None:
+			basedir = os.path.abspath(os.curdir)
+		self.basedir = basedir
+		self._setcfg(syscfg,ident)
 
-	return("%s.%s" % (cfg['network']['ip_pre'], num))
+	def __repr__(self):
+		return("== %s ==\n ip: %s\n mac: %s\n template: %s\n" %
+		       (self.name, self.ipaddr, self.mac, self.template))
 
-def Class Node(Domain):
-    @property
-    def ipaddr(self):
-        return(self._cfgval_get("password",None))
+	@property
+	def ipaddr(self):
+		return("%s.%s" % (self.ip_pre, self.ipnum))
 
-	def _getcfg(cfg, num)
+	@property
+	def disk0(self):
+		return("%s/%s-disk0.img" % (self.basedir, self.name))
+		
+class Node(Domain):
+	def _setcfg(self, cfg, num):
 		cfg = cfg['nodes']
 		self.name = "%s%02s" % (cfg['prefix'],num)
 		self.mac = "%s:%02x" % (cfg['mac_pre'],num)
 		self.ipnum = ident
+		self.template = cfg['template']
 		return
 
-def Class System(Domain):
-	def _getcfg(cfg, ident)
+class System(Domain):
+	def _setcfg(self, cfg, ident):
+		cfg = cfg['systems'][ident]
 		self.name = ident
-		self.mac = "%s:%02x" % (cfg['mac
-		cfg = cfg['systems'][ident])
-		ret['name'] = ident
-
-	@property
-	def ipaddr(self):
-		return(getIp(cfg,cfg['ipnum'])
-		
-
-def getDomain(syscfg,ident):
-	try:
-		int(ident)
-		return(Node(syscfg,ident))
-	except:
-		return(System(syscfg,ident))
-		
-def getSysCfg(cfg,name):
-	ncfg = cfg['systems'][name]
-	ret = copy.copy(ncfg)
-	ret['name'] = name
-	ret['ipaddr'] = getIp(cfg,ncfg['ip'])
-	ret['disk0'] = "%s.img" % name
-	return(ret)
-
-def getNodeCfg(cfg,num):
-	ncfg = cfg['nodes']
-	ret = copy.copy(ncfg)
-	ret['name'] = "%s%02s" % (ncfg['prefix'],num)
-	ret['mac'] = "%s:%02x" % (ncfg['mac_pre'],num)
-	ret['ipnum'] = getIp(cfg,num)
-	ret['ipaddr'] = getIp(cfg,num)
-	return(ret)
+		self.mac = cfg['mac']
+		self.ipnum = cfg['ip']
+		self.template = cfg['template']
 
 def renderSysDom(config, syscfg, stype="node"):
 	return(Template(file=syscfg['template'], searchList=[config, syscfg]).respond())
@@ -85,13 +65,6 @@ def renderSysDom(config, syscfg, stype="node"):
 # mac_pre: 00:16:3e:3e:aa
 # mam: 256
 
-def systemCfg(config, name):
-	pass
-
-def getNetworkCfg(config):
-	pass
-
-
 def main():
 
 	cfg_file = "settings.cfg"
@@ -100,10 +73,8 @@ def main():
 
 	config = yaml_loadf(cfg_file)
 
-	cob = getSysCfg(config,"cobbler")
-	print "===== cob ====="
+	cob = System(config, "cobbler")
 	pprint.pprint(cob)
-	pprint.pprint(renderSysDom(config, cob))
 
 
 if __name__ == '__main__':
