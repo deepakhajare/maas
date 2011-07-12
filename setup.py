@@ -9,6 +9,7 @@ import pprint
 import libvirt
 from Cheetah.Template import Template
 import subprocess
+import xmlrpclib
 
 NODES_RANGE = range(1,4)
 
@@ -49,9 +50,6 @@ class Domain:
 	def toLibVirtXml(self):
 		return(Template(file=self.template, searchList=[self.dictInfo()]).respond())
 
-	def cobblerRegister(self, connection, profile):
-		pass
-		
 class Node(Domain):
 	def _setcfg(self, cfg, num):
 		cfg = cfg['nodes']
@@ -134,16 +132,60 @@ def libvirt_setup(config):
 			subprocess.check_call(qcow_create % system.disk0, shell=True)
 		print "defined domain %s" % system.name
 
+def cobbler_addsystem(server, token, system, profile, hostip):
+	eth0 = {
+		"macaddress-eth0" : system.mac,
+		"ipaddress-eth0" : system.ipaddr,
+		"static-eth0" : False,
+	}
+	items = {
+		'name': system.name,
+		'hostname': system.name,
+		'power_address': "qemu+tcp://%s:65001" % hostip,
+		'power_id': system.name,
+		'power_type': "virsh",
+		'profile': profile,
+		'netboot_enabled': True,
+		'modify_interface': eth0,
+	}
+
+	if len(server.find_system({"name": system.name})):
+		server.remove_system(system.name,token)
+		server.update()
+		print "removed existing %s" % system.name
+
+	sid = server.new_system(token)
+	for key, val in items.iteritems():
+		ret = server.modify_system(sid, key, val, token)
+		if not ret:
+			raise Exception("failed for %s [%s]: %s, %s" %
+			                (system.name, ret, key, val))
+	ret = server.save_system(sid,token)
+	if not ret:
+		raise Exception("failed to save %s" % system.name)
+	print "added %s" % system.name
+
 def cobbler_setup(config):
-	cob = System(config, "cobbler")
+	hostip = "%s.1" % config['network']['ip_pre']
+	profile = "oneiric-x86_64-ensemble"
 	
+	cob = System(config, "cobbler")
+	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
+	token = server.login("cobbler","cobbler")
+
+	systems = [ ]
+	for node in NODES_RANGE:
+		systems.append(Node(config, node))
+
+	for system in systems:
+		cobbler_addsystem(server, token, system, profile, hostip)
 
 def main():
 	outpre = "libvirt-cobbler-"
 	cfg_file = "settings.cfg"
 
 	if len(sys.argv) == 1:
-		print "Usage: setup.py action\n  action one of: libvirt-setup"
+		print "Usage: setup.py action\n  action one of: libvirt-setup, cobbler-setup"
 		sys.exit(1)
 
 	config = yaml_loadf(cfg_file)
