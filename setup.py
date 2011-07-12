@@ -57,7 +57,7 @@ class Node(Domain):
 		self.mac = "%s:%02x" % (cfg['mac_pre'],num)
 		self.ipnum = num + 100
 		self.template = cfg['template']
-		self.mem = cfg['mem']
+		self.mem = cfg['mem'] * 1024
 		return
 
 class System(Domain):
@@ -67,7 +67,7 @@ class System(Domain):
 		self.mac = cfg['mac']
 		self.ipnum = cfg['ip']
 		self.template = cfg['template']
-		self.mem = cfg['mem']
+		self.mem = cfg['mem'] * 1024
 
 def renderSysDom(config, syscfg, stype="node"):
 	return(Template(file=syscfg['template'], searchList=[config, syscfg]).respond())
