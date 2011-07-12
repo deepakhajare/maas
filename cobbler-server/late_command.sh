@@ -1,18 +1,6 @@
 #!/bin/bash
 
 {
-mkdir -p /var/lib/cobbler/isos
-cd /var/lib/cobbler/isos
-archs="i386 amd64"
-rels="natty"
-mirror="http://archive.ubuntu.com/ubuntu"
-for a in $archs; do
-   for r in $rels; do
-     u=$mirror/dists/$r/main/installer-$a/current/images/netboot/mini.iso
-     wget -O $r-$a-mini.iso $u
-   done
-done
-
 fb_d="/root/first-boot.d"
 mkdir -p "$fb_d"
 sed -i '/^exit 0/d' /etc/rc.local
@@ -119,13 +107,13 @@ ENDPRESEED
 
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
-[ $# -eq 0 ] && set -- natty:i386 natty:amd64
+set -- ${DISTS:-natty:i386 natty:amd64 oneiric:i386 oneiric:amd64}
 mirror="${MIRROR:-http://archive.ubuntu.com/ubuntu}"
 for t in "$@"; do
    rel=${t%:*}; arch=${t#*:}
-   iso=$r-$a-mini.iso
-   [ -f "$iso" ] || continue
-   u=$mirror/dists/$r/main/installer-$a/current/images/netboot/mini.iso
+   iso=$rel-$arch-mini.iso
+   [ -f "$iso" ] && continue
+   u=$mirror/dists/$rel/main/installer-$arch/current/images/netboot/mini.iso
    wget -O "$iso" "$u"
 done
 
