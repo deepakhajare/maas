@@ -55,6 +55,70 @@ cat > /etc/cobbler/users.digest <<ENDUSERDIGEST
 cobbler:Cobbler:a2d6bae81669d707b72c0bd9806e01f3
 ENDUSERDIGEST
 
+seed="/var/lib/cobbler/kickstarts/ensemble.preseed"
+cat > "$seed" <<ENDPRESEED
+# Ubuntu Server Quick Install for Orchestra deployed systems
+# by Dustin Kirkland <kirkland@ubuntu.com>
+#  * Documentation: http://bit.ly/uquick-doc
+
+d-i     debian-installer/locale string en_US.UTF-8
+d-i     debian-installer/splash boolean false
+d-i     console-setup/ask_detect        boolean false
+d-i     console-setup/layoutcode        string us
+d-i     console-setup/variantcode       string 
+d-i     netcfg/get_nameservers  string 
+d-i     netcfg/get_ipaddress    string 
+d-i     netcfg/get_netmask      string 255.255.255.0
+d-i     netcfg/get_gateway      string 
+d-i     netcfg/confirm_static   boolean true
+d-i     clock-setup/utc boolean true
+d-i     partman-auto/method string regular
+d-i     partman-lvm/device_remove_lvm boolean true
+d-i     partman-lvm/confirm boolean true
+d-i     partman/confirm_write_new_label boolean true
+d-i     partman/choose_partition        select Finish partitioning and write changes to disk
+d-i     partman/confirm boolean true
+d-i     partman/confirm_nooverwrite boolean true
+d-i     partman/default_filesystem string ext4
+d-i     clock-setup/utc boolean true
+d-i     clock-setup/ntp boolean true
+d-i     clock-setup/ntp-server  string ntp.ubuntu.com
+d-i     base-installer/kernel/image     string linux-server
+d-i     passwd/root-login       boolean false
+d-i     passwd/make-user        boolean true
+d-i     passwd/user-fullname    string ubuntu
+d-i     passwd/username string ubuntu
+d-i     passwd/user-password-crypted    password $6$.1eHH0iY$ArGzKX2YeQ3G6U.mlOO3A.NaL22Ewgz8Fi4qqz.Ns7EMKjEJRIW2Pm/TikDptZpuu7I92frytmk5YeL.9fRY4.
+d-i     passwd/user-uid string 
+d-i     user-setup/allow-password-weak  boolean false
+d-i     user-setup/encrypt-home boolean false
+d-i     passwd/user-default-groups      string adm cdrom dialout lpadmin plugdev sambashare
+d-i     apt-setup/services-select       multiselect security
+d-i     apt-setup/security_host string security.ubuntu.com
+d-i     apt-setup/security_path string /ubuntu
+d-i     debian-installer/allow_unauthenticated  string false
+d-i     pkgsel/upgrade  select safe-upgrade
+d-i     pkgsel/language-packs   multiselect 
+d-i     pkgsel/update-policy    select none
+d-i     pkgsel/updatedb boolean true
+d-i     grub-installer/skip     boolean false
+d-i     lilo-installer/skip     boolean false
+d-i     grub-installer/only_debian      boolean true
+d-i     grub-installer/with_other_os    boolean true
+d-i     finish-install/keep-consoles    boolean false
+d-i     finish-install/reboot_in_progress       note 
+d-i     cdrom-detect/eject      boolean true
+d-i     debian-installer/exit/halt      boolean false
+d-i     debian-installer/exit/poweroff  boolean false
+d-i     pkgsel/include string ubuntu-orchestra-client $EXTRA_PACKAGES
+byobu   byobu/launch-by-default boolean true
+ensemble ensemble-machine-agent/zookeeper_address $ZOOKEEPER_ADDRESS
+ensemble ensemble-machine-agent/machine_id $MACHINE_ID
+d-i   preseed/late_command string true && \
+   $getVar('ENSEMBLE_LATE_COMMAND', 'true')
+ENDPRESEED
+
+
 mkdir -p /var/lib/cobbler/isos
 cd /var/lib/cobbler/isos
 [ $# -eq 0 ] && set -- natty:i386 natty:amd64
@@ -67,7 +131,6 @@ for t in "$@"; do
    wget -O "$iso" "$u"
 done
 
-seed="/etc/orchestra/ubuntu-orchestra-client.preseed"
 for t in "$@"; do
    rel=${t%:*}; arch=${t#*:}
    xa=$arch; [ "$arch" = "amd64" ] && xa=x86_64
@@ -83,7 +146,8 @@ for t in "$@"; do
    ##    name=$rel-$arch &&
    ##    cobbler profile edit --name $name --distro $name
    #fi
-   cobbler profile edit --name $name --kickstart=$seed --kopts="priority=critical locale=en_US"
+   cobbler profile edit --name $name --kopts="priority=critical locale=en_US"
+   cobbler profile add --parent $name --name $name-ensemble --kickstart=$seed 
 done
 EOF
 
