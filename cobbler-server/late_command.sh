@@ -56,7 +56,7 @@ cobbler:Cobbler:a2d6bae81669d707b72c0bd9806e01f3
 ENDUSERDIGEST
 
 seed="/var/lib/cobbler/kickstarts/ensemble.preseed"
-cat > "$seed" <<ENDPRESEED
+cat > "$seed" <<"ENDPRESEED"
 # Ubuntu Server Quick Install for Orchestra deployed systems
 # by Dustin Kirkland <kirkland@ubuntu.com>
 #  * Documentation: http://bit.ly/uquick-doc
