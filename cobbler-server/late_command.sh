@@ -74,12 +74,17 @@ for t in "$@"; do
    mount -o loop $rel-$arch-mini.iso /mnt 
    cobbler import --name=$rel-$arch --path=/mnt --breed=ubuntu --os-version=$rel --arch=$xa
    umount /mnt
-   if [ "$xa" != "$arch" ]; then
-      # for some reason, --name doesn't define the name, so rename it (x86_64)
-      cobbler profile rename --name $rel-$xa --newname $rel-$arch
-   fi
-   cobbler profile edit --name $rel-$xa --kickstart=$seed --kopts="priority=critical locale=en_US"
-done 
+   name=$rel-$xa
+   ## cobbler wants to name distro and the default profile as <version>-<xa> (x86_64, not amd64)
+   ## so, we just let it be.  if we renamed, we'd have to do both profile and distribution
+   ## [ "$xa" != "$arch" ] &&
+   ##    cobbler profile rename --name $name --newname $rel-$arch &&
+   ##    cobbler distro rename --name $name --newname $rel-$arch &&
+   ##    name=$rel-$arch &&
+   ##    cobbler profile edit --name $name --distro $name
+   #fi
+   cobbler profile edit --name $name --kickstart=$seed --kopts="priority=critical locale=en_US"
+done
 EOF
 
 chmod u+x "$fb_d"/*
