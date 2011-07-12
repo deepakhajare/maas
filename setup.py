@@ -121,14 +121,14 @@ def libvirt_setup(config):
 		systems.append(Node(config, node))
 
 	defined_systems = conn.listDefinedDomains()
-	for sys in systems:
-		if sys.name in defined_systems:
-			dom = conn.lookupByName(sys.name)
+	for system in systems:
+		if system.name in defined_systems:
+			dom = conn.lookupByName(system.name)
 			if dom.isActive():
 				dom.destroy()
 			dom.undefine()
-		conn.defineXML(sys.toLibVirtXml())
-		print "defined domain %s" % sys.name
+		conn.defineXML(system.toLibVirtXml())
+		print "defined domain %s" % system.name
 
 def cobbler_setup(config):
 	cob = System(config, "cobbler")
