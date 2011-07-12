@@ -9,6 +9,8 @@ import pprint
 import libvirt
 from Cheetah.Template import Template
 
+NODES_RANGE = range(1,4)
+
 def yaml_loadf(fname):
 	fp = open(fname)
 	ret = yaml.load(fp)
@@ -97,15 +99,26 @@ def libvirt_setup(config):
 		if net.isActive():
 			net.destroy()
 		net.undefine()
+
+	allsys = {}
+	for system in config['systems']:
+		d = System(config, system)
+		allsys[d.name]=d.dictInfo()
+	for num in NODES_RANGE:
+		d = Node(config, num)
+		allsys[d.name]=d.dictInfo()
+
 	conn.networkDefineXML(Template(file=config['network']['template'],
-	                      searchList=[config['network'], config]).respond())
+	                      searchList=[config['network'],
+                                      {'all_systems': allsys }]).respond())
 
 	print "defined network %s " % netname
+	return
 
 	cob = System(config, "cobbler")
 	systems = [ cob ]
 
-	for node in range(1,4):
+	for node in NODES_RANGE:
 		systems.append(Node(config, node))
 
 	defined_systems = conn.listDefinedDomains()
@@ -118,7 +131,7 @@ def libvirt_setup(config):
 		conn.defineXML(sys.toLibVirtXml())
 		print "defined domain %s" % sys.name
 
-def cobbler_setup(config)
+def cobbler_setup(config):
 	cob = System(config, "cobbler")
 	
 

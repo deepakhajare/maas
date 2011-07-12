@@ -5,8 +5,10 @@
   <ip address='$ip_pre.1' netmask='$netmask'>
     <dhcp>
       <range start='$ip_pre.$dhcp['range']['start']' end='$ip_pre.$dhcp['range']['start']' />
-      <bootp server="$ip_pre.$systems['cobbler']['ip']" file="pxelinux.0" />
-      <host mac="$systems['cobbler']['mac']" name="cobbler" ip="$ip_pre.$systems['cobbler']['ip']" />
+      <bootp server="$all_systems.cobbler.ipaddr" file="pxelinux.0" />
+      #for $sys in $all_systems.itervalues()
+      <host mac="$sys.mac" name="$sys.name" ip="$sys.ipaddr" />
+      #end for
     </dhcp>
   </ip>
 </network>
