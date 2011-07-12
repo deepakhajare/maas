@@ -8,9 +8,8 @@
 - start cobbler-devnet network
   $ virsh -c qemu:///system net-start cobbler-devnet
 
-- start cobbler domain
+- create cobbler disk image qcow backing against pristine version
   $ qemu-img create -f qcow2 -b cobbler-server/oneiric-amd64.img  cobbler-disk0.img
-  $ virsh -c qemu:///system start cobbler
 
 - start cobbler instance
   $ virsh -c qemu:///system start cobbler
