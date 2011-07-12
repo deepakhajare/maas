@@ -39,6 +39,8 @@ cp -a /etc/cobbler/settings /etc/cobbler/settings.dist
 sed -i 's,^next_server: .*,next_server: cobbler,' /etc/cobbler/settings
 sed -i 's,^server: .*,server: cobbler,' /etc/cobbler/settings
 
+# https://fedorahosted.org/cobbler/wiki/CobblerWebInterface
+# htdigest /etc/cobbler/users.digest "Cobbler" cobbler
 cat > /etc/cobbler/users.digest <<ENDUSERDIGEST
 cobbler:Cobbler:a2d6bae81669d707b72c0bd9806e01f3
 ENDUSERDIGEST
