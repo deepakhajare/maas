@@ -113,7 +113,6 @@ def libvirt_setup(config):
                                       {'all_systems': allsys }]).respond())
 
 	print "defined network %s " % netname
-	return
 
 	cob = System(config, "cobbler")
 	systems = [ cob ]
