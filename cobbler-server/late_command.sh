@@ -110,10 +110,8 @@ d-i     finish-install/reboot_in_progress       note
 d-i     cdrom-detect/eject      boolean true
 d-i     debian-installer/exit/halt      boolean false
 d-i     debian-installer/exit/poweroff  boolean false
-d-i     pkgsel/include string ubuntu-orchestra-client $EXTRA_PACKAGES
+d-i     pkgsel/include string ubuntu-orchestra-client $getVar('EXTRA_PACKAGES','')
 byobu   byobu/launch-by-default boolean true
-ensemble ensemble-machine-agent/zookeeper_address $ZOOKEEPER_ADDRESS
-ensemble ensemble-machine-agent/machine_id $MACHINE_ID
 d-i   preseed/late_command string true && \
    $getVar('ENSEMBLE_LATE_COMMAND', 'true')
 ENDPRESEED
