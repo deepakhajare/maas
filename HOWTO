@@ -12,10 +12,6 @@
   $ qemu-img create -f qcow2 -b cobbler-server/oneiric-amd64.img  cobbler-disk0.img
   $ virsh -c qemu:///system start cobbler
 
-- libvirt populate a node
-  $ qemu-img create -f qcow2 node01-disk0.img 4G
-  $ virsh -c qemu:///system define libvirt-node01.xml
-
 - start cobbler instance
   $ virsh -c qemu:///system start cobbler
 
