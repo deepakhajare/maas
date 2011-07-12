@@ -8,6 +8,7 @@ import copy
 import pprint
 import libvirt
 from Cheetah.Template import Template
+import subprocess
 
 NODES_RANGE = range(1,4)
 
@@ -120,6 +121,7 @@ def libvirt_setup(config):
 	for node in NODES_RANGE:
 		systems.append(Node(config, node))
 
+	qcow_create = "qemu-img create -f qcow2 %s 2G"
 	defined_systems = conn.listDefinedDomains()
 	for system in systems:
 		if system.name in defined_systems:
@@ -128,6 +130,8 @@ def libvirt_setup(config):
 				dom.destroy()
 			dom.undefine()
 		conn.defineXML(system.toLibVirtXml())
+		if isinstance(system,Node):
+			subprocess.check_call(qcow_create % system.disk0, shell=True)
 		print "defined domain %s" % system.name
 
 def cobbler_setup(config):
