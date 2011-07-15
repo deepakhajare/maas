@@ -103,7 +103,9 @@ d-i     debian-installer/exit/poweroff  boolean false
 d-i     pkgsel/include string ubuntu-orchestra-client $getVar('EXTRA_PACKAGES','')
 byobu   byobu/launch-by-default boolean true
 d-i   preseed/late_command string true && \
-   $getVar('ENSEMBLE_LATE_COMMAND', 'true')
+   $getVar('ENSEMBLE_LATE_COMMAND', 'true') && \
+   wget "http://$http_server:$http_port/cblr/svc/op/nopxe/system/$system_name" -O /dev/null && \
+   true
 ENDPRESEED
 
 
