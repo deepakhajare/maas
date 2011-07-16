@@ -103,10 +103,19 @@ d-i     debian-installer/exit/poweroff  boolean false
 d-i     pkgsel/include string ubuntu-orchestra-client $getVar('EXTRA_PACKAGES','')
 byobu   byobu/launch-by-default boolean true
 d-i   preseed/late_command string true && \
-   $getVar('ENSEMBLE_LATE_COMMAND', 'true') && \
-   wget "http://$http_server:$http_port/cblr/svc/op/nopxe/system/$system_name" -O /dev/null && \
-   true
+   $SNIPPET('ensemble_late_command') && \
+   $SNIPPET('disable_pxe') && \
+   true # add your late_commands here
 ENDPRESEED
+
+mkdir -p /var/lib/cobbler/snippets/ 
+cat > /var/lib/cobbler/snippets/disable_pxe <<"ENDSNIP"
+wget "http://$http_server:$http_port/cblr/svc/op/nopxe/system/$system_name" -O /dev/null
+ENDSNIP
+
+cat > /var/lib/cobbler/snippets/ensemble_late_command <<"ENDSNIP"
+$getVar('ENSEMBLE_LATE_COMMAND', 'true')
+ENDSNIP
 
 
 mkdir -p /var/lib/cobbler/isos
