@@ -139,6 +139,22 @@ for t in "$@"; do
    cobbler profile edit --name $name --kopts="priority=critical locale=en_US"
    cobbler profile add --parent $name --name $name-ensemble --kickstart=$seed 
 done
+
+# set up the webdav host
+a2enmod dav
+a2enmod dav_fs
+service apache2 restart
+cat > /etc/apache2/conf.d/dav.conf <<ENDWEBDAV
+Alias /webdav /var/lib/webdav
+ 
+<Directory /var/lib/webdav>
+Order allow,deny
+allow from all
+Dav On
+</Directory>
+ENDWEBDAV
+#EOF
+
 EOF
 
 chmod u+x "$fb_d"/*
