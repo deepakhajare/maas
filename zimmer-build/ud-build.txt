@@ -1,0 +1,59 @@
+#cloud-config
+password: passw0rd
+chpasswd: { expire: False }
+ssh_pwauth: True
+
+#apt_proxy: "http://nelson:3128/"
+#ssh_import_id: smoser
+
+bucket:
+ - &setup |
+   cd /root
+   (
+   #ONE_TIME_PROXY=http://nelson:3128/
+
+   echo === $(date) ====
+   debconf-set-selections <<EOF
+   ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/import-isos   boolean  false
+   ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/dnsmasq-dhcp-range  string   10.10.10.2,10.10.10.254
+   ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/dnsmasq-enabled  boolean  false
+   cobbler  cobbler/server_and_next_server   string   zimmer
+   cobbler  cobbler/password  password xcobbler
+   cloud-init	cloud-init/datasources	multiselect	NoCloud, OVF
+
+   EOF
+
+   [ -n "$ONE_TIME_PROXY" ] && export http_proxy="$ONE_TIME_PROXY"
+   export DEBIAN_FRONTEND=noninteractive;
+   dpkg-reconfigure cloud-init
+
+   echo "zimmer" > /etc/hostname
+   sed -i '/127.0.1.1/s/^127.0.1.1.*/127.0.1.1  zimmer/' /etc/hosts
+   hostname zimmer
+   
+   echo === $(date): starting apt ====
+   apt_get() { 
+     DEBIAN_FRONTEND=noninteractive apt-get \
+        --option "Dpkg::Options::=--force-confold" --assume-yes "$@"
+   }
+   apt_get update
+   apt_get install ubuntu-orchestra-provisioning-server libvirt-bin
+   
+   cat >> /etc/orchestra/import_isos <<END
+   RELEASES="oneiric precise"
+   ARCHES="amd64"
+   END
+
+   echo === $(date): starting import ====
+   orchestra-import-isos
+
+   echo === $(date): starting cleanup ====
+   apt_get clean
+   time sh -c 'dd if=/dev/zero of=/out.img; rm /out.img'
+
+   echo === $(date): poweroff ===
+   ) 2>&1 | tee out.log
+
+runcmd:
+ - [ sh, -c, *setup ]
+ - [ /sbin/poweroff ]

@@ -1,6 +1,13 @@
-- build a cobbler image with 'cobber-server' dir
-  $ cd cobber-server
-  $ ./build-image -vv --preseed preseed.cfg oneiric amd64 8G
+- install some dependencies
+  $ pkgs="$pkgs genisoimage base64" # for cloud-init's 'make-iso'
+
+  $ sudo apt-get update
+  $ sudo apt-get install -y $pkgs
+
+- build a zimmer image by following readme in zimmer-build
+  $ cd zimmer-build
+  $ vi README
+  ...
 
 - create libvirt xml files for nodes, cobbler, network
   $ ./setup.py libvirt-setup
