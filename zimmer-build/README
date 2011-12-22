@@ -8,7 +8,7 @@ $ IMG_URL="$MIRROR/server/precise/current/precise-server-cloudimg-amd64-disk1.im
 # download the image
 $ IMG_DIST="${IMG_URL##*/}.dist"
 $ IMG="${IMG_DIST%.dist}"
-$ wget "$IMG_URL" -O "$IMG"
+$ wget "$IMG_URL" -O "$IMG_DIST"
 
 # the images are qcow compressed disk images, which means they're
 # painfully slow to use from a guest.  Convert that to qcow2 uncompressed
