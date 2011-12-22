@@ -171,7 +171,7 @@ def cobbler_setup(config):
 	
 	cob = System(config, "cobbler")
 	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
-	token = server.login("cobbler","cobbler")
+	token = server.login("cobbler","xcobbler")
 
 	systems = [ ]
 	for node in NODES_RANGE:
