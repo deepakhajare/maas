@@ -167,7 +167,7 @@ def cobbler_addsystem(server, token, system, profile, hostip):
 
 def cobbler_setup(config):
 	hostip = "%s.1" % config['network']['ip_pre']
-	profile = "oneiric-x86_64-ensemble"
+	profile = "precise-x86_64-juju"
 	
 	cob = System(config, "cobbler")
 	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
