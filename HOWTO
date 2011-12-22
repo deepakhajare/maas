@@ -1,5 +1,6 @@
 - install some dependencies
   $ pkgs="$pkgs genisoimage base64" # for cloud-init's 'make-iso'
+  $ pkgs="$pkgs socat" # for libvirt-> cobbler
 
   $ sudo apt-get update
   $ sudo apt-get install -y $pkgs
@@ -9,39 +10,40 @@
   $ vi README
   ...
 
-- create libvirt xml files for nodes, cobbler, network
+- create libvirt xml files for nodes, zimmer, network
   $ ./setup.py libvirt-setup
 
-- start cobbler-devnet network
-  $ virsh -c qemu:///system net-start cobbler-devnet
+- start odev-net network
+  $ virsh -c qemu:///system net-start odev-net
 
-- create cobbler disk image qcow backing against pristine version
-  $ qemu-img create -f qcow2 -b cobbler-server/oneiric-amd64.img  cobbler-disk0.img
+- create zimmer disk image qcow backing against pristine version
+  $ qemu-img create -f qcow2 -b zimmer-build/zimmer-disk0.img.dist zimmer-disk0.img
 
 - start cobbler instance
-  $ virsh -c qemu:///system start cobbler
+  $ virsh -c qemu:///system start zimmer
 
 Now, 
- * you can ssh ubuntu@192.168.123.2 (password ubuntu)
+ * you can ssh ubuntu@192.168.123.2 (password passw0rd)
    Then run 'ssh-import-id' or sudo.
- * http://192.168.123.2/cobbler_web should have cobbler web, log in with 'cobbler:cobbler'
+ * http://192.168.123.2/cobbler_web should have cobbler web, log in with 'cobbler:xcobbler'
 
 - populate the nodes into the cobbler server
   $ ./setup.py cobbler-setup
 
 - libvirt from the cobbler system:
-  after 'cobbler-setup' above is done, the cobbler system will know about all the nodes
-  and it will believe it can control them via the 'virsh' power module.  It is configured
-  to talk to qemu+tcp://192.168.123.1:65001/system .  In order to allow that to be valid
-  we have to make libvirt listen on that port/interface.  This can be done
-  moderately securely with 'socat'.  Below, we tell socat to forward tcp connections
-  on 192.168.123.1:65001 to the libvirt unix socket .  It restricts connections to
-  the cobbler server's IP address.
+  after 'cobbler-setup' above is done, the cobbler system will know about
+  all the nodes and it will believe it can control them via the 'virsh'
+  power module.  It is configured
+  to talk to qemu+tcp://192.168.123.1:65001/system .  In order to allow
+  that to be valid we have to make libvirt listen on that port/interface.
+  This can be done moderately securely with 'socat'.  Below, we tell socat
+  to forward tcp connections on 192.168.123.1:65001 to the libvirt unix
+  socket .  It restricts connections to zimmer's IP address.
 
   hostsystem$ socat -d -d \
      TCP4-LISTEN:65001,bind=192.168.123.1,range=192.168.123.2/32,fork \
      UNIX-CONNECT:/var/run/libvirt/libvirt-sock
 
-  You can verify this is working by powering a sytem on from the web-ui or the following
-  on the cobbler server:
+  You can verify this is working by powering a sytem on from the web-ui or
+  the following on the cobbler server:
   cobbler$ virsh -c qemu+tcp://192.168.123.1:65001/system
