@@ -32,4 +32,4 @@ $ qemu-img convert -O qcow2 build0.img zimmer-disk0.img.dist
 $ chmod 444 zimmer-disk0.img.dist
 
 # optionally create a zip'd image for transmission
-$ qemu-img convert -f qcow2 -O qcow2 zimmer-disk0.img.dist zimmer-disk0.zimg
+$ qemu-img convert -f qcow2 -O qcow2 -c zimmer-disk0.img.dist zimmer-disk0.zimg
