@@ -1,6 +1,7 @@
 - install some dependencies
   $ pkgs=""
   $ pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
+  $ pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
   $ pkgs="$pkgs socat" # for libvirt-> cobbler
 
   $ sudo apt-get update
