@@ -113,7 +113,7 @@ def libvirt_setup(config):
 
 	print "defined network %s " % netname
 
-	cob = System(config, "cobbler")
+	cob = System(config, "zimmer")
 	systems = [ cob ]
 
 	for node in NODES_RANGE:
@@ -169,7 +169,7 @@ def cobbler_setup(config):
 	hostip = "%s.1" % config['network']['ip_pre']
 	profile = "precise-x86_64-juju"
 	
-	cob = System(config, "cobbler")
+	cob = System(config, "zimmer")
 	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
 	token = server.login("cobbler","xcobbler")
 
