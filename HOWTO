@@ -1,5 +1,5 @@
 - install some dependencies
-  $ pkg=""
+  $ pkgs=""
   $ pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
   $ pkgs="$pkgs socat" # for libvirt-> cobbler
 
