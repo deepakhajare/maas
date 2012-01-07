@@ -1,0 +1,41 @@
+# http://askubuntu.com/questions/65359/how-do-i-configure-juju-for-local-usage
+
+pkgs="libzookeeper-java zookeeper juju bzr"
+
+JUJU_D=$HOME/juju
+REPO=$HOME/charms
+
+ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+
+sudo apt-get --assume-yes install $pkgs
+
+mkdir -p "${JUJU_D%/*}"
+( cd ${JUJU_D%/*} && bzr branch lp:juju )
+
+ENAME="odev"
+
+mkdir ~/.juju/
+cat > ~/.juju/environments.yaml <<EOF
+environments:
+  $ENAME:
+    type: orchestra
+    juju-origin: distro
+    orchestra-server: 192.168.123.2
+    orchestra-user: cobbler
+    orchestra-pass: xcobbler
+    acquired-mgmt-class: orchestra-juju-acquired
+    available-mgmt-class: orchestra-juju-available
+    admin-secret: SEEKRIT
+    storage-url: http://192.168.123.2/webdav
+    authorized-keys: $(cat ~/.ssh/id_rsa.pub)
+    data-dir: $HOME/juju-data/$ENAME
+    default-series: oneiric
+EOF
+
+export PATH="$JUJU_D/bin:$HOME/bin:/usr/sbin:/usr/bin:/sbin:/bin" PYTHONPATH=$JUJU_D
+
+juju bootstrap --environment $ENAME
+
+# juju status:
+# FIXME: resolution will try to use dns and will not work for nodes
