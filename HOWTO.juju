@@ -38,4 +38,11 @@ export PATH="$JUJU_D/bin:$HOME/bin:/usr/sbin:/usr/bin:/sbin:/bin" PYTHONPATH=$JU
 juju bootstrap --environment $ENAME
 
 # juju status:
+# FIXME: you now have to manually:
+#  a.) set systems to netboot
+#  b.) set management class to orchestra-juju-available
 # FIXME: resolution will try to use dns and will not work for nodes
+#        workaround: can add 192.168.123.1 to /etc/resolv.conf 'server' line
+# FIXME: juju status hangs "connecting to environment" during bootstrap
+#        node installation.  The post should call home and indicate done.  so
+#        juju could/should know that its still installing.
