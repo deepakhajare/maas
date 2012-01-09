@@ -1,0 +1,7 @@
+- prefix names with 'odev' (or some prefix)
+- settings.cfg: add 'cobbler' section for auth
+- improve the Domain objects
+- document
+  - vinagre $(virsh vncdisplay node01)
+  - ssh -L 5901:localhost:5901 -L 8000:192.168.123.1:80
+- tell orchestra to point to a different proxy server
