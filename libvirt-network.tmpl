@@ -2,6 +2,14 @@
   <name>$name</name>
   <forward mode='nat'/>
   <bridge name='$bridge' stp='on' delay='0' />
+  <dns>
+    <host ip='$ip_pre.1'>
+      <hostname>host-system</hostname>
+    </host>
+    <host ip='$ip_pre.2'>
+      <hostname>zimmer-server</hostname>
+    </host>
+  </dns>
   <ip address='$ip_pre.1' netmask='$netmask'>
     <dhcp>
       <range start='$ip_pre.$dhcp.range.start' end='$ip_pre.$dhcp.range.end' />

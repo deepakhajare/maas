@@ -3,21 +3,22 @@ password: passw0rd
 chpasswd: { expire: False }
 ssh_pwauth: True
 
-#apt_proxy: "http://nelson:3128/"
+#apt_proxy: "http://local-proxy:3128/"
+#apt_mirror: "http://us.archive.ubuntu.com/ubuntu"
 #ssh_import_id: smoser
 
 bucket:
  - &setup |
    cd /root
    (
-   #ONE_TIME_PROXY=http://nelson:3128/
+   #ONE_TIME_PROXY=http://local-proxy:3128/
 
    echo === $(date) ====
    debconf-set-selections <<EOF
    ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/import-isos   boolean  false
    ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/dnsmasq-dhcp-range  string   10.10.10.2,10.10.10.254
    ubuntu-orchestra-provisioning-server   ubuntu-orchestra-provisioning-server/dnsmasq-enabled  boolean  false
-   cobbler  cobbler/server_and_next_server   string   zimmer
+   cobbler  cobbler/server_and_next_server   string   zimmer-server
    cobbler  cobbler/password  password xcobbler
    cloud-init	cloud-init/datasources	multiselect	NoCloud, OVF
 
@@ -31,6 +32,8 @@ bucket:
    sed -i "/$oldhost/d;/zimmer/d" /etc/hosts
    echo zimmer > /etc/hostname
    hostname zimmer
+
+   echo "127.0.1.2 zimmer-server" >> /etc/hosts
    
    echo === $(date): starting apt ====
    apt_get() { 
@@ -47,6 +50,8 @@ bucket:
 
    echo === $(date): starting import ====
    orchestra-import-isos
+
+   sed -i '/zimmer-server/d' /etc/hosts
 
    echo === $(date): starting cleanup ====
    apt_get clean
