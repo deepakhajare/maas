@@ -8,6 +8,11 @@
   $ sudo apt-get update
   $ sudo apt-get install -y $pkgs
 
+- add your user to libvirtd group
+  $ sudo adduser $USER libvirtd
+  $ sudo adduser $USER kvm # this is really only necessary for zimmer-build
+  # you have to log out and log back in for this to take affect
+
 - build a zimmer image by following readme in zimmer-build
   $ cd zimmer-build
   $ vi README
