@@ -10,10 +10,13 @@ CHARMS_D=$HOME/charms
 REPO="$CHARMS_D/$JUJU_SERIES"
 ZIMMER_IP=192.168.123.2
 
-ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+id_rsa="$HOME/.ssh/id_rsa"
+[ -f "$id_rsa" ] || ssh-keygen -t rsa -N '' -f "$id_rsa"
+read x y z < "$id_rsa"
+grep -q "$y" ~/.ssh/authorized_keys ||
+   cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
 
-sudo apt-get --assume-yes install $pkgs
+sudo apt-get --assume-yes install $pkgs </dev/null
 
 mkdir -p "${JUJU_D%/*}"
 #( cd ${JUJU_D%/*} && bzr branch lp:juju )
