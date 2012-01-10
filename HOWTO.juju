@@ -3,7 +3,12 @@
 pkgs="libzookeeper-java zookeeper juju bzr"
 
 JUJU_D=$HOME/juju
-REPO=$HOME/charms
+JUJU_ORIGIN="lp:juju"
+JUJU_SERIES="precise"
+
+CHARMS_D=$HOME/charms
+REPO="$CHARMS_D/$JUJU_SERIES"
+ZIMMER_IP=192.168.123.2
 
 ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
 cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
@@ -11,7 +16,11 @@ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
 sudo apt-get --assume-yes install $pkgs
 
 mkdir -p "${JUJU_D%/*}"
-( cd ${JUJU_D%/*} && bzr branch lp:juju )
+#( cd ${JUJU_D%/*} && bzr branch lp:juju )
+( cd ${JUJU_D%/*} && bzr branch $JUJU_ORIGIN juju )
+
+mkdir -p "$REPO"
+( cd "$REPO" && bzr branch lp:charms/mysql && bzr branch lp:charms/wordpress )
 
 ENAME="odev"
 
@@ -20,25 +29,35 @@ cat > ~/.juju/environments.yaml <<EOF
 environments:
   $ENAME:
     type: orchestra
-    juju-origin: distro
-    orchestra-server: 192.168.123.2
+    juju-origin: $JUJU_ORIGIN
+    orchestra-server: $ZIMMER_IP
     orchestra-user: cobbler
     orchestra-pass: xcobbler
     acquired-mgmt-class: orchestra-juju-acquired
     available-mgmt-class: orchestra-juju-available
     admin-secret: SEEKRIT
-    storage-url: http://192.168.123.2/webdav
+    storage-url: http://$ZIMMER_IP/webdav
     authorized-keys: $(cat ~/.ssh/id_rsa.pub)
     data-dir: $HOME/juju-data/$ENAME
-    default-series: oneiric
+    default-series: $JUJU_SERIES
 EOF
 
 export PATH="$JUJU_D/bin:$HOME/bin:/usr/sbin:/usr/bin:/sbin:/bin" PYTHONPATH=$JUJU_D
 
+# now start your juju bootstrap node.  this will take some time, as we're
+# doing a full install into the VM.
 juju bootstrap --environment $ENAME
 
+# now create the mysql and wordpress units
+# this takes quite a while as full VM install of each
+juju deploy --environment $ENAME --repository $REPO local:mysql
+juju deploy --environment $ENAME --repository $REPO local:wordpress
+
+# now link the two
+juju add-relation --environment $ENAME wordpress mysql
+
 # juju status:
-# FIXME: you now have to manually:
+# FIXME: you now have to manually via cobbler ui:
 #  a.) set systems to netboot
 #  b.) set management class to orchestra-juju-available
 # FIXME: resolution will try to use dns and will not work for nodes
