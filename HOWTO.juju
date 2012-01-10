@@ -57,9 +57,6 @@ juju deploy --environment $ENAME --repository $REPO local:wordpress
 juju add-relation --environment $ENAME wordpress mysql
 
 # juju status:
-# FIXME: you now have to manually via cobbler ui:
-#  a.) set systems to netboot
-#  b.) set management class to orchestra-juju-available
 # FIXME: resolution will try to use dns and will not work for nodes
 #        workaround: can add 192.168.123.1 to /etc/resolv.conf 'server' line
 # FIXME: juju status hangs "connecting to environment" during bootstrap

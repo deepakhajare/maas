@@ -147,6 +147,7 @@ def cobbler_addsystem(server, token, system, profile, hostip):
 		'profile': profile,
 		'netboot_enabled': True,
 		'modify_interface': eth0,
+		'mgmt_classes': ['orchestra-juju-available'],
 	}
 
 	if len(server.find_system({"name": system.name})):
