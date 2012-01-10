@@ -55,3 +55,8 @@ Now,
   You can verify this is working by powering a sytem on from the web-ui or
   the following on the cobbler server:
   cobbler$ virsh -c qemu+tcp://192.168.123.1:65001/system
+
+- at this point you may want to modify zimmer to provide a proxy
+  other than itself to things installing from it (LP: #914202).
+  ssh to zimmer, and then edit :
+    /var/lib/cobbler/snippets/orchestra_proxy
