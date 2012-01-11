@@ -6,8 +6,9 @@ JUJU_D=$HOME/juju
 JUJU_ORIGIN="lp:juju"
 JUJU_SERIES="precise"
 
-CHARMS_D=$HOME/charms
-REPO="$CHARMS_D/$JUJU_SERIES"
+REPO="$HOME/charms"
+CHARMS_D="$CHARMS_D/$JUJU_SERIES"
+
 ZIMMER_IP=192.168.123.2
 
 id_rsa="$HOME/.ssh/id_rsa"
@@ -22,8 +23,8 @@ mkdir -p "${JUJU_D%/*}"
 #( cd ${JUJU_D%/*} && bzr branch lp:juju )
 ( cd ${JUJU_D%/*} && bzr branch $JUJU_ORIGIN juju )
 
-mkdir -p "$REPO"
-( cd "$REPO" && bzr branch lp:charms/mysql && bzr branch lp:charms/wordpress )
+mkdir -p "$CHARMS_D"
+( cd "$CHARMS_D" && bzr branch lp:charm/mysql && bzr branch lp:charm/wordpress )
 
 ENAME="odev"
 
