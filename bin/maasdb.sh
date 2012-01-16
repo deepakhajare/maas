@@ -8,8 +8,7 @@
 #
 #  * Everything is PostgreSQL on Ubuntu.
 #  * POSIX shell.  Test your changes in dash, not just in bash.
-#  * Each branch gets its own cluster(s).  Kill & delete when done.
-#  * One database per cluster.  May change this later if it's a problem.
+#  * Each branch gets its own cluster.  Kill & delete when done.
 #  * Databases run under the system user that creates them.  No root required.
 #  * No global configuration apart from a basic PostgreSQL install.
 #  * Connections use Unix sockets.  No TCP port hogging.
