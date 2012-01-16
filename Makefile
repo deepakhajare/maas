@@ -9,6 +9,7 @@ bin/buildout: buildout.cfg setup.py
 	@touch bin/buildout
 
 test:
+	. bin/maasdb.sh ; maasdb_init_db db/test disposable
 	bin/test
 
 lint:
@@ -35,6 +36,7 @@ run:
 	bin/django runserver 8000
 
 harness:
+	. bin/maasdb.sh ; maasdb_init_db db/development disposable
 	bin/django shell
 
 syncdb:
