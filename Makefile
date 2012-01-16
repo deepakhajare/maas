@@ -2,7 +2,7 @@ PYTHON_SRC := $(shell find src -name '*.py' )
 PYTHON = python
 
 build: bin/buildout
-	. bin/maasdb.sh ; maasdb_init_db db/ disposable
+	bin/maasdb start ./db/ disposable
 
 bin/buildout: buildout.cfg setup.py
 	$(PYTHON) bootstrap.py
@@ -25,7 +25,7 @@ clean:
 	#bzr clean-tree --unknown --force
 
 distclean: clean
-	. bin/maasdb.sh ; maasdb_delete_cluster db/
+	bin/maasdb delete-cluster ./db/
 	rm -rf download-cache
 	rm -rf eggs
 	rm -rf develop-eggs
@@ -37,9 +37,9 @@ run: build
 	bin/django runserver 8000
 
 harness:
-	. bin/maasdb.sh ; maasdb_init_db db/ disposable
+	bin/maasdb start ./db/ disposable
 	bin/django shell
 
 syncdb:
-	. bin/maasdb.sh ; maasdb_init_db db/ disposable
+	bin/maasdb start ./db/ disposable
 	bin/django syncdb

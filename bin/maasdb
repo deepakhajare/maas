@@ -130,3 +130,22 @@ maasdb_delete_cluster() {
         rm -rf -- "$DATADIR"
     fi
 }
+
+
+main() {
+    COMMAND="$1"
+    shift
+    case $COMMAND in
+        start) maasdb_init_db $* ;;
+        stop) maasdb_stop_cluster $* ;;
+        query) maasdb_query $* ;;
+        shell) maasdb_shell $* ;;
+        delete-cluster) maasdb_delete_cluster $* ;;
+    esac
+}
+
+
+if test -n "$*"
+then
+    main $*
+fi
