@@ -1,22 +1,24 @@
 PYTHON_SRC := $(shell find src -name '*.py' )
 PYTHON = python
 
-build: bin/buildout
-	bin/maasdb start ./db/ disposable
+build: bin/buildout dev-db
 
 bin/buildout: buildout.cfg setup.py
 	$(PYTHON) bootstrap.py
 	bin/buildout
 	@touch bin/buildout
 
-test:
+dev-db:
+	bin/maasdb start ./db/ disposable
+
+test: dev-db
 	bin/test
 
 lint:
 	pyflakes $(PYTHON_SRC)
 	pylint --rcfile=etc/pylintrc $(PYTHON_SRC)
 
-check: clean bin/buildout
+check: clean bin/buildout dev-db
 	bin/test
 
 clean:
@@ -36,10 +38,8 @@ tags:
 run: build
 	bin/django runserver 8000
 
-harness:
-	bin/maasdb start ./db/ disposable
+harness: dev-db
 	bin/django shell
 
-syncdb:
-	bin/maasdb start ./db/ disposable
+syncdb: dev-db
 	bin/django syncdb
