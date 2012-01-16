@@ -9,7 +9,6 @@ bin/buildout: buildout.cfg setup.py
 	@touch bin/buildout
 
 test:
-	. bin/maasdb.sh ; maasdb_init_db db/test disposable
 	bin/test
 
 lint:
