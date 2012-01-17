@@ -1,4 +1,4 @@
-from subprocess import Popen
+from subprocess import check_call
 from django.test.simple import DjangoTestSuiteRunner
 
 
@@ -7,8 +7,5 @@ class CustomTestRunner(DjangoTestSuiteRunner):
 
     def setup_databases(self, *args, **kwargs):
         """Fire up the db cluster, then punt to original implementation."""
-        process = Popen(['bin/maasdb', 'start', './db/'])
-        retval = process.wait()
-        if retval != 0:
-            raise RuntimeError("Failed to start database cluster.")
+        check_call(['bin/maasdb', 'start', './db/'])
         return super(CustomTestRunner, self).setup_databases(*args, **kwargs)
