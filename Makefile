@@ -32,9 +32,6 @@ distclean: clean
 	$(RM) tags TAGS .installed.cfg
 	$(RM) *.egg *.egg-info
 
-tags:
-	bin/tags
-
 run: build dev-db
 	bin/django runserver 8000
 
