@@ -1,16 +1,16 @@
-"""
-This file demonstrates writing tests using the unittest module. These will pass
-when you run "manage.py test".
-
-Replace this with more appropriate tests for your application.
-"""
-
 from django.test import TestCase
+
+from maasserver.models import Node
 
 
 class SimpleTest(TestCase):
-    def test_basic_addition(self):
-        """
-        Tests that 1 + 1 always equals 2.
-        """
-        self.assertEqual(1 + 1, 2)
+
+    def test_can_create_nodes(self):
+        self.assertEqual([], list(Node.objects.all()))
+        n = Node(name='foo', status='NEW')
+        n.save()
+        self.assertEqual([n], list(Node.objects.all()))
+
+    def test_no_nodes_exist_initially(self):
+        self.assertEqual([], list(Node.objects.all()))
+
