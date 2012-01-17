@@ -22,15 +22,15 @@ check: clean bin/buildout dev-db
 	bin/test
 
 clean:
-	find . -type f -name '*.py[co]' -exec rm -f {} \;
-	rm -f bin/buildout
-	#bzr clean-tree --unknown --force
+	find . -type f -name '*.py[co]' -exec $(RM) {} \;
+	$(RM) bin/buildout bin/django bin/test
 
 distclean: clean
 	bin/maasdb delete-cluster ./db/
-	rm -rf download-cache
-	rm -rf eggs
-	rm -rf develop-eggs
+	$(RM) -r eggs develop-eggs
+	$(RM) -r build logs parts
+	$(RM) tags TAGS .installed.cfg
+	$(RM) *.egg *.egg-info
 
 tags:
 	bin/tags
