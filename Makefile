@@ -1,7 +1,7 @@
 PYTHON_SRC := $(shell find src -name '*.py' )
 PYTHON = python
 
-build: bin/buildout dev-db
+build: bin/buildout
 
 bin/buildout: buildout.cfg setup.py
 	$(PYTHON) bootstrap.py
@@ -35,11 +35,11 @@ distclean: clean
 tags:
 	bin/tags
 
-run: build
+run: build dev-db
 	bin/django runserver 8000
 
-harness: dev-db
+harness: build dev-db
 	bin/django shell
 
-syncdb: dev-db
+syncdb: build dev-db
 	bin/django syncdb
