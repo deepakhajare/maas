@@ -40,5 +40,5 @@ syncdb: bin/django dev-db
 	bin/django syncdb
 
 .PHONY: \
-	build check clean dev-db distclean harness lint run syncdb
+	build check clean dev-db distclean harness lint run syncdb \
 	test
