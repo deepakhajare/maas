@@ -22,7 +22,7 @@ check: clean bin/buildout dev-db
 	bin/test
 
 clean:
-	find . -type f -name '*.py[co]' -exec $(RM) {} \;
+	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	$(RM) bin/buildout bin/django bin/test
 
 distclean: clean
