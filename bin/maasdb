@@ -44,7 +44,7 @@ maasdb_create_cluster() {
     if ! test -d "$DATADIR/base"
     then
         mkdir -p -- "$DATADIR"
-        $PGCTL init -D "$DATADIR" -o '-E utf8'
+        $PGCTL init -D "$DATADIR" -o '-E utf8 -A trust'
     fi
 }
 

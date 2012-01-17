@@ -1,4 +1,4 @@
-from subprocess import check_call
+from subprocess import check_call, PIPE
 from django.test.simple import DjangoTestSuiteRunner
 
 
@@ -7,5 +7,5 @@ class CustomTestRunner(DjangoTestSuiteRunner):
 
     def setup_databases(self, *args, **kwargs):
         """Fire up the db cluster, then punt to original implementation."""
-        check_call(['bin/maasdb', 'start', './db/'])
+        check_call(['bin/maasdb', 'start', './db/'], stdout=PIPE)
         return super(CustomTestRunner, self).setup_databases(*args, **kwargs)
