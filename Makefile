@@ -5,7 +5,7 @@ build: bin/buildout bin/django
 bin/buildout: bootstrap.py
 	$(PYTHON) bootstrap.py
 
-bin/django bin/test: bin/buildout buildout.cfg setup.py
+bin/django bin/django-python bin/test: bin/buildout buildout.cfg setup.py
 	bin/buildout
 
 dev-db:
@@ -21,7 +21,7 @@ check: clean test
 
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
-	$(RM) bin/buildout bin/django bin/test
+	$(RM) bin/buildout bin/django bin/django-python bin/test
 
 distclean: clean
 	bin/maasdb delete-cluster ./db/
