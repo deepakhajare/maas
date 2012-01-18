@@ -2,7 +2,7 @@
 Test maasserver models.
 """
 
-from django.test import TestCase
+from maas.testing import TestCase
 from maasserver.models import Node, MACAddress
 from django.core.exceptions import ValidationError
 
