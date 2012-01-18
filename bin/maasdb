@@ -1,6 +1,6 @@
 #! /bin/bash -e
 #
-# MaaS database control script
+# MaaS database control script.  See main() at the bottom for usage.
 #
 # Most functions take as their first argument a database cluster's data
 # directory.  This is where the database's socket, pidfile, log, and data will
@@ -44,7 +44,7 @@ maasdb_create_cluster() {
     if ! test -d "$DATADIR/base"
     then
         mkdir -p -- "$DATADIR"
-        $PGCTL init -D "$DATADIR" -o '-E utf8'
+        $PGCTL init -s -D "$DATADIR" -o '-E utf8 -A trust'
     fi
 }
 
@@ -72,12 +72,13 @@ maasdb_start_cluster() {
         # pg_ctl options:
         #  -D <dir> -- data directory.
         #  -l <file> -- log file.
+        #  -s -- no informational messages.
         #  -w -- wait until startup is complete.
         # postgres options:
         #  -h <arg> -- host name; empty arg means Unix socket only.
         #  -k -- socket directory.
         $PGCTL start \
-            -D "$DATADIR" -l "$DATADIR/backend.log" -w \
+            -D "$DATADIR" -l "$DATADIR/backend.log" -s -w \
             -o "-h '' -k '$DATADIR' $EXTRA_POSTGRES_OPTS"
     fi
 }

@@ -1,14 +1,20 @@
+#!/usr/bin/env python
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+"""Distutils installer for maas."""
+
 import os
 from setuptools import setup, find_packages
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read().strip()
 
-__version__ = open("src/maas/version.txt").read().strip()
+__version__ = "0.1"
 
 setup(
     name="maas",
-    version=read('src/maas/version.txt'),
+    version=__version__,
     url="https://launchpad.net/maas",
     license="GPL",
     description="Metal as as Service",

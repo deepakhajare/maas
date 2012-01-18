@@ -4,6 +4,7 @@ from piston.handler import BaseHandler
 from piston.utils import rc
 
 from maasserver.models import Node, MACAddress
+from maasserver.macaddress import validate_mac
 
 
 def bad_request(message):
@@ -29,6 +30,14 @@ def validate_and_save(obj):
         return obj
     except ValidationError, e:
         return bad_request(format_error_message(e))
+
+
+def validate_mac_address(mac_address):
+    try:
+        validate_mac(mac_address)
+        return True, None
+    except ValidationError:
+        return False, bad_request('Invalid MAC Address.')
 
 
 class NodeHandler(BaseHandler):
@@ -68,6 +77,9 @@ class NodeMacsHandler(BaseHandler):
     def read(self, request, system_id, mac_address=None):
         node = get_object_or_404(Node, system_id=system_id)
         if mac_address is not None:
+            valid, response = validate_mac_address(mac_address)
+            if not valid:
+                return response
             return get_object_or_404(
                 MACAddress, node=node, mac_address=mac_address)
         else:
@@ -82,6 +94,10 @@ class NodeMacsHandler(BaseHandler):
             return bad_request(format_error_message(e))
 
     def delete(self, request, system_id, mac_address):
+        valid, response = validate_mac_address(mac_address)
+        if not valid:
+            return response
+
         node = get_object_or_404(Node, system_id=system_id)
         mac = get_object_or_404(MACAddress, node=node, mac_address=mac_address)
         mac.delete()
