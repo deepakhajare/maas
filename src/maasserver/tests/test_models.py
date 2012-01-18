@@ -8,9 +8,12 @@ from __future__ import print_function
 __metaclass__ = type
 __all__ = []
 
-from maas.testing import TestCase
-from maasserver.models import Node, MACAddress
 from django.core.exceptions import ValidationError
+from maas.testing import TestCase
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
 
 
 class NodeTest(TestCase):

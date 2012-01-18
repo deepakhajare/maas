@@ -9,10 +9,12 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import ValidationError
-
-from maasserver.models import MACAddress, Node
-from maasserver.macaddress import validate_mac
 from maas.testing import TestCase
+from maasserver.macaddress import validate_mac
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
 
 
 class TestMACAddressField(TestCase):

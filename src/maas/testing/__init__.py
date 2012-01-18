@@ -2,8 +2,8 @@ __all__ = []
 __metaclass__ = type
 
 import django.test
-import testtools
 import testresources
+import testtools
 
 
 class TestCase(testtools.TestCase, django.test.TestCase):

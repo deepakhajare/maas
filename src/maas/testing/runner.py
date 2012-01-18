@@ -1,6 +1,6 @@
 from subprocess import check_call
-from django.test.simple import DjangoTestSuiteRunner
 
+from django.test.simple import DjangoTestSuiteRunner
 from testresources import OptimisingTestSuite
 
 

@@ -2,7 +2,11 @@
 from django.conf.urls.defaults import *
 from django.views.generic import ListView
 from maasserver.models import Node
-from maasserver.views import NodeView, NodesCreateView
+from maasserver.views import (
+    NodesCreateView,
+    NodeView,
+    )
+
 
 urlpatterns = patterns('maasserver.views',
     url(r'^$', ListView.as_view(model=Node), name='index'),

@@ -1,9 +1,9 @@
 
 # Django development settings for maas project.
 
-from maas.settings import *
-
 import os
+
+from maas.settings import *
 
 # Use our custom test runner, which makes sure that a local database
 # cluster is running in the branch.
