@@ -10,7 +10,7 @@ from maasserver.api import NodeHandler, NodeMacsHandler
 urlpatterns = patterns('maasserver.views',
     url(r'^$', ListView.as_view(model=Node), name='index'),
     url(r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
-    url(r'^nodes/(.+)/$', NodeView.as_view(), name='node-view'),
+    url(r'^nodes/([\w\-]+)/$', NodeView.as_view(), name='node-view'),
 )
 
 # Api.
