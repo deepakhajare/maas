@@ -7,7 +7,7 @@ import os
 
 # Use our custom test runner, which makes sure that a local database
 # cluster is running in the branch.
-TEST_RUNNER='maas.testing.runner.MaaSTestRunner'
+TEST_RUNNER='maas.testing.runner.TestRunner'
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
