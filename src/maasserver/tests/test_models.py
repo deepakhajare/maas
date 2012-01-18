@@ -31,12 +31,20 @@ class MACAddressTest(TestCase):
         mac = self.make_MAC('AA:BB:CCXDD:EE:FF')
         self.assertRaises(ValidationError, mac.full_clean)
 
-    def test_valid_address_passes_validation(self):
+    def test_accepts_colon_separated_octets(self):
         mac = self.make_MAC('AA:BB:CC:DD:EE:FF')
         mac.full_clean()  # No exception.
 
-    def test_mac_address_is_stored_and_retrieved(self):
-        stored_mac = self.make_MAC('001122334455')
+    def test_accepts_dash_separated_octets(self):
+        mac = self.make_MAC('AA-BB-CC-DD-EE-FF')
+        mac.full_clean()  # No exception.
+
+    def test_accepts_lower_case(self):
+        mac = self.make_MAC('aa:bb:cc:dd:ee:ff')
+        mac.full_clean()  # No exception.
+
+    def test_mac_address_is_stored_normalized_and_retrieved(self):
+        stored_mac = self.make_MAC('AA-BB-CC-DD-EE-FF')
         stored_mac.save()
         [loaded_mac] = MACAddress.objects.filter(id=stored_mac.id)
-        self.assertEqual('00:11:22:33:44:55', loaded_mac.mac_address)
+        self.assertEqual('aa:bb:cc:dd:ee:ff', loaded_mac.mac_address)

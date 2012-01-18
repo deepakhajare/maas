@@ -5,7 +5,7 @@ from django.db.models import Field
 import psycopg2.extensions
 
 
-mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
+mac_re = re.compile(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$')
 
 validate_mac = RegexValidator(
     regex = mac_re,
