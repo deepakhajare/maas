@@ -22,15 +22,15 @@ class NodeTest(TestCase):
         self.assertEqual(len(self.node.system_id), 41)
         self.assertTrue(self.node.system_id.startswith('node-'))
 
-    def test_addMACAddress(self):
-        self.node.addMACAddress('AA:BB:CC:DD:EE:FF')
+    def test_add_mac_address(self):
+        self.node.add_mac_address('AA:BB:CC:DD:EE:FF')
         macs = MACAddress.objects.filter(
             node=self.node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(1, macs)
 
-    def test_removeMACAddress(self):
-        self.node.addMACAddress('AA:BB:CC:DD:EE:FF')
-        self.node.removeMACAddress('AA:BB:CC:DD:EE:FF')
+    def test_remove_mac_address(self):
+        self.node.add_mac_address('AA:BB:CC:DD:EE:FF')
+        self.node.remove_mac_address('AA:BB:CC:DD:EE:FF')
         macs = MACAddress.objects.filter(
             node=self.node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(0, macs)

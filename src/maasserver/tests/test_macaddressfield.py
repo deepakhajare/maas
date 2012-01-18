@@ -7,13 +7,13 @@ from django.test import TestCase
 
 from maasserver.models import MACAddress
 from maasserver.macaddress import validate_mac
-from maasserver.tests.factory import factory
+from maasserver.testing.factory import factory
 
 
 class TestMACAddressField(TestCase):
 
     def test_mac_address_is_stored_normalized_and_loaded(self):
-        stored_mac = factory.createMACAddress('AA-bb-CC-dd-EE-Ff')
+        stored_mac = factory.make_mac_address('AA-bb-CC-dd-EE-Ff')
         stored_mac.save()
         loaded_mac = MACAddress.objects.get(id=stored_mac.id)
         self.assertEqual('aa:bb:cc:dd:ee:ff', loaded_mac.mac_address)

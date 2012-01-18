@@ -14,13 +14,13 @@ def bad_request(message):
 
 
 def format_error_message(error):
-    message = []
-    for k, v in error.message_dict.items():
-        if type(v) is list:
-            message.append("%s: %s" % (k, "".join(v)))
+    messages = []
+    for k, v in error.message_dict.iteritems():
+        if isinstance(v, list):
+            messages.append("%s: %s" % (k, "".join(v)))
         else:
-            message.append("%s: %s" % (k, v))
-    return "Invalid input: " + " / ".join(message)
+            messages.append("%s: %s" % (k, v))
+    return "Invalid input: " + " / ".join(messages)
 
 
 def validate_and_save(obj):
@@ -55,7 +55,7 @@ class NodeHandler(BaseHandler):
         if 'status' in request.data:
             return bad_request('Cannot set the status for a node.')
 
-        node = Node(status = 'NEW', **dict(request.data.items()))
+        node = Node(status='NEW', **dict(request.data.items()))
         return validate_and_save(node)
 
     def update(self, request, system_id):
@@ -88,7 +88,7 @@ class NodeMacsHandler(BaseHandler):
     def create(self, request, system_id):
         node = get_object_or_404(Node, system_id=system_id)
         try:
-            mac = node.addMACAddress(request.data.get('mac_address', None))
+            mac = node.add_mac_address(request.data.get('mac_address', None))
             return mac
         except ValidationError, e:
             return bad_request(format_error_message(e))

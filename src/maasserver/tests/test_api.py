@@ -7,34 +7,36 @@ import json
 from django.test import TestCase
 
 from maasserver.models import Node, MACAddress
-from maasserver.tests.factory import factory
+from maasserver.testing.factory import factory
 
 
 class NodeAPITest(TestCase):
 
     def test_nodes_GET(self):
         """
-        The api allows to fetch the list of Nodes.
+        The api allows for fetching the list of Nodes.
 
         """
-        node1 = factory.createNode(set_hostname=True)
-        node2 = factory.createNode(set_hostname=True)
+        node1 = factory.make_node(set_hostname=True)
+        node2 = factory.make_node(set_hostname=True)
         response = self.client.get('/api/nodes/')
         parsed_result = json.loads(response.content)
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual(2, len(parsed_result))
-        self.assertEqual(node1.hostname, parsed_result[0]['hostname'])
-        self.assertEqual(node1.system_id, parsed_result[0]['system_id'])
-        self.assertEqual(node2.hostname, parsed_result[1]['hostname'])
-        self.assertEqual(node2.system_id, parsed_result[1]['system_id'])
+        expected = [
+            {u'macaddress_set': [], "system_id": node1.system_id,
+                "hostname": node1.hostname},
+            {u'macaddress_set': [], "system_id": node2.system_id,
+                "hostname": node2.hostname},
+            ]
+        self.assertEqual(expected, parsed_result)
 
     def test_node_GET(self):
         """
-        The api allows to fetch a single Node (using system_id).
+        The api allows for fetching a single Node (using system_id).
 
         """
-        node = factory.createNode(set_hostname=True)
+        node = factory.make_node(set_hostname=True)
         response = self.client.get('/api/nodes/%s/' % node.system_id)
         parsed_result = json.loads(response.content)
 
@@ -70,7 +72,7 @@ class NodeAPITest(TestCase):
         The api allows to update a Node.
 
         """
-        node = factory.createNode(hostname='diane')
+        node = factory.make_node(hostname='diane')
         response = self.client.put(
             '/api/nodes/%s/' % node.system_id, {'hostname': 'francis'})
         parsed_result = json.loads(response.content)
@@ -108,14 +110,13 @@ class NodeAPITest(TestCase):
         The api allows to delete a Node.
 
         """
-        node = factory.createNode(set_hostname=True)
+        node = factory.make_node(set_hostname=True)
         system_id = node.system_id
         response = self.client.delete('/api/nodes/%s/' % node.system_id)
 
         self.assertEqual(204, response.status_code)
         self.assertEqual(
-            0,
-            Node.objects.filter(system_id = system_id).count())
+            [], list(Node.objects.filter(system_id=system_id)))
 
     def test_node_DELETE_404(self):
         """
@@ -131,13 +132,14 @@ class NodeAPITest(TestCase):
 class MACAddressAPITest(TestCase):
 
     def setUp(self):
-        self.node = factory.createNode()
-        self.mac1 = self.node.addMACAddress('aa:bb:cc:dd:ee:ff')
-        self.mac2 = self.node.addMACAddress('22:bb:cc:dd:aa:ff')
+        super(MACAddressAPITest, self).setUp()
+        self.node = factory.make_node()
+        self.mac1 = self.node.add_mac_address('aa:bb:cc:dd:ee:ff')
+        self.mac2 = self.node.add_mac_address('22:bb:cc:dd:aa:ff')
 
     def test_macs_GET(self):
         """
-        The api allows to fetch the list of the MAC Addresss for a node.
+        The api allows for fetching the list of the MAC Addresss for a node.
 
         """
         response = self.client.get('/api/nodes/%s/macs/' % self.node.system_id)
@@ -214,7 +216,7 @@ class MACAddressAPITest(TestCase):
             'Bad Request: Invalid input: mac_address: Enter a valid MAC '
             'address (e.g. AA:BB:CC:DD:EE:FF).', response.content)
 
-    def xtest_macs_DELETE_mac(self):
+    def test_macs_DELETE_mac(self):
         """
         The api allows to delete a MAC Address.
 
@@ -244,7 +246,7 @@ class MACAddressAPITest(TestCase):
     def test_macs_DELETE_400(self):
         """
         When deleting a MAC Address, the api returns a 'Bad Request' (400)
-        error the provided MAC Address is not valid.
+        error if the provided MAC Address is not valid.
 
         """
         response = self.client.delete(

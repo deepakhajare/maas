@@ -11,10 +11,10 @@ class Factory():
             random.choice(string.letters+string.digits)
             for x in xrange(size))
 
-    def createNode(self, hostname=None, set_hostname=False, status=None,
-                   **kwargs):
+    def make_node(self, hostname='', set_hostname=False, status=None,
+                  **kwargs):
         # hostname=None is a valid value, hence the set_hostname trick.
-        if hostname is None and set_hostname:
+        if hostname is '' and set_hostname:
             hostname = self.getRandomString(255)
         if status is None:
             status = u'NEW'
@@ -22,7 +22,7 @@ class Factory():
         node.save()
         return node
 
-    def createMACAddress(self, address):
+    def make_mac_address(self, address):
         """Create a MAC address."""
         node = Node()
         node.save()
