@@ -20,7 +20,7 @@ if __name__ == '__main__':
         "{0}.{1}.{2}/modindex.html").format(*version_info)
     root = html.parse(modindex_url).getroot()
     modules = set(
-        node.text.split(".", 1)[0] # the "base" module name.
+        node.text.split(".", 1)[0]  # The "base" module name.
         for node in root.cssselect("table tt"))
     stdout.write("python_standard_libs = [\n")
     for module in sorted(modules, key=str.lower):
