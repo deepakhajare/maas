@@ -24,9 +24,9 @@ from maasserver.models import (
     MACAddress,
     Node,
     )
+from piston.doc import generate_doc
 from piston.handler import BaseHandler
 from piston.utils import rc
-from piston.doc import generate_doc
 
 
 def bad_request(message):
