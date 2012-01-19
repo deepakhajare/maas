@@ -15,6 +15,7 @@ __all__ = [
     ]
 
 from django.core.exceptions import ValidationError
+from django.template import RequestContext
 from django.shortcuts import (
     get_object_or_404,
     render_to_response
@@ -182,4 +183,6 @@ docs = (
 
 
 def api_doc(request):
-    return render_to_response('maasserver/api_doc.html', {'docs': docs})
+    return render_to_response(
+        'maasserver/api_doc.html', {'docs': docs},
+        context_instance=RequestContext(request))
