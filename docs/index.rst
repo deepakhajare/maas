@@ -9,7 +9,7 @@ MaaS developer documentation!
 
 Welcome to the MaaS developer documentation.
 This documentation is for people who want to hack on MaaS or create a service
- that communicates with a MaaS server using the API.
+that communicates with a MaaS server using the API.
 
 Overview
 ========
