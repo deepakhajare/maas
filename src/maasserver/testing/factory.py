@@ -21,7 +21,7 @@ class Factory():
 
     def getRandomString(self, size):
         return "".join(
-            random.choice(string.letters+string.digits)
+            random.choice(string.letters + string.digits)
             for x in xrange(size))
 
     def make_node(self, hostname='', set_hostname=False, status=None,

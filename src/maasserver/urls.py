@@ -37,4 +37,3 @@ urlpatterns += patterns('maasserver.views',
     url(r'^api/nodes/([\w\-]+)/$', node_handler),
     url(r'^api/nodes/$', node_handler),
 )
-
