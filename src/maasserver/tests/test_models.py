@@ -19,6 +19,7 @@ from maasserver.models import (
 class NodeTest(TestCase):
 
     def setUp(self):
+        super(NodeTest, self).setUp()
         self.node = Node()
         self.node.save()
 
