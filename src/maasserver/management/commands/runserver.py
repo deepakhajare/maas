@@ -24,7 +24,7 @@ class Command(BaseRunserverCommand):
 
     def get_handler(self, *args, **kwargs):
         """Overridable from `BaseRunserverCommand`: Obtain a WSGI handler."""
-        wsgi_handler = BaseRunserverCommand.get_handler(self, *args, **kwargs)
+        wsgi_handler = super(Command, self).get_handler(self, *args, **kwargs)
 
         # Wrap the WSGI handler in an oops handler.  This catches (most)
         # exceptions bubbling up out of the app, and stores them as
