@@ -63,32 +63,24 @@ def validate_mac_address(mac_address):
 
 
 class NodeHandler(BaseHandler):
-    """
-    Manage individual Nodes.
-    """
+    """Manage individual Nodes."""
     allowed_methods = ('GET', 'DELETE', 'PUT')
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
     def read(self, request, system_id):
-        """
-        Read a specific Node.
-        """
+        """Read a specific Node."""
         return get_object_or_404(Node, system_id=system_id)
 
     def update(self, request, system_id):
-        """
-        Update a specific Node.
-        """
+        """Update a specific Node."""
         node = get_object_or_404(Node, system_id=system_id)
         for key, value in request.data.items():
             setattr(node, key, value)
         return validate_and_save(node)
 
     def delete(self, request, system_id):
-        """
-        Delete a specific Node.
-        """
+        """Delete a specific Node."""
         node = get_object_or_404(Node, system_id=system_id)
         node.delete()
         return rc.DELETED
@@ -99,23 +91,17 @@ class NodeHandler(BaseHandler):
 
 
 class NodesHandler(BaseHandler):
-    """
-    Manage collection of Nodes / Create Nodes.
-    """
+    """Manage collection of Nodes / Create Nodes."""
     allowed_methods = ('GET', 'POST',)
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
     def read(self, request):
-        """
-        Read all Nodes.
-        """
+        """Read all Nodes."""
         return Node.objects.all().order_by('id')
 
     def create(self, request):
-        """
-        Create a new Node.
-        """
+        """Create a new Node."""
         if 'status' in request.data:
             return bad_request('Cannot set the status for a node.')
 
@@ -131,22 +117,19 @@ class NodeMacsHandler(BaseHandler):
     """
     Manage all the MAC Addresses linked to a Node / Create a new MAC Address
     for a Node.
+
     """
     allowed_methods = ('GET', 'POST',)
     fields = ('mac_address',)
     model = MACAddress
 
     def read(self, request, system_id):
-        """
-        Read all MAC Addresses related to a Node.
-        """
+        """Read all MAC Addresses related to a Node."""
         node = get_object_or_404(Node, system_id=system_id)
         return MACAddress.objects.filter(node=node).order_by('id')
 
     def create(self, request, system_id):
-        """
-        Create a MAC Address for a specified Node.
-        """
+        """Create a MAC Address for a specified Node."""
         node = get_object_or_404(Node, system_id=system_id)
         try:
             mac = node.add_mac_address(request.data.get('mac_address', None))
@@ -160,17 +143,13 @@ class NodeMacsHandler(BaseHandler):
 
 
 class NodeMacHandler(BaseHandler):
-    """
-    Manage a MAC Address linked to a Node.
-    """
+    """Manage a MAC Address linked to a Node."""
     allowed_methods = ('GET', 'DELETE')
     fields = ('mac_address',)
     model = MACAddress
 
     def read(self, request, system_id, mac_address):
-        """
-        Read a MAC Address related to a Node.
-        """
+        """Read a MAC Address related to a Node."""
         node = get_object_or_404(Node, system_id=system_id)
         valid, response = validate_mac_address(mac_address)
         if not valid:
@@ -179,9 +158,7 @@ class NodeMacHandler(BaseHandler):
             MACAddress, node=node, mac_address=mac_address)
 
     def delete(self, request, system_id, mac_address):
-        """
-        Delete a specific MAC Address for the specified Node.
-        """
+        """Delete a specific MAC Address for the specified Node."""
         valid, response = validate_mac_address(mac_address)
         if not valid:
             return response

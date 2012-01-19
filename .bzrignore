@@ -5,6 +5,8 @@ bin/test
 build
 db
 develop-eggs
+docs/api.rst
+docs/_build
 download-cache
 eggs
 logs
@@ -14,5 +16,3 @@ TAGS
 *.egg-info
 *.egg
 .installed.cfg
-docs/_build
-docs/api.rst
