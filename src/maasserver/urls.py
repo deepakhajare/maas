@@ -8,15 +8,21 @@ from __future__ import print_function
 __metaclass__ = type
 __all__ = []
 
-from django.conf.urls.defaults import patterns, url
+from django.conf.urls.defaults import (
+    patterns,
+    url,
+    )
 from django.views.generic import ListView
-from piston.resource import Resource
+from maasserver.api import (
+    NodeHandler,
+    NodeMacsHandler,
+    )
 from maasserver.models import Node
 from maasserver.views import (
     NodesCreateView,
     NodeView,
     )
-from maasserver.api import NodeHandler, NodeMacsHandler
+from piston.resource import Resource
 
 
 urlpatterns = patterns('maasserver.views',

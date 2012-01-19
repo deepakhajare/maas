@@ -11,8 +11,10 @@ __all__ = []
 import json
 
 from maas.testing import TestCase
-
-from maasserver.models import Node, MACAddress
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
 from maasserver.testing.factory import factory
 
 

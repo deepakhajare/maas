@@ -11,10 +11,13 @@ __all__ = [
     "factory",
     ]
 
-import string
 import random
+import string
 
-from maasserver.models import Node, MACAddress
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
 
 
 class Factory():
