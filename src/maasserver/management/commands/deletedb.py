@@ -1,5 +1,4 @@
 from subprocess import check_call
-from sys import stderr
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -12,5 +11,4 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         if len(args) != 0:
             raise CommandError("Too many arguments.")
-        check_call(['bin/maasdb', 'delete-cluster', 'db'], stderr=stderr)
-
+        check_call(['bin/maasdb', 'delete-cluster', 'db'])

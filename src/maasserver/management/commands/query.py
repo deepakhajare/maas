@@ -1,5 +1,4 @@
 from subprocess import check_call
-from sys import stderr
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -22,4 +21,4 @@ class Command(BaseCommand):
         else:
             subcommand = 'shell'
         check_call(
-            ['bin/maasdb', subcommand, 'db'] + list(args), stderr=stderr)
+            ['bin/maasdb', subcommand, 'db'] + list(args))
