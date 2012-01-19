@@ -49,3 +49,11 @@ To shut down the database cluster and clean up all other generated files in
 your branch::
 
     $ make distclean
+
+
+Adding new source files
+=======================
+
+When creating a new source file, a Python module or test for example,
+always start with the appropriate template from the ``templates``
+directory.
