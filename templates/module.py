@@ -6,18 +6,7 @@ from __future__ import (
     unicode_literals,
     )
 
-"""Context processors."""
+"""..."""
 
 __metaclass__ = type
-__all__ = [
-    "yui",
-    ]
-
-from django.conf import settings
-
-
-def yui(context):
-    return {
-        'YUI_DEBUG': settings.YUI_DEBUG,
-        'YUI_VERSION': settings.YUI_VERSION,
-    }
+__all__ = []

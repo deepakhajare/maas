@@ -1,12 +1,23 @@
-"""
-Test maasserver api.
-"""
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
+
+"""Test maasserver API."""
+
+__metaclass__ = type
+__all__ = []
 
 import json
 
-from django.test import TestCase
-
-from maasserver.models import Node, MACAddress
+from maas.testing import TestCase
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
 from maasserver.testing.factory import factory
 
 
@@ -23,13 +34,8 @@ class NodeAPITest(TestCase):
         parsed_result = json.loads(response.content)
 
         self.assertEqual(200, response.status_code)
-        expected = [
-            {u'macaddress_set': [], "system_id": node1.system_id,
-                "hostname": node1.hostname},
-            {u'macaddress_set': [], "system_id": node2.system_id,
-                "hostname": node2.hostname},
-            ]
-        self.assertEqual(expected, parsed_result)
+        self.assertEqual(node1.system_id, parsed_result[0]['system_id'])
+        self.assertEqual(node2.system_id, parsed_result[1]['system_id'])
 
     def test_node_GET(self):
         """
@@ -65,7 +71,7 @@ class NodeAPITest(TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual('diane', parsed_result['hostname'])
-        self.assertEqual(1, Node.objects.filter(hostname= 'diane').count())
+        self.assertEqual(1, Node.objects.filter(hostname='diane').count())
 
     def test_node_PUT(self):
         """
@@ -79,8 +85,8 @@ class NodeAPITest(TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual('francis', parsed_result['hostname'])
-        self.assertEqual(0, Node.objects.filter(hostname= 'diane').count())
-        self.assertEqual(1, Node.objects.filter(hostname= 'francis').count())
+        self.assertEqual(0, Node.objects.filter(hostname='diane').count())
+        self.assertEqual(1, Node.objects.filter(hostname='francis').count())
 
     def test_node_PUT_404(self):
         """
@@ -189,7 +195,7 @@ class MACAddressAPITest(TestCase):
         The api allows to add a MAC Address to an existing node.
 
         """
-        nb_macs = MACAddress.objects.filter(node = self.node).count()
+        nb_macs = MACAddress.objects.filter(node=self.node).count()
         response = self.client.post(
             '/api/nodes/%s/macs/' % self.node.system_id,
             {'mac_address': 'AA:BB:CC:DD:EE:FF'})
@@ -199,7 +205,7 @@ class MACAddressAPITest(TestCase):
         self.assertEqual('AA:BB:CC:DD:EE:FF', parsed_result['mac_address'])
         self.assertEqual(
             nb_macs + 1,
-            MACAddress.objects.filter(node = self.node).count())
+            MACAddress.objects.filter(node=self.node).count())
 
     def test_macs_POST_add_mac_invalid(self):
         """

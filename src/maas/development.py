@@ -1,13 +1,23 @@
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
 
-# Django development settings for maas project.
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
 
-from maas.settings import *
+"""Django DEVELOPMENT settings for maas project."""
+
+__metaclass__ = type
+__all__ = []
 
 import os
 
+from maas.settings import *
+
 # Use our custom test runner, which makes sure that a local database
 # cluster is running in the branch.
-TEST_RUNNER='maas.testing.runner.CustomTestRunner'
+TEST_RUNNER = 'maas.testing.runner.TestRunner'
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -117,7 +127,8 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'maas.urls'
 
 TEMPLATE_DIRS = (
-    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
+    # Put strings here, like "/home/html/django_templates"
+    # or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
     os.path.join(os.path.dirname(__file__), "templates"),
@@ -150,9 +161,9 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console':{
-            'level':'DEBUG',
-            'class':'logging.StreamHandler',
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
         }
     },
     'loggers': {
@@ -169,3 +180,5 @@ INTERNAL_IPS = ('127.0.0.1',)
 DEBUG_TOOLBAR_CONFIG = {
     'INTERCEPT_REDIRECTS': False,
     }
+
+PISTON_IGNORE_DUPE_MODELS = True

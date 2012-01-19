@@ -1,14 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
+
 """Distutils installer for maas."""
+
+import os
 
 import distribute_setup
 distribute_setup.use_setuptools()
-import os
 
-from setuptools import setup, find_packages
+from setuptools import (
+    find_packages,
+    setup,
+    )
+
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read().strip()
@@ -21,17 +31,17 @@ setup(
     url="https://launchpad.net/maas",
     license="GPL",
     description="Metal as as Service",
-    long_description = read('README.txt'),
+    long_description=read('README.txt'),
 
     author="MaaS Developers",
     author_email="juju@lists.ubuntu.com",
 
-    packages = find_packages('src'),
-    package_dir = {'': 'src'},
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
 
-    install_requires = ['setuptools'],
+    install_requires=['setuptools'],
 
-    classifiers = [
+    classifiers=[
         'Development Status :: 4 - Beta',
         'Framework :: Django',
         'Intended Audience :: Developers',

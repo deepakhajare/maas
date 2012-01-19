@@ -1,15 +1,34 @@
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
 
-from django.conf.urls.defaults import *
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
+
+"""URL routing configuration."""
+
+__metaclass__ = type
+__all__ = []
+
+from django.conf.urls.defaults import (
+    patterns,
+    url,
+    )
 from django.views.generic import ListView
-from piston.resource import Resource
-from maasserver.models import Node
-from maasserver.views import NodeView, NodesCreateView
 from maasserver.api import (
     api_doc,
     NodeHandler,
     NodesHandler,
-    NodeMacsHandler
+    NodeMacHandler,
+    NodeMacsHandler,
     )
+from maasserver.models import Node
+from maasserver.views import (
+    NodesCreateView,
+    NodeView,
+    )
+from piston.resource import Resource
 
 
 urlpatterns = patterns('maasserver.views',
@@ -21,12 +40,13 @@ urlpatterns = patterns('maasserver.views',
 # Api.
 node_handler = Resource(NodeHandler)
 nodes_handler = Resource(NodesHandler)
+node_mac_handler = Resource(NodeMacHandler)
 node_macs_handler = Resource(NodeMacsHandler)
 
 urlpatterns += patterns('maasserver.views',
     url(
         r'^api/nodes/(?P<system_id>[\w\-]+)/macs/(?P<mac_address>.+)/$',
-        node_macs_handler, name='node_mac_handler'),
+        node_mac_handler, name='node_mac_handler'),
     url(
         r'^api/nodes/(?P<system_id>[\w\-]+)/macs/$', node_macs_handler,
         name='node_macs_handler'),
@@ -38,4 +58,3 @@ urlpatterns += patterns('maasserver.views',
 
     url(r'^api/doc/$', api_doc),
 )
-

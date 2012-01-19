@@ -1,7 +1,18 @@
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
 
-# Django settings for maas project.
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
+
+"""Django settings for maas project."""
+
+__metaclass__ = type
+__all__ = []
 
 import os
+
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -123,7 +134,8 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'maas.urls'
 
 TEMPLATE_DIRS = (
-    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
+    # Put strings here, like "/home/html/django_templates"
+    # or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
     os.path.join(os.path.dirname(__file__), "templates"),

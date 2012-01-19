@@ -6,18 +6,17 @@ from __future__ import (
     unicode_literals,
     )
 
-"""Context processors."""
+"""..."""
 
 __metaclass__ = type
-__all__ = [
-    "yui",
-    ]
+__all__ = []
 
-from django.conf import settings
+from maas.testing import TestCase
 
 
-def yui(context):
-    return {
-        'YUI_DEBUG': settings.YUI_DEBUG,
-        'YUI_VERSION': settings.YUI_VERSION,
-    }
+class TestSomething(TestCase):
+
+    #resources = [...]
+
+    def test_something(self):
+        self.assertTrue(1)
