@@ -203,5 +203,6 @@ docs = (
     generate_doc(NodeMacHandler),
     )
 
+
 def api_doc(request):
     return render_to_response('maasserver/api_doc.html', {'docs': docs})

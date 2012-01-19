@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     Executes an SQL statement given on the command line, or opens an SQL
     shell if no statement was given.
-    """ 
+    """
 
     args = "[SQL statement]"
     help = "Access the database directly in SQL."
