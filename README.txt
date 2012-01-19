@@ -1,5 +1,6 @@
+*************************
 MaaS - Metal as a Service
--------------------------
+*************************
 
 MaaS lets you treat a group of physical servers as a cloud-like
 resource to be allocated on demand. Each physical server (“node”) will
