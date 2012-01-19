@@ -1,10 +1,16 @@
-"""
-Test maasserver api.
-"""
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+from __future__ import print_function
+
+"""Test maasserver API."""
+
+__metaclass__ = type
+__all__ = []
 
 import json
 
-from django.test import TestCase
+from maas.testing import TestCase
 
 from maasserver.models import Node, MACAddress
 from maasserver.testing.factory import factory
