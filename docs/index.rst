@@ -16,6 +16,7 @@ Overview
    :maxdepth: 1
 
    readme
+   hacking
    api
 
 
