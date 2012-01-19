@@ -1,0 +1,25 @@
+{% extends "maasserver/base.html" %}
+
+{% block content %}
+  <h2>MaaS server Api Documentation</h2>
+  <table>
+    <thead>
+      <tr><td>Ressource</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    {% for doc in docs %}
+    {% for method in doc.get_methods %}
+      <tr>
+        <td>
+        {{ method.http_name }} {{ doc.resource_uri_template }}
+        </td>
+        <td>
+        {{ method.doc }}
+        </td>
+      </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
