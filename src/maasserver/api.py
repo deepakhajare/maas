@@ -179,12 +179,12 @@ class NodeMacHandler(BaseHandler):
         return ('node_mac_handler', ['system_id', 'mac_address'])
 
 
-def api_doc(request):
-    docs = (
-        generate_doc(NodesHandler),
-        generate_doc(NodeHandler),
-        generate_doc(NodeMacsHandler),
-        generate_doc(NodeMacHandler),
-        )
+docs = (
+    generate_doc(NodesHandler),
+    generate_doc(NodeHandler),
+    generate_doc(NodeMacsHandler),
+    generate_doc(NodeMacHandler),
+    )
 
+def api_doc(request):
     return render_to_response('maasserver/api_doc.html', {'docs': docs})

@@ -164,3 +164,5 @@ LOGGING = {
         },
     }
 }
+
+PISTON_IGNORE_DUPE_MODELS = True

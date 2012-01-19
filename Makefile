@@ -1,6 +1,6 @@
 PYTHON = python2.7
 
-build: bin/buildout bin/django
+build: bin/buildout bin/django html-doc
 
 bin/buildout: bootstrap.py
 	$(PYTHON) bootstrap.py
@@ -18,6 +18,12 @@ lint:
 	pyflakes src
 
 check: clean test
+
+api-doc: src/maasserver/api.py
+	bin/django gen_rst_api_doc > docs/api.rst
+
+html-doc: api-doc
+	cd docs; make html; cd ..
 
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
