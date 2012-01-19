@@ -18,7 +18,7 @@ ADMINS = (
 MANAGERS = ADMINS
 
 # Location where python-oops should store errors.
-OOPS_REPOSITORY = '/var/log/maas'
+OOPS_REPOSITORY = 'logs'
 
 DEBUG = False
 TEMPLATE_DEBUG = DEBUG
