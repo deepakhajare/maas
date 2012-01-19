@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from django.conf import settings
 from django.core.management.commands.runserver import BaseRunserverCommand
-from oops import Config
+import oops
 from oops_datedir_repo import DateDirRepo
 from oops_wsgi import (
     install_hooks,
@@ -32,8 +32,8 @@ class Command(BaseRunserverCommand):
         # configuration setting.
         # Django's debug mode causes it to handle exceptions itself, so
         # don't expect oopses when DEBUG is set to True.
-        oops_config = Config()
-        oops_repository = DateDirRepo(settings.OOPS_REPOSITORY, 'maas')
+        oops_config = oops.Config()
+        oops_repository = DateDirRepo(settings.OOPS_REPOSITORY, 'maasserver')
         oops_config.publishers.append(oops_repository.publish)
         install_hooks(oops_config)
         return make_app(wsgi_handler, oops_config)
