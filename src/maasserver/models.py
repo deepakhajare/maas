@@ -79,7 +79,7 @@ mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
 class MACAddress(CommonInfo):
-    """A `MACAddress` represents a `Mac Address
+    """A `MACAddress` represents a `MAC Address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a `Node`.
     """
     mac_address = MACAddressField()
