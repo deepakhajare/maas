@@ -10,7 +10,7 @@ bin/django bin/django-python bin/sphinx bin/test: \
 	bin/buildout
 
 dev-db:
-	bin/maasdb start ./db/ disposable
+	utilities/maasdb start ./db/ disposable
 
 test: bin/test
 	bin/test
@@ -34,7 +34,7 @@ clean:
 	$(RM) bin/sphinx bin/sphinx-build bin/sphinx-quickstart
 
 distclean: clean
-	bin/maasdb delete-cluster ./db/
+	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r build logs parts
 	$(RM) tags TAGS .installed.cfg
