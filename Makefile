@@ -30,13 +30,12 @@ doc: bin/sphinx docs/api.rst
 
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
-	$(RM) bin/buildout bin/django bin/django-python bin/test bin/flake8
-	$(RM) bin/sphinx bin/sphinx-build bin/sphinx-quickstart
+	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 
 distclean: clean
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r build logs parts
+	$(RM) -r bin build logs parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) *.egg *.egg-info
 	$(RM) docs/api.rst
