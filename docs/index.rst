@@ -24,15 +24,13 @@ Overview
 MaaS API
 ========
 
-Other service interact with a MaaS Server using its :doc:`api`.
-
+Other services interact with a MaaS server using its :doc:`api`.
 
 Code
 ====
 
 .. toctree::
    models
-
 
 Indices and tables
 ==================
