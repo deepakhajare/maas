@@ -11,8 +11,8 @@ __all__ = []
 
 from os.path import dirname
 
-from django.utils.unittest import defaultTestLoader
+from django.utils.unittest import TestLoader
 
 
 def suite():
-    return defaultTestLoader.discover(dirname(__file__))
+    return TestLoader().discover(dirname(__file__))
