@@ -13,12 +13,12 @@
         </tr>
       </thead>
       {% for node in node_list %}
-        <tr>
+      <tr>
         <td>{{ node.system_id }}</td>
         <td>{{ node.hostname }}</td>
         <td>{{ node.mac_address_set }}</td>
         <td>{{ node.status }}</td>
-        </tr>
+      </tr>
       {% endfor %}
     </table>
   {% endif%}
