@@ -6,13 +6,13 @@ from __future__ import (
     unicode_literals,
     )
 
-"""Tests for `maas.testing.rabbit`."""
+"""Tests for `maastesting.rabbit`."""
 
 __metaclass__ = type
 __all__ = []
 
-from maas.testing import TestCase
-from maas.testing.rabbit import RabbitServerResource
+from maastesting import TestCase
+from maastesting.rabbit import RabbitServerResource
 
 
 class TestRabbitServerResource(TestCase):

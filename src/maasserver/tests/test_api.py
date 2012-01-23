@@ -13,7 +13,7 @@ __all__ = []
 
 import json
 
-from maas.testing import TestCase
+from maastesting import TestCase
 from maasserver.models import (
     MACAddress,
     Node,
