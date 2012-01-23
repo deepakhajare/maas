@@ -16,7 +16,7 @@ from maastesting.rabbit import RabbitServerResource
 from rabbitfixture.server import RabbitServer
 
 
-class TestRabbitServerResource(TestCase):
+class TestRabbitServerResourceBasics(TestCase):
 
     def test_cycle(self):
         """
@@ -43,3 +43,18 @@ class TestRabbitServerResource(TestCase):
             self.assertIs(server, server2)
         finally:
             resource.clean(server)
+
+
+class TestRabbitServerResource(TestCase):
+
+    resources = [
+        ("rabbit", RabbitServerResource()),
+        ]
+
+    def test_one(self):
+        """The L{self.rabbit} resource is made available here."""
+        self.assertIsInstance(self.rabbit, RabbitServer)
+
+    def test_two(self):
+        """The L{self.rabbit} resource is also made available here."""
+        self.assertIsInstance(self.rabbit, RabbitServer)
