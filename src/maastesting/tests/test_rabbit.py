@@ -33,8 +33,8 @@ class TestRabbitServerResourceBasics(TestCase):
     def test_reset(self):
         """
         Resetting a RabbitMQ server resource when it has not explicitly been
-        marked as dirty - via L{RabbitServerResource.dirtied} - is a no-op;
-        the same server is returned.
+        marked as dirty - via `RabbitServerResource.dirtied` - is a no-op; the
+        same server is returned.
         """
         resource = RabbitServerResource()
         server = resource.make({})
@@ -52,9 +52,9 @@ class TestRabbitServerResource(TestCase):
         ]
 
     def test_one(self):
-        """The L{self.rabbit} resource is made available here."""
+        """The `self.rabbit` resource is made available here."""
         self.assertIsInstance(self.rabbit, RabbitServer)
 
     def test_two(self):
-        """The L{self.rabbit} resource is also made available here."""
+        """The `self.rabbit resource is also made available here."""
         self.assertIsInstance(self.rabbit, RabbitServer)
