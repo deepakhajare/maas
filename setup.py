@@ -12,7 +12,7 @@ from __future__ import (
 import os
 
 import distribute_setup
-distribute_setup.use_setuptools()
+distribute_setup.use_setuptools(version="0.6.24dev-r0")
 
 from setuptools import (
     find_packages,
