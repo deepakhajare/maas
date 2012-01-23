@@ -5,9 +5,17 @@ build: bin/buildout bin/django doc
 bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 
-bin/django bin/django-python bin/sphinx bin/test: \
-    bin/buildout buildout.cfg setup.py
-	bin/buildout
+bin/django bin/test: bin/buildout buildout.cfg setup.py
+	bin/buildout install django
+
+bin/django-python: bin/buildout buildout.cfg setup.py
+	bin/buildout install django-python
+
+bin/flake8: bin/buildout buildout.cfg setup.py
+	bin/buildout install flake8
+
+bin/sphinx: bin/buildout buildout.cfg setup.py
+	bin/buildout install sphinx
 
 dev-db:
 	utilities/maasdb start ./db/ disposable
@@ -16,7 +24,7 @@ test: bin/test
 	bin/test
 
 lint: sources = setup.py src templates utilities
-lint:
+lint: bin/flake8
 	@bin/flake8 $(sources) | \
 	    (! fgrep -v "from maas.settings import *")
 
