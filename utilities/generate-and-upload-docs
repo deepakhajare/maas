@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+# Exit immediately if a command exits with a non-zero status.
+set -o errexit
+# Treat unset variables as an error when substituting.
+set -o nounset
+
+# Print commands and their arguments as they are executed.
+set -o xtrace
+
+outdir="$(mktemp -d "${PWD}/.documentation.XXXXXX")"
+trap 'rm -r "${outdir}"' EXIT
+
+bzr export "${outdir}" lp:maas
+make -C "${outdir}" doc
+
+rsync -ave ssh \
+    "${outdir}/docs/_build/html/" \
+    "people.canonical.com:public_html/docs/lp:maas/" \
+    --delete --delete-after
