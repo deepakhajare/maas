@@ -13,6 +13,7 @@ __all__ = []
 
 import json
 
+from django.test.client import Client
 from maas.testing import TestCase
 from maasserver.models import (
     MACAddress,
@@ -21,7 +22,20 @@ from maasserver.models import (
 from maasserver.testing.factory import factory
 
 
+class NodeAnonAPITest(TestCase):
+
+    def test_anon_nodes_GET(self):
+        response = self.client.get('/api/nodes/')
+        self.assertEqual(401, response.status_code)
+
+
 class NodeAPITest(TestCase):
+
+    def setUp(self):
+        super(NodeAPITest, self).setUp()
+        self.user = factory.make_user(username='user', password='test')
+        self.client = Client()
+        self.client.login(username='user', password='test')
 
     def test_nodes_GET(self):
         """
@@ -139,6 +153,10 @@ class MACAddressAPITest(TestCase):
 
     def setUp(self):
         super(MACAddressAPITest, self).setUp()
+        self.user = factory.make_user(username='user', password='test')
+        self.client = Client()
+        self.client.login(username='user', password='test')
+
         self.node = factory.make_node()
         self.mac1 = self.node.add_mac_address('aa:bb:cc:dd:ee:ff')
         self.mac2 = self.node.add_mac_address('22:bb:cc:dd:aa:ff')
