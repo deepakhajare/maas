@@ -28,3 +28,17 @@ class TestRabbitServerResource(TestCase):
             self.assertIsInstance(server, RabbitServer)
         finally:
             resource.clean(server)
+
+    def test_reset(self):
+        """
+        Resetting a RabbitMQ server resource when it has not explicitly been
+        marked as dirty - via L{RabbitServerResource.dirtied} - is a no-op;
+        the same server is returned.
+        """
+        resource = RabbitServerResource()
+        server = resource.make({})
+        try:
+            server2 = resource.reset(server)
+            self.assertIs(server, server2)
+        finally:
+            resource.clean(server)
