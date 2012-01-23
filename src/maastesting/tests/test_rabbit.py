@@ -25,6 +25,7 @@ class TestRabbitServerResource(TestCase):
         resource = RabbitServerResource()
         server = resource.make({})
         try:
+            self.assertIs(resource.server, server)
             self.assertIsInstance(server, RabbitServer)
         finally:
             resource.clean(server)
