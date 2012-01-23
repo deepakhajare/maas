@@ -12,7 +12,10 @@ from __future__ import (
 import os
 
 import distribute_setup
-distribute_setup.use_setuptools()
+# The version of distribute packaged in precise is not quite at 0.6.24
+# final yet so we need to override the required version here to stop a
+# recipe build from trying to download from pypi.
+distribute_setup.use_setuptools(version="0.6.24dev-r0")
 
 from setuptools import (
     find_packages,
@@ -36,8 +39,8 @@ setup(
     author="MaaS Developers",
     author_email="juju@lists.ubuntu.com",
 
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
+    packages=find_packages(b'src'),
+    package_dir={'': b'src'},
 
     install_requires=['setuptools'],
 
