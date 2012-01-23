@@ -13,7 +13,6 @@ __all__ = []
 
 from maastesting import TestCase
 from maastesting.rabbit import RabbitServerResource
-
 from rabbitfixture.server import RabbitServer
 
 

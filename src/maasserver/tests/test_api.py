@@ -13,12 +13,12 @@ __all__ = []
 
 import json
 
-from maastesting import TestCase
 from maasserver.models import (
     MACAddress,
     Node,
     )
 from maasserver.testing.factory import factory
+from maastesting import TestCase
 
 
 class NodeAPITest(TestCase):
