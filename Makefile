@@ -8,9 +8,6 @@ bin/buildout: bootstrap.py distribute_setup.py
 bin/django bin/test: bin/buildout buildout.cfg setup.py
 	bin/buildout install django
 
-bin/django-python: bin/buildout buildout.cfg setup.py
-	bin/buildout install django-python
-
 bin/flake8: bin/buildout buildout.cfg setup.py
 	bin/buildout install flake8
 
