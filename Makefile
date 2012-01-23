@@ -40,9 +40,9 @@ clean:
 distclean: clean
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build logs parts
+	$(RM) -r bin build dist logs parts
 	$(RM) tags TAGS .installed.cfg
-	$(RM) *.egg *.egg-info
+	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
