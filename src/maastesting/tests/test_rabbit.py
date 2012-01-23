@@ -14,10 +14,18 @@ __all__ = []
 from maastesting import TestCase
 from maastesting.rabbit import RabbitServerResource
 
+from rabbitfixture.server import RabbitServer
+
 
 class TestRabbitServerResource(TestCase):
 
     def test_cycle(self):
+        """
+        A RabbitMQ server can be successfully brought up and shut-down.
+        """
         resource = RabbitServerResource()
-        print(resource)
-        0/0
+        server = resource.make({})
+        try:
+            self.assertIsInstance(server, RabbitServer)
+        finally:
+            resource.clean(server)
