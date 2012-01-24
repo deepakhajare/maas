@@ -21,7 +21,8 @@ $ ( cd cloud-init/doc/ovf/ &&
     ./make-iso ovf-env.xml.tmpl ../../../ud-build.txt -o - ) > build.iso
 
 $ qemu-img create -f qcow2 -b $IMG build0.img
-$ bton=""; # if not running precise, use: bton="boot=on"
+# on precise, you do do not need 'boot=on' in kvm commanad line
+$ [ "$(lsb_release -sc)" = "precise" ] && bton="" || bton="boot=on"
 $ time kvm -drive file=build0.img,if=virtio,cache=unsafe${bton:+,${bton}} \
    -boot c -cdrom build.iso \
    -net nic,model=virtio -net user,hostfwd=tcp::2222-:22 \
