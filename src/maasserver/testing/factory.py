@@ -20,6 +20,7 @@ from django.contrib.auth.models import User
 from maasserver.models import (
     MACAddress,
     Node,
+    NODE_STATUS,
     )
 
 
@@ -36,7 +37,7 @@ class Factory():
         if hostname is '' and set_hostname:
             hostname = self.getRandomString(255)
         if status is None:
-            status = u'NEW'
+            status = NODE_STATUS.DEFAULT_STATUS
         node = Node(hostname=hostname, status=status, **kwargs)
         node.save()
         return node

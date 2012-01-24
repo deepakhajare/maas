@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import httplib
 import json
 
 from django.test.client import Client
@@ -25,17 +26,22 @@ from maastesting import TestCase
 class NodeAnonAPITest(TestCase):
 
     def test_anon_nodes_GET(self):
+        """Anonymous requests to the API are denied"""
         response = self.client.get('/api/nodes/')
-        self.assertEqual(401, response.status_code)
+
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
 
-class NodeAPITest(TestCase):
+class LoggedInMixin(object):
 
     def setUp(self):
-        super(NodeAPITest, self).setUp()
+        super(LoggedInMixin, self).setUp()
         self.user = factory.make_user(username='user', password='test')
         self.client = Client()
         self.client.login(username='user', password='test')
+
+
+class NodeAPITest(LoggedInMixin, TestCase):
 
     def test_nodes_GET(self):
         """
@@ -72,7 +78,7 @@ class NodeAPITest(TestCase):
         """
         response = self.client.get('/api/nodes/invalid-uuid/')
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_nodes_POST(self):
         """
@@ -110,12 +116,12 @@ class NodeAPITest(TestCase):
         """
         response = self.client.put('/api/nodes/no-node-here/')
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_nodes_POST_set_status_invalid(self):
         """
         The status of a newly created Node cannot be set (if will default to
-        'NEW').
+        0 (new)).
 
         """
         response = self.client.post(
@@ -146,17 +152,13 @@ class NodeAPITest(TestCase):
         """
         response = self.client.delete('/api/nodes/no-node-here/')
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
 
-class MACAddressAPITest(TestCase):
+class MACAddressAPITest(LoggedInMixin, TestCase):
 
     def setUp(self):
         super(MACAddressAPITest, self).setUp()
-        self.user = factory.make_user(username='user', password='test')
-        self.client = Client()
-        self.client.login(username='user', password='test')
-
         self.node = factory.make_node()
         self.mac1 = self.node.add_mac_address('aa:bb:cc:dd:ee:ff')
         self.mac2 = self.node.add_mac_address('22:bb:cc:dd:aa:ff')
@@ -184,7 +186,7 @@ class MACAddressAPITest(TestCase):
         """
         response = self.client.get('/api/nodes/invalid-id/macs/')
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_GET_node_404(self):
         """
@@ -195,7 +197,7 @@ class MACAddressAPITest(TestCase):
         response = self.client.get(
             '/api/nodes/%s/macs/00-aa-22-cc-44-dd/' % self.node.system_id)
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_GET_node_400(self):
         """
@@ -265,7 +267,7 @@ class MACAddressAPITest(TestCase):
             '/api/nodes/%s/macs/%s/' % (
                 self.node.system_id, '00-aa-22-cc-44-dd'))
 
-        self.assertEqual(404, response.status_code)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_DELETE_400(self):
         """
@@ -277,4 +279,4 @@ class MACAddressAPITest(TestCase):
             '/api/nodes/%s/macs/%s/' % (
                 self.node.system_id, 'invalid-mac'))
 
-        self.assertEqual(400, response.status_code)
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
