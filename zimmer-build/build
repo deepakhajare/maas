@@ -1,0 +1,234 @@
+#!/bin/bash
+
+DEF_ZIMG="http://cloud-images.ubuntu.com/server/precise/current/precise-server-cloudimg-amd64-disk1.img"
+DEF_SAVE_D="pristine"
+DEF_CI_BZR="lp:cloud-init"
+DEF_UD_FILE="ud-build.txt"
+ZIMMER_SSH_FORWARD=""
+#ZIMMER_SSH_FORWARD=${ZIMMER_SSH_FORWARD:-"hostfwd=tcp::2222-:22"}
+ZIMMER_MEM="${ZIMMER_MEM:-1024}"
+KVM_PID=""
+TAIL_PID=""
+LOG="output.log"
+
+VERBOSITY=0
+TEMP_D=""
+
+error() { echo "$@" 1>&2; }
+errorp() { printf "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || error "$@"; exit 1; }
+failp() { [ $# -eq 0 ] || errorp "$@"; exit 1; }
+
+Usage() {
+	cat <<EOF
+Usage: ${0##*/} [ options ] output
+
+   build a zimmer server from a cloud image, and put it in 'output'
+
+   options:
+         | --zimg   Z    url or path to compressed cloud image
+                         (will be uncompressed)
+                         def: $DEF_ZIMG
+           --img    I    url or path to uncompressed cloud image
+                         expected to be uncompressed.
+                         default: create from zimg
+           --log    L    log items to LOG
+           --save   D    put pristine copies of things in D
+                         default: $DEF_SAVE_D
+           --ci-bzr B    use cloud-init bzr branch at B
+                         default: $DEF_CI_BZR
+           --ud-file F   use user-data file F
+                         default: $DEF_USER_DATA
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || error "$@"; exit 1; }
+cleanup() {
+	[ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+	[ -z "$KVM_PID" ] || kill "$KVM_PID"
+	[ -z "$TAIL_PID" ] || kill "$TAIL_PID"
+}
+
+log() {
+	[ -n "$LOG" ] || return
+	echo "$(date -R):" "$@" >> "$LOG"
+}
+debug() {
+	local level=${1}; shift;
+	log "$@"
+	[ "${level}" -gt "${VERBOSITY}" ] && return
+	error "${@}"
+}
+
+short_opts="ho:v"
+long_opts="help,ci-bzr:,img:,log:,ud-file:,verbose,zimg:"
+getopt_out=$(getopt --name "${0##*/}" \
+	--options "${short_opts}" --long "${long_opts}" -- "$@") &&
+	eval set -- "${getopt_out}" ||
+	bad_Usage
+
+img=""
+zimg=""
+log="$DEF_LOG"
+save_d="$DEF_SAVE_D"
+ci_bzr="$DEF_CI_BZR"
+ud_file="$DEF_UD_FILE"
+
+while [ $# -ne 0 ]; do
+	cur=${1}; next=${2};
+	case "$cur" in
+		-h|--help) Usage ; exit 0;;
+		   --ci-bzr) ci_bzr=$2; shift;;
+		   --img) img=${2}; shift;;
+		   --log) log=${2}; shift;;
+		   --save) save_d=${2}; shift;;
+		   --ud-file) ud_file=${2}; shift;;
+		-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
+		   --zimg) zimg=${2}; shift;;
+		--) shift; break;;
+	esac
+	shift;
+done
+
+## check arguments here
+## how many args do you expect?
+[ $# -gt 1 ] && bad_Usage "too many arguments"
+[ $# -eq 0 ] && bad_Usage "need an output argument"
+output="$1"
+[ "${output%.zimg}" = "${output}" ] || fail "do not name output with .zimg"
+
+command -v genisoimage >/dev/null ||
+	fail "you do not have genisoimage installed. install genisoimage package"
+
+
+[ -f "$ud_file" ] ||
+	fail "user data file $ud_file" is not a file
+ud_file_fp=$(readlink -f "$ud_file") ||
+	fail "failed to get full path to ud_file"
+
+TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+	fail "failed to make tempdir"
+trap cleanup EXIT
+
+[ -d "$save_d" ] || mkdir -p "$save_d" || fail "failed to mkdir $save_d"
+
+if [ -n "$img" ]; then
+	# if img was given, then we assume good, its the backing image
+	[ -f "$img" ] || fail "$img (--img) is not a file"
+	debug 0 "using $img as uncompressed image"
+else
+	if [ -n "$zimg" ]; then
+		case "$zimg" in
+			http://*|https://*)
+				o_zimg="${zimg}"
+				zimg="${save_d}/${o_zimg##*/}"
+				zimg=${zimg%.img}; zimg=${zimg%.zimg}.zimg
+				[ -f "$zimg" ] &&
+					fail "please delete $zimg first or use --zimg|--img"
+				debug 0 "downloading $o_zimg to $zimg"
+				wget "$o_zimg" -O "$zimg.partial" &&
+					mv "$zimg.partial" "$zimg" || fail "failed to get $o_zimg"
+				;;
+			file://*)
+				o_zimg=${zimg}
+				zimg=${zimg#file://}
+				debug 0 "using file $o_zimg as zimg"
+				[ -f "$zimg" ] || fail "$zimg is not a file"
+				;;
+			*)  [ -f "$zimg" ] || fail "$zimg is not a file"
+				debug 0 "using file $o_zimg as zimg"
+				;;
+		esac
+	else
+		zimg="${save_d}/${DEF_ZIMG##*/}"
+		zimg=${zimg%.img}; zimg=${zimg%.zimg}.zimg
+		debug 0 "downloading $DEF_ZIMG to $zimg"
+		wget "$DEF_ZIMG" -O "$zimg.partial" &&
+			mv "$zimg.partial" "$zimg" || fail "failed to get $DEF_ZIMG"
+	fi
+	img=${zimg%.zimg}.img
+	debug 0 "creating uncompressed img $img from $zimg"
+	qemu-img convert -O qcow2 "$zimg" "$img"
+fi
+
+if [ -d "$ci_bzr" ]; then
+	debug 0 "using cloud-init local dir in $ci_bzr"
+elif [ -d "$save_d/cloud-init" ]; then
+	debug 0 "using cloud-init in $save_d/cloud-init"
+	ci_bzr="$save_d/cloud-init"
+else
+	debug 0 "branching remote $ci_bzr"
+	bzr branch "$ci_bzr" "$TEMP_D/cloud-init" ||
+		fail "failed to branch $ci_bzr"
+	mv "$TEMP_D/cloud-init" "$save_d/" ||
+		fail "failed to move $ci_bzr to $save_d"
+	ci_bzr="$save_d/cloud-init"
+fi
+
+( cd "$ci_bzr/doc/ovf" &&
+	./make-iso ovf-env.xml.tmpl $ud_file_fp -o - ) > "$TEMP_D/build.iso" ||
+	fail "failed to create iso for user-data from $ud_file_fp"
+
+build0="$TEMP_D/build0.img"
+img_fp=$(readlink -f "$img") || fail "failed to get fullpath for $img"
+qemu-img create -f qcow2 -b "$img_fp" "${build0}" ||
+	fail "failed to create qcow image backed by $img"
+
+## on precise, you do do not need 'boot=on' in kvm commanad line
+[ "$(lsb_release -sc)" = "precise" ] && bton="" || bton="boot=on"
+
+serial_out="$TEMP_D/serial.output"
+monitor="${TEMP_D}/monitor.fifo" && mkfifo "$monitor" ||
+	fail "failed to mkfifo for monitor"
+
+debug 0 "booting kvm guest to turn cloud-image into zimmer"
+kvm_start=$SECONDS
+MONITOR="-monitor null"
+NOGRAPHIC="-nographic"
+kvm \
+	-drive file=${build0},if=virtio,cache=unsafe${bton:+,${bton}} \
+	-boot c -cdrom "$TEMP_D/build.iso" \
+	-net nic,model=virtio \
+	-net user${ZIMMER_SSH_FORWARD:+,${ZIMMER_SSH_FORWARD}} \
+	-m "${ZIMMER_MEM}" \
+	$NOGRAPHIC \
+	$MONITOR \
+	-serial "file:$serial_out" \
+	2>&1 &
+
+KVM_PID=$!
+tail -F "$serial_out" 2>/dev/null &
+TAIL_PID=$!
+
+sleep 20
+[ -s "$serial_out" ] ||
+	fail "no output in serial console output after 20 seconds"
+
+wait $KVM_PID
+ret=$?
+KVM_PID=""
+
+kill $TAIL_PID >/dev/null 2>&1
+TAIL_PID=""
+
+{
+	echo ===== begin serial console ====
+	cat "$serial_out"
+	echo ===== end serial console ====
+} >> "$LOG"
+[ $ret -eq 0 ] || fail "failed to build via kvm guest"
+grep -q "ZIMMER BUILD FINISHED" "$serial_out" ||
+	fail "did not find finished message in $serial_out"
+
+debug 0 "kvm image built in $(($SECONDS-$kvm_start))s"
+debug 0 "creating dist image in $output"
+## create a re-shrunk image of build0.img into 'zimmer-disk0.img.dist'
+qemu-img convert -O qcow2 "$TEMP_D/build0.img" "$output"
+chmod 444 "$output"
+
+debug 0 "creating pristine compressed zimmer-disk0.zimg"
+## optionally create a zip'd image for transmission
+qemu-img convert -f qcow2 -O qcow2 -c "$output" "${output%.img}.zimg"
+
+debug 0 "done. took $SECONDS seconds"
+# vi: ts=4 noexpandtab

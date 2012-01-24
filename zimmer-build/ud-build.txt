@@ -58,6 +58,7 @@ bucket:
    time sh -c 'dd if=/dev/zero of=/out.img; rm /out.img'
 
    echo === $(date): poweroff ===
+   echo === ZIMMER BUILD FINISHED ===
    ) 2>&1 | tee out.log
 
 runcmd:
