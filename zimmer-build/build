@@ -225,6 +225,8 @@ grep -q "ZIMMER BUILD FINISHED" "$serial_out" ||
 debug 0 "kvm image built in $(($SECONDS-$kvm_start))s"
 debug 0 "creating dist image in $output"
 ## create a re-shrunk image of build0.img into 'zimmer-disk0.img.dist'
+[ ! -f "$output" ] || rm -f "$output" ||
+	fail "failed to remove existing $output"
 qemu-img convert -O qcow2 "$TEMP_D/build0.img" "$output"
 chmod 444 "$output"
 
