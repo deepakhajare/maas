@@ -33,6 +33,7 @@ Usage: ${0##*/} [ options ] output
                          expected to be uncompressed.
                          default: create from zimg
            --log    L    log items to LOG
+                         default: $LOG
            --save   D    put pristine copies of things in D
                          default: $DEF_SAVE_D
            --ci-bzr B    use cloud-init bzr branch at B
@@ -69,7 +70,6 @@ getopt_out=$(getopt --name "${0##*/}" \
 
 img=""
 zimg=""
-log="$DEF_LOG"
 save_d="$DEF_SAVE_D"
 ci_bzr="$DEF_CI_BZR"
 ud_file="$DEF_UD_FILE"
@@ -80,7 +80,7 @@ while [ $# -ne 0 ]; do
 		-h|--help) Usage ; exit 0;;
 		   --ci-bzr) ci_bzr=$2; shift;;
 		   --img) img=${2}; shift;;
-		   --log) log=${2}; shift;;
+		   --log) LOG=${2}; shift;;
 		   --save) save_d=${2}; shift;;
 		   --ud-file) ud_file=${2}; shift;;
 		-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
