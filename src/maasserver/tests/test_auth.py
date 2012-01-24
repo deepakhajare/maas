@@ -101,11 +101,11 @@ class TestNodeVisibility(AuthTestMixin, TestCase):
         # An admin sees all the nodes.
         self.assertSequenceEqual(
             [self.node_user1, self.node_user2, self.not_owned_node],
-            Node.objects.visible_nodes(self.admin))
+            Node.objects.get_visible_nodes(self.admin))
 
     def test_nodes_not_owned_status(self):
         # A non-admin user only has access to non-owned nodes and his own
         # nodes.
         self.assertSequenceEqual(
             [self.node_user1, self.not_owned_node],
-            Node.objects.visible_nodes(self.user1))
+            Node.objects.get_visible_nodes(self.user1))

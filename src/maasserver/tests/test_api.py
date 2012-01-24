@@ -85,7 +85,7 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
         response = self.client.get(
             '/api/nodes/%s/' % self.other_node.system_id)
 
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
     def test_node_GET_not_found(self):
         """
@@ -125,6 +125,17 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
         self.assertEqual(0, Node.objects.filter(hostname='diane').count())
         self.assertEqual(1, Node.objects.filter(hostname='francis').count())
 
+    def test_node_PUT_non_visible_node(self):
+        """
+        The request to update a single node is denied if the node isn't visible
+        by the user.
+
+        """
+        response = self.client.put(
+            '/api/nodes/%s/' % self.other_node.system_id)
+
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
     def test_node_PUT_not_found(self):
         """
         When updating a Node, the api returns a 'Not Found' (404) error
@@ -147,6 +158,17 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
         self.assertEqual(400, response.status_code)
         self.assertEqual(
             'Bad Request: Cannot set the status for a node.', response.content)
+
+    def test_node_DELETE_non_visible_node(self):
+        """
+        The request to delete a single node is denied if the node isn't visible
+        by the user.
+
+        """
+        response = self.client.delete(
+            '/api/nodes/%s/' % self.other_node.system_id)
+
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
     def test_node_DELETE(self):
         """
