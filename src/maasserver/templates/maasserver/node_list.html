@@ -19,12 +19,10 @@
         <td>{{ node.system_id }}</td>
         <td>{{ node.hostname }}</td>
         <td>{{ node.mac_address_set }}</td>
-        <td>{{ node.status }}</td>
+        <td>{{ node.display_status }}</td>
         </tr>
       {% endfor %}
     </table>
   {% endif%}
-  <form method="GET" action="{% url node-create %}">
-    <input type="submit" value="Add Node" />
-  </form>
+  <a href="{% url node-create %}">Add Node</a>
 {% endblock %}
