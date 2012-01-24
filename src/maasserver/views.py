@@ -33,7 +33,7 @@ class NodeListView(ListView):
     context_object_name = "node_list"
 
     def get_queryset(self):
-        return Node.objects.visible_nodes(self.request.user)
+        return Node.objects.get_visible_nodes(user=self.request.user)
 
 
 class NodesCreateView(CreateView):

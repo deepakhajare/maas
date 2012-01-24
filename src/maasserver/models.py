@@ -70,12 +70,12 @@ NODE_STATUS_CHOICES_DICT = dict(NODE_STATUS_CHOICES)
 class NodeManager(models.Manager):
     """A utility to manage collections of Nodes."""
 
-    def visible_nodes(self, user):
+    def get_visible_nodes(self, user):
         """Fetch all the `Nodes` visible by a User.  Available via
         `Node.objects`.
 
         :param user: The user that should be used in the permission check.
-        :type user: django.contrib.auth.models.User.
+        :type user: django.contrib.auth.models.User
 
         """
         if user.is_superuser:
@@ -89,9 +89,9 @@ class NodeManager(models.Manager):
         this system_id exist or if the provided user cannot see this `Node`.
 
         :param name: The system_id.
-        :type name: str.
+        :type name: str
         :param user: The user that should be used in the permission check.
-        :type user: django.contrib.auth.models.User.
+        :type user: django.contrib.auth.models.User
         :raises: django.http.Http404, django.core.exceptions.PermissionDenied
 
         """
