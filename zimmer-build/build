@@ -142,6 +142,8 @@ else
 	else
 		zimg="${save_d}/${DEF_ZIMG##*/}"
 		zimg=${zimg%.img}; zimg=${zimg%.zimg}.zimg
+		[ -f "$zimg" ] &&
+			fail "please delete $zimg first or use --zimg|--img"
 		debug 0 "downloading $DEF_ZIMG to $zimg"
 		wget "$DEF_ZIMG" -O "$zimg.partial" &&
 			mv "$zimg.partial" "$zimg" || fail "failed to get $DEF_ZIMG"
