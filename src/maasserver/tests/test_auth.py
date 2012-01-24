@@ -12,14 +12,13 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.urlresolvers import reverse
-
-from maas.testing import TestCase
-
 from maasserver.models import (
     MaaSAuthorizationBackend,
     Node,
+    NODE_STATUS,
     )
 from maasserver.testing.factory import factory
+from maastesting import TestCase
 
 
 class LoginLogoutTest(TestCase):
@@ -59,28 +58,24 @@ class AuthTestMixin(object):
         self.user1 = factory.make_user(username='user1')
         self.user2 = factory.make_user(username='user2')
         self.node_user1 = factory.make_node(
-            owner=self.user1, status=u'DEPLOYED')
+            owner=self.user1, status=NODE_STATUS.DEPLOYED)
         self.node_user2 = factory.make_node(
-            owner=self.user2, status=u'DEPLOYED')
-        self.not_owned_node = factory.make_node(status=u'NEW')
+            owner=self.user2, status=NODE_STATUS.DEPLOYED)
+        self.not_owned_node = factory.make_node()
 
 
 class TestMaaSAuthorizationBackend(AuthTestMixin, TestCase):
-
-    def setUp(self):
-        super(TestMaaSAuthorizationBackend, self).setUp()
-        self.backend = MaaSAuthorizationBackend()
 
     def test_invalid_check_object(self):
         mac = self.not_owned_node.add_mac_address('AA:BB:CC:DD:EE:FF')
         self.assertRaises(
             NotImplementedError, self.backend.has_perm,
-            *[self.admin, 'access', mac])
+            self.admin, 'access', mac)
 
     def test_invalid_check_permission(self):
         self.assertRaises(
             NotImplementedError, self.backend.has_perm,
-            *[self.admin, 'not-access', self.not_owned_node])
+            self.admin, 'not-access', self.not_owned_node)
 
     def test_admin_access(self):
         self.assertTrue(self.backend.has_perm(

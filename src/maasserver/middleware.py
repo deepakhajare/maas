@@ -13,11 +13,13 @@ __all__ = [
     "AccessMiddleware",
     ]
 
-from django.http import HttpResponseRedirect
+import re
+
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.http import HttpResponseRedirect
+from django.utils.http import urlquote_plus
 from piston.utils import rc
-import re
 
 
 class AccessMiddleware(object):
@@ -30,9 +32,11 @@ class AccessMiddleware(object):
     """
 
     def __init__(self):
-        self.public_urls = tuple(
-            re.compile(url) for url in (
-                reverse('login'), reverse('logout'), reverse('api-doc')))
+        self.public_urls = re.compile(
+            "|".join(
+                (reverse('login'),
+                 reverse('logout'),
+                 reverse('api-doc'))))
         self.api_url = re.compile(settings.API_URL_REGEXP)
         self.static_url = re.compile(settings.STATIC_URL)
         self.login_url = reverse('login')
@@ -49,8 +53,8 @@ class AccessMiddleware(object):
             return None
         else:
             if request.user.is_anonymous():
-                for url in self.public_urls:
-                    if url.match(request.path):
-                        return None
-                return HttpResponseRedirect("%s?next=%s" % (
-                    self.login_url, request.path))
+                if self.public_urls.match(request.path):
+                    return None
+                else:
+                    return HttpResponseRedirect("%s?next=%s" % (
+                        self.login_url, urlquote_plus(request.path)))
