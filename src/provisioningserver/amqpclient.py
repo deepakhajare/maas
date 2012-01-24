@@ -1,9 +1,16 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+# Shamelessly cargo-culted from the txlongpoll source.
+
 """
 Asynchronous client for AMQP using txAMQP.
 """
+
+from __future__ import (
+    print_function,
+    unicode_literals,
+    )
 
 import os.path
 
@@ -13,6 +20,11 @@ from txamqp.client import TwistedDelegate
 from txamqp.protocol import AMQClient
 from txamqp.queue import Closed
 from txamqp.spec import load as load_spec
+
+__metaclass__ = type
+__all__ = [
+    "AMQFactory",
+    ]
 
 
 class AMQClientWithCallback(AMQClient):

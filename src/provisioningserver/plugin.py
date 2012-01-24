@@ -19,8 +19,10 @@ from oops_twisted import (
     defer_publisher,
     OOPSObserver,
     )
+from twisted.application.internet import TCPClient
 from twisted.application.service import (
     IServiceMaker,
+    MultiService,
     )
 from twisted.internet import reactor
 from twisted.plugin import IPlugin
@@ -37,6 +39,7 @@ from twisted.python.log import (
 from zope.interface import implements
 # TODO r-d: python-zope.interface
 
+from amqpclient import AMQFactory
 
 __metaclass__ = type
 __all__ = []
@@ -115,6 +118,8 @@ class ProvisioningServiceMaker(object):
     def makeService(self, options):
         """Construct a service."""
         # Required to hide the command line options that include a password.
+        # There is a small window where it can be seen though, between
+        # invocation and when this code runs.
         setproctitle.setproctitle("maas provisioning service")
 
         logfile = getRotatableLogFileObserver(options["logfile"])
@@ -126,6 +131,13 @@ class ProvisioningServiceMaker(object):
         broker_password = options["brokerpassword"]
         broker_vhost = options["brokervhost"]
 
+        # TODO: define callbacks for Rabbit connectivity.
+        # e.g. construct a manager object.
+        client_factory = AMQFactory(
+            broker_user, broker_password, broker_vhost,
+            CONNECTED_CALLBACK, DISCONNECTED_CALLBACK,
+            lambda (connector, reason): log.err(reason, "Connection failed"))
+
         # TODO: Create services here, e.g.
         # service1 = thing
         # service2 = thing2
@@ -133,3 +145,8 @@ class ProvisioningServiceMaker(object):
         # services.addService(service1)
         # services.addService(service2)
         # return services
+
+        client_service = TCPClient(broker_host, broker_port, client_factory)
+        services = MultiService()
+        services.addService(client_service)
+        return services
