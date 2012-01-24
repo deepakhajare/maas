@@ -227,8 +227,9 @@ debug 0 "creating dist image in $output"
 ## create a re-shrunk image of build0.img into 'zimmer-disk0.img.dist'
 [ ! -f "$output" ] || rm -f "$output" ||
 	fail "failed to remove existing $output"
-qemu-img convert -O qcow2 "$TEMP_D/build0.img" "$output"
-chmod 444 "$output"
+qemu-img convert -O qcow2 "$TEMP_D/build0.img" "$output" &&
+	chmod 444 "$output" ||
+	fail "failed to create $output from build0.img"
 
 debug 0 "creating pristine compressed zimmer-disk0.zimg"
 ## optionally create a zip'd image for transmission
