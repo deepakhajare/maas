@@ -14,7 +14,10 @@ __all__ = [
     "NodeMacsHandler",
     ]
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
@@ -99,7 +102,7 @@ class NodesHandler(BaseHandler):
 
     def read(self, request):
         """Read all Nodes."""
-        return Node.objects.all().order_by('id')
+        return Node.objects.visible_nodes(request.user).order_by('id')
 
     def create(self, request):
         """Create a new Node."""
@@ -126,15 +129,23 @@ class NodeMacsHandler(BaseHandler):
 
     def read(self, request, system_id):
         """Read all MAC Addresses related to a Node."""
-        node = get_object_or_404(Node, system_id=system_id)
+        try:
+            node = Node.objects.get_visible_node_or_404(
+                user=request.user, system_id=system_id)
+        except PermissionDenied:
+            return rc.FORBIDDEN
+
         return MACAddress.objects.filter(node=node).order_by('id')
 
     def create(self, request, system_id):
         """Create a MAC Address for a specified Node."""
-        node = get_object_or_404(Node, system_id=system_id)
         try:
+            node = Node.objects.get_visible_node_or_404(
+                user=request.user, system_id=system_id)
             mac = node.add_mac_address(request.data.get('mac_address', None))
             return mac
+        except PermissionDenied:
+            return rc.FORBIDDEN
         except ValidationError, e:
             return bad_request(format_error_message(e))
 
@@ -151,7 +162,13 @@ class NodeMacHandler(BaseHandler):
 
     def read(self, request, system_id, mac_address):
         """Read a MAC Address related to a Node."""
-        node = get_object_or_404(Node, system_id=system_id)
+        try:
+            node = Node.objects.get_visible_node_or_404(
+                user=request.user, system_id=system_id)
+        except PermissionDenied:
+            return rc.FORBIDDEN
+
+
         valid, response = validate_mac_address(mac_address)
         if not valid:
             return response
@@ -164,7 +181,12 @@ class NodeMacHandler(BaseHandler):
         if not valid:
             return response
 
-        node = get_object_or_404(Node, system_id=system_id)
+        try:
+            node = Node.objects.get_visible_node_or_404(
+                user=request.user, system_id=system_id)
+        except PermissionDenied:
+            return rc.FORBIDDEN
+
         mac = get_object_or_404(MACAddress, node=node, mac_address=mac_address)
         mac.delete()
         return rc.DELETED

@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import httplib
+
 from django.core.urlresolvers import reverse
 from maasserver.models import (
     MaaSAuthorizationBackend,
@@ -31,14 +33,14 @@ class LoginLogoutTest(TestCase):
         response = self.client.post(
             reverse('login'), {'username': 'test', 'password': 'test'})
 
-        self.assertEqual(302, response.status_code)
+        self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(self.user.id, self.client.session['_auth_user_id'])
 
     def test_login_failed(self):
         response = self.client.post(
             reverse('login'), {'username': 'test', 'password': 'wrong-pw'})
 
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(httplib.OK, response.status_code)
         self.assertNotIn('_auth_user_id', self.client.session.keys())
 
     def test_logout(self):
@@ -76,10 +78,6 @@ class TestMaaSAuthorizationBackend(AuthTestMixin, TestCase):
         self.assertRaises(
             NotImplementedError, self.backend.has_perm,
             self.admin, 'not-access', self.not_owned_node)
-
-    def test_admin_access(self):
-        self.assertTrue(self.backend.has_perm(
-            self.admin, 'access', self.node_user1))
 
     def test_not_owned_status(self):
         # A non-admin user can access a node that is not yet owned.
