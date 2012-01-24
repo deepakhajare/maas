@@ -208,7 +208,7 @@ wait $KVM_PID
 ret=$?
 KVM_PID=""
 
-kill $TAIL_PID >/dev/null 2>&1
+{ kill $TAIL_PID ; } >/dev/null 2>&1
 TAIL_PID=""
 
 {
