@@ -8,7 +8,7 @@ from __future__ import (
 
 """Twisted Application Plugin code for the MaaS provisioning server"""
 
-import setproctitle # TODO b-d: python-setproctitle
+import setproctitle # TODO r-d: python-setproctitle
 import signal
 import sys
 
@@ -33,9 +33,9 @@ from twisted.python.log import (
     addObserver,
     FileLogObserver,
     )
-# TODO b-d: python-twisted
+# TODO r-d: python-twisted
 from zope.interface import implements
-# TODO b-d: python-zope.interface
+# TODO r-d: python-zope.interface
 
 
 __metaclass__ = type
