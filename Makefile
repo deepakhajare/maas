@@ -6,7 +6,7 @@ bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/maas bin/test: bin/buildout buildout.cfg setup.py
+bin/maas bin/test.maas: bin/buildout buildout.cfg setup.py
 	bin/buildout install maas
 
 bin/flake8: bin/buildout buildout.cfg setup.py
@@ -18,8 +18,8 @@ bin/sphinx: bin/buildout buildout.cfg setup.py
 dev-db:
 	utilities/maasdb start ./db/ disposable
 
-test: bin/test
-	bin/test
+test: bin/test.maas
+	bin/test.maas
 
 lint: sources = setup.py src templates utilities
 lint: bin/flake8
