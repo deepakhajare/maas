@@ -1,4 +1,3 @@
-{% load url from future %}
 <ul id="user-nav" class="nav">
   {% if user.is_authenticated %}
     <li><a href="{% url 'logout' %}">Logout</a></li>
