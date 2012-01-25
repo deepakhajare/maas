@@ -16,16 +16,10 @@ __all__ = [
 from subprocess import check_call
 
 from django_nose import NoseTestSuiteRunner
-from testresources import OptimisingTestSuite
 
 
 class TestRunner(NoseTestSuiteRunner):
     """Custom test runner; ensures that the test database cluster is up."""
-
-    def build_suite(self, test_labels, extra_tests=None, **kwargs):
-        suite = super(TestRunner, self).build_suite(
-            test_labels, extra_tests, **kwargs)
-        return OptimisingTestSuite(suite)
 
     def setup_databases(self, *args, **kwargs):
         """Fire up the db cluster, then punt to original implementation."""
