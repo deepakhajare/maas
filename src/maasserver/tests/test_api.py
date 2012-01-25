@@ -140,7 +140,7 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
         node = factory.make_node(hostname='diane')
         response = self.client.put(
             '/api/nodes/%s/' % node.system_id,
-            {'hostname': ''.join(['too long' for x in xrange(100)])})
+            {'hostname': 'too long' * 100})
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
