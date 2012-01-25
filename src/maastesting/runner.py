@@ -15,11 +15,11 @@ __all__ = [
 
 from subprocess import check_call
 
-from django.test.simple import DjangoTestSuiteRunner
+from django_nose import NoseTestSuiteRunner
 from testresources import OptimisingTestSuite
 
 
-class TestRunner(DjangoTestSuiteRunner):
+class TestRunner(NoseTestSuiteRunner):
     """Custom test runner; ensures that the test database cluster is up."""
 
     def build_suite(self, test_labels, extra_tests=None, **kwargs):
