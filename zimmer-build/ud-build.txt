@@ -43,9 +43,13 @@ bucket:
    apt_get update
    apt_get install ubuntu-orchestra-provisioning-server libvirt-bin
    
+   case $(uname -m) in
+      i?86) arches="i386";;
+      *) arches="amd64";;
+   esac
    cat >> /etc/orchestra/import_isos <<END
    RELEASES="oneiric precise"
-   ARCHES="amd64"
+   ARCHES="${arches}"
    END
 
    echo === $(date): starting import ====
