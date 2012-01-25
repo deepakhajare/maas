@@ -8,7 +8,7 @@ from __future__ import (
 
 """Twisted Application Plugin code for the MaaS provisioning server"""
 
-import setproctitle # TODO r-d: python-setproctitle
+import setproctitle
 import signal
 import sys
 
@@ -35,9 +35,7 @@ from twisted.python.log import (
     addObserver,
     FileLogObserver,
     )
-# TODO r-d: python-twisted
 from zope.interface import implements
-# TODO r-d: python-zope.interface
 
 from amqpclient import AMQFactory
 
