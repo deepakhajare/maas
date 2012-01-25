@@ -165,7 +165,6 @@ INSTALLED_APPS = (
     'maasserver',
     'maastesting',
     'debug_toolbar',
-    'django_nose',
 )
 
 # A sample logging configuration. The only tangible logging
