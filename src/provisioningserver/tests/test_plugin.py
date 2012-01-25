@@ -11,7 +11,6 @@ from __future__ import (
 from cStringIO import StringIO
 from functools import partial
 import os
-from unittest import defaultTestLoader
 
 from fixtures import TempDir
 from oops_twisted import OOPSObserver
@@ -111,7 +110,6 @@ class TestOptions(TestCase):
         arguments = [
             "--brokerpassword", "Hoskins",
             "--brokeruser", "Bob",
-            "--frontendport", "1234",
             "--oops-dir", "/some/where",
             "--oops-reporter", "",
             ]
@@ -140,7 +138,6 @@ class TestSetUpOOPSHandler(TestCase):
         options = Options()
         options["brokerpassword"] = "Hoskins"
         options["brokeruser"] = "Bob"
-        options["frontendport"] = 1234
         options.update(settings)
         observer = setUpOOPSHandler(options, self.log)
         return options, observer
@@ -155,21 +152,8 @@ class TestSetUpOOPSHandler(TestCase):
 
     def test_with_all_params(self):
         settings = {
-            "oops-exchange": "Frank",
             "oops-reporter": "Sidebottom",
             "oops-dir": self.useFixture(TempDir()).path,
-            }
-        options, observer = self.makeObserver(settings)
-        self.assertIsInstance(observer, OOPSObserver)
-        self.assertEqual(2, len(observer.config.publishers))
-        self.assertEqual(
-            {"reporter": "Sidebottom"},
-            observer.config.template)
-
-    def test_with_some_params(self):
-        settings = {
-            "oops-exchange": "Frank",
-            "oops-reporter": "Sidebottom",
             }
         options, observer = self.makeObserver(settings)
         self.assertIsInstance(observer, OOPSObserver)

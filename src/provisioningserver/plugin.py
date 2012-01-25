@@ -94,7 +94,7 @@ class Options(usage.Options):
         for arg in ('brokeruser', 'brokerpassword'):
             if not self[arg]:
                 raise usage.UsageError("--%s must be specified." % arg)
-        for int_arg in ('brokerport'):
+        for int_arg in ('brokerport',):
             try:
                 self[int_arg] = int(self[int_arg])
             except (TypeError, ValueError):
