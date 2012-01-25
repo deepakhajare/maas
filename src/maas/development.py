@@ -1,12 +1,12 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+"""Django DEVELOPMENT settings for maas project."""
+
 from __future__ import (
     print_function,
     unicode_literals,
     )
-
-"""Django DEVELOPMENT settings for maas project."""
 
 __metaclass__ = type
 
@@ -16,7 +16,7 @@ from maas.settings import *
 
 # Use our custom test runner, which makes sure that a local database
 # cluster is running in the branch.
-TEST_RUNNER = 'maas.testing.runner.TestRunner'
+TEST_RUNNER = 'maastesting.runner.TestRunner'
 
 # Location where python-oops should store errors.
 OOPS_REPOSITORY = 'logs'
@@ -135,6 +135,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'maasserver.middleware.AccessMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'
@@ -162,7 +163,9 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'django.contrib.admindocs',
     'maasserver',
+    'maastesting',
     'debug_toolbar',
+    'django_nose',
 )
 
 # A sample logging configuration. The only tangible logging

@@ -1,12 +1,12 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+"""URL routing configuration."""
+
 from __future__ import (
     print_function,
     unicode_literals,
     )
-
-"""URL routing configuration."""
 
 __metaclass__ = type
 __all__ = []
@@ -15,34 +15,51 @@ from django.conf.urls.defaults import (
     patterns,
     url,
     )
-from django.views.generic import ListView
+from django.contrib.auth.views import login
 from maasserver.api import (
     api_doc,
     NodeHandler,
-    NodesHandler,
     NodeMacHandler,
     NodeMacsHandler,
+    NodesHandler,
     )
 from maasserver.models import Node
 from maasserver.views import (
+    logout,
+    NodeListView,
     NodesCreateView,
-    NodeView,
     )
 from piston.resource import Resource
 
-
+# Urls accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
-    url(r'^$', ListView.as_view(model=Node), name='index'),
-    url(r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
-    url(r'^nodes/([\w\-]+)/$', NodeView.as_view(), name='node-view'),
+    url(r'^accounts/login/$', login, name='login'),
+    url(r'^accounts/logout/$', logout, name='logout'),
 )
 
-# Api.
+# Urls for logged-in users.
+urlpatterns += patterns('maasserver.views',
+    url(
+        r'^$',
+        NodeListView.as_view(template_name="maasserver/index.html"),
+        name='index'),
+    url(r'^nodes/$', NodeListView.as_view(model=Node), name='node-list'),
+    url(
+        r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
+)
+
+# API.
 node_handler = Resource(NodeHandler)
 nodes_handler = Resource(NodesHandler)
 node_mac_handler = Resource(NodeMacHandler)
 node_macs_handler = Resource(NodeMacsHandler)
 
+# API urls accessible to anonymous users.
+urlpatterns += patterns('maasserver.views',
+    url(r'^api/doc/$', api_doc, name='api-doc'),
+)
+
+# API urls for logged-in users.
 urlpatterns += patterns('maasserver.views',
     url(
         r'^api/nodes/(?P<system_id>[\w\-]+)/macs/(?P<mac_address>.+)/$',
@@ -55,6 +72,4 @@ urlpatterns += patterns('maasserver.views',
         r'^api/nodes/(?P<system_id>[\w\-]+)/$', node_handler,
         name='node_handler'),
     url(r'^api/nodes/$', nodes_handler, name='nodes_handler'),
-
-    url(r'^api/doc/$', api_doc),
 )

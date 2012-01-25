@@ -2,16 +2,20 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+"""Distutils installer for maas."""
+
 from __future__ import (
     print_function,
     unicode_literals,
     )
 
-"""Distutils installer for maas."""
-
-import os
+from os.path import (
+    dirname,
+    join,
+    )
 
 import distribute_setup
+
 # The version of distribute packaged in precise is not quite at 0.6.24
 # final yet so we need to override the required version here to stop a
 # recipe build from trying to download from pypi.
@@ -23,8 +27,12 @@ from setuptools import (
     )
 
 
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read().strip()
+def read(filename):
+    """Return the whitespace-stripped content of `filename`."""
+    path = join(dirname(__file__), filename)
+    with open(path, "rb") as fin:
+        return fin.read().strip()
+
 
 __version__ = "0.1"
 
@@ -39,8 +47,14 @@ setup(
     author="MaaS Developers",
     author_email="juju@lists.ubuntu.com",
 
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
+    packages=find_packages(
+        where=b'src',
+        exclude=[
+            b"maastesting",
+            b"maastesting.*",
+            ]
+        ),
+    package_dir={'': b'src'},
 
     install_requires=['setuptools'],
 
@@ -53,5 +67,5 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
-    ]
-)
+        ]
+    )

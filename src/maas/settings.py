@@ -1,17 +1,25 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
+"""Django settings for maas project."""
+
 from __future__ import (
     print_function,
     unicode_literals,
     )
 
-"""Django settings for maas project."""
-
 __metaclass__ = type
 
 import os
 
+# Use new style url tag:
+# https://docs.djangoproject.com/en/dev/releases/1.3/#changes-to-url-and-ssi
+import django.template
+
+
+django.template.add_to_builtins('django.templatetags.future')
+
+TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -22,11 +30,20 @@ MANAGERS = ADMINS
 # Location where python-oops should store errors.
 OOPS_REPOSITORY = 'logs'
 
+LOGOUT_URL = '/'
+LOGIN_REDIRECT_URL = '/'
+
+API_URL_REGEXP = '^/api/'
+
 DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
 YUI_VERSION = '3.4.1'
 STATIC_LOCAL_SERVE = DEBUG
+
+AUTHENTICATION_BACKENDS = (
+    'maasserver.models.MaaSAuthorizationBackend',
+    )
 
 DATABASES = {
     'default': {
@@ -131,6 +148,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'maasserver.middleware.AccessMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'
@@ -151,6 +169,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'django_nose',
     'maasserver',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',

@@ -1,0 +1,11 @@
+{% extends "maasserver/base.html" %}
+
+{% block nav-active-index %}active{% endblock %}
+
+{% block content %}
+  <h2>
+  {{ node_list|length }} node{{ node_list|length|pluralize }} in this cluster
+  </h2>
+
+  <a href="{% url 'node-create' %}">Add Node</a>
+{% endblock %}

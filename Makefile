@@ -4,10 +4,16 @@ build: bin/buildout bin/django doc
 
 bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
+	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/django bin/django-python bin/sphinx bin/test: \
-    bin/buildout buildout.cfg setup.py
-	bin/buildout
+bin/django bin/test: bin/buildout buildout.cfg setup.py
+	bin/buildout install django
+
+bin/flake8: bin/buildout buildout.cfg setup.py
+	bin/buildout install flake8
+
+bin/sphinx: bin/buildout buildout.cfg setup.py
+	bin/buildout install sphinx
 
 dev-db:
 	utilities/maasdb start ./db/ disposable
@@ -16,7 +22,7 @@ test: bin/test
 	bin/test
 
 lint: sources = setup.py src templates utilities
-lint:
+lint: bin/flake8
 	@bin/flake8 $(sources) | \
 	    (! fgrep -v "from maas.settings import *")
 
@@ -24,6 +30,9 @@ check: clean test
 
 docs/api.rst: bin/django src/maasserver/api.py
 	bin/django gen_rst_api_doc > $@
+
+sampledata: bin/django
+	bin/django loaddata src/maasserver/fixtures/dev_fixture.yaml
 
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
@@ -35,9 +44,9 @@ clean:
 distclean: clean
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build logs parts
+	$(RM) -r bin build dist logs parts
 	$(RM) tags TAGS .installed.cfg
-	$(RM) *.egg *.egg-info
+	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
@@ -52,4 +61,4 @@ syncdb: bin/django dev-db
 
 .PHONY: \
     build check clean dev-db distclean doc \
-    harness lint run syncdb test
+    harness lint run syncdb test sampledata
