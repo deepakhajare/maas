@@ -10,3 +10,5 @@
      $(t=98; for((i=0;i<5;i++)); do p=$(printf "%02d" "$i"); echo -L $t$p:localhost:59$p; done ; echo -L${t}80:192.168.123.2:80)
 - tell orchestra to point to a different proxy server
 - document or fix annoying ssh key entries (juju prompt for add and change)
+- get serial consoles to log file for domains
+- support i386 (for i386 installs of ubuntu)
