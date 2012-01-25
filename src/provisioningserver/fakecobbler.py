@@ -16,8 +16,12 @@ __all__ = [
     ]
 
 from random import Random
-from twisted.internet.defer import inlineCallbacks, returnValue
 from xmlrpclib import Fault
+
+from twisted.internet.defer import (
+    inlineCallbacks,
+    returnValue,
+    )
 
 
 randomizer = Random()
@@ -42,7 +46,9 @@ def fake_token(user=None):
 class FakeTwistedProxy:
     """Fake Twisted XMLRPC proxy that forwards calls to a `FakeCobbler`."""
 
-    def __init__(self, fake_cobbler):
+    def __init__(self, fake_cobbler=None):
+        if fake_cobbler is None:
+            fake_cobbler = FakeCobbler()
         self.fake_cobbler = fake_cobbler
 
     @inlineCallbacks
@@ -59,7 +65,6 @@ class FakeCobbler:
     :param passwords: A dict mapping user names to their passwords.
 
     :ivar tokens: A dict mapping valid auth tokens to their users.
-    :ivar distros: A dict mapping distro names to dicts describing distros.
     """
 
     def __init__(self, passwords=None):
@@ -69,16 +74,15 @@ class FakeCobbler:
             self.passwords = passwords
 
         self.tokens = {}
-        self.distros = {}
 
     def fake_check_token(self, token):
         """Not part of the faked API: check token validity."""
         if token not in self.tokens:
-            raise Exception("invalid token: %s" % token)
+            raise Fault(1, "invalid token: %s" % token)
 
     def login(self, user, password):
-        if user != self.passwords.get(password, object()):
-            raise Fault("login failed (%s)" % user)
+        if password != self.passwords.get(user, object()):
+            raise Exception("login failed (%s)" % user)
         token = fake_token(user)
         self.tokens[token] = user
         return token
@@ -109,7 +113,7 @@ class FakeCobbler:
         self.fake_check_token(token)
         pass
 
-    def new_image(self, name, token):
+    def new_image(self, token):
         self.fake_check_token(token)
         pass
 
@@ -135,7 +139,7 @@ class FakeCobbler:
         self.fake_check_token(token)
         pass
 
-    def new_profile(self, name, token):
+    def new_profile(self, token):
         self.fake_check_token(token)
         pass
 
@@ -161,7 +165,7 @@ class FakeCobbler:
         self.fake_check_token(token)
         pass
 
-    def new_system(self, name, token):
+    def new_system(self, token):
         self.fake_check_token(token)
         pass
 

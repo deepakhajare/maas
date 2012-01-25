@@ -8,6 +8,7 @@ from __future__ import (
 
 import test_fakecobbler
 
+
 __metaclass__ = type
 __all__ = [
     test_fakecobbler,

@@ -12,13 +12,16 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
-from xmlrpclib import Fault
-from twisted.internet.defer import inlineCallbacks, returnValue
-
-from testtools.deferredruntest import AsynchronousDeferredRunTest
 from unittest import TestCase
+from xmlrpclib import Fault
+
 from provisioningserver import cobblerclient
 from provisioningserver.fakecobbler import fake_token
+from testtools.deferredruntest import AsynchronousDeferredRunTest
+from twisted.internet.defer import (
+    inlineCallbacks,
+    returnValue,
+    )
 
 
 randomizer = Random()
@@ -26,7 +29,7 @@ randomizer = Random()
 
 def pick_number():
     """Pick an arbitrary number."""
-    return randomizer.randint(0, 10**9)
+    return randomizer.randint(0, 10 ** 9)
 
 
 class FakeAuthFailure(Fault):

@@ -22,8 +22,20 @@ __all__ = [
     ]
 
 import xmlrpclib
-from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twisted.internet.defer import (
+    inlineCallbacks,
+    returnValue,
+    )
 from twisted.web.xmlrpc import Proxy
+
+
+def looks_like_auth_expiry(exception):
+    """Does `exception` look like an authentication token expired?"""
+    if not hasattr(exception, 'faultString'):
+        # An auth failure would come as an xmlrpclib.Fault.
+        return False
+    return exception.faultString.startswith("invalid token: ")
 
 
 class CobblerSession:
@@ -132,7 +144,7 @@ class CobblerSession:
         try:
             result = yield self._callAndYield(method, *args)
         except xmlrpclib.Fault as e:
-            if "invalid token" in e.faultString:
+            if authenticate and looks_like_auth_expiry(e):
                 authentication_expired = True
             else:
                 raise
@@ -170,7 +182,6 @@ class CobblerObject:
     # may want to let this go once we're comfortable and stable with the
     # API.
     known_attributes = []
-
 
     def __init__(self, session, handle=None, name=None, values=None):
         """Reference an object in Cobbler.
