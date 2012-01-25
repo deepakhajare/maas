@@ -43,7 +43,8 @@ class AccessMiddleware(object):
 
     def process_request(self, request):
         # API views.
-        if self.api_url.match(request.path):
+        if (self.api_url.match(request.path)
+                and not self.public_urls.match(request.path)):
             if request.user.is_anonymous():
                 return rc.FORBIDDEN
             else:
