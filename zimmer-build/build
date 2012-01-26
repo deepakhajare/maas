@@ -12,7 +12,7 @@ TAIL_PID=""
 LOG="output.log"
 
 case $(uname -m) in
-	x?86) DEF_ZIMG=${DEF_ZIMG//amd64/i386};;
+	i?86) DEF_ZIMG=${DEF_ZIMG//amd64/i386};;
 esac
 
 VERBOSITY=0
