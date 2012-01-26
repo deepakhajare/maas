@@ -12,13 +12,13 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
-from testtools.testcase import ExpectedException
 from unittest import TestCase
 from xmlrpclib import Fault
 
 from provisioningserver import cobblerclient
 from provisioningserver.testing.fakecobbler import fake_token
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from testtools.testcase import ExpectedException
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -52,32 +52,6 @@ def make_auth_failure(broken_token=None):
     return FakeAuthFailure(broken_token)
 
 
-class InstrumentedSession(cobblerclient.CobblerSession):
-    """Instrumented `CobblerSession` with a fake XMLRPC proxy.
-
-    :ivar fake_proxy: Test double for the XMLRPC proxy.
-    :ivar fake_token: Auth token that login will pretend to receive.
-    """
-
-    def __init__(self, *args, **kwargs):
-        """Create and instrument a session.
-
-        In addition to the arguments for `CobblerSession.__init__`, pass a
-        keyword argument `fake_proxy` to set a test double that the session
-        will use for its proxy; and `fake_token` to provide a login token
-        that the session should pretend it gets from the server on login.
-        """
-        self.fake_proxy = kwargs.pop('fake_proxy')
-        self.fake_token = kwargs.pop('fake_token')
-        super(InstrumentedSession, self).__init__(*args, **kwargs)
-
-    def _make_twisted_proxy(self):
-        return self.fake_proxy
-
-    def _login(self):
-        self.token = self.fake_token
-
-
 class RecordingFakeProxy:
     """Simple fake Twisted XMLRPC proxy.
 
@@ -108,6 +82,31 @@ class RecordingFakeProxy:
             returnValue(value)
 
 
+class RecordingSession(cobblerclient.CobblerSession):
+    """A `CobblerSession` instrumented to run against a `RecordingFakeProxy`.
+
+    :ivar fake_token: Auth token that login will pretend to receive.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Create and instrument a session.
+
+        In addition to the arguments for `CobblerSession.__init__`, pass a
+        keyword argument `fake_proxy` to set a test double that the session
+        will use for its proxy; and `fake_token` to provide a login token
+        that the session should pretend it gets from the server on login.
+        """
+        self.fake_proxy = RecordingFakeProxy()
+        self.fake_token = kwargs.pop('fake_token')
+        super(RecordingSession, self).__init__(*args, **kwargs)
+
+    def _make_twisted_proxy(self):
+        return self.fake_proxy
+
+    def _login(self):
+        self.token = self.fake_token
+
+
 class TestCobblerSession(TestCase):
     """Test session management against a fake XMLRPC session."""
 
@@ -122,14 +121,12 @@ class TestCobblerSession(TestCase):
             )
 
     def make_recording_session(self, session_args=None, token=None):
-        """Create an `InstrumentedSession` with a `RecordingFakeProxy`."""
+        """Create a `RecordingSession`."""
         if session_args is None:
             session_args = self.make_url_user_password()
         if token is None:
             token = fake_token()
-        fake_proxy = RecordingFakeProxy()
-        return InstrumentedSession(
-            *session_args, fake_proxy=fake_proxy, fake_token=token)
+        return RecordingSession(*session_args, fake_token=token)
 
     def test_initializes_but_does_not_authenticate_on_creation(self):
         url, user, password = self.make_url_user_password()
@@ -209,17 +206,16 @@ class TestCobblerSession(TestCase):
         return_value = 'returnval-%d' % pick_number()
         method = 'method_%d' % pick_number()
         arg = 'arg-%d' % pick_number()
-        session.fake_proxy.set_return_values([return_value])
+        session.proxy.set_return_values([return_value])
         actual_return_value = yield session.call(method, arg)
         self.assertEqual(return_value, actual_return_value)
-        self.assertEqual([(method, arg)], session.fake_proxy.calls)
+        self.assertEqual([(method, arg)], session.proxy.calls)
 
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
         session = self.make_recording_session()
-        fake_proxy = session.fake_proxy
-        fake_proxy.set_return_values([make_auth_failure(), 555])
-        fake_proxy.calls = []
+        session.proxy.set_return_values([make_auth_failure(), 555])
+        session.proxy.calls = []
         old_token = session.token
         ultimate_return_value = yield session.call(
             "failing_method", cobblerclient.CobblerSession.token_placeholder)
@@ -231,7 +227,7 @@ class TestCobblerSession(TestCase):
                 # But call() re-authenticates, and retries.
                 ('failing_method', new_token),
             ],
-            fake_proxy.calls)
+            session.proxy.calls)
         self.assertEqual(555, ultimate_return_value)
 
     @inlineCallbacks
@@ -243,7 +239,7 @@ class TestCobblerSession(TestCase):
             # But retry still raises authentication failure.
             make_auth_failure(),
             ]
-        session.fake_proxy.set_return_values(failures)
+        session.proxy.set_return_values(failures)
         with ExpectedException(failures[-1].__class__, failures[-1].message):
             return_value = yield session.call('double_fail')
             self.addDetail('return_value', return_value)
@@ -252,7 +248,7 @@ class TestCobblerSession(TestCase):
     def test_call_raises_general_failure(self):
         session = self.make_recording_session()
         failure = Exception("Memory error.  Where did I put it?")
-        session.fake_proxy.set_return_values([failure])
+        session.proxy.set_return_values([failure])
         with ExpectedException(Exception, failure.message):
             return_value = yield session.call('failing_method')
             self.addDetail('return_value', return_value)
