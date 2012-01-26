@@ -166,7 +166,7 @@ class TestSetUpOOPSHandler(TestCase):
             observer.config.template)
 
 
-class TestProvisioningServiceMaker(IsolatedTestCase, TestCase):
+class TestProvisioningServiceMaker(TestCase):
     """Tests for `provisioningserver.plugin.ProvisioningServiceMaker`."""
 
     def test_init(self):
@@ -186,7 +186,7 @@ class TestProvisioningServiceMaker(IsolatedTestCase, TestCase):
             self.useFixture(TempDir()).path, "provisioningserver.log")
         options = self.makeOptions({"logfile": logfile})
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
-        service = service_maker.makeService(options)
+        service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
         self.assertEqual(2, len(service.services))
         client_service, server_service = service.services
