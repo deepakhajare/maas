@@ -58,7 +58,8 @@ class RecordingFakeProxy:
 
     Records XMLRPC calls, and returns predetermined values.
     """
-    def __init__(self):
+    def __init__(self, fake_token=None):
+        self.fake_token = fake_token
         self.calls = []
         self.return_values = None
 
@@ -71,6 +72,9 @@ class RecordingFakeProxy:
 
     @inlineCallbacks
     def callRemote(self, method, *args):
+        if method == 'login':
+            returnValue(self.fake_token)
+
         self.calls.append((method, ) + args)
         if self.return_values:
             value = self.return_values.pop(0)
@@ -97,15 +101,12 @@ class RecordingSession(cobblerclient.CobblerSession):
         will use for its proxy; and `fake_token` to provide a login token
         that the session should pretend it gets from the server on login.
         """
-        self.fake_proxy = RecordingFakeProxy()
-        self.fake_token = kwargs.pop('fake_token')
+        fake_token = kwargs.pop('fake_token')
+        self.fake_proxy = RecordingFakeProxy(fake_token)
         super(RecordingSession, self).__init__(*args, **kwargs)
 
     def _make_twisted_proxy(self):
         return self.fake_proxy
-
-    def _login(self):
-        self.token = self.fake_token
 
 
 class TestCobblerSession(TestCase):
@@ -135,11 +136,12 @@ class TestCobblerSession(TestCase):
             token=fake_token(user, 'not-yet-authenticated'))
         self.assertEqual(None, session.token)
 
+    @inlineCallbacks
     def test_authenticate_authenticates_initially(self):
         token = fake_token('authenticated')
         session = self.make_recording_session(token=token)
         self.assertEqual(None, session.token)
-        session.authenticate()
+        yield session.authenticate()
         self.assertEqual(token, session.token)
 
     @inlineCallbacks
@@ -150,12 +152,14 @@ class TestCobblerSession(TestCase):
         yield session.call("some_method")
         self.assertEqual(state, session.record_state())
 
+    @inlineCallbacks
     def test_authentication_changes_state_cookie(self):
         session = self.make_recording_session()
         old_cookie = session.record_state()
-        session.authenticate()
+        yield session.authenticate()
         self.assertNotEqual(old_cookie, session.record_state())
 
+    @inlineCallbacks
     def test_authenticate_backs_off_from_overwriting_concurrent_auth(self):
         session = self.make_recording_session()
         # Two requests are made concurrently.
@@ -163,12 +167,12 @@ class TestCobblerSession(TestCase):
         cookie_before_request_2 = session.record_state()
         # Request 1 comes back with an authentication failure, and its
         # callback refreshes the session's auth token.
-        session.authenticate(cookie_before_request_1)
+        yield session.authenticate(cookie_before_request_1)
         token_for_retrying_request_1 = session.token
         # Request 2 also comes back an authentication failure, and its
         # callback also asks the session to ensure that it is
         # authenticated.
-        session.authenticate(cookie_before_request_2)
+        yield session.authenticate(cookie_before_request_2)
         token_for_retrying_request_2 = session.token
 
         # The double authentication does not confuse the session; both
@@ -180,10 +184,11 @@ class TestCobblerSession(TestCase):
         self.assertNotEqual(cookie_before_request_1, session.token)
         self.assertNotEqual(cookie_before_request_2, session.token)
 
+    @inlineCallbacks
     def test_substitute_token_substitutes_only_placeholder(self):
         token = fake_token('for-substitution')
         session = self.make_recording_session(token=token)
-        session.authenticate()
+        yield session.authenticate()
         arbitrary_number = pick_number()
         arbitrary_string = 'string-%d' % pick_number()
         inputs = [

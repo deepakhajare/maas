@@ -24,6 +24,7 @@ __all__ = [
 import xmlrpclib
 
 from twisted.internet.defer import (
+    DeferredLock,
     inlineCallbacks,
     returnValue,
     )
@@ -55,6 +56,7 @@ class CobblerSession:
         self.proxy = self._make_twisted_proxy()
         self.token = None
         self.connection_count = 0
+        self.authentication_lock = DeferredLock()
 
     def _make_twisted_proxy(self):
         """Create a Twisted XMRLPC proxy.
@@ -76,14 +78,7 @@ class CobblerSession:
         """
         return (self.connection_count, self.token)
 
-    def _login(self):
-        """Log in."""
-        # Doing this synchronously for simplicity.  The authentication token
-        # can be shared, making this a rare operation that multiple
-        # concurrent requests may be waiting on.
-        self.token = xmlrpclib.Server(self.url).login(
-            self.user, self.password)
-
+    @inlineCallbacks
     def authenticate(self, previous_state=None):
         """Log in synchronously.
 
@@ -97,11 +92,21 @@ class CobblerSession:
             method will assume that a concurrent authentication request has
             completed and the failed request can be retried without logging
             in again.
+            If no `previous_state` is given, authentication will happen
+            regardless.
         """
-        if previous_state is None or self.record_state() == previous_state:
-            # No concurrent login has completed since we last issued a
-            # request that required authentication; try a fresh one.
-            self._login()
+        if previous_state is None:
+            previous_state = self.record_state()
+
+        yield self.authentication_lock.acquire()
+        try:
+            if self.record_state() == previous_state:
+                # No concurrent login has completed since we last issued a
+                # request that required authentication; try a fresh one.
+                self.token = yield self.proxy.callRemote(
+                    'login', self.user, self.password)
+        finally:
+            self.authentication_lock.release()
 
     def substitute_token(self, arg):
         """Return `arg`, or the current auth token for `token_placeholder`."""
@@ -149,7 +154,7 @@ class CobblerSession:
                 raise
 
         if authentication_expired:
-            self.authenticate(original_state)
+            yield self.authenticate(original_state)
             result = yield self._issue_call(method, *args)
         returnValue(result)
 
