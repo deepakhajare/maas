@@ -296,7 +296,12 @@ class CobblerObject:
             # Something went wrong and we had to re-authenticate our
             # session while we were modifying attributes.  We can't be sure
             # that our changes all got through, so make them all again.
+            original_state = self.session.record_state()
             yield self._modify_attributes(self, attributes)
+            if self.session.record_state() != original_state:
+                raise RuntimeError(
+                    "Cobbler session broke while modifying %s."
+                    % self.object_type)
 
         original_state = self.session.record_state()
         yield self._save_attributes()

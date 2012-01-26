@@ -17,7 +17,7 @@ from provisioningserver.cobblerclient import (
     CobblerSession,
     CobblerSystem,
     )
-from provisioningserver.fakecobbler import (
+from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
     FakeTwistedProxy,
     )
