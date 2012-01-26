@@ -3,6 +3,7 @@
 import yaml
 import Cheetah
 import os
+import re
 import sys
 import copy
 import pprint
@@ -166,9 +167,23 @@ def cobbler_addsystem(server, token, system, profile, hostip):
 		raise Exception("failed to save %s" % system.name)
 	print "added %s" % system.name
 
+
+def get_profile_arch():
+	"""Get the system architecture for use in the cobbler setup profile."""
+	# This should, for any given system, match what the zimmer-build
+	# script does to determine the right architecture.
+	arch_text = subprocess.check_output(
+        ['/bin/uname', '-m'], stdout=subprocess.PIPE)
+	if re.match('i.86', arch_text):
+		return 'i386'
+	else:
+		return arch_text
+
+
 def cobbler_setup(config):
 	hostip = "%s.1" % config['network']['ip_pre']
-	profile = "precise-x86_64-juju"
+	arch = get_profile_arch()
+	profile = "precise-%s-juju" % arch
 	
 	cob = System(config, "zimmer")
 	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
