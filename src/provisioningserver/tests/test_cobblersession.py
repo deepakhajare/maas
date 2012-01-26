@@ -219,8 +219,14 @@ class TestCobblerSession(TestCase):
 
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
+        # If a call triggers an authentication error, call()
+        # re-authenticates and then re-issues the call.
         session = self.make_recording_session()
-        session.proxy.set_return_values([make_auth_failure(), 555])
+        successful_return_value = pick_number()
+        session.proxy.set_return_values([
+            make_auth_failure(),
+            successful_return_value,
+            ])
         session.proxy.calls = []
         old_token = session.token
         ultimate_return_value = yield session.call(
@@ -234,7 +240,26 @@ class TestCobblerSession(TestCase):
                 ('failing_method', new_token),
             ],
             session.proxy.calls)
-        self.assertEqual(555, ultimate_return_value)
+        self.assertEqual(successful_return_value, ultimate_return_value)
+
+    @inlineCallbacks
+    def test_call_uses_original_cookie_for_reauthentication_check(self):
+        # When a call triggers an authentication error, authenticate()
+        # is called just once, with the state cookie from before the
+        # call.  This ensures that it will always notice a concurrent
+        # re-authentication that it needs to back off from.
+        session = self.make_recording_session()
+        authenticate_cookies = []
+
+        def fake_authenticate(previous_state):
+            authenticate_cookies.append(previous_state)
+
+        session.authenticate = fake_authenticate
+        session.proxy.set_return_values([make_auth_failure()])
+        state_before_call = session.record_state()
+        yield session.call(
+            "fail", cobblerclient.CobblerSession.token_placeholder)
+        self.assertEqual([state_before_call], authenticate_cookies)
 
     @inlineCallbacks
     def test_call_raises_repeated_auth_failure(self):
