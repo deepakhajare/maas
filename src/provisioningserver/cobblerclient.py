@@ -80,7 +80,7 @@ class CobblerSession:
 
     @inlineCallbacks
     def authenticate(self, previous_state=None):
-        """Log in synchronously.
+        """Log in asynchronously.
 
         Call this when starting up, but also when an XMLRPC call result
         indicates that the authentication token used for a request has
@@ -94,6 +94,7 @@ class CobblerSession:
             in again.
             If no `previous_state` is given, authentication will happen
             regardless.
+        :return: A `Deferred`.
         """
         if previous_state is None:
             previous_state = self.record_state()
