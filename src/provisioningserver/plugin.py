@@ -48,6 +48,7 @@ def getRotatableLogFileObserver(filename):
     if filename != '-':
         logfile = LogFile.fromFullPath(
             filename, rotateLength=None, defaultMode=0644)
+
         def signal_handler(sig, frame):
             reactor.callFromThread(logfile.reopen)
         signal.signal(signal.SIGUSR1, signal_handler)

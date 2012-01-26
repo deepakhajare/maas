@@ -17,7 +17,6 @@ import os
 
 from fixtures import TempDir
 from oops_twisted import OOPSObserver
-from subunit import IsolatedTestCase
 from testtools import TestCase
 from testtools.content import (
     Content,
@@ -64,8 +63,8 @@ class TestOptions(TestCase):
             Raises(MatchesException(UsageError, message)))
 
     def test_option_brokeruser_required(self):
-       options = Options()
-       self.check_exception(
+        options = Options()
+        self.check_exception(
             options,
             "--brokeruser must be specified")
 
@@ -192,4 +191,3 @@ class TestProvisioningServiceMaker(TestCase):
         client_service, server_service = service.services
         self.assertEqual(options["brokerhost"], client_service.args[0])
         self.assertEqual(options["brokerport"], client_service.args[1])
-

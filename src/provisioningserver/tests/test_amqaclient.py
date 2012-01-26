@@ -79,4 +79,3 @@ class AMQClosingTest(AMQTest):
         """
         errors = flush_logged_errors()
         self.assertEquals(len(errors), 0)
-
