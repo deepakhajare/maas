@@ -23,6 +23,7 @@ __all__ = [
 
 import xmlrpclib
 
+from twisted.internet import reactor as default_reactor
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -109,6 +110,24 @@ class CobblerSession:
             return self.token
         else:
             return arg
+
+    def _with_timeout(self, d, timeout=3600, reactor=None):
+        """Wrap the xmlrpc call that returns "d" so that it is cancelled if
+        it exceeds a timeout.
+
+        :param d: The Deferred to cancel.
+        :param timeout: timeout in seconds
+        :param reactor: override the default reactor, useful for testing.
+        """
+        if reactor is None:
+            reactor = default_reactor
+        delayed_call = reactor.callLater(timeout, d.cancel)
+
+        def cancel_timeout(passthrough):
+            if not delayed_call.called:
+                delayed_call.cancel()
+            return passthrough
+        return d.addBoth(cancel_timeout)
 
     def _issue_call(self, method, *args):
         """Initiate call to XMLRPC method.

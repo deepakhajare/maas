@@ -18,12 +18,19 @@ from xmlrpclib import Fault
 from provisioningserver import cobblerclient
 from provisioningserver.testing.fakecobbler import fake_token
 from testtools.content import text_content
-from testtools.deferredruntest import AsynchronousDeferredRunTest
+from testtools.deferredruntest import (
+    assert_fails_with,
+    AsynchronousDeferredRunTest,
+    )
 from testtools.testcase import ExpectedException
+from twisted.internet import defer
 from twisted.internet.defer import (
+    CancelledError,
+    Deferred,
     inlineCallbacks,
     returnValue,
     )
+from twisted.internet.task import Clock
 
 
 randomizer = Random()
@@ -108,10 +115,8 @@ class RecordingSession(cobblerclient.CobblerSession):
         self.token = self.fake_token
 
 
-class TestCobblerSession(TestCase):
-    """Test session management against a fake XMLRPC session."""
-
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+class TestCobblerSessionBase(TestCase):
+    """Base class helpers for testing `CobblerSession`."""
 
     def make_url_user_password(self):
         """Produce arbitrary API URL, username, and password."""
@@ -128,6 +133,12 @@ class TestCobblerSession(TestCase):
         if token is None:
             token = fake_token()
         return RecordingSession(*session_args, fake_token=token)
+
+
+class TestCobblerSession(TestCobblerSessionBase):
+    """Test session management against a fake XMLRPC session."""
+
+    run_tests_with = AsynchronousDeferredRunTest.make_factory()
 
     def test_initializes_but_does_not_authenticate_on_creation(self):
         url, user, password = self.make_url_user_password()
@@ -255,6 +266,29 @@ class TestCobblerSession(TestCase):
             self.addDetail('return_value', text_content(repr(return_value)))
 
 
+class TestConnectionTimeouts(TestCobblerSessionBase):
+    """Tests for connection timeouts on `CobblerSession`."""
+
+    run_tests_with = AsynchronousDeferredRunTest
+
+    def test__with_timeout_cancels(self):
+        clock = Clock()
+        session = self.make_recording_session()
+        d = session._with_timeout(defer.Deferred(), 1, clock)
+        clock.advance(2)
+        return assert_fails_with(d, defer.CancelledError)
+
+    def test__with_timeout_not_cancelled(self):
+        clock = Clock()
+        session = self.make_recording_session()
+        d = session._with_timeout(defer.succeed("frobnicle"), 1, clock)
+        clock.advance(2)
+        def result(value):
+            self.assertEqual(value, "frobnicle")
+            self.assertEqual([], clock.getDelayedCalls())
+        return d.addCallback(result)
+
+
 class CobblerObject(TestCase):
     """Tests for the `CobblerObject` classes."""
 
@@ -267,3 +301,4 @@ class CobblerObject(TestCase):
         self.assertEqual(
             'x_systems_y',
             cobblerclient.CobblerSystem.name_method('x_%s_y', plural=True))
+
