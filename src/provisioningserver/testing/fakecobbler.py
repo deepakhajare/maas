@@ -15,7 +15,8 @@ __all__ = [
     'fake_token',
     ]
 
-from random import Random
+from itertools import count
+from random import randint
 from xmlrpclib import Fault
 
 from twisted.internet.defer import (
@@ -24,23 +25,18 @@ from twisted.internet.defer import (
     )
 
 
-randomizer = Random()
-
-sequence_no = randomizer.randint(0, 99999)
+unique_ints = count(randint(0, 99999))
 
 
-def get_unique_int():
-    global sequence_no
-    result = sequence_no
-    sequence_no += 1
-    return result
+def fake_token(user=None, custom_id=None):
+    """Make up a fake auth token.
 
-
-def fake_token(user=None):
-    elements = ['token', '%s' % get_unique_int()]
-    if user is not None:
-        elements.append(user)
-    return '-'.join(elements)
+    :param user: Optional user name to embed in the token id.
+    :param custom_id: Optional custom id element to embed in the token id,
+        for ease of debugging.
+    """
+    elements = ['token', '%s' % next(unique_ints), user, custom_id]
+    return '-'.join(filter(None, elements))
 
 
 class FakeTwistedProxy:

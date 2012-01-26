@@ -16,7 +16,7 @@ from unittest import TestCase
 from xmlrpclib import Fault
 
 from provisioningserver import cobblerclient
-from provisioningserver.fakecobbler import fake_token
+from provisioningserver.testing.fakecobbler import fake_token
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import (
     inlineCallbacks,
@@ -129,11 +129,12 @@ class TestCobblerSession(TestCase):
 
     def test_initializes_but_does_not_authenticate_on_creation(self):
         url, user, password = self.make_url_user_password()
-        session = self.make_recording_session(token=fake_token())
+        session = self.make_recording_session(
+            token=fake_token(user, 'not-yet-authenticated'))
         self.assertEqual(None, session.token)
 
     def test_authenticate_authenticates_initially(self):
-        token = fake_token()
+        token = fake_token('authenticated')
         session = self.make_recording_session(token=token)
         self.assertEqual(None, session.token)
         session.authenticate()
@@ -178,27 +179,31 @@ class TestCobblerSession(TestCase):
         self.assertNotEqual(cookie_before_request_2, session.token)
 
     def test_substitute_token_substitutes_only_placeholder(self):
-        token = fake_token()
+        token = fake_token('for-substitution')
         session = self.make_recording_session(token=token)
         session.authenticate()
         arbitrary_number = pick_number()
+        arbitrary_string = 'string-%d' % pick_number()
         inputs = [
             arbitrary_number,
             cobblerclient.CobblerSession.token_placeholder,
+            arbitrary_string,
             None,
             ]
         outputs = [
             arbitrary_number,
             token,
-            None]
+            arbitrary_string,
+            None,
+            ]
         self.assertEqual(outputs, map(session.substitute_token, inputs))
 
     @inlineCallbacks
     def test_call_calls_xmlrpc(self):
         session = self.make_recording_session()
-        return_value = pick_number()
-        method = 'method%d' % pick_number()
-        arg = pick_number()
+        return_value = 'returnval-%d' % pick_number()
+        method = 'method_%d' % pick_number()
+        arg = 'arg-%d' % pick_number()
         session.fake_proxy.set_return_values([return_value])
         actual_return_value = yield session.call(method, arg)
         self.assertEqual(return_value, actual_return_value)
