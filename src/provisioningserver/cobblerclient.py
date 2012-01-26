@@ -111,12 +111,12 @@ class CobblerSession:
         else:
             return arg
 
-    def _with_timeout(self, d, timeout=3600, reactor=None):
+    def _with_timeout(self, d, timeout=30, reactor=None):
         """Wrap the xmlrpc call that returns "d" so that it is cancelled if
         it exceeds a timeout.
 
         :param d: The Deferred to cancel.
-        :param timeout: timeout in seconds
+        :param timeout: timeout in seconds, defaults to 30.
         :param reactor: override the default reactor, useful for testing.
         """
         if reactor is None:
@@ -139,7 +139,7 @@ class CobblerSession:
         :return: `Deferred`.
         """
         args = map(self.substitute_token, args)
-        d = self.proxy.callRemote(method, *args)
+        d = self._with_timeout(self.proxy.callRemote(method, *args))
         return d
 
     @inlineCallbacks

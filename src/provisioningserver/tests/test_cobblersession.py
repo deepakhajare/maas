@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import fixtures
+
 from random import Random
 from unittest import TestCase
 from xmlrpclib import Fault
@@ -25,8 +27,6 @@ from testtools.deferredruntest import (
 from testtools.testcase import ExpectedException
 from twisted.internet import defer
 from twisted.internet.defer import (
-    CancelledError,
-    Deferred,
     inlineCallbacks,
     returnValue,
     )
@@ -266,7 +266,8 @@ class TestCobblerSession(TestCobblerSessionBase):
             self.addDetail('return_value', text_content(repr(return_value)))
 
 
-class TestConnectionTimeouts(TestCobblerSessionBase):
+class TestConnectionTimeouts(TestCobblerSessionBase,
+                             fixtures.TestWithFixtures):
     """Tests for connection timeouts on `CobblerSession`."""
 
     run_tests_with = AsynchronousDeferredRunTest
@@ -287,6 +288,19 @@ class TestConnectionTimeouts(TestCobblerSessionBase):
             self.assertEqual(value, "frobnicle")
             self.assertEqual([], clock.getDelayedCalls())
         return d.addCallback(result)
+
+    def test__issue_call_times_out(self):
+        clock = Clock()
+        #patch = fixtures.MonkeyPatch(
+        #    "provisioningserver.cobblerclient.default_reactor", clock)
+        patch = fixtures.MonkeyPatch(
+            "twisted.internet.reactor", clock)
+        self.useFixture(patch)
+
+        session = self.make_recording_session()
+        d = session._issue_call("login", "foo")
+        clock.advance(31)
+        return assert_fails_with(d, defer.CancelledError)
 
 
 class CobblerObject(TestCase):
