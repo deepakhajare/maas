@@ -1,6 +1,8 @@
 PYTHON = python2.7
 
-build: bin/buildout bin/maas bin/test.maas bin/test.pserv bin/py bin/ipy doc
+build: bin/buildout bin/maas bin/test.maas bin/test.pserv bin/py bin/ipy
+
+all: build doc
 
 bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
