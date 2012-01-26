@@ -102,8 +102,15 @@ class CobblerSession:
         yield self.authentication_lock.acquire()
         try:
             if self.record_state() == previous_state:
-                # No concurrent login has completed since we last issued a
-                # request that required authentication; try a fresh one.
+                # If we're here, nobody else is authenticating this
+                # session.  Clear the stale token as a hint to
+                # subsequent calls on the session.  If they see that the
+                # session is unauthenticated they won't issue and fail,
+                # but rather block for this authentication attempt to
+                # complete.
+                self.token = None
+
+                # Now initiate our new authentication.
                 self.token = yield self.proxy.callRemote(
                     'login', self.user, self.password)
         finally:
@@ -140,21 +147,27 @@ class CobblerSession:
 
         :param method: Name of XMLRPC method to call.
         :param *args: Positional arguments for the XMLRPC call.
-        :return: The result of the call.
+        :return: A `Deferred` representing the call.
         """
         original_state = self.record_state()
         authenticate = (self.token_placeholder in args)
 
-        authentication_expired = False
-        try:
-            result = yield self._issue_call(method, *args)
-        except xmlrpclib.Fault as e:
-            if authenticate and looks_like_auth_expiry(e):
-                authentication_expired = True
-            else:
-                raise
+        authentication_expired = (authenticate and self.token is None)
+        if not authentication_expired:
+            # It looks like we're authenticated.  Issue the call.  If we
+            # then find out that our authentication token is invalid, we
+            # can retry it later.
+            try:
+                result = yield self._issue_call(method, *args)
+            except xmlrpclib.Fault as e:
+                if authenticate and looks_like_auth_expiry(e):
+                    authentication_expired = True
+                else:
+                    raise
 
         if authentication_expired:
+            # We weren't authenticated when we started, but we should be
+            # now.  Make the final attempt.
             yield self.authenticate(original_state)
             result = yield self._issue_call(method, *args)
         returnValue(result)

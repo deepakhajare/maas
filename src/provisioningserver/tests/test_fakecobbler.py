@@ -11,8 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from unittest import TestCase
-
 from provisioningserver.cobblerclient import (
     CobblerSession,
     CobblerSystem,
@@ -23,7 +21,10 @@ from provisioningserver.testing.fakecobbler import (
     )
 from testtools.content import text_content
 from testtools.deferredruntest import AsynchronousDeferredRunTest
-from testtools.testcase import ExpectedException
+from testtools.testcase import (
+    ExpectedException,
+    TestCase,
+    )
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
