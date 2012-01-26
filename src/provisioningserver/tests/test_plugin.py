@@ -8,6 +8,9 @@ from __future__ import (
     unicode_literals,
     )
 
+__metaclass__ = type
+__all__ = []
+
 from cStringIO import StringIO
 from functools import partial
 import os
