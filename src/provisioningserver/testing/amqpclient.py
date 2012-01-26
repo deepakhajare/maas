@@ -17,7 +17,7 @@ from twisted.internet.defer import (
     inlineCallbacks,
     )
 from txamqp.client import Closed
-from txlongpoll.client import AMQFactory
+from provisioningserver.amqpclient import AMQFactory
 
 
 class QueueWrapper(object):
