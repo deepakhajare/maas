@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
+from testtools import ExpectedException
 from unittest import TestCase
 from xmlrpclib import Fault
 
@@ -30,6 +31,11 @@ randomizer = Random()
 def pick_number():
     """Pick an arbitrary number."""
     return randomizer.randint(0, 10 ** 9)
+
+
+def apply_to_all(function, args):
+    """List the results of `function(arg)` for each `arg` in `args`."""
+    return list(map(function, args))
 
 
 class FakeAuthFailure(Fault):
@@ -61,10 +67,8 @@ class InstrumentedSession(cobblerclient.CobblerSession):
         will use for its proxy; and `fake_token` to provide a login token
         that the session should pretend it gets from the server on login.
         """
-        self.fake_proxy = kwargs['fake_proxy']
-        self.fake_token = kwargs['fake_token']
-        del kwargs['fake_proxy']
-        del kwargs['fake_token']
+        self.fake_proxy = kwargs.pop('fake_proxy')
+        self.fake_token = kwargs.pop('fake_token')
         super(InstrumentedSession, self).__init__(*args, **kwargs)
 
     def _make_twisted_proxy(self):
@@ -92,7 +96,7 @@ class RecordingFakeProxy:
 
     @inlineCallbacks
     def callRemote(self, method, *args):
-        self.calls.append((method, ) + tuple(args))
+        self.calls.append((method, ) + args)
         if self.return_values:
             value = self.return_values.pop(0)
         else:
@@ -196,7 +200,8 @@ class TestCobblerSession(TestCase):
             arbitrary_string,
             None,
             ]
-        self.assertEqual(outputs, map(session.substitute_token, inputs))
+        self.assertEqual(
+            outputs, apply_to_all(session.substitute_token, inputs))
 
     @inlineCallbacks
     def test_call_calls_xmlrpc(self):
@@ -232,34 +237,25 @@ class TestCobblerSession(TestCase):
     @inlineCallbacks
     def test_call_raises_repeated_auth_failure(self):
         session = self.make_recording_session()
-        session.fake_proxy.set_return_values([
+        failures = [
             # Initial operation fails: not authenticated.
             make_auth_failure(),
             # But retry still raises authentication failure.
             make_auth_failure(),
-            ])
-        try:
-            d = session.call('double_fail')
-            return_value = yield d
-        except Exception:
-            pass
-        else:
-            self.fail("Returned %s instead of raising." % return_value)
+            ]
+        session.fake_proxy.set_return_values(failures)
+        with ExpectedException(failures[-1].__class__, failures[-1].message):
+            return_value = yield session.call('double_fail')
+            self.addDetail('return_value', return_value)
 
     @inlineCallbacks
     def test_call_raises_general_failure(self):
         session = self.make_recording_session()
-        session.fake_proxy.set_return_values([
-            Exception("Memory error.  Where did I put it?"),
-            ])
-        try:
-            d = session.call('failing_method')
-            return_value = yield d
-        except Exception:
-            pass
-        else:
-            self.assertTrue(
-                False, "Returned %s instead of raising." % return_value)
+        failure = Exception("Memory error.  Where did I put it?")
+        session.fake_proxy.set_return_values([failure])
+        with ExpectedException(Exception, failure.message):
+            return_value = yield session.call('failing_method')
+            self.addDetail('return_value', return_value)
 
 
 class CobblerObject(TestCase):
