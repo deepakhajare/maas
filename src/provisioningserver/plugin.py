@@ -104,10 +104,13 @@ class Options(usage.Options):
                 "A reporter must be supplied to identify reports "
                 "from this service from other OOPS reports.")
 
+
 class ProvisioningServiceMaker(object):
     """Create a service for the Twisted plugin."""
 
     implements(IServiceMaker, IPlugin)
+
+    options = Options
 
     def __init__(self, name, description):
         self.tapname = name
@@ -117,7 +120,8 @@ class ProvisioningServiceMaker(object):
         """Construct a service."""
         # Required to hide the command line options that include a password.
         # There is a small window where it can be seen though, between
-        # invocation and when this code runs.
+        # invocation and when this code runs. TODO: Make this optional (so
+        # that we don't override process title in tests).
         setproctitle.setproctitle("maas provisioning service")
 
         logfile = getRotatableLogFileObserver(options["logfile"])
