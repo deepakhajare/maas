@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
-from testtools import ExpectedException
+from testtools.testcase import ExpectedException
 from unittest import TestCase
 from xmlrpclib import Fault
 

@@ -193,7 +193,6 @@ class CobblerObject:
         if values is None:
             values = {}
         self.session = session
-        self.values = values
         # Cache the handle; we need it when modifying or saving objects.
         self.handle = handle or values.get('handle')
         # Cache the name; we need it when deleting objects.
