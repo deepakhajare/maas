@@ -6,11 +6,13 @@ from __future__ import (
     unicode_literals,
     )
 
+import test_cobblersession
 import test_fakecobbler
 
 
 __metaclass__ = type
 __all__ = [
+    test_cobblersession,
     test_fakecobbler,
     ]
 

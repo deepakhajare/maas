@@ -139,11 +139,12 @@ class TestCobblerSession(TestCase):
         session.authenticate()
         self.assertEqual(token, session.token)
 
+    @inlineCallbacks
     def test_state_cookie_stays_constant_during_normal_use(self):
         session = self.make_recording_session()
         state = session.record_state()
         self.assertEqual(state, session.record_state())
-        session.call("some_method")
+        yield session.call("some_method")
         self.assertEqual(state, session.record_state())
 
     def test_authentication_changes_state_cookie(self):
@@ -207,17 +208,21 @@ class TestCobblerSession(TestCase):
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
         session = self.make_recording_session()
         fake_proxy = session.fake_proxy
-        fake_proxy.set_return_values([make_auth_failure()])
+        fake_proxy.set_return_values([make_auth_failure(), 555])
         fake_proxy.calls = []
-        yield session.call("failing_method")
+        old_token = session.token
+        ultimate_return_value = yield session.call(
+            "failing_method", cobblerclient.CobblerSession.token_placeholder)
+        new_token = session.token
         self.assertEqual(
             [
                 # Initial call to failing_method: auth failure.
-                ('failing_method', ),
+                ('failing_method', old_token),
                 # But call() re-authenticates, and retries.
-                ('failing_method', ),
+                ('failing_method', new_token),
             ],
             fake_proxy.calls)
+        self.assertEqual(555, ultimate_return_value)
 
     @inlineCallbacks
     def test_call_raises_repeated_auth_failure(self):
@@ -250,3 +255,17 @@ class TestCobblerSession(TestCase):
         else:
             self.assertTrue(
                 False, "Returned %s instead of raising." % return_value)
+
+
+class CobblerObject(TestCase):
+    """Tests for the `CobblerObject` classes."""
+
+    def test_name_method_inserts_type_name(self):
+        self.assertEqual(
+            'foo_system_bar',
+            cobblerclient.CobblerSystem.name_method('foo_%s_bar'))
+
+    def test_name_method_appends_s_for_plural(self):
+        self.assertEqual(
+            'x_systems_y',
+            cobblerclient.CobblerSystem.name_method('x_%s_y', plural=True))

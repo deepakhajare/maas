@@ -110,19 +110,18 @@ class CobblerSession:
         else:
             return arg
 
-    @inlineCallbacks
-    def _callAndYield(self, method, *args):
-        """Call XMLRPC method, yielding to the reactor in the meantime.
+    def _issue_call(self, method, *args):
+        """Initiate call to XMLRPC method.
 
         :param method: Name of XMLRPC method to invoke.
         :param *args: Arguments for the call.  If any of them is
             `token_placeholder`, the current security token will be
             substituted in its place.
+        :return: `Deferred`.
         """
         args = map(self.substitute_token, args)
         d = self.proxy.callRemote(method, *args)
-        result = yield d
-        returnValue(result)
+        return d
 
     @inlineCallbacks
     def call(self, method, *args):
@@ -142,7 +141,7 @@ class CobblerSession:
 
         authentication_expired = False
         try:
-            result = yield self._callAndYield(method, *args)
+            result = yield self._issue_call(method, *args)
         except xmlrpclib.Fault as e:
             if authenticate and looks_like_auth_expiry(e):
                 authentication_expired = True
@@ -151,7 +150,7 @@ class CobblerSession:
 
         if authentication_expired:
             self.authenticate(original_state)
-            result = yield self._callAndYield(method, *args)
+            result = yield self._issue_call(method, *args)
         returnValue(result)
 
 
@@ -209,7 +208,7 @@ class CobblerObject:
         becomes "get_systems".
         """
         if plural:
-            type_name = (cls.object_type_plural or '%s' % cls.object_type)
+            type_name = (cls.object_type_plural or '%ss' % cls.object_type)
         else:
             type_name = cls.object_type
         return name_template % type_name
