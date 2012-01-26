@@ -1,6 +1,15 @@
 #!/bin/bash
 
-DEF_ZIMG="http://cloud-images.ubuntu.com/server/precise/current/precise-server-cloudimg-amd64-disk1.img"
+# This should mirror what's in odev's setup.py, except here IA64 is called
+# amd64, not x86_64.
+GUEST_ARCHITECTURE=$(uname -m)
+case "$GUEST_ARCHITECTURE" in
+    i686) GUEST_ARCHITECTURE="i386" ;;
+    x86_64) GUEST_ARCHITECTURE="amd64" ;;
+esac
+
+
+DEF_ZIMG="http://cloud-images.ubuntu.com/server/precise/current/precise-server-cloudimg-${GUEST_ARCHITECTURE}-disk1.img"
 DEF_SAVE_D="pristine"
 DEF_CI_BZR="lp:cloud-init"
 DEF_UD_FILE="ud-build.txt"
