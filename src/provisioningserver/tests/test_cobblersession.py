@@ -17,6 +17,7 @@ from xmlrpclib import Fault
 
 from provisioningserver import cobblerclient
 from provisioningserver.testing.fakecobbler import fake_token
+from testtools.content import text_content
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from testtools.testcase import ExpectedException
 from twisted.internet.defer import (
@@ -242,7 +243,7 @@ class TestCobblerSession(TestCase):
         session.proxy.set_return_values(failures)
         with ExpectedException(failures[-1].__class__, failures[-1].message):
             return_value = yield session.call('double_fail')
-            self.addDetail('return_value', return_value)
+            self.addDetail('return_value', text_content(repr(return_value)))
 
     @inlineCallbacks
     def test_call_raises_general_failure(self):
@@ -251,7 +252,7 @@ class TestCobblerSession(TestCase):
         session.proxy.set_return_values([failure])
         with ExpectedException(Exception, failure.message):
             return_value = yield session.call('failing_method')
-            self.addDetail('return_value', return_value)
+            self.addDetail('return_value', text_content(repr(return_value)))
 
 
 class CobblerObject(TestCase):
