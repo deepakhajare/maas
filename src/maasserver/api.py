@@ -10,11 +10,14 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "api_doc",
+    "generate_api_doc",
     "NodeHandler",
     "NodeMacsHandler",
     ]
 
 from functools import wraps
+import types
 
 from django.core.exceptions import (
     PermissionDenied,
@@ -25,13 +28,18 @@ from django.shortcuts import (
     render_to_response,
     )
 from django.template import RequestContext
+from docutils import core
+from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
     MACAddress,
     Node,
     )
 from piston.doc import generate_doc
-from piston.handler import BaseHandler
+from piston.handler import (
+    BaseHandler,
+    HandlerMetaClass,
+    )
 from piston.utils import rc
 
 
@@ -41,9 +49,9 @@ def bad_request(message):
     return resp
 
 
-def format_error_message(error):
+def format_error_message(error_dict):
     messages = []
-    for k, v in error.message_dict.iteritems():
+    for k, v in error_dict.iteritems():
         if isinstance(v, list):
             messages.append("%s: %s" % (k, "".join(v)))
         else:
@@ -57,7 +65,7 @@ def validate_and_save(obj):
         obj.save()
         return obj
     except ValidationError, e:
-        return bad_request(format_error_message(e))
+        return bad_request(format_error_message(e.message_dict))
 
 
 def validate_mac_address(mac_address):
@@ -76,6 +84,58 @@ def perm_denied_handler(view_func):
         except PermissionDenied:
             return rc.FORBIDDEN
     return wraps(view_func)(_decorator)
+
+
+def api_exported(operation_name=True):
+    def _decorator(func):
+        if operation_name == 'create':
+            raise Exception("Cannot define a 'create' operation.")
+        func._api_exported = operation_name
+        return func
+    return _decorator
+
+
+# The parameter used to specify the requested operation for POST API calls.
+OP_PARAM = 'op'
+
+
+class OperationHandlerMetaClass(HandlerMetaClass):
+    def __init__(cls, name, bases, dct):
+        super(OperationHandlerMetaClass, cls).__init__(name, bases, dct)
+        # Register all the exported methods.
+        cls._available_api_methods = {}
+        api_docs = ['\n']
+        for name, slot in dct.iteritems():
+            if isinstance(slot, types.FunctionType):
+                if name == 'create':
+                    raise Exception("Cannot define a 'create' method.")
+                operation_name = getattr(slot, '_api_exported', None)
+                if operation_name is not None:
+                    api_name = (
+                        name if operation_name is True else operation_name)
+                    cls._available_api_methods[api_name] = slot
+                    doc = "Method '%s' (op=%s):\n\t%s" % (
+                        api_name, api_name, slot.__doc__)
+                    api_docs.append(doc)
+
+        # Define a 'create' method that will route requests to the methods
+        # registered in _available_api_methods.
+        def create(cls, request, *args, **kwargs):
+            op = request.data.get(OP_PARAM, None)
+            if not isinstance(op, unicode):
+                return bad_request('Unknown operation.')
+            elif op not in cls._available_api_methods:
+                return bad_request('Unknown operation: %s.' % op)
+            else:
+                method = cls._available_api_methods[op]
+                return method(cls, request, *args, **kwargs)
+
+        # Update the __doc__ for the 'create' method.
+        doc = "Operate on nodes collection. The actual method to execute\
+               depends on the value of the '%s' parameter." % OP_PARAM
+        create.__doc__ = doc + '\n- '.join(api_docs)
+        # Add the 'create' method.
+        setattr(cls, 'create', create)
 
 
 class NodeHandler(BaseHandler):
@@ -108,27 +168,31 @@ class NodeHandler(BaseHandler):
         return rc.DELETED
 
     @classmethod
-    def resource_uri(cls, *args, **kwargs):
-        return ('node_handler', ['system_id'])
+    def resource_uri(cls, node=None):
+        node_system_id = "system_id"
+        if node:
+            node_system_id = node.system_id
+        return ('node_handler', (node_system_id, ))
 
 
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes / Create Nodes."""
+    __metaclass__ = OperationHandlerMetaClass
     allowed_methods = ('GET', 'POST',)
-    model = Node
-    fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
     def read(self, request):
         """Read all Nodes."""
         return Node.objects.get_visible_nodes(request.user).order_by('id')
 
-    def create(self, request):
+    @api_exported('new')
+    def new(self, request):
         """Create a new Node."""
-        if 'status' in request.data:
-            return bad_request('Cannot set the status for a node.')
-
-        node = Node(**dict(request.data.items()))
-        return validate_and_save(node)
+        form = NodeWithMACAddressesForm(request.data)
+        if form.is_valid():
+            node = form.save()
+            return node
+        else:
+            return bad_request(format_error_message(form.errors))
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -142,8 +206,6 @@ class NodeMacsHandler(BaseHandler):
 
     """
     allowed_methods = ('GET', 'POST',)
-    fields = ('mac_address',)
-    model = MACAddress
 
     @perm_denied_handler
     def read(self, request, system_id):
@@ -161,7 +223,7 @@ class NodeMacsHandler(BaseHandler):
             mac = node.add_mac_address(request.data.get('mac_address', None))
             return mac
         except ValidationError, e:
-            return bad_request(format_error_message(e))
+            return bad_request(format_error_message(e.message_dict))
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -201,19 +263,49 @@ class NodeMacHandler(BaseHandler):
         return rc.DELETED
 
     @classmethod
-    def resource_uri(cls, *args, **kwargs):
-        return ('node_mac_handler', ['system_id', 'mac_address'])
+    def resource_uri(cls, mac=None):
+        node_system_id = "system_id"
+        mac_address = "mac_address"
+        if mac is not None:
+            node_system_id = mac.node.system_id
+            mac_address = mac.mac_address
+        return ('node_mac_handler', [node_system_id, mac_address])
 
 
-docs = (
-    generate_doc(NodesHandler),
-    generate_doc(NodeHandler),
-    generate_doc(NodeMacsHandler),
-    generate_doc(NodeMacHandler),
-    )
+def generate_api_doc():
+    docs = (
+        generate_doc(NodesHandler),
+        generate_doc(NodeHandler),
+        generate_doc(NodeMacsHandler),
+        generate_doc(NodeMacHandler),
+        )
+
+    messages = ['MaaS API\n========\n\n']
+    for doc in docs:
+        for method in doc.get_methods():
+            messages.append(
+                "%s %s\n  %s\n\n" % (
+                    method.http_name, doc.resource_uri_template,
+                    method.doc))
+    return ''.join(messages)
+
+
+def reST_to_html_fragment(a_str):
+    parts = core.publish_parts(source=a_str, writer_name='html')
+    return parts['body_pre_docinfo'] + parts['fragment']
+
+
+_API_DOC = None
 
 
 def api_doc(request):
+    # Generate the documentation and keep it cached.  Note that we can't do
+    # that at the module level because the API doc generation needs Django
+    # fully initialized.
+    global _API_DOC
+    if _API_DOC is None:
+        _API_DOC = generate_api_doc()
     return render_to_response(
-        'maasserver/api_doc.html', {'docs': docs},
+        'maasserver/api_doc.html',
+        {'doc': reST_to_html_fragment(generate_api_doc())},
         context_instance=RequestContext(request))
