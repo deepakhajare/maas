@@ -74,6 +74,34 @@ debug() {
 	error "${@}"
 }
 
+# Strip directory path or URL from image name, and ensure a suffix of ".zimg".
+# So /tmp/foo.img, http://foo.bar/downloads/foo.zimg, and foo all become
+# "foo.zimg".
+base_zimg_name() {
+    local BASE_NAME
+    BASE_NAME="${1##*/}"
+    BASE_NAME="${BASE_NAME%.img}"
+    echo "${BASE_NAME%.zimg}.zimg"
+}
+
+# Download image file.
+# Parameters: source URL, filename to save to, directory to save to.
+download_img() {
+    local SOURCE DESTINATION
+    SOURCE="$1"
+    DESTINATION="$2"
+
+    if test -f "$DESTINATION"
+    then
+        fail "please delete $DESTINATION first or use --zimg|--img"
+    fi
+
+    debug 0 "downloading $SOURCE to $DESTINATION"
+    wget --progress=dot:mega "$SOURCE" -O "$DESTINATION.partial" &&
+        mv -- "$DESTINATION.partial" "$DESTINATION" ||
+        fail "failed to get $SOURCE"
+}
+
 short_opts="ho:v"
 long_opts="help,ci-bzr:,img:,log:,ud-file:,verbose,zimg:"
 getopt_out=$(getopt --name "${0##*/}" \
@@ -123,44 +151,33 @@ TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
 	fail "failed to make tempdir"
 trap cleanup EXIT
 
-[ -d "$save_d" ] || mkdir -p "$save_d" || fail "failed to mkdir $save_d"
+mkdir -p "$save_d" || fail "failed to mkdir $save_d"
 
 if [ -n "$img" ]; then
 	# if img was given, then we assume good, its the backing image
 	[ -f "$img" ] || fail "$img (--img) is not a file"
 	debug 0 "using $img as uncompressed image"
 else
-	if [ -n "$zimg" ]; then
-		case "$zimg" in
-			http://*|https://*)
-				o_zimg="${zimg}"
-				zimg="${save_d}/${o_zimg##*/}"
-				zimg=${zimg%.img}; zimg=${zimg%.zimg}.zimg
-				[ -f "$zimg" ] &&
-					fail "please delete $zimg first or use --zimg|--img"
-				debug 0 "downloading $o_zimg to $zimg"
-				wget "$o_zimg" -O "$zimg.partial" &&
-					mv "$zimg.partial" "$zimg" || fail "failed to get $o_zimg"
-				;;
-			file://*)
-				o_zimg=${zimg}
-				zimg=${zimg#file://}
-				debug 0 "using file $o_zimg as zimg"
-				[ -f "$zimg" ] || fail "$zimg is not a file"
-				;;
-			*)  [ -f "$zimg" ] || fail "$zimg is not a file"
-				debug 0 "using file $o_zimg as zimg"
-				;;
-		esac
-	else
-		zimg="${save_d}/${DEF_ZIMG##*/}"
-		zimg=${zimg%.img}; zimg=${zimg%.zimg}.zimg
-		[ -f "$zimg" ] &&
-			fail "please delete $zimg first or use --zimg|--img"
-		debug 0 "downloading $DEF_ZIMG to $zimg"
-		wget "$DEF_ZIMG" -O "$zimg.partial" &&
-			mv "$zimg.partial" "$zimg" || fail "failed to get $DEF_ZIMG"
-	fi
+    if [ -z "$zimg" ]
+    then
+        zimg="$DEF_ZIMG"
+    fi
+	case "$zimg" in
+		http://*|https://*)
+			o_zimg="${zimg}"
+			zimg="${save_d}/`base_zimg_name ${zimg}`"
+			download_img "$o_zimg" "$zimg"
+			;;
+		file://*)
+			o_zimg=${zimg}
+			zimg=${zimg#file://}
+			debug 0 "using file $o_zimg as zimg"
+			[ -f "$zimg" ] || fail "$zimg is not a file"
+			;;
+		*)  [ -f "$zimg" ] || fail "$zimg is not a file"
+			debug 0 "using file $o_zimg as zimg"
+			;;
+	esac
 	img=${zimg%.zimg}.img
 	debug 0 "creating uncompressed img $img from $zimg"
 	qemu-img convert -O qcow2 "$zimg" "$img"
