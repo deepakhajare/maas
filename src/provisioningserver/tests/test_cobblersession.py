@@ -90,7 +90,7 @@ class RecordingFakeProxy:
         else:
             value = None
         if isinstance(value, Exception):
-            raise value
+            return defer.fail(value)
         else:
             return defer.succeed(value)
 
@@ -153,7 +153,7 @@ class TestCobblerSessionBase:
 class TestCobblerSession(TestCase, TestCobblerSessionBase):
     """Test session management against a fake XMLRPC session."""
 
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
 
     def test_initializes_but_does_not_authenticate_on_creation(self):
         url, user, password = self.make_url_user_password()
