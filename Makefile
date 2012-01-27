@@ -29,7 +29,7 @@ lint: bin/flake8
 check: clean test
 
 docs/api.rst: bin/django src/maasserver/api.py
-	bin/django gen_rst_api_doc > $@
+	bin/django generate_api_doc > $@
 
 sampledata: bin/django
 	bin/django loaddata src/maasserver/fixtures/dev_fixture.yaml

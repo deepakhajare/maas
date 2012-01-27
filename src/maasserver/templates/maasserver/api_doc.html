@@ -1,8 +1,6 @@
 {% extends "maasserver/base.html" %}
 
 {% block content %}
-  {% autoescape on %}
-    {{ doc|safe }}
-  {% endautoescape %}
+  {{ doc|safe }}
 {% endblock %}
 

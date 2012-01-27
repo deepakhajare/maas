@@ -105,7 +105,7 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
 
     def test_nodes_POST(self):
         """
-        The api allows to create a Node associated with MAC Addresses.
+        The API allows a Node to be created and associated with MAC Addresses.
 
         """
         response = self.client.post(
@@ -158,8 +158,8 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
 
     def test_node_resource_uri(self):
         """
-        When a Node is returned by the api, the field 'resource_uri' provides
-        the uri for this Node.
+        When a Node is returned by the API, the field 'resource_uri' provides
+        the URI for this Node.
 
         """
         node = factory.make_node(hostname='diane')

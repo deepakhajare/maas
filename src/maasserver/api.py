@@ -105,17 +105,17 @@ class OperationHandlerMetaClass(HandlerMetaClass):
         # Register all the exported methods.
         cls._available_api_methods = {}
         api_docs = ['\n']
-        for name, slot in dct.iteritems():
-            if isinstance(slot, types.FunctionType):
+        for name, value in dct.iteritems():
+            if isinstance(value, types.FunctionType):
                 if name == 'create':
                     raise Exception("Cannot define a 'create' method.")
-                operation_name = getattr(slot, '_api_exported', None)
+                operation_name = getattr(value, '_api_exported', None)
                 if operation_name is not None:
                     api_name = (
                         name if operation_name is True else operation_name)
-                    cls._available_api_methods[api_name] = slot
+                    cls._available_api_methods[api_name] = value
                     doc = "Method '%s' (op=%s):\n\t%s" % (
-                        api_name, api_name, slot.__doc__)
+                        api_name, api_name, value.__doc__)
                     api_docs.append(doc)
 
         # Define a 'create' method that will route requests to the methods
@@ -169,8 +169,13 @@ class NodeHandler(BaseHandler):
 
     @classmethod
     def resource_uri(cls, node=None):
+        # This method is called by piston in two different contexts:
+        # - when generating an uri template to be used in the documentation
+        # (in this case, it is called with node=None).
+        # - when populating the 'resource_uri' field of an object
+        # returned by the API (in this case, node is a Node object).
         node_system_id = "system_id"
-        if node:
+        if node is not None:
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
 

@@ -43,10 +43,10 @@ class MACAddressForm(ModelForm):
         model = MACAddress
 
 
-class MultiplecMACAddressField(forms.MultiValueField):
+class MultipleMACAddressField(forms.MultiValueField):
     def __init__(self, nb_macs=1, *args, **kwargs):
         fields = [MACAddressFormField() for i in xrange(nb_macs)]
-        super(MultiplecMACAddressField, self).__init__(fields, *args, **kwargs)
+        super(MultipleMACAddressField, self).__init__(fields, *args, **kwargs)
 
     def compress(self, data_list):
         if data_list:
@@ -59,7 +59,7 @@ class NodeWithMACAddressesForm(NodeForm):
     def __init__(self, *args, **kwargs):
         super(NodeWithMACAddressesForm, self).__init__(*args, **kwargs)
         macs = self.data.getlist('macaddresses')
-        self.fields['macaddresses'] = MultiplecMACAddressField(len(macs))
+        self.fields['macaddresses'] = MultipleMACAddressField(len(macs))
         self.data['macaddresses'] = macs
 
     def save(self):
