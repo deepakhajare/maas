@@ -19,6 +19,7 @@ __all__ = [
     'CobblerImage',
     'CobblerProfile',
     'CobblerSystem',
+    'DEFAULT_TIMEOUT',
     ]
 
 import xmlrpclib
@@ -30,6 +31,9 @@ from twisted.internet.defer import (
     returnValue,
     )
 from twisted.web.xmlrpc import Proxy
+
+# Default timeout in seconds for xmlrpc requests to cobbler.
+DEFAULT_TIMEOUT = 30
 
 
 def looks_like_auth_expiry(exception):
@@ -124,7 +128,7 @@ class CobblerSession:
         else:
             return arg
 
-    def _with_timeout(self, d, timeout=30, reactor=None):
+    def _with_timeout(self, d, timeout=DEFAULT_TIMEOUT, reactor=None):
         """Wrap the xmlrpc call that returns "d" so that it is cancelled if
         it exceeds a timeout.
 

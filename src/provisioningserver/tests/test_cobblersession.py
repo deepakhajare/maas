@@ -128,7 +128,7 @@ class RecordingSession(cobblerclient.CobblerSession):
         return self.fake_proxy
 
 
-class TestCobblerSessionBase(TestCase):
+class TestCobblerSessionBase:
     """Base class helpers for testing `CobblerSession`."""
 
     def make_url_user_password(self):
@@ -150,7 +150,7 @@ class TestCobblerSessionBase(TestCase):
             *session_args, fake_token=token, fake_proxy=fake_proxy)
 
 
-class TestCobblerSession(TestCobblerSessionBase):
+class TestCobblerSession(TestCase, TestCobblerSessionBase):
     """Test session management against a fake XMLRPC session."""
 
     run_tests_with = AsynchronousDeferredRunTest.make_factory()
@@ -330,20 +330,25 @@ class TestCobblerSession(TestCobblerSessionBase):
             [('authenticate_me_first', session.token)], session.proxy.calls)
 
 
-class TestConnectionTimeouts(TestCobblerSessionBase,
+class TestConnectionTimeouts(TestCase, TestCobblerSessionBase,
                              fixtures.TestWithFixtures):
     """Tests for connection timeouts on `CobblerSession`."""
 
     run_tests_with =  AsynchronousDeferredRunTestForBrokenTwisted
 
     def test__with_timeout_cancels(self):
+        # Winding a clock reactor past the timeout value should cancel
+        # the original Deferred.
         clock = Clock()
         session = self.make_recording_session()
         d = session._with_timeout(defer.Deferred(), 1, clock)
         clock.advance(2)
         return assert_fails_with(d, defer.CancelledError)
 
-    def test__with_timeout_not_cancelled(self):
+    def test__with_timeout_not_cancelled_with_success(self):
+        # Winding a clock reactor past the timeout of a *called*
+        # (defer.succeed() is pre-fired) Deferred should not trigger a
+        # cancellation.
         clock = Clock()
         session = self.make_recording_session()
         d = session._with_timeout(defer.succeed("frobnicle"), 1, clock)
@@ -353,6 +358,15 @@ class TestConnectionTimeouts(TestCobblerSessionBase,
             self.assertEqual([], clock.getDelayedCalls())
         return d.addCallback(result)
 
+    def test__with_timeout_not_cancelled_unnecessarily(self):
+        # Winding a clock reactor forwards but not past the timeout
+        # should result in no cancellation.
+        clock = Clock()
+        session = self.make_recording_session()
+        d = session._with_timeout(defer.Deferred(), 5, clock)
+        clock.advance(1)
+        self.assertFalse(d.called)
+
     def test__issue_call_times_out(self):
         clock = Clock()
         patch = fixtures.MonkeyPatch(
@@ -361,7 +375,7 @@ class TestConnectionTimeouts(TestCobblerSessionBase,
 
         session = self.make_recording_session(fake_proxy=DeadProxy)
         d = session._issue_call("login", "foo")
-        clock.advance(31)
+        clock.advance(cobblerclient.DEFAULT_TIMEOUT+1)
         return assert_fails_with(d, defer.CancelledError)
 
 
