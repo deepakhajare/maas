@@ -1,46 +1,57 @@
+#! /bin/bash -e
+#
+# This file documents how to get odev running on your system.  But it's also
+# a script; you may find that you can just run it and get a working setup.
+#
 ## install some dependencies
-$ pkgs=""
-$ pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
-$ pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
-$ pkgs="$pkgs socat" # for libvirt-> cobbler
-$ pkgs="$pkgs python-cheetah" # for setup.py
+pkgs=""
+pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
+pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
+pkgs="$pkgs socat" # for libvirt-> cobbler
+pkgs="$pkgs python-cheetah" # for setup.py
 
-$ sudo apt-get update
-$ sudo apt-get install -y $pkgs </dev/null
+sudo apt-get update -qq || /bin/true
+sudo apt-get install -y $pkgs </dev/null
 
 ## add your user to libvirtd group
-$ sudo adduser $USER libvirtd
-$ sudo adduser $USER kvm # this is really only necessary for zimmer-build
+sudo adduser $USER libvirtd
+sudo adduser $USER kvm # this is really only necessary for zimmer-build
 
 ##
 ## NOTE: you have to log out and log back in for this to take affect
 ##
 
 ## build a zimmer image by following readme in zimmer-build
-$ cd zimmer-build
-$ ./build zimmer-disk0.img
-$ cd ..
+cd zimmer-build
+./build zimmer-disk0.img
+cd ..
 
 ## create libvirt xml files for nodes, zimmer, network
-$ ./setup.py libvirt-setup
+./setup.py libvirt-setup
 
 ## start odev-net network
-$ virsh -c qemu:///system net-start odev-net
+virsh -c qemu:///system net-start odev-net
 
 ## create zimmer disk image qcow backing against pristine version
-$ qemu-img create -f qcow2 -b zimmer-build/zimmer-disk0.img zimmer-disk0.img
+qemu-img create -f qcow2 -b zimmer-build/zimmer-disk0.img zimmer-disk0.img
 
 ## start zimmer instance / orchestra server
-$ virsh -c qemu:///system start zimmer
+virsh -c qemu:///system start zimmer
 
-## Now, 
-## * you can ssh ubuntu@192.168.123.2 (password passw0rd)
-##   Then run 'ssh-import-id' or sudo.
-## * http://192.168.123.2/cobbler_web should have cobbler web ui,
-##   log in with 'cobbler:xcobbler'
+echo
+echo "Starting orchestra server."
+echo "You can now ssh ubuntu@192.168.123.2 (password: passw0rd)."
+echo "If you do that, you may run 'ssh-import-id' to import your ssh key."
+echo
+echo "Access the cobbler UI on http://192.168.123.2/cobbler_web"
+echo "and log in with 'cobbler:xcobbler'."
+
+## Give the server some time to start up.
+sleep 20
+echo
 
 ## populate the nodes into the cobbler server
-$ ./setup.py cobbler-setup
+./setup.py cobbler-setup
 
 ## * libvirt from the cobbler system:
 ##   after 'cobbler-setup' above is done, the cobbler system will know about
@@ -52,7 +63,7 @@ $ ./setup.py cobbler-setup
 ##   to forward tcp connections on 192.168.123.1:65001 to the libvirt unix
 ##   socket .  It restricts connections to zimmer's IP address.
 
-$ socat -d -d \
+socat -d -d \
      TCP4-LISTEN:65001,bind=192.168.123.1,range=192.168.123.2/32,fork \
      UNIX-CONNECT:/var/run/libvirt/libvirt-sock
 
