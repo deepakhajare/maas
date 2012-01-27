@@ -22,6 +22,7 @@ from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
     AsynchronousDeferredRunTest,
+    AsynchronousDeferredRunTestForBrokenTwisted,
     )
 from testtools.testcase import (
     ExpectedException,
@@ -79,10 +80,9 @@ class RecordingFakeProxy:
         """
         self.return_values = values
 
-    @inlineCallbacks
     def callRemote(self, method, *args):
         if method == 'login':
-            returnValue(self.fake_token)
+            return defer.succeed(self.fake_token)
 
         self.calls.append((method, ) + args)
         if self.return_values:
@@ -92,8 +92,14 @@ class RecordingFakeProxy:
         if isinstance(value, Exception):
             raise value
         else:
-            value = yield value
-            returnValue(value)
+            return defer.succeed(value)
+
+
+class DeadProxy(RecordingFakeProxy):
+    """Fake proxy that returns nothing. Useful for timeout testing."""
+
+    def callRemote(self, method, *args):
+        return defer.Deferred()
 
 
 class RecordingSession(cobblerclient.CobblerSession):
@@ -111,7 +117,11 @@ class RecordingSession(cobblerclient.CobblerSession):
         that the session should pretend it gets from the server on login.
         """
         fake_token = kwargs.pop('fake_token')
-        self.fake_proxy = RecordingFakeProxy(fake_token)
+        proxy_class = kwargs.pop('fake_proxy', RecordingFakeProxy)
+        if proxy_class is None:
+            proxy_class = RecordingFakeProxy
+
+        self.fake_proxy = proxy_class(fake_token)
         super(RecordingSession, self).__init__(*args, **kwargs)
 
     def _make_twisted_proxy(self):
@@ -129,13 +139,15 @@ class TestCobblerSessionBase(TestCase):
             'password%d' % pick_number(),
             )
 
-    def make_recording_session(self, session_args=None, token=None):
+    def make_recording_session(self, session_args=None, token=None,
+                               fake_proxy=RecordingFakeProxy):
         """Create a `RecordingSession`."""
         if session_args is None:
             session_args = self.make_url_user_password()
         if token is None:
             token = fake_token()
-        return RecordingSession(*session_args, fake_token=token)
+        return RecordingSession(
+            *session_args, fake_token=token, fake_proxy=fake_proxy)
 
 
 class TestCobblerSession(TestCobblerSessionBase):
@@ -322,7 +334,7 @@ class TestConnectionTimeouts(TestCobblerSessionBase,
                              fixtures.TestWithFixtures):
     """Tests for connection timeouts on `CobblerSession`."""
 
-    run_tests_with = AsynchronousDeferredRunTest
+    run_tests_with =  AsynchronousDeferredRunTestForBrokenTwisted
 
     def test__with_timeout_cancels(self):
         clock = Clock()
@@ -343,13 +355,11 @@ class TestConnectionTimeouts(TestCobblerSessionBase,
 
     def test__issue_call_times_out(self):
         clock = Clock()
-        #patch = fixtures.MonkeyPatch(
-        #    "provisioningserver.cobblerclient.default_reactor", clock)
         patch = fixtures.MonkeyPatch(
-            "twisted.internet.reactor", clock)
+            "provisioningserver.cobblerclient.default_reactor", clock)
         self.useFixture(patch)
 
-        session = self.make_recording_session()
+        session = self.make_recording_session(fake_proxy=DeadProxy)
         d = session._issue_call("login", "foo")
         clock.advance(31)
         return assert_fails_with(d, defer.CancelledError)
