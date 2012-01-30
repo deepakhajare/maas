@@ -1,12 +1,9 @@
 #!/usr/bin/python
 
 import yaml
-import Cheetah
 import os
 import re
 import sys
-import copy
-import pprint
 import libvirt
 from Cheetah.Template import Template
 import subprocess
@@ -49,7 +46,8 @@ class Domain:
 		return ret
 
 	def toLibVirtXml(self):
-		return(Template(file=self.template, searchList=[self.dictInfo()]).respond())
+		template = Template(file=self.template, searchList=[self.dictInfo()])
+		return template.respond()
 
 class Node(Domain):
 	def _setcfg(self, cfg, num):
@@ -71,7 +69,8 @@ class System(Domain):
 		self.mem = cfg['mem'] * 1024
 
 def renderSysDom(config, syscfg, stype="node"):
-	return(Template(file=syscfg['template'], searchList=[config, syscfg]).respond())
+	template = Template(file=syscfg['template'], searchList=[config, syscfg])
+	return template.respond()
 
 # cobbler:
 #  ip: 2 # ip address must be in dhcp range
@@ -172,8 +171,7 @@ def get_profile_arch():
 	"""Get the system architecture for use in the cobbler setup profile."""
 	# This should, for any given system, match what the zimmer-build
 	# script does to determine the right architecture.
-	arch_text = subprocess.check_output(
-        ['/bin/uname', '-m'], stdout=subprocess.PIPE)
+	arch_text = subprocess.check_output(['/bin/uname', '-m'])
 	if re.match('i.86', arch_text):
 		return 'i386'
 	else:
@@ -186,12 +184,12 @@ def cobbler_setup(config):
 	profile = "precise-%s-juju" % arch
 	
 	cob = System(config, "zimmer")
-	server = xmlrpclib.Server("http://%s/cobbler_api" % cob.ipaddr)
+	cobbler_url = "http://%s/cobbler_api" % cob.ipaddr
+	print("Connecting to %s." % cobbler_url)
+	server = xmlrpclib.Server(cobbler_url)
 	token = server.login("cobbler","xcobbler")
 
-	systems = [ ]
-	for node in NODES_RANGE:
-		systems.append(Node(config, node))
+	systems = [Node(config, node) for node in NODES_RANGE]
 
 	for system in systems:
 		cobbler_addsystem(server, token, system, profile, hostip)
@@ -201,17 +199,17 @@ def main():
 	cfg_file = "settings.cfg"
 
 	if len(sys.argv) == 1:
-		print "Usage: setup.py action\n  action one of: libvirt-setup, cobbler-setup"
+		print(
+			"Usage: setup.py action\n"
+			"action one of: libvirt-setup, cobbler-setup")
 		sys.exit(1)
 
 	config = yaml_loadf(cfg_file)
 
 	if sys.argv[1] == "libvirt-setup":
 		libvirt_setup(config)
-		sys.exit(0)
 	elif sys.argv[1] == "cobbler-setup":
 		cobbler_setup(config)
-		sys.exit(0)
 
 if __name__ == '__main__':
 	main()
