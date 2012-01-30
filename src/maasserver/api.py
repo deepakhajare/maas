@@ -36,10 +36,7 @@ from maasserver.models import (
     Node,
     )
 from piston.doc import generate_doc
-from piston.handler import (
-    BaseHandler,
-    HandlerMetaClass,
-    )
+from piston.handler import BaseHandler
 from piston.utils import rc
 
 
@@ -99,43 +96,71 @@ def api_exported(operation_name=True):
 OP_PARAM = 'op'
 
 
-class OperationHandlerMetaClass(HandlerMetaClass):
-    def __init__(cls, name, bases, dct):
-        super(OperationHandlerMetaClass, cls).__init__(name, bases, dct)
-        # Register all the exported methods.
-        cls._available_api_methods = {}
-        api_docs = ['\n']
-        for name, value in dct.iteritems():
-            if isinstance(value, types.FunctionType):
-                if name == 'create':
-                    raise Exception("Cannot define a 'create' method.")
-                operation_name = getattr(value, '_api_exported', None)
-                if operation_name is not None:
-                    api_name = (
-                        name if operation_name is True else operation_name)
-                    cls._available_api_methods[api_name] = value
-                    doc = "Method '%s' (op=%s):\n\t%s" % (
-                        api_name, api_name, value.__doc__)
-                    api_docs.append(doc)
+def is_api_exported(thing):
+    # Check for functions and methods; the latter may be from base classes.
+    op_types = types.FunctionType, types.MethodType
+    return (
+        isinstance(thing, op_types) and
+        getattr(thing, "_api_exported", None) is not None)
 
-        # Define a 'create' method that will route requests to the methods
-        # registered in _available_api_methods.
-        def create(cls, request, *args, **kwargs):
-            op = request.data.get(OP_PARAM, None)
-            if not isinstance(op, unicode):
-                return bad_request('Unknown operation.')
-            elif op not in cls._available_api_methods:
-                return bad_request('Unknown operation: %s.' % op)
-            else:
-                method = cls._available_api_methods[op]
-                return method(cls, request, *args, **kwargs)
 
-        # Update the __doc__ for the 'create' method.
-        doc = "Operate on nodes collection. The actual method to execute\
-               depends on the value of the '%s' parameter." % OP_PARAM
-        create.__doc__ = doc + '\n- '.join(api_docs)
-        # Add the 'create' method.
-        setattr(cls, 'create', create)
+# Define a method that will route requests to the methods registered in
+# handler._available_api_methods.
+def perform_api_operation(handler, request, *args, **kwargs):
+    op = request.data.get(OP_PARAM, None)
+    if not isinstance(op, unicode):
+        return bad_request('Unknown operation.')
+    elif op not in handler._available_api_methods:
+        return bad_request('Unknown operation: %s.' % op)
+    else:
+        method = handler._available_api_methods[op]
+        return method(handler, request, *args, **kwargs)
+
+
+def api_operations(cls):
+    """Class decorator (PEP 3129) to be used on piston-based handler classes
+    (i.e. classes inheriting from piston.handler.BaseHandler).  It will add a
+    'create' method to the class.  That method (called by piston to handle
+    POST requests), will route requests to methods decorated with
+    @api_exported depending on the operation requested using the 'op'
+    parameter.
+
+    E.g.:
+
+    >>> @api_operations
+    >>> class MyHandler(BaseHandler):
+    >>>
+    >>>    @api_exported('exported_name')
+    >>>    def do_x(self, request):
+    >>>        # process request...
+
+    MyHandler's method 'do_x' will service POST requests with
+    'op=exported_name' in its request parameters.
+
+    POST /api/path/to/MyHandler/
+    op=exported_name&param1=1
+
+    """
+    operations = {
+        name: value for name, value in vars(cls).iteritems()
+        if is_api_exported(value)}
+    cls._available_api_methods = {
+        (name if op._api_exported is True else op._api_exported): op
+        for name, op in operations.iteritems()}
+
+    def create(self, request, *args, **kwargs):
+        return perform_api_operation(self, request, *args, **kwargs)
+
+    create.__doc__ = (
+        "The actual operation to execute depends on the value of the '%s' "
+        "parameter.\n\n" % OP_PARAM)
+    create.__doc__ += "\n- ".join(
+        "Operation '%s' (op=%s):\n\t%s" % (name, name, op.__doc__)
+        for name, op in cls._available_api_methods.iteritems())
+
+    # Add 'create' method.
+    setattr(cls, 'create', create)
+    return cls
 
 
 class NodeHandler(BaseHandler):
@@ -180,9 +205,9 @@ class NodeHandler(BaseHandler):
         return ('node_handler', (node_system_id, ))
 
 
+@api_operations
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes / Create Nodes."""
-    __metaclass__ = OperationHandlerMetaClass
     allowed_methods = ('GET', 'POST',)
 
     def read(self, request):
