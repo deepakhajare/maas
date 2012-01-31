@@ -178,9 +178,9 @@ class NodeAPITest(APITestMixin, LoggedInTestCase):
         parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        self.assertEqual(['mac_addresses'], parsed_result.keys())
+        self.assertEqual(['mac_addresses'], list(parsed_result))
         self.assertEqual(
-            ["At least one of the MAC Addresses is invalid."],
+            ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
 
     def test_node_PUT(self):
@@ -388,7 +388,7 @@ class MACAddressAPITest(APITestMixin, LoggedInTestCase):
         parsed_result = json.loads(response.content)
 
         self.assertEqual(400, response.status_code)
-        self.assertEqual(['mac_address'], parsed_result.keys())
+        self.assertEqual(['mac_address'], list(parsed_result))
         self.assertEqual(
             ["Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)."],
             parsed_result['mac_address'])

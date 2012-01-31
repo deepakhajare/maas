@@ -59,7 +59,6 @@ class NodeWithMACAddressesForm(NodeForm):
     def __init__(self, *args, **kwargs):
         super(NodeWithMACAddressesForm, self).__init__(*args, **kwargs)
         macs = [mac for mac in self.data.getlist('mac_addresses') if mac]
-        self._nb_macs = len(macs)
         self.fields['mac_addresses'] = MultipleMACAddressField(len(macs))
         self.data = self.data.copy()
         self.data['mac_addresses'] = macs
@@ -68,9 +67,12 @@ class NodeWithMACAddressesForm(NodeForm):
         valid = super(NodeWithMACAddressesForm, self).is_valid()
         # If the number of MAC Address fields is > 1, provide a unified
         # error message if the validation has failed.
-        if not valid and self._nb_macs > 1:
+        reformat_mac_address_error = (
+            self.errors.get('mac_addresses', None) is not None and
+            len(self.data['mac_addresses']) > 1)
+        if reformat_mac_address_error:
             self.errors['mac_addresses'] = (
-                ['At least one of the MAC Addresses is invalid.'])
+                ['One or more MAC Addresses is invalid.'])
         return valid
 
     def save(self):
