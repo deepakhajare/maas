@@ -23,6 +23,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.http import HttpResponseBadRequest
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
@@ -38,7 +39,6 @@ from maasserver.models import (
 from piston.doc import generate_doc
 from piston.handler import BaseHandler
 from piston.utils import rc
-from django.http import HttpResponseBadRequest
 
 
 def validate_and_save(obj):
