@@ -63,11 +63,11 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(['mac_addresses'], form.errors.keys())
         self.assertEqual(
-            ['At least one of the MAC Addresses is invalid.'],
+            ['One or more MAC Addresses is invalid.'],
             form.errors['mac_addresses'])
 
     def test_NodeWithMACAddressesForm_empty(self):
-        # Empty values in the list of MAC Adresses are simply ignored.
+        # Empty values in the list of MAC Addresses are simply ignored.
         form = NodeWithMACAddressesForm(
             self.get_QueryDict(
                 {'mac_addresses': ['aa:bb:cc:dd:ee:ff', '']}))

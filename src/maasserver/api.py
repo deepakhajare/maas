@@ -47,7 +47,8 @@ def validate_and_save(obj):
         obj.save()
         return obj
     except ValidationError, e:
-        return HttpResponseBadRequest(e.message_dict)
+        return HttpResponseBadRequest(
+            e.message_dict, content_type='application/json')
 
 
 def validate_mac_address(mac_address):
@@ -207,7 +208,8 @@ class NodesHandler(BaseHandler):
             node = form.save()
             return node
         else:
-            return HttpResponseBadRequest(form.errors)
+            return HttpResponseBadRequest(
+                form.errors, content_type='application/json')
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
