@@ -171,7 +171,7 @@ def get_profile_arch():
 	"""Get the system architecture for use in the cobbler setup profile."""
 	# This should, for any given system, match what the zimmer-build
 	# script does to determine the right architecture.
-	arch_text = subprocess.check_output(['/bin/uname', '-m'])
+	arch_text = subprocess.check_output(['/bin/uname', '-m']).strip()
 	if re.match('i.86', arch_text):
 		return 'i386'
 	else:
