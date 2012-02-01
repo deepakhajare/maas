@@ -69,8 +69,12 @@ class CobblerSession:
 
         For internal use only, but overridable for test purposes.
         """
-# TODO: Is the /RPC2 needed?
-        return Proxy(self.url + '/RPC2')
+        # Twisted does not encode the URL, and breaks with "Data must
+        # not be unicode" if it's in Unicode.  We'll have to decode it
+        # here, and hope it doesn't lead to breakage in Twisted.  We'll
+        # figure out what to do about non-ASCII characters in URLs
+        # later.
+        return Proxy(self.url.encode('ascii'))
 
     def record_state(self):
         """Return a cookie representing the session's current state.
@@ -118,7 +122,7 @@ class CobblerSession:
                 self.token = None
 
                 # Now initiate our new authentication.
-                self.token = yield self.proxy.callRemote(
+                self.token = yield self._issue_call(
                     'login', self.user, self.password)
         finally:
             self.authentication_lock.release()
@@ -157,6 +161,10 @@ class CobblerSession:
             substituted in its place.
         :return: `Deferred`.
         """
+        # Twisted XMLRPC does not encode the method name, but breaks if
+        # we give it in Unicode.  Encode it here; thankfully we're
+        # dealing with ASCII only in method names.
+        method = method.encode('ascii')
         args = map(self._substitute_token, args)
         d = self._with_timeout(self.proxy.callRemote(method, *args))
         return d
