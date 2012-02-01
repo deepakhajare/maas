@@ -2,75 +2,50 @@
 #
 # This file documents how to get odev running on your system.  But it's also
 # a script; you may find that you can just run it and get a working setup.
-#
-## install some dependencies
-pkgs=""
-pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
-pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
-pkgs="$pkgs socat" # for libvirt-> cobbler
-pkgs="$pkgs python-cheetah" # for setup.py
 
-sudo apt-get update -qq || /bin/true
-sudo apt-get install -y $pkgs </dev/null
+## System-level setup.  This needs to be done only once.
+./bin/system-setup
 
-## add your user to libvirtd group
-sudo adduser $USER libvirtd
-sudo adduser $USER kvm # this is really only necessary for zimmer-build
+# The user may need to log out at this point.
+echo "Ctrl-C if you want to log out now.  Otherwise, press <enter>."
+read
 
-##
-## NOTE: you have to log out and log back in for this to take affect
-##
-
-## build a zimmer image by following readme in zimmer-build
-cd zimmer-build
+## Build a zimmer image in this branch.
+pushd zimmer-build
 ./build zimmer-disk0.img
-cd ..
+popd
 
-## create libvirt xml files for nodes, zimmer, network
-./setup.py libvirt-setup
+## Get zimmer and cobbler running.
+./bin/start-odev
 
-## start odev-net network
-virsh -c qemu:///system net-start odev-net
-
-## create zimmer disk image qcow backing against pristine version
-qemu-img create -f qcow2 -b zimmer-build/zimmer-disk0.img zimmer-disk0.img
-
-## start zimmer instance / orchestra server
-virsh -c qemu:///system start zimmer
-
+cobblerlogin=ubuntu@192.168.123.2
 cat <<EOF
-Starting orchestra server.
-You can now ssh ubuntu@192.168.123.2 (password: passw0rd).
-If you do that, you may run 'ssh-import-id' to import your ssh key.
+While we're waiting for the server to come up, let's set up ssh login to
+the cobbler server at $cobblerlogin.
 
-Access the cobbler UI on http://192.168.123.2/cobbler_web
-and log in with 'cobbler:xcobbler'.
+Please enter your Launchpad login name to import your ssh keys from Launchpad,
+or an asterisk ("*") to import your local public ssh keys.  Enter nothing to
+skip this step.
+
+(If the server prompts you for a password, the default is "passw0rd")
 EOF
-
-## Give the server some time to start up.
-sleep 20
-echo
+read keyowner
+./bin/authorize-ssh $cobblerlogin $keywowner
 
 ## populate the nodes into the cobbler server
 ./setup.py cobbler-setup
 
-## * libvirt from the cobbler system:
-##   after 'cobbler-setup' above is done, the cobbler system will know about
-##   all the nodes and it will believe it can control them via the 'virsh'
-##   power module.  It is configured
-##   to talk to qemu+tcp://192.168.123.1:65001/system .  In order to allow
-##   that to be valid we have to make libvirt listen on that port/interface.
-##   This can be done moderately securely with 'socat'.  Below, we tell socat
-##   to forward tcp connections on 192.168.123.1:65001 to the libvirt unix
-##   socket .  It restricts connections to zimmer's IP address.
+cat <<EOF
+Starting virsh listener.
 
-socat -d -d \
-     TCP4-LISTEN:65001,bind=192.168.123.1,range=192.168.123.2/32,fork \
-     UNIX-CONNECT:/var/run/libvirt/libvirt-sock
+You can verify this is working by powering a sytem on from the web-ui or
+the following on the cobbler server:
+zimmmer$ virsh -c qemu+tcp://192.168.123.1:65001/system
+EOF
 
-##  You can verify this is working by powering a sytem on from the web-ui or
-##  the following on the cobbler server:
-##  zimmmer$ virsh -c qemu+tcp://192.168.123.1:65001/system
+## Listen for libvirt requests.
+./bin/virsh-listener
+
 
 ## at this point you may want to modify zimmer to provide a proxy
 ##  other than itself to things installing from it (LP: #914202).

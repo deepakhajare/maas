@@ -1,0 +1,18 @@
+#! /bin/bash -e
+
+## * libvirt from the cobbler system:
+##   after 'cobbler-setup' above is done, the cobbler system will know about
+##   all the nodes and it will believe it can control them via the 'virsh'
+##   power module.  It is configured
+##   to talk to qemu+tcp://192.168.123.1:65001/system .  In order to allow
+##   that to be valid we have to make libvirt listen on that port/interface.
+##   This can be done moderately securely with 'socat'.  Below, we tell socat
+##   to forward tcp connections on 192.168.123.1:65001 to the libvirt unix
+##   socket .  It restricts connections to zimmer's IP address.
+
+sock="/var/run/libvirt/libvirt-sock"
+
+echo "Listening for libvirt requests on $sock."
+socat -d -d \
+     TCP4-LISTEN:65001,bind=192.168.123.1,range=192.168.123.2/32,fork \
+     UNIX-CONNECT:$sock
