@@ -17,6 +17,12 @@ import os
 
 from fixtures import TempDir
 from oops_twisted import OOPSObserver
+from provisioningserver.plugin import (
+    Options,
+    ProvisioningServiceMaker,
+    setUpOOPSHandler,
+    )
+from provisioningserver.testing import skip
 from testtools import TestCase
 from testtools.content import (
     Content,
@@ -32,11 +38,6 @@ from twisted.python.log import (
     theLogPublisher,
     )
 from twisted.python.usage import UsageError
-from provisioningserver.plugin import (
-    ProvisioningServiceMaker,
-    Options,
-    setUpOOPSHandler,
-    )
 
 
 class TestOptions(TestCase):
@@ -62,12 +63,18 @@ class TestOptions(TestCase):
             partial(options.parseOptions, arguments),
             Raises(MatchesException(UsageError, message)))
 
+    @skip(
+        "RabbitMQ is not yet a required component "
+        "of a running MaaS installation.")
     def test_option_brokeruser_required(self):
         options = Options()
         self.check_exception(
             options,
             "--brokeruser must be specified")
 
+    @skip(
+        "RabbitMQ is not yet a required component "
+        "of a running MaaS installation.")
     def test_option_brokerpassword_required(self):
         options = Options()
         self.check_exception(
