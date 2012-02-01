@@ -1,0 +1,33 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <title>Test maas.add_node</title>
+
+    <script type="text/javascript">
+    <!--
+    var MAAS_config = {
+      uris: {
+        statics: '/static/',
+        nodes_handler: '/api/nodes/'
+      }
+    };
+    // -->
+    </script>
+    <script src="../yui/tests/yui/yui-min.js"></script>
+    <script src="../add_node.js"></script>
+    <script src="test_add_node.js"></script>
+  </head>
+  <body>
+  <script type="text/x-template" id="add-macaddress">
+    <p></p>
+  </script>
+  <script type="text/x-template" id="add-node">
+    <p>
+    <label for="id_hostname">Hostname
+      <span class="form-optional">(optional)</span>
+    </label>
+    <input type="text" maxlength="30" name="hostname" id="id_hostname" />
+    </p>
+  </script>
+  </body>
+</html>
