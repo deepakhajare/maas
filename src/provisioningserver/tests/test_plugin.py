@@ -194,7 +194,7 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(2, len(service.services))
-        client_service, server_service = service.services
+        self.assertEqual(1, len(service.services))
+        [client_service] = service.services
         self.assertEqual(options["brokerhost"], client_service.args[0])
         self.assertEqual(options["brokerport"], client_service.args[1])
