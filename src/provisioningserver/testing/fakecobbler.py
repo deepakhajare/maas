@@ -410,6 +410,8 @@ class FakeCobbler:
         """Asynchronous power on/off/reboot.  No notification."""
         self._check_token(token)
         operation = args['power']
+        # This version takes system names.  The regular power_system
+        # takes a system handle.
         system_names = args['systems']
         handles = [
             self.get_system_handle(name, token)
