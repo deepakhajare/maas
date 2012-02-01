@@ -11,11 +11,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import fixtures
-
 from random import Random
 from xmlrpclib import Fault
 
+import fixtures
 from provisioningserver import cobblerclient
 from provisioningserver.testing.fakecobbler import fake_token
 from testtools.content import text_content
@@ -29,10 +28,7 @@ from testtools.testcase import (
     TestCase,
     )
 from twisted.internet import defer
-from twisted.internet.defer import (
-    inlineCallbacks,
-    returnValue,
-    )
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock
 
 
@@ -334,7 +330,7 @@ class TestConnectionTimeouts(TestCase, TestCobblerSessionBase,
                              fixtures.TestWithFixtures):
     """Tests for connection timeouts on `CobblerSession`."""
 
-    run_tests_with =  AsynchronousDeferredRunTestForBrokenTwisted
+    run_tests_with = AsynchronousDeferredRunTestForBrokenTwisted
 
     def test__with_timeout_cancels(self):
         # Winding a clock reactor past the timeout value should cancel
@@ -353,9 +349,11 @@ class TestConnectionTimeouts(TestCase, TestCobblerSessionBase,
         session = self.make_recording_session()
         d = session._with_timeout(defer.succeed("frobnicle"), 1, clock)
         clock.advance(2)
+
         def result(value):
             self.assertEqual(value, "frobnicle")
             self.assertEqual([], clock.getDelayedCalls())
+
         return d.addCallback(result)
 
     def test__with_timeout_not_cancelled_unnecessarily(self):
@@ -375,7 +373,7 @@ class TestConnectionTimeouts(TestCase, TestCobblerSessionBase,
 
         session = self.make_recording_session(fake_proxy=DeadProxy)
         d = session._issue_call("login", "foo")
-        clock.advance(cobblerclient.DEFAULT_TIMEOUT+1)
+        clock.advance(cobblerclient.DEFAULT_TIMEOUT + 1)
         return assert_fails_with(d, defer.CancelledError)
 
 
@@ -391,4 +389,3 @@ class CobblerObject(TestCase):
         self.assertEqual(
             'x_systems_y',
             cobblerclient.CobblerSystem.name_method('x_%s_y', plural=True))
-
