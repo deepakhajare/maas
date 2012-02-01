@@ -14,6 +14,7 @@ __all__ = []
 from cStringIO import StringIO
 from functools import partial
 import os
+from unittest import skip
 
 from fixtures import TempDir
 from oops_twisted import OOPSObserver
@@ -22,7 +23,6 @@ from provisioningserver.plugin import (
     ProvisioningServiceMaker,
     setUpOOPSHandler,
     )
-from provisioningserver.testing import skip
 from testtools import TestCase
 from testtools.content import (
     Content,
