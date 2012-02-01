@@ -195,7 +195,9 @@ class FakeCobbler:
     def _api_find_objects(self, object_type, criteria):
         """Find objects in the saved store that match `criteria`.
 
-        :return: A list of object dicts, as copied from the saved store.
+        :return: A list of object dicts.  The dicts are copied from the
+            saved store; they are not references to the originals in the
+            store.
         """
         # Assumption: these operations look only at saved objects.
         location = self.store[None].get(object_type, {})
@@ -207,10 +209,13 @@ class FakeCobbler:
     def _api_get_objects(self, object_type):
         """Return all saved objects of type `object_type`.
 
-        :return: A list of object dicts, as copied from the saved store.
+        :return: A list of object dicts.  The dicts are copied from the
+            saved store; they are not references to the originals in the
+            store.
         """
         # Assumption: these operations look only at saved objects.
-        return list(map(dict, self.store[object_type].values()))
+        location = self.store[None].get(object_type, {})
+        return list(map(dict, location.values()))
 
     def _api_modify_object(self, token, object_type, handle, key, value):
         """Set an attribute on an object.
@@ -296,6 +301,7 @@ class FakeCobbler:
         return token
 
     def xapi_object_edit(self, object_type, name, operation, attrs, token):
+        """Swiss-Army-Knife API: create/rename/copy/edit object."""
         if operation == 'remove':
             self._api_remove_object(token, object_type, name)
             return True
@@ -401,6 +407,7 @@ class FakeCobbler:
         self._api_remove_object(token, 'system', name)
 
     def background_power_system(self, args, token):
+        """Asynchronous power on/off/reboot.  No notification."""
         self._check_token(token)
         operation = args['power']
         system_names = args['systems']
