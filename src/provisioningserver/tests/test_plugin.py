@@ -193,8 +193,13 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(1, len(service.services))
-        [site_service] = service.services
+        self.assertEqual(
+            ["logging", "oops", "site"],
+            sorted(service.namedServices))
+        self.assertEqual(
+            len(service.namedServices), len(service.services),
+            "Not all services are named.")
+        site_service = service.getServiceNamed("site")
         self.assertEqual(options["port"], site_service.args[0])
 
     def test_makeService_with_broker(self):
@@ -209,8 +214,14 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(2, len(service.services))
-        [client_service, site_service] = service.services
-        self.assertEqual(options["brokerhost"], client_service.args[0])
-        self.assertEqual(options["brokerport"], client_service.args[1])
+        self.assertEqual(
+            ["logging", "oops", "queue-client", "site"],
+            sorted(service.namedServices))
+        self.assertEqual(
+            len(service.namedServices), len(service.services),
+            "Not all services are named.")
+        amqp_client_service = service.getServiceNamed("queue-client")
+        self.assertEqual(options["brokerhost"], amqp_client_service.args[0])
+        self.assertEqual(options["brokerport"], amqp_client_service.args[1])
+        site_service = service.getServiceNamed("site")
         self.assertEqual(options["port"], site_service.args[0])

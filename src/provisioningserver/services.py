@@ -33,6 +33,8 @@ from twisted.python.logfile import LogFile
 
 class LoggingService(Service):
 
+    name = "logging"
+
     def __init__(self, filename):
         self.filename = filename
         self.logfile = None
@@ -65,6 +67,8 @@ class LoggingService(Service):
 
 
 class OOPSService(Service):
+
+    name = "oops"
 
     def __init__(self, logging_service, oops_dir, oops_reporter):
         self.config = None

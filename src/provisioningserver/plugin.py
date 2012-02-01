@@ -114,6 +114,7 @@ class ProvisioningServiceMaker(object):
                 cb_connected, cb_disconnected, cb_failed)
             client_service = TCPClient(
                 broker_host, broker_port, client_factory)
+            client_service.setName("queue-client")
             client_service.setServiceParent(services)
 
         site_root = Resource()
@@ -121,6 +122,7 @@ class ProvisioningServiceMaker(object):
         site = Site(site_root)
         site_port = options["port"]
         site_service = TCPServer(site_port, site)
+        site_service.setName("site")
         site_service.setServiceParent(services)
 
         return services
