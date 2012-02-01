@@ -59,7 +59,7 @@ class FakeTwistedProxy:
 class FakeCobbler:
     """Fake implementation of the Cobbler XMLRPC API.
 
-    This does nothing useful, but tries to be internally consisten and
+    This does nothing useful, but tries to be internally consistent and
     similar in use to a real Cobbler instance.  Override as needed.
 
     Public methods in this class represent Cobbler API calls, except ones
