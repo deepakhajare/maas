@@ -30,7 +30,7 @@ skip this step.
 (If the server prompts you for a password, the default is "passw0rd")
 EOF
 read keyowner
-./bin/authorize-ssh $cobblerlogin $keywowner
+./bin/authorize-ssh $cobblerlogin $keyowner
 
 ## populate the nodes into the cobbler server
 ./setup.py cobbler-setup
