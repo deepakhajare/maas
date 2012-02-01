@@ -80,7 +80,7 @@ class TestFakeCobbler(TestCase):
     These tests should also pass if run against a real (clean) Cobbler.
     """
 
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
 
     @inlineCallbacks
     def test_login_failure_raises_failure(self):
@@ -168,6 +168,14 @@ class CobblerObjectTestScenario:
         self.assertEqual(name, by_comment.name)
 
     @inlineCallbacks
+    def test_find_without_args_finds_everything(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        yield self.cobbler_class.new(session, name, {'comment': 'Hi'})
+        found_items = yield self.cobbler_class.find(session)
+        self.assertEqual([name], [item.name for item in found_items])
+
+    @inlineCallbacks
     def test_get_handle_finds_handle(self):
         session = yield fake_cobbler_session()
         name = self.make_name()
@@ -205,7 +213,7 @@ class CobblerObjectTestScenario:
 
 class TestCobblerDistro(CobblerObjectTestScenario, TestCase):
     """Tests for `CobblerDistro`.  Uses generic `CobblerObject` scenario."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
     cobbler_class = CobblerDistro
 
     def test_normalize_attribute_normalizes_separators(self):
@@ -224,7 +232,7 @@ class TestCobblerDistro(CobblerObjectTestScenario, TestCase):
 
 class TestCobblerImage(CobblerObjectTestScenario, TestCase):
     """Tests for `CobblerImage`.  Uses generic `CobblerObject` scenario."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
     cobbler_class = CobblerImage
 
     def test_normalize_attribute_normalizes_separators(self):
@@ -243,7 +251,7 @@ class TestCobblerImage(CobblerObjectTestScenario, TestCase):
 
 class TestCobblerProfile(CobblerObjectTestScenario, TestCase):
     """Tests for `CobblerProfile`.  Uses generic `CobblerObject` scenario."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
     cobbler_class = CobblerProfile
 
     def test_normalize_attribute_normalizes_separators(self):
@@ -270,13 +278,13 @@ class TestCobblerProfile(CobblerObjectTestScenario, TestCase):
 
 class TestCobblerRepo(CobblerObjectTestScenario, TestCase):
     """Tests for `CobblerRepo`.  Uses generic `CobblerObject` scenario."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
     cobbler_class = CobblerRepo
 
 
 class TestCobblerSystem(CobblerObjectTestScenario, TestCase):
     """Tests for `CobblerSystem`.  Uses generic `CobblerObject` scenario."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
     cobbler_class = CobblerSystem
 
     def make_name(self):
@@ -359,7 +367,7 @@ class TestCobblerSystem(CobblerObjectTestScenario, TestCase):
 
 class TestCobblerPreseeds(TestCase):
     """Tests for `CobblerPreseeds`."""
-    run_tests_with = AsynchronousDeferredRunTest.make_factory()
+    run_tests_with = AsynchronousDeferredRunTest
 
     @inlineCallbacks
     def make_preseeds_api(self):
