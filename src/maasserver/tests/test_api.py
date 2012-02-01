@@ -99,8 +99,8 @@ class NodeAPILoggedInTest(LoggedInTestCase):
         parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(1, len(parsed_result))
-        self.assertEqual(node.system_id, parsed_result[0]['system_id'])
+        self.assertEqual(
+            [node.system_id], [node['system_id'] for node in parsed_result])
 
 
 class NodeAPITest(APITestMixin):
