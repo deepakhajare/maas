@@ -21,7 +21,6 @@ from oops_twisted import OOPSObserver
 from provisioningserver.plugin import (
     Options,
     ProvisioningServiceMaker,
-    setUpOOPSHandler,
     )
 from testtools import TestCase
 from testtools.content import (
@@ -143,33 +142,33 @@ class TestSetUpOOPSHandler(TestCase):
         super(TestSetUpOOPSHandler, self).tearDown()
         theLogPublisher.observers[:] = self.observers
 
-    def makeObserver(self, settings):
-        options = Options()
-        options["brokerpassword"] = "Hoskins"
-        options["brokeruser"] = "Bob"
-        options.update(settings)
-        observer = setUpOOPSHandler(options, self.log)
-        return options, observer
+    # def makeObserver(self, settings):
+    #     options = Options()
+    #     options["brokerpassword"] = "Hoskins"
+    #     options["brokeruser"] = "Bob"
+    #     options.update(settings)
+    #     observer = setUpOOPSHandler(options, self.log)
+    #     return options, observer
 
-    def test_minimal(self):
-        options, observer = self.makeObserver({})
-        self.assertIsInstance(observer, OOPSObserver)
-        self.assertEqual([], observer.config.publishers)
-        self.assertEqual(
-            {"reporter": options.defaults["oops-reporter"]},
-            observer.config.template)
+    # def test_minimal(self):
+    #     options, observer = self.makeObserver({})
+    #     self.assertIsInstance(observer, OOPSObserver)
+    #     self.assertEqual([], observer.config.publishers)
+    #     self.assertEqual(
+    #         {"reporter": options.defaults["oops-reporter"]},
+    #         observer.config.template)
 
-    def test_with_all_params(self):
-        settings = {
-            "oops-reporter": "Sidebottom",
-            "oops-dir": self.useFixture(TempDir()).path,
-            }
-        options, observer = self.makeObserver(settings)
-        self.assertIsInstance(observer, OOPSObserver)
-        self.assertEqual(1, len(observer.config.publishers))
-        self.assertEqual(
-            {"reporter": "Sidebottom"},
-            observer.config.template)
+    # def test_with_all_params(self):
+    #     settings = {
+    #         "oops-reporter": "Sidebottom",
+    #         "oops-dir": self.useFixture(TempDir()).path,
+    #         }
+    #     options, observer = self.makeObserver(settings)
+    #     self.assertIsInstance(observer, OOPSObserver)
+    #     self.assertEqual(1, len(observer.config.publishers))
+    #     self.assertEqual(
+    #         {"reporter": "Sidebottom"},
+    #         observer.config.template)
 
 
 class TestProvisioningServiceMaker(TestCase):
