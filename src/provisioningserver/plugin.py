@@ -130,6 +130,8 @@ class ProvisioningServiceMaker(object):
         logfile = getRotatableLogFileObserver(options["logfile"])
         setUpOOPSHandler(options, logfile)
 
+        services = MultiService()
+
         broker_port = options["brokerport"]
         broker_host = options["brokerhost"]
         broker_user = options["brokeruser"]
@@ -146,16 +148,8 @@ class ProvisioningServiceMaker(object):
             client_factory = AMQFactory(
                 broker_user, broker_password, broker_vhost,
                 cb_connected, cb_disconnected, cb_failed)
+            client_service = TCPClient(
+                broker_host, broker_port, client_factory)
+            services.addService(client_service)
 
-        # TODO: Create services here, e.g.
-        # service1 = thing
-        # service2 = thing2
-        # services = MultiService()
-        # services.addService(service1)
-        # services.addService(service2)
-        # return services
-
-        client_service = TCPClient(broker_host, broker_port, client_factory)
-        services = MultiService()
-        services.addService(client_service)
         return services
