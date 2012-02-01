@@ -40,10 +40,11 @@ Starting virsh listener.
 
 You can verify this is working by powering a sytem on from the web-ui or
 the following on the cobbler server:
+
 zimmmer$ virsh -c qemu+tcp://192.168.123.1:65001/system
 EOF
 
-## Listen for libvirt requests.
+## Listen for libvirt requests from the Cobbler server.
 ./bin/virsh-listener
 
 
