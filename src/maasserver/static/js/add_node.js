@@ -102,7 +102,6 @@ Y.extend(AddNodeWidget, Y.Overlay, {
             .addClass('form-global-errors');
         var addnodeform = Y.Node.create('<form />')
             .set('method', 'post')
-            .set('action', '/api/nodes/')
             .append(global_error)
             .append(operation)
             .append(Y.Node.create(this.add_macaddress))
