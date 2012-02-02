@@ -85,11 +85,17 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
     if attributes is None:
         attributes = {}
     else:
-        attributes = dict(attributes)
+        attributes = attributes.copy()
     unique_int = next(unique_ints)
     if name is None:
         name = 'name-%s-%d' % (object_class.object_type, unique_int)
     attributes['name'] = name
+    if 'kernel' in object_class.required_attributes:
+        # Distro requires a kernel, which should be None, or a file, or
+        # a directory where Cobbler will look for the highest version,
+        # or a URL for a resource that really exists.  Pick an easy way
+        # out.
+        attributes['kernel'] = '/dev/null'
     for attr in object_class.required_attributes:
         if attr not in attributes:
             attributes[attr] = '%s-%d' % (attr, unique_int)
