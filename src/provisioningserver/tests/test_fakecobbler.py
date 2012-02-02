@@ -122,8 +122,6 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
     if name is None:
         name = 'name-%s-%d' % (object_class.object_type, unique_int)
     attributes['name'] = name
-    # Keep the temporary files alive until cobbler has performed its
-    # checks.
     temp_files = [
         default_to_file(
             attributes, 'kernel', object_class.required_attributes),
@@ -140,6 +138,8 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
         if attr not in attributes:
             attributes[attr] = '%s-%d' % (attr, unique_int)
     new_object = yield object_class.new(session, name, attributes)
+    # Keep the temporary files alive for the lifetime of the object.
+    new_object._hold_these_files_please = temp_files
     returnValue(new_object)
 
 
