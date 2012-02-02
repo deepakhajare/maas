@@ -29,12 +29,12 @@ suite.add(new Y.Test.Case({
     },
 
     testSingletonCreation: function() {
-        // namespace.add_node_singleton is originally null.
-        Y.Assert.isNull(namespace.add_node_singleton);
+        // module._add_node_singleton is originally null.
+        Y.Assert.isNull(module._add_node_singleton);
         module.showAddNodeWidget();
-        // namespace.add_node_singleton is populated after the call to
+        // module._add_node_singleton is populated after the call to
         // module.showAddNodeWidget.
-        Y.Assert.isNotNull(namespace.add_node_singleton);
+        Y.Assert.isNotNull(module._add_node_singleton);
     },
 
     testSingletonReCreation: function() {
@@ -98,12 +98,17 @@ suite.add(new Y.Test.Case({
         var button = overlay.get('srcNode').one('button');
 
         var fired = false;
-        module.AddNodeDispatcher.on(
+        var handle = module.AddNodeDispatcher.on(
             module.NODE_ADDED_EVENT, function(e, node){
             Y.Assert.areEqual(3, node.system_id);
             fired = true;
         });
-        button.simulate('click');
+        try {
+            button.simulate('click');
+        }
+        finally {
+            handle.detach();
+        }
         Y.Assert.isTrue(fired);
     }
 
