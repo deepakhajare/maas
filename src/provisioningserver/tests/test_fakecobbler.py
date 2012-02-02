@@ -310,7 +310,7 @@ class CobblerObjectTestScenario:
         session = yield fake_cobbler_session()
         name = self.make_name()
         obj = yield fake_cobbler_object(session, self.cobbler_class, name)
-        obj.delete()
+        yield obj.delete()
         matches = yield self.cobbler_class.find(session, name=name)
         self.assertEqual([], matches)
 
