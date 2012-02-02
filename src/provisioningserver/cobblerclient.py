@@ -234,6 +234,9 @@ class CobblerObject:
     # underscores.  In MaaS, use only underscores.
     known_attributes = []
 
+    # What attributes does Cobbler require for this type of object?
+    required_attributes = []
+
     def __init__(self, session, name=None, values=None):
         """Reference an object in Cobbler.
 
@@ -327,6 +330,12 @@ class CobblerObject:
         :param name: Identifying name for the new object.
         :param attributes: Dict mapping attribute names to values.
         """
+        missing_attributes = (
+            set(cls.required_attributes) - set(attributes.keys()))
+        assert len(missing_attributes) == 0, (
+            "Required attributes for %s missing: %s"
+            % (cls.object_type, missing_attributes))
+
         args = dict(
             (cls._normalize_attribute(key), value)
             for key, value in attributes.items())
@@ -379,6 +388,10 @@ class CobblerProfile(CobblerObject):
         'virt_path',
         'virt_ram',
         ]
+    required_attributes = [
+        'name',
+        'distro',
+        ]
 
 
 class CobblerImage(CobblerObject):
@@ -424,6 +437,11 @@ class CobblerDistro(CobblerObject):
         'owners',
         'template-files',
         ]
+    required_attributes = [
+        'initrd',
+        'kernel',
+        'name',
+        ]
 
 
 class CobblerRepo(CobblerObject):
@@ -440,6 +458,10 @@ class CobblerRepo(CobblerObject):
         'name',
         'owners',
         'priority',
+        ]
+    required_attributes = [
+        'name',
+        'mirror',
         ]
 
 
@@ -481,6 +503,10 @@ class CobblerSystem(CobblerObject):
         'uid',
         'virt_path',
         'virt_type',
+        ]
+    required_attribute = [
+        'name',
+        'profile',
         ]
 
     # The modify_interface dict can contain:
