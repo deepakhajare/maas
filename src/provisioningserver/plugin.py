@@ -12,12 +12,16 @@ __metaclass__ = type
 __all__ = []
 
 from amqpclient import AMQFactory
+from provisioningserver.remote import Provisioning
 from provisioningserver.services import (
     LogService,
     OOPSService,
     )
 import setproctitle
-from twisted.application.internet import TCPClient
+from twisted.application.internet import (
+    TCPClient,
+    TCPServer,
+    )
 from twisted.application.service import (
     IServiceMaker,
     MultiService,
