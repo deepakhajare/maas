@@ -9,12 +9,13 @@
 YUI.add('maas.add_node', function(Y) {
 
 Y.log('loading mass.add_node');
+
 var module = Y.namespace('maas.add_node');
 
 module.NODE_ADDED_EVENT = 'nodeAdded';
 
 // Only used to mockup io in tests.
-module._exchange = Y;
+module._io = Y;
 
 var AddNodeWidget = function() {
     AddNodeWidget.superclass.constructor.apply(this, arguments);
@@ -66,10 +67,10 @@ Y.extend(AddNodeWidget, Y.Overlay, {
     },
 
     cleanFormErrors: function() {
-        this.get('srcNode').all('div.form-errors').remove();
+        this.get('srcNode').all('div.field-error').remove();
     },
 
-    displayFormErrors: function(errors) {
+    displayFieldErrors: function(errors) {
         this.cleanFormErrors();
         var key;
         for (key in errors) {
@@ -78,7 +79,7 @@ Y.extend(AddNodeWidget, Y.Overlay, {
                 var label = this.get(
                     'srcNode').one('label[for="id_' + key + '"]');
                 var error_node = Y.Node.create('<div />')
-                    .addClass('form-errors')
+                    .addClass('field-error')
                     .set('text', error);
                 label.insert(error_node, 'after');
             }
@@ -111,7 +112,7 @@ Y.extend(AddNodeWidget, Y.Overlay, {
         return addnodeform;
     },
 
-    displayGlobalError: function(error_message) {
+    displayFormError: function(error_message) {
         this.get(
             'srcNode').one('.form-global-errors').set('text', error_message);
      },
@@ -165,11 +166,6 @@ Y.extend(AddNodeWidget, Y.Overlay, {
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
     },
 
-    destroy: function() {
-        AddNodeWidget.superclass.destroy.call(this);
-        module._add_node_singleton = null;
-    },
-
     bindUI: function() {
         var self = this;
         this.get(
@@ -200,29 +196,35 @@ Y.extend(AddNodeWidget, Y.Overlay, {
             method: 'POST',
             sync: false,
             on: {
-                start: self.showSpinner(),
+                start:  Y.bind(self.showSpinner, self),
                 success: function(id, out) {
                     self.addNode(JSON.parse(out.response));
                     self.destroy();
                 },
                 failure: function(id, out) {
                     if (out.status === 400) {
-                        // Validation error: display the errors in the form.
-                        self.displayFormErrors(JSON.parse(out.response));
+                        try {
+                            // Validation error: display the errors in the
+                            // form.
+                            self.displayFieldErrors(JSON.parse(out.response));
+                        }
+                        catch (e) {
+                            self.displayFormError('Unable to create Node.');
+                        }
                     }
                     else {
                         // Unexpected error.
-                        self.displayGlobalError('Unable to create Node.');
+                        self.displayFormError('Unable to create Node.');
                     }
                 },
-                end: self.hideSpinner()
+                end: Y.bind(self.hideSpinner, self)
             },
             form: {
                 id: self.get('srcNode').one('form'),
                 useDisabled: true
             }
         };
-        var request = module._exchange.io(
+        var request = module._io.io(
             MAAS_config.uris.nodes_handler, cfg);
     }
 
@@ -243,8 +245,6 @@ Y.extend(AddNodeWidget, Y.Overlay, {
  */
 module.AddNodeDispatcher = new Y.Base();
 
-module._AddNodeWidget = AddNodeWidget;
-
 module._add_node_singleton = null;
 
 /**
@@ -258,10 +258,13 @@ module.showAddNodeWidget = function(event) {
         event.preventDefault();
     }
     // If a widget is already present, destroy it.
-    if (Y.Lang.isValue(module._add_node_singleton)) {
+    var destroy = (
+        Y.Lang.isValue(module._add_node_singleton) &&
+        !module._add_node_singleton.destroyed);
+    if (destroy) {
         module._add_node_singleton.destroy();
     }
-    module._add_node_singleton = new Y.maas.add_node._AddNodeWidget();
+    module._add_node_singleton = new AddNodeWidget();
     module._add_node_singleton.render();
 };
 
