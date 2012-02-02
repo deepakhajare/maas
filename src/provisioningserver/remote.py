@@ -16,5 +16,14 @@ from twisted.web.xmlrpc import XMLRPC
 
 class Provisioning(XMLRPC):
 
+    # TODO: make session mandatory.
+    def __init__(self, session=None):
+        XMLRPC.__init__(self)
+        self.session = session
+
     def xmlrpc_hello(self):
         return "I'm here."
+
+    def xmlrpc_add_node(self):
+        return self.session.call(
+            "new_system", self.session.token_placeholder)
