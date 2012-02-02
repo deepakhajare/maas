@@ -31,8 +31,6 @@ from twisted.python import (
     log,
     usage,
     )
-from twisted.web.resource import Resource
-from twisted.web.server import Site
 from zope.interface import implements
 
 
@@ -40,7 +38,6 @@ class Options(usage.Options):
     """Command line options for the provisioning server."""
 
     optParameters = [
-        ["port", None, 8001, "Port to serve on."],
         ["logfile", "l", "provisioningserver.log", "Logfile name."],
         ["brokerport", "p", 5672, "Broker port"],
         ["brokerhost", "h", '127.0.0.1', "Broker host"],
@@ -52,7 +49,7 @@ class Options(usage.Options):
         ]
 
     def postOptions(self):
-        for int_arg in ('port', 'brokerport'):
+        for int_arg in ('brokerport',):
             try:
                 self[int_arg] = int(self[int_arg])
             except (TypeError, ValueError):
@@ -116,13 +113,5 @@ class ProvisioningServiceMaker(object):
                 broker_host, broker_port, client_factory)
             client_service.setName("amqp")
             client_service.setServiceParent(services)
-
-        site_root = Resource()
-        site_root.putChild("api", Provisioning())
-        site = Site(site_root)
-        site_port = options["port"]
-        site_service = TCPServer(site_port, site)
-        site_service.setName("site")
-        site_service.setServiceParent(services)
 
         return services
