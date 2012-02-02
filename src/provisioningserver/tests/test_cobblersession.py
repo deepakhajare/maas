@@ -207,8 +207,7 @@ class TestCobblerSession(TestCase, TestCobblerSessionBase):
 
     @inlineCallbacks
     def test_substitute_token_substitutes_only_placeholder(self):
-        token = fake_token('for-substitution')
-        session = self.make_recording_session(token=token)
+        session = self.make_recording_session(token=fake_token('for-subst'))
         yield session._authenticate()
         arbitrary_number = pick_number()
         arbitrary_string = 'string-%d' % pick_number()
@@ -220,7 +219,7 @@ class TestCobblerSession(TestCase, TestCobblerSessionBase):
             ]
         outputs = [
             arbitrary_number,
-            token,
+            session.token,
             arbitrary_string,
             None,
             ]
