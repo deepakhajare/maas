@@ -11,9 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from tempfile import NamedTemporaryFile
 from itertools import count
 from random import randint
+from tempfile import NamedTemporaryFile
 import xmlrpclib
 
 from provisioningserver.cobblerclient import (
@@ -169,7 +169,7 @@ class TestFakeCobbler(TestCase):
         # Use of the token will now fail with an "invalid token"
         # error.  The Cobbler client notices this, re-authenticates, and
         # re-runs the method.
-        yield fake_cobbler_object(session, CobblerSystem)
+        yield fake_cobbler_object(session, CobblerRepo)
 
         # The re-authentication results in a fresh token.
         self.assertNotEqual(old_token, session.token)
@@ -178,7 +178,7 @@ class TestFakeCobbler(TestCase):
     def test_valid_token_does_not_raise_auth_error(self):
         session = yield fake_cobbler_session()
         old_token = session.token
-        yield fake_cobbler_object(session, CobblerSystem)
+        yield fake_cobbler_object(session, CobblerRepo)
         self.assertEqual(old_token, session.token)
 
 
@@ -236,25 +236,49 @@ class CobblerObjectTestScenario:
         session = yield fake_cobbler_session()
         name = self.make_name()
         yield fake_cobbler_object(session, self.cobbler_class, name)
-        [by_comment] = yield self.cobbler_class.find(session, name=name)
-        self.assertEqual(name, by_comment.name)
+        by_name = yield self.cobbler_class.find(session, name=name)
+        self.assertEqual([name], [obj.name for obj in by_name])
 
     @inlineCallbacks
     def test_find_matches_attribute(self):
         session = yield fake_cobbler_session()
         name = self.make_name()
+        comment = "This is comment #%d" % next(unique_ints)
         yield fake_cobbler_object(
-            session, self.cobbler_class, name, {'comment': 'Hi'})
-        by_comment = yield self.cobbler_class.find(session, comment='Hi')
-        self.assertIn(name, [item.name for item in by_comment])
+            session, self.cobbler_class, name, {'comment': comment})
+        by_comment = yield self.cobbler_class.find(session, comment=comment)
+        self.assertEqual([name], [obj.name for obj in by_comment])
 
     @inlineCallbacks
     def test_find_without_args_finds_everything(self):
         session = yield fake_cobbler_session()
         name = self.make_name()
         yield fake_cobbler_object(session, self.cobbler_class, name)
-        found_items = yield self.cobbler_class.find(session)
-        self.assertIn(name, [item.name for item in found_items])
+        found_objects = yield self.cobbler_class.find(session)
+        self.assertIn(name, [obj.name for obj in found_objects])
+
+    @inlineCallbacks
+    def test_get_object_retrieves_attributes(self):
+        session = yield fake_cobbler_session()
+        comment = "This is comment #%d" % next(unique_ints)
+        name = self.make_name()
+        obj = yield fake_cobbler_object(
+            session, self.cobbler_class, name, {'comment': comment})
+        attributes = yield obj.get_values()
+        self.assertEqual(name, attributes['name'])
+        self.assertEqual(comment, attributes['comment'])
+
+    @inlineCallbacks
+    def test_get_objects_retrieves_attributes_for_all_objects(self):
+        session = yield fake_cobbler_session()
+        comment = "This is comment #%d" % next(unique_ints)
+        name = self.make_name()
+        yield fake_cobbler_object(
+            session, self.cobbler_class, name, {'comment': comment})
+        all_objects = yield self.cobbler_class.get_all_values(session)
+        found_obj = all_objects[name]
+        self.assertEqual(name, found_obj['name'])
+        self.assertEqual(comment, found_obj['comment'])
 
     @inlineCallbacks
     def test_get_handle_finds_handle(self):
