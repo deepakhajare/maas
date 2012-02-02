@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from tempfile import NamedTemporaryFile
 from itertools import count
 from random import randint
 import xmlrpclib
@@ -93,11 +94,9 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
     attributes['name'] = name
     required_attrs = object_class.required_attributes
     if 'kernel' in required_attrs and 'kernel' not in attributes:
-        # Distro requires a kernel, which should be None, or a file, or
-        # a directory where Cobbler will look for the highest version,
-        # or a URL for a resource that really exists.  Pick an easy way
-        # out.
-        attributes.setdefault('kernel', None)
+        attributes['kernel'] = NamedTemporaryFile().name
+    if 'initrd' in required_attrs and 'initrd' not in attributes:
+        attributes['initrd'] = NamedTemporaryFile().name
     if 'profile' in required_attrs and 'profile' not in attributes:
         # System.profile must refer to a Profile.
         profile = yield fake_cobbler_object(session, CobblerProfile)
