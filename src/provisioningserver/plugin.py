@@ -14,7 +14,7 @@ __all__ = []
 from amqpclient import AMQFactory
 from provisioningserver.remote import Provisioning
 from provisioningserver.services import (
-    LoggingService,
+    LogService,
     OOPSService,
     )
 import setproctitle
@@ -89,7 +89,7 @@ class ProvisioningServiceMaker(object):
 
         services = MultiService()
 
-        logging_service = LoggingService(options["logfile"])
+        logging_service = LogService(options["logfile"])
         logging_service.setServiceParent(services)
 
         oops_service = OOPSService(

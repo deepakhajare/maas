@@ -10,7 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "LoggingService",
+    "LogService",
     "OOPSService",
     ]
 
@@ -34,7 +34,7 @@ from twisted.python.log import (
 from twisted.python.logfile import LogFile
 
 
-class LoggingService(Service):
+class LogService(Service):
 
     name = "logging"
 
