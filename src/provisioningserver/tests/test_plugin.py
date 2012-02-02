@@ -11,7 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from cStringIO import StringIO
 from functools import partial
 import os
 from unittest import skip
@@ -22,20 +21,19 @@ from provisioningserver.plugin import (
     Options,
     ProvisioningServiceMaker,
     )
-from testtools import TestCase
-from testtools.content import (
-    Content,
-    UTF8_TEXT,
+from provisioningserver.services import (
+    LogService,
+    OOPSService,
     )
+from testtools import TestCase
+from testtools.content import content_from_file
+from testtools.deferredruntest import AsynchronousDeferredRunTest
 from testtools.matchers import (
     MatchesException,
     Raises,
     )
 from twisted.application.service import MultiService
-from twisted.python.log import (
-    FileLogObserver,
-    theLogPublisher,
-    )
+from twisted.python.log import theLogPublisher
 from twisted.python.usage import UsageError
 
 
@@ -131,16 +129,26 @@ class TestOptions(TestCase):
 class TestSetUpOOPSHandler(TestCase):
     """Tests for `provisioningserver.plugin.setUpOOPSHandler`."""
 
+    run_tests_with = AsynchronousDeferredRunTest
+
     def setUp(self):
         super(TestSetUpOOPSHandler, self).setUp()
         self.observers = theLogPublisher.observers[:]
-        self.logfile = StringIO()
-        self.addDetail("log", Content(UTF8_TEXT, self.logfile.getvalue))
-        self.log = FileLogObserver(self.logfile)
+        self.services = MultiService()
+        self.services.privilegedStartService()
+        self.services.startService()
+        # Configure and start LogService.
+        log_filename = os.path.join(
+            self.useFixture(TempDir()).path,
+            "provisioningserver.log")
+        log_service = LogService(log_filename)
+        log_service.setServiceParent(self.services)
+        self.addDetail("log", content_from_file(log_filename))
+        self.log = log_service.observer
 
     def tearDown(self):
         super(TestSetUpOOPSHandler, self).tearDown()
-        theLogPublisher.observers[:] = self.observers
+        return self.services.stopService()
 
     # def makeObserver(self, settings):
     #     options = Options()

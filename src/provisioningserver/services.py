@@ -61,7 +61,10 @@ class LogService(Service):
 
     def stopService(self):
         Service.stopService(self)
-        if signal.getsignal(signal.SIGUSR1) is self._signal_handler:
+        # Must use == here; the handler returned from getsignal() is not the
+        # same object as self._signal_handler, even though im_class, im_func,
+        # and im_self *are* all identical. Don't know why this should be.
+        if signal.getsignal(signal.SIGUSR1) == self._signal_handler:
             signal.signal(signal.SIGUSR1, signal.SIG_DFL)
         self.observer.stop()
         self.observer = None
