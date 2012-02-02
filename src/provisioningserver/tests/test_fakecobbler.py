@@ -75,6 +75,36 @@ def fake_cobbler_session(url=None, user=None, password=None,
     returnValue(session)
 
 
+def make_file():
+    """Make a temporary file."""
+    temp_file = NamedTemporaryFile()
+    temp_file.write("Data here.")
+    temp_file.flush()
+    return temp_file
+
+
+def default_to_file(attributes, attribute, required_attrs):
+    """If `attributes[attribute]` is required but not set, make a file.
+
+    :return: A temporary file.  Keep this alive as long as you need the file.
+    """
+    if attribute in required_attrs and attribute not in attributes:
+        temp_file = make_file()
+        attributes[attribute] = temp_file.name
+        return temp_file
+    else:
+        return None
+
+
+@inlineCallbacks
+def default_to_object(attributes, attribute, required_attrs, session,
+                      cobbler_class):
+    """If `attributes[attribute]` is required but not set, make an object."""
+    if attribute in required_attrs and attribute not in attributes:
+        other_obj = yield fake_cobbler_object(session, cobbler_class)
+        attributes[attribute] = other_obj.name
+
+
 @inlineCallbacks
 def fake_cobbler_object(session, object_class, name=None, attributes=None):
     """Create a fake Cobbler object.
@@ -92,20 +122,21 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
     if name is None:
         name = 'name-%s-%d' % (object_class.object_type, unique_int)
     attributes['name'] = name
-    required_attrs = object_class.required_attributes
-    if 'kernel' in required_attrs and 'kernel' not in attributes:
-        attributes['kernel'] = NamedTemporaryFile().name
-    if 'initrd' in required_attrs and 'initrd' not in attributes:
-        attributes['initrd'] = NamedTemporaryFile().name
-    if 'profile' in required_attrs and 'profile' not in attributes:
-        # System.profile must refer to a Profile.
-        profile = yield fake_cobbler_object(session, CobblerProfile)
-        attributes['profile'] = profile.name
-    if 'distro' in required_attrs and 'distro' not in attributes:
-        # Profile.distro must refer to a Distro.
-        distro = yield fake_cobbler_object(session, CobblerDistro)
-        attributes['distro'] = distro.name
-    for attr in required_attrs:
+    # Keep the temporary files alive until cobbler has performed its
+    # checks.
+    temp_files = [
+        default_to_file(
+            attributes, 'kernel', object_class.required_attributes),
+        default_to_file(
+            attributes, 'initrd', object_class.required_attributes),
+        ]
+    yield default_to_object(
+        attributes, 'profile', object_class.required_attributes, session,
+        CobblerProfile)
+    yield default_to_object(
+        attributes, 'distro', object_class.required_attributes, session,
+        CobblerDistro)
+    for attr in object_class.required_attributes:
         if attr not in attributes:
             attributes[attr] = '%s-%d' % (attr, unique_int)
     new_object = yield object_class.new(session, name, attributes)
