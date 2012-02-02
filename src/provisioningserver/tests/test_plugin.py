@@ -16,24 +16,16 @@ import os
 from unittest import skip
 
 from fixtures import TempDir
-from oops_twisted import OOPSObserver
 from provisioningserver.plugin import (
     Options,
     ProvisioningServiceMaker,
     )
-from provisioningserver.services import (
-    LogService,
-    OOPSService,
-    )
 from testtools import TestCase
-from testtools.content import content_from_file
-from testtools.deferredruntest import AsynchronousDeferredRunTest
 from testtools.matchers import (
     MatchesException,
     Raises,
     )
 from twisted.application.service import MultiService
-from twisted.python.log import theLogPublisher
 from twisted.python.usage import UsageError
 
 
@@ -124,53 +116,6 @@ class TestOptions(TestCase):
         self.assertThat(
             partial(options.parseOptions, arguments),
             Raises(expected))
-
-
-class TestOOPSService(TestCase):
-    """Tests for `provisioningserver.plugin.setUpOOPSHandler`."""
-
-    run_tests_with = AsynchronousDeferredRunTest
-
-    def setUp(self):
-        super(TestOOPSService, self).setUp()
-        self.observers = theLogPublisher.observers[:]
-        self.services = MultiService()
-        self.services.privilegedStartService()
-        self.services.startService()
-        # Configure and start LogService.
-        self.tempdir = self.useFixture(TempDir()).path
-        self.log_filename = os.path.join(self.tempdir, "test.log")
-        self.log_service = LogService(self.log_filename)
-        self.log_service.setServiceParent(self.services)
-
-    def tearDown(self):
-        super(TestOOPSService, self).tearDown()
-        d = self.services.stopService()
-        d.addBoth(lambda ignore: self.addDetailFromLog())
-        return d
-
-    def addDetailFromLog(self):
-        content = content_from_file(self.log_filename, buffer_now=True)
-        self.addDetail("log", content)
-
-    def test_minimal(self):
-        oops_service = OOPSService(self.log_service, None, None)
-        oops_service.setServiceParent(self.services)
-        observer = oops_service.observer
-        self.assertIsInstance(observer, OOPSObserver)
-        self.assertEqual([], observer.config.publishers)
-        self.assertEqual({}, observer.config.template)
-
-    def test_with_all_params(self):
-        oops_dir = os.path.join(self.tempdir, "oops")
-        oops_service = OOPSService(self.log_service, oops_dir, "Sidebottom")
-        oops_service.setServiceParent(self.services)
-        observer = oops_service.observer
-        self.assertIsInstance(observer, OOPSObserver)
-        self.assertEqual(1, len(observer.config.publishers))
-        self.assertEqual(
-            {"reporter": "Sidebottom"},
-            observer.config.template)
 
 
 class TestProvisioningServiceMaker(TestCase):
