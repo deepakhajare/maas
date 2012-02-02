@@ -9,7 +9,10 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "LoggingService",
+    "OOPSService",
+    ]
 
 import signal
 import sys
@@ -96,5 +99,3 @@ class OOPSService(Service):
         removeObserver(self.observer.emit)
         self.observer = None
         self.config = None
-
-
