@@ -114,7 +114,7 @@ class ProvisioningServiceMaker(object):
                 cb_connected, cb_disconnected, cb_failed)
             client_service = TCPClient(
                 broker_host, broker_port, client_factory)
-            client_service.setName("queue-client")
+            client_service.setName("amqp")
             client_service.setServiceParent(services)
 
         site_root = Resource()

@@ -217,12 +217,12 @@ class TestProvisioningServiceMaker(TestCase):
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
         self.assertEqual(
-            ["logging", "oops", "queue-client", "site"],
+            ["amqp", "logging", "oops", "site"],
             sorted(service.namedServices))
         self.assertEqual(
             len(service.namedServices), len(service.services),
             "Not all services are named.")
-        amqp_client_service = service.getServiceNamed("queue-client")
+        amqp_client_service = service.getServiceNamed("amqp")
         self.assertEqual(options["brokerhost"], amqp_client_service.args[0])
         self.assertEqual(options["brokerport"], amqp_client_service.args[1])
         site_service = service.getServiceNamed("site")
