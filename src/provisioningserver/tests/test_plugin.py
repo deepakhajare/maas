@@ -126,54 +126,46 @@ class TestOptions(TestCase):
             Raises(expected))
 
 
-class TestSetUpOOPSHandler(TestCase):
+class TestOOPSService(TestCase):
     """Tests for `provisioningserver.plugin.setUpOOPSHandler`."""
 
     run_tests_with = AsynchronousDeferredRunTest
 
     def setUp(self):
-        super(TestSetUpOOPSHandler, self).setUp()
+        super(TestOOPSService, self).setUp()
         self.observers = theLogPublisher.observers[:]
         self.services = MultiService()
         self.services.privilegedStartService()
         self.services.startService()
         # Configure and start LogService.
-        log_filename = os.path.join(
-            self.useFixture(TempDir()).path,
-            "provisioningserver.log")
-        log_service = LogService(log_filename)
-        log_service.setServiceParent(self.services)
-        self.addDetail("log", content_from_file(log_filename))
-        self.log = log_service.observer
+        self.tempdir = self.useFixture(TempDir()).path
+        self.log_filename = os.path.join(self.tempdir, "test.log")
+        self.log_service = LogService(self.log_filename)
+        self.log_service.setServiceParent(self.services)
 
     def tearDown(self):
-        super(TestSetUpOOPSHandler, self).tearDown()
-        return self.services.stopService()
+        super(TestOOPSService, self).tearDown()
+        d = self.services.stopService()
+        d.addBoth(lambda ignore: self.addDetailFromLog())
+        return d
 
-    # def makeObserver(self, settings):
-    #     options = Options()
-    #     options["brokerpassword"] = "Hoskins"
-    #     options["brokeruser"] = "Bob"
-    #     options.update(settings)
-    #     observer = setUpOOPSHandler(options, self.log)
-    #     return options, observer
+    def addDetailFromLog(self):
+        content = content_from_file(self.log_filename, buffer_now=True)
+        self.addDetail("log", content)
 
-    @skip("makeObserver() does not work with the new log and oops services")
     def test_minimal(self):
-        options, observer = self.makeObserver({})
+        oops_service = OOPSService(self.log_service, None, None)
+        oops_service.setServiceParent(self.services)
+        observer = oops_service.observer
         self.assertIsInstance(observer, OOPSObserver)
         self.assertEqual([], observer.config.publishers)
-        self.assertEqual(
-            {"reporter": options.defaults["oops-reporter"]},
-            observer.config.template)
+        self.assertEqual({}, observer.config.template)
 
-    @skip("makeObserver() does not work with the new log and oops services")
     def test_with_all_params(self):
-        settings = {
-            "oops-reporter": "Sidebottom",
-            "oops-dir": self.useFixture(TempDir()).path,
-            }
-        options, observer = self.makeObserver(settings)
+        oops_dir = os.path.join(self.tempdir, "oops")
+        oops_service = OOPSService(self.log_service, oops_dir, "Sidebottom")
+        oops_service.setServiceParent(self.services)
+        observer = oops_service.observer
         self.assertIsInstance(observer, OOPSObserver)
         self.assertEqual(1, len(observer.config.publishers))
         self.assertEqual(
