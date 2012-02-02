@@ -504,7 +504,7 @@ class CobblerSystem(CobblerObject):
         'virt_path',
         'virt_type',
         ]
-    required_attribute = [
+    required_attributes = [
         'name',
         'profile',
         ]
