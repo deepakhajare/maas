@@ -150,25 +150,27 @@ class TestSetUpOOPSHandler(TestCase):
     #     observer = setUpOOPSHandler(options, self.log)
     #     return options, observer
 
-    # def test_minimal(self):
-    #     options, observer = self.makeObserver({})
-    #     self.assertIsInstance(observer, OOPSObserver)
-    #     self.assertEqual([], observer.config.publishers)
-    #     self.assertEqual(
-    #         {"reporter": options.defaults["oops-reporter"]},
-    #         observer.config.template)
+    @skip("makeObserver() does not work with the new log and oops services")
+    def test_minimal(self):
+        options, observer = self.makeObserver({})
+        self.assertIsInstance(observer, OOPSObserver)
+        self.assertEqual([], observer.config.publishers)
+        self.assertEqual(
+            {"reporter": options.defaults["oops-reporter"]},
+            observer.config.template)
 
-    # def test_with_all_params(self):
-    #     settings = {
-    #         "oops-reporter": "Sidebottom",
-    #         "oops-dir": self.useFixture(TempDir()).path,
-    #         }
-    #     options, observer = self.makeObserver(settings)
-    #     self.assertIsInstance(observer, OOPSObserver)
-    #     self.assertEqual(1, len(observer.config.publishers))
-    #     self.assertEqual(
-    #         {"reporter": "Sidebottom"},
-    #         observer.config.template)
+    @skip("makeObserver() does not work with the new log and oops services")
+    def test_with_all_params(self):
+        settings = {
+            "oops-reporter": "Sidebottom",
+            "oops-dir": self.useFixture(TempDir()).path,
+            }
+        options, observer = self.makeObserver(settings)
+        self.assertIsInstance(observer, OOPSObserver)
+        self.assertEqual(1, len(observer.config.publishers))
+        self.assertEqual(
+            {"reporter": "Sidebottom"},
+            observer.config.template)
 
 
 class TestProvisioningServiceMaker(TestCase):
