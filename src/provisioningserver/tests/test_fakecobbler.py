@@ -457,7 +457,7 @@ class TestCobblerPreseeds(TestCase):
         path = '/var/lib/cobbler/snippets/snippet-%d' % unique_int
         yield preseeds.write_snippet(path, "Text")
         snippets = yield preseeds.get_snippets()
-        self.assertEqual([path], snippets)
+        self.assertIn(path, snippets)
 
     @inlineCallbacks
     def test_templates_do_not_show_up_as_snippets(self):
@@ -466,7 +466,7 @@ class TestCobblerPreseeds(TestCase):
         path = '/var/lib/cobbler/kickstarts/template-%d' % unique_int
         yield preseeds.write_template(path, "Text")
         snippets = yield preseeds.get_snippets()
-        self.assertEqual([], snippets)
+        self.assertNotIn(path, snippets)
 
     @inlineCallbacks
     def test_snippets_do_not_show_up_as_templates(self):
@@ -475,4 +475,4 @@ class TestCobblerPreseeds(TestCase):
         path = '/var/lib/cobbler/snippets/snippet-%d' % unique_int
         yield preseeds.write_snippet(path, "Text")
         templates = yield preseeds.get_templates()
-        self.assertEqual([], templates)
+        self.assertNotIn(path, templates)
