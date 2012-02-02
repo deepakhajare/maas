@@ -36,7 +36,7 @@ from twisted.python.logfile import LogFile
 
 class LogService(Service):
 
-    name = "logging"
+    name = "log"
 
     def __init__(self, filename):
         self.filename = filename
@@ -73,9 +73,9 @@ class OOPSService(Service):
 
     name = "oops"
 
-    def __init__(self, logging_service, oops_dir, oops_reporter):
+    def __init__(self, log_service, oops_dir, oops_reporter):
         self.config = None
-        self.logging_service = logging_service
+        self.log_service = log_service
         self.oops_dir = oops_dir
         self.oops_reporter = oops_reporter
 
@@ -91,7 +91,7 @@ class OOPSService(Service):
         if self.oops_reporter:
             self.config.template['reporter'] = self.oops_reporter
         self.observer = OOPSObserver(
-            self.config, self.logging_service.observer.emit)
+            self.config, self.log_service.observer.emit)
         addObserver(self.observer.emit)
 
     def stopService(self):
