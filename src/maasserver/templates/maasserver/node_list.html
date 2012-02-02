@@ -6,7 +6,15 @@
 {% endblock %}
 
 {% block head %}
-<script src="{{ STATIC_URL }}js/node_list.js"></script>
+  <script type="text/javascript">
+  <!--
+  YUI().use('maas.add_node', function (Y) {
+    Y.on('load', function() {
+      Y.one('#addnode').on('click', Y.maas.add_node.showAddNodeWidget);
+    });
+  });
+  // -->
+  </script>
 {% endblock %}
 
 {% block content %}
@@ -32,11 +40,4 @@
     </table>
   {% endif%}
   <a id="addnode" href="#">Add Node</a>
-  <script type="text/javascript">
-  <!--
-  YUI().use('maas.add_node', function (Y) {
-    Y.one('#addnode').on('click', Y.maas.add_node.showAddNodeWidget);
-  });
-  // -->
-  </script>
 {% endblock %}
