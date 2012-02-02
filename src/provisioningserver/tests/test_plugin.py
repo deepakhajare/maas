@@ -146,8 +146,8 @@ class TestProvisioningServiceMaker(TestCase):
 
     def test_makeService_with_broker(self):
         """
-        The log, oops and amqp services are created when no the broker user
-        and password options are given.
+        The log, oops and amqp services are created when the broker user and
+        password options are given.
         """
         options = Options()
         options["brokerpassword"] = "Hoskins"
