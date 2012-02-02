@@ -74,6 +74,7 @@ def fake_cobbler_session(url=None, user=None, password=None,
     returnValue(session)
 
 
+@inlineCallbacks
 def fake_cobbler_object(session, object_class, name=None, attributes=None):
     """Create a fake Cobbler object.
 
@@ -90,17 +91,22 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
     if name is None:
         name = 'name-%s-%d' % (object_class.object_type, unique_int)
     attributes['name'] = name
-    if 'kernel' in object_class.required_attributes:
+    required_attrs = object_class.required_attributes
+    if 'kernel' in required_attrs and 'kernel' not in attributes:
         # Distro requires a kernel, which should be None, or a file, or
         # a directory where Cobbler will look for the highest version,
         # or a URL for a resource that really exists.  Pick an easy way
         # out.
-        attributes['kernel'] = None
-    for attr in object_class.required_attributes:
+        attributes.setdefault('kernel', None)
+    if 'profile' in required_attrs and 'profile' not in attributes:
+        # System.profile must refer to a Profile.
+        profile = yield fake_cobbler_object(session, CobblerProfile)
+        attributes['profile'] = profile.name
+    for attr in required_attrs:
         if attr not in attributes:
             attributes[attr] = '%s-%d' % (attr, unique_int)
-    d = object_class.new(session, name, attributes)
-    return d
+    new_object = yield object_class.new(session, name, attributes)
+    returnValue(new_object)
 
 
 class TestFakeCobbler(TestCase):
