@@ -102,6 +102,10 @@ def fake_cobbler_object(session, object_class, name=None, attributes=None):
         # System.profile must refer to a Profile.
         profile = yield fake_cobbler_object(session, CobblerProfile)
         attributes['profile'] = profile.name
+    if 'distro' in required_attrs and 'distro' not in attributes:
+        # Profile.distro must refer to a Distro.
+        distro = yield fake_cobbler_object(session, CobblerDistro)
+        attributes['distro'] = distro.name
     for attr in required_attrs:
         if attr not in attributes:
             attributes[attr] = '%s-%d' % (attr, unique_int)
