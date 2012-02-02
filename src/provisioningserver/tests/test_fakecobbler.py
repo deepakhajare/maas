@@ -433,7 +433,7 @@ class TestCobblerPreseeds(TestCase):
     def test_get_templates_lists_templates(self):
         preseeds = yield self.make_preseeds_api()
         unique_int = next(unique_ints)
-        path = '/var/lib/cobbler/template/template-%d' % unique_int
+        path = '/var/lib/cobbler/kickstarts/template-%d' % unique_int
         yield preseeds.write_template(path, "Text")
         templates = yield preseeds.get_templates()
         self.assertIn(path, templates)
@@ -451,7 +451,7 @@ class TestCobblerPreseeds(TestCase):
     def test_templates_do_not_show_up_as_snippets(self):
         preseeds = yield self.make_preseeds_api()
         unique_int = next(unique_ints)
-        path = '/var/lib/cobbler/template/template-%d' % unique_int
+        path = '/var/lib/cobbler/kickstarts/template-%d' % unique_int
         yield preseeds.write_template(path, "Text")
         snippets = yield preseeds.get_snippets()
         self.assertEqual([], snippets)
