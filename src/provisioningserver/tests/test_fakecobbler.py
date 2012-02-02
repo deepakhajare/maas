@@ -211,8 +211,8 @@ class CobblerObjectTestScenario:
         name = self.make_name()
         yield fake_cobbler_object(
             session, self.cobbler_class, name, {'comment': 'Hi'})
-        [by_comment] = yield self.cobbler_class.find(session, comment='Hi')
-        self.assertEqual(name, by_comment.name)
+        by_comment = yield self.cobbler_class.find(session, comment='Hi')
+        self.assertIn(name, [item.name for item in by_comment])
 
     @inlineCallbacks
     def test_find_without_args_finds_everything(self):
@@ -220,7 +220,7 @@ class CobblerObjectTestScenario:
         name = self.make_name()
         yield fake_cobbler_object(session, self.cobbler_class, name)
         found_items = yield self.cobbler_class.find(session)
-        self.assertEqual([name], [item.name for item in found_items])
+        self.assertIn(name, [item.name for item in found_items])
 
     @inlineCallbacks
     def test_get_handle_finds_handle(self):
