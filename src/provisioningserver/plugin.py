@@ -89,11 +89,12 @@ class ProvisioningServiceMaker(object):
 
         services = MultiService()
 
-        logging_service = LogService(options["logfile"])
-        logging_service.setServiceParent(services)
+        log_service = LogService(options["logfile"])
+        log_service.setServiceParent(services)
 
-        oops_service = OOPSService(
-            logging_service, options["oops-dir"], options["oops-reporter"])
+        oops_dir = options["oops-dir"]
+        oops_reporter = options["oops-reporter"]
+        oops_service = OOPSService(log_service, oops_dir, oops_reporter)
         oops_service.setServiceParent(services)
 
         broker_port = options["brokerport"]
