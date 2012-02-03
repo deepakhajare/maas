@@ -11,11 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from provisioningserver.cobblerclient import (
-    CobblerDistro,
-    CobblerProfile,
-    CobblerSession,
-    )
+from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.remote import Provisioning
 from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
@@ -61,15 +57,10 @@ class TestProvisioning(TestCase):
     @inlineCallbacks
     def test_add_node(self):
         cobbler_session = self.get_cobbler_session()
-        # Create a distro and a profile in Cobbler.
-        distro = yield CobblerDistro.new(
-            cobbler_session, "distro", {
-                "initrd": "initrd",
-                "kernel": "kernel",
-                })
-        profile = yield CobblerProfile.new(
-            cobbler_session, "profile", {"distro": distro})
         # Create a system/node via the Provisioning API.
         prov = Provisioning(cobbler_session)
-        node = yield prov.xmlrpc_add_node("system", profile.name)
-        self.assertEqual("system", node)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        node = yield prov.xmlrpc_add_node("node", profile)
+        self.assertEqual("node", node)
