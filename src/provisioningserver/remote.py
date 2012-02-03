@@ -35,4 +35,4 @@ class Provisioning(XMLRPC):
         assert isinstance(profile, basestring)
         system = yield CobblerSystem.new(
             self.session, name, {"profile": profile})
-        returnValue(system)
+        returnValue(system.name)

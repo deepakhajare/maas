@@ -15,7 +15,6 @@ from provisioningserver.cobblerclient import (
     CobblerDistro,
     CobblerProfile,
     CobblerSession,
-    CobblerSystem,
     )
 from provisioningserver.remote import Provisioning
 from provisioningserver.testing.fakecobbler import (
@@ -58,6 +57,4 @@ class TestProvisioning(TestCase):
         # Create the system/node via the Provisioning API.
         prov = Provisioning(cobbler_session)
         node = yield prov.xmlrpc_add_node("system", profile.name)
-        self.assertIsInstance(node, CobblerSystem)
-        self.assertEqual("system", node.name)
-        self.assertIs(cobbler_session, node.session)
+        self.assertEqual("system", node)
