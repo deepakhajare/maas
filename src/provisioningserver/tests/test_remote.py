@@ -34,15 +34,19 @@ class TestProvisioning(TestCase):
         prov = Provisioning()
         self.assertEqual("I'm here.", prov.xmlrpc_hello())
 
-    @inlineCallbacks
-    def test_add_node(self):
+    def get_cobbler_session(self):
         cobbler_session = CobblerSession(
             "http://localhost/does/not/exist", "user", "password")
         cobbler_fake = FakeCobbler({"user": "password"})
         cobbler_proxy = FakeTwistedProxy(cobbler_fake)
         cobbler_session.proxy = cobbler_proxy
+        return cobbler_session
+
+    @inlineCallbacks
+    def test_add_node(self):
+        cobbler_session = self.get_cobbler_session()
         prov = Provisioning(cobbler_session)
-        node = yield prov.xmlrpc_add_node("fred")
+        node = yield prov.xmlrpc_add_node("system")
         self.assertIsInstance(node, CobblerSystem)
-        self.assertEqual("fred", node.name)
+        self.assertEqual("system", node.name)
         self.assertIs(cobbler_session, node.session)
