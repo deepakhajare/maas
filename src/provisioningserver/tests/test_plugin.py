@@ -137,7 +137,7 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(
+        self.assertSequenceEqual(
             ["log", "oops"],
             sorted(service.namedServices))
         self.assertEqual(
@@ -156,7 +156,7 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(
+        self.assertSequenceEqual(
             ["amqp", "log", "oops"],
             sorted(service.namedServices))
         self.assertEqual(
