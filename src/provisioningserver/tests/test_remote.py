@@ -12,6 +12,8 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.cobblerclient import (
+    CobblerDistro,
+    CobblerProfile,
     CobblerSession,
     CobblerSystem,
     )
@@ -45,8 +47,17 @@ class TestProvisioning(TestCase):
     @inlineCallbacks
     def test_add_node(self):
         cobbler_session = self.get_cobbler_session()
+        # Create a distro and a profile in Cobbler.
+        distro = yield CobblerDistro.new(
+            cobbler_session, "distro", {
+                "initrd": "initrd",
+                "kernel": "kernel",
+                })
+        profile = yield CobblerProfile.new(
+            cobbler_session, "profile", {"distro": distro})
+        # Create the system/node via the Provisioning API.
         prov = Provisioning(cobbler_session)
-        node = yield prov.xmlrpc_add_node("system")
+        node = yield prov.xmlrpc_add_node("system", profile.name)
         self.assertIsInstance(node, CobblerSystem)
         self.assertEqual("system", node.name)
         self.assertIs(cobbler_session, node.session)
