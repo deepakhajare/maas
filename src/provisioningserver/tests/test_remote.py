@@ -11,7 +11,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from provisioningserver.cobblerclient import CobblerSession
+from provisioningserver.cobblerclient import (
+    CobblerSession,
+    CobblerSystem,
+    )
 from provisioningserver.remote import Provisioning
 from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
@@ -19,6 +22,7 @@ from provisioningserver.testing.fakecobbler import (
     )
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from twisted.internet.defer import inlineCallbacks
 
 
 class TestProvisioning(TestCase):
@@ -30,6 +34,7 @@ class TestProvisioning(TestCase):
         prov = Provisioning()
         self.assertEqual("I'm here.", prov.xmlrpc_hello())
 
+    @inlineCallbacks
     def test_add_node(self):
         cobbler_session = CobblerSession(
             "http://localhost/does/not/exist", "user", "password")
@@ -37,4 +42,7 @@ class TestProvisioning(TestCase):
         cobbler_proxy = FakeTwistedProxy(cobbler_fake)
         cobbler_session.proxy = cobbler_proxy
         prov = Provisioning(cobbler_session)
-        return prov.xmlrpc_add_node()
+        node = yield prov.xmlrpc_add_node("fred")
+        self.assertIsInstance(node, CobblerSystem)
+        self.assertEqual("fred", node.name)
+        self.assertIs(cobbler_session, node.session)
