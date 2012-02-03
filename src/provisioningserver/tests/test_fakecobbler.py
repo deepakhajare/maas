@@ -229,7 +229,7 @@ class CobblerObjectTestScenario:
         session = yield fake_cobbler_session()
         name = self.make_name()
         matches = yield self.cobbler_class.find(session, name=name)
-        self.assertEqual([], matches)
+        self.assertSequenceEqual([], matches)
 
     @inlineCallbacks
     def test_find_matches_name(self):
@@ -237,7 +237,7 @@ class CobblerObjectTestScenario:
         name = self.make_name()
         yield fake_cobbler_object(session, self.cobbler_class, name)
         by_name = yield self.cobbler_class.find(session, name=name)
-        self.assertEqual([name], [obj.name for obj in by_name])
+        self.assertSequenceEqual([name], [obj.name for obj in by_name])
 
     @inlineCallbacks
     def test_find_matches_attribute(self):
@@ -247,7 +247,7 @@ class CobblerObjectTestScenario:
         yield fake_cobbler_object(
             session, self.cobbler_class, name, {'comment': comment})
         by_comment = yield self.cobbler_class.find(session, comment=comment)
-        self.assertEqual([name], [obj.name for obj in by_comment])
+        self.assertSequenceEqual([name], [obj.name for obj in by_comment])
 
     @inlineCallbacks
     def test_find_without_args_finds_everything(self):
@@ -312,7 +312,7 @@ class CobblerObjectTestScenario:
         obj = yield fake_cobbler_object(session, self.cobbler_class, name)
         yield obj.delete()
         matches = yield self.cobbler_class.find(session, name=name)
-        self.assertEqual([], matches)
+        self.assertSequenceEqual([], matches)
 
 
 class TestCobblerDistro(CobblerObjectTestScenario, TestCase):
@@ -329,9 +329,9 @@ class TestCobblerDistro(CobblerObjectTestScenario, TestCase):
             'mgmt-classes',
             'mgmt_classes',
             ]
-        self.assertEqual(
+        self.assertSequenceEqual(
             ['mgmt-classes'] * 2,
-            list(map(self.cobbler_class._normalize_attribute, inputs)))
+            map(self.cobbler_class._normalize_attribute, inputs))
 
 
 class TestCobblerImage(CobblerObjectTestScenario, TestCase):
@@ -348,9 +348,9 @@ class TestCobblerImage(CobblerObjectTestScenario, TestCase):
             'image-type',
             'image_type',
             ]
-        self.assertEqual(
+        self.assertSequenceEqual(
             ['image_type'] * 2,
-            list(map(self.cobbler_class._normalize_attribute, inputs)))
+            map(self.cobbler_class._normalize_attribute, inputs))
 
 
 class TestCobblerProfile(CobblerObjectTestScenario, TestCase):
@@ -375,9 +375,9 @@ class TestCobblerProfile(CobblerObjectTestScenario, TestCase):
             'name_servers',
             'name_servers',
             ]
-        self.assertEqual(
+        self.assertSequenceEqual(
             expected_outputs,
-            list(map(self.cobbler_class._normalize_attribute, inputs)))
+            map(self.cobbler_class._normalize_attribute, inputs))
 
 
 class TestCobblerRepo(CobblerObjectTestScenario, TestCase):
