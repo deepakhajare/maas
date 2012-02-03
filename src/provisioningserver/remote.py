@@ -9,7 +9,9 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "ProvisioningAPI",
+    ]
 
 from provisioningserver.cobblerclient import (
     CobblerDistro,
@@ -23,7 +25,7 @@ from twisted.internet.defer import (
 from twisted.web.xmlrpc import XMLRPC
 
 
-class Provisioning(XMLRPC):
+class ProvisioningAPI(XMLRPC):
 
     # TODO: make session mandatory.
     def __init__(self, session=None):

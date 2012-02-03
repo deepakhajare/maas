@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.cobblerclient import CobblerSession
-from provisioningserver.remote import Provisioning
+from provisioningserver.remote import ProvisioningAPI
 from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
     FakeTwistedProxy,
@@ -22,8 +22,8 @@ from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import inlineCallbacks
 
 
-class TestProvisioning(TestCase):
-    """Tests for `provisioningserver.remote.Provisioning`."""
+class TestProvisioningAPI(TestCase):
+    """Tests for `provisioningserver.remote.ProvisioningAPI`."""
 
     run_tests_with = AsynchronousDeferredRunTest
 
@@ -39,7 +39,7 @@ class TestProvisioning(TestCase):
     def test_add_distro(self):
         cobbler_session = self.get_cobbler_session()
         # Create a distro via the Provisioning API.
-        prov = Provisioning(cobbler_session)
+        prov = ProvisioningAPI(cobbler_session)
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         self.assertEqual("distro", distro)
@@ -48,7 +48,7 @@ class TestProvisioning(TestCase):
     def test_add_profile(self):
         cobbler_session = self.get_cobbler_session()
         # Create a profile via the Provisioning API.
-        prov = Provisioning(cobbler_session)
+        prov = ProvisioningAPI(cobbler_session)
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         profile = yield prov.xmlrpc_add_profile("profile", distro)
@@ -58,7 +58,7 @@ class TestProvisioning(TestCase):
     def test_add_node(self):
         cobbler_session = self.get_cobbler_session()
         # Create a system/node via the Provisioning API.
-        prov = Provisioning(cobbler_session)
+        prov = ProvisioningAPI(cobbler_session)
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         profile = yield prov.xmlrpc_add_profile("profile", distro)

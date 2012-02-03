@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from amqpclient import AMQFactory
-from provisioningserver.remote import Provisioning
+from provisioningserver.remote import ProvisioningAPI
 from provisioningserver.services import (
     LogService,
     OOPSService,
@@ -119,7 +119,7 @@ class ProvisioningServiceMaker(object):
             client_service.setServiceParent(services)
 
         site_root = Resource()
-        site_root.putChild("api", Provisioning())
+        site_root.putChild("api", ProvisioningAPI())
         site = Site(site_root)
         site_port = options["port"]
         site_service = TCPServer(site_port, site)
