@@ -119,7 +119,8 @@ class ProvisioningServiceMaker(object):
             client_service.setServiceParent(services)
 
         site_root = Resource()
-        site_root.putChild("api", ProvisioningAPI())
+        # TODO: Wire up to a CobblerSession here.
+        site_root.putChild("api", ProvisioningAPI(session=None))
         site = Site(site_root)
         site_port = options["port"]
         site_service = TCPServer(site_port, site)

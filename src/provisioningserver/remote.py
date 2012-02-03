@@ -27,8 +27,7 @@ from twisted.web.xmlrpc import XMLRPC
 
 class ProvisioningAPI(XMLRPC):
 
-    # TODO: make session mandatory.
-    def __init__(self, session=None):
+    def __init__(self, session):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
         self.session = session
 
