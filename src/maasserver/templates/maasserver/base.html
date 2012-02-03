@@ -31,7 +31,7 @@
         <div class="clear"></div>
       {% endblock %}
       </div>
-      <ul id="flash-message">
+      <ul id="flash-messages">
         {% if messages %}
           {% for message in messages %}
             <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>

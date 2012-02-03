@@ -1,8 +1,8 @@
-#flash-message {
+#flash-messages {
     margin: 0;
     padding: 0;
     }
-#flash-message li {
+#flash-messages li {
     list-style: none;
     padding: 5px 20px;
     border-radius: 6px;
@@ -11,15 +11,15 @@
     color: #FFF;
     margin: 5px 10px;
     }
-#flash-message li.info {
+#flash-messages li.info {
     background-color: #19B6EE;
     }
-#flash-message li.success {
+#flash-messages li.success {
     background-color: #38B44A;
     }
-#flash-message li.warning {
+#flash-messages li.warning {
     background-color: #ECA918;
     }
-#flash-message li.error {
+#flash-messages li.error {
     background-color: #DF382C;
     }
