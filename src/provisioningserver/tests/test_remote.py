@@ -31,10 +31,6 @@ class TestProvisioning(TestCase):
 
     run_tests_with = AsynchronousDeferredRunTest
 
-    def test_hello(self):
-        prov = Provisioning()
-        self.assertEqual("I'm here.", prov.xmlrpc_hello())
-
     def get_cobbler_session(self):
         cobbler_session = CobblerSession(
             "http://localhost/does/not/exist", "user", "password")

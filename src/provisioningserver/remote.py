@@ -26,9 +26,6 @@ class Provisioning(XMLRPC):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
         self.session = session
 
-    def xmlrpc_hello(self):
-        return "I'm here."
-
     @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):
         assert isinstance(name, basestring)
