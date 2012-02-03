@@ -13,6 +13,7 @@ __all__ = []
 
 from provisioningserver.cobblerclient import (
     CobblerDistro,
+    CobblerProfile,
     CobblerSystem,
     )
 from twisted.internet.defer import (
@@ -40,6 +41,14 @@ class Provisioning(XMLRPC):
                 "kernel": kernel,
                 })
         returnValue(distro.name)
+
+    @inlineCallbacks
+    def xmlrpc_add_profile(self, name, distro):
+        assert isinstance(name, basestring)
+        assert isinstance(distro, basestring)
+        profile = yield CobblerProfile.new(
+            self.session, name, {"distro": distro})
+        returnValue(profile.name)
 
     @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):

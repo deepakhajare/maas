@@ -42,11 +42,21 @@ class TestProvisioning(TestCase):
     @inlineCallbacks
     def test_add_distro(self):
         cobbler_session = self.get_cobbler_session()
-        # Create the distro via the Provisioning API.
+        # Create a distro via the Provisioning API.
         prov = Provisioning(cobbler_session)
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         self.assertEqual("distro", distro)
+
+    @inlineCallbacks
+    def test_add_profile(self):
+        cobbler_session = self.get_cobbler_session()
+        # Create a profile via the Provisioning API.
+        prov = Provisioning(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        self.assertEqual("profile", profile)
 
     @inlineCallbacks
     def test_add_node(self):
@@ -59,7 +69,7 @@ class TestProvisioning(TestCase):
                 })
         profile = yield CobblerProfile.new(
             cobbler_session, "profile", {"distro": distro})
-        # Create the system/node via the Provisioning API.
+        # Create a system/node via the Provisioning API.
         prov = Provisioning(cobbler_session)
         node = yield prov.xmlrpc_add_node("system", profile.name)
         self.assertEqual("system", node)
