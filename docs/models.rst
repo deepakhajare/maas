@@ -3,7 +3,19 @@ MaaS Objects
 ============
 
 .. automodule:: maasserver.models
+
 .. autoclass:: Node
+    :members:
+
+.. autoclass:: NODE_STATUS
+    :members:
+
+.. autoclass:: NODE_AFTER_COMMISSIONING_ACTION
+    :members:
+
 .. autoclass:: NodeManager
-    :members: get_visible_nodes, get_visible_node_or_404
+    :members:
+
 .. autoclass:: MACAddress
+    :members:
+

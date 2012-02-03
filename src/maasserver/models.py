@@ -48,6 +48,8 @@ def generate_node_system_id():
 
 
 class NODE_STATUS:
+    """The vocabulary of a `Node`'s possible statuses."""
+# TODO: document this when it's stabilized.
     DEFAULT_STATUS = 0
     NEW = 0
     READY = 1
@@ -69,6 +71,11 @@ NODE_STATUS_CHOICES_DICT = dict(NODE_STATUS_CHOICES)
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
+    """The vocabulary of a `Node`'s possible value for its field
+    after_commissioning_action.
+
+    """
+# TODO: document this when it's stabilized.
     DEFAULT = 0
     QUEUE = 0
     CHECK = 1
@@ -102,11 +109,14 @@ class NodeManager(models.Manager):
     """A utility to manage collections of Nodes."""
 
     def get_visible_nodes(self, user):
-        """Fetch all the `Nodes` visible by a User.  Available via
-        `Node.objects`.
+        """Fetch all the Nodes visible by a User_.
 
         :param user: The user that should be used in the permission check.
-        :type user: django.contrib.auth.models.User
+        :type user: User_
+
+        .. _User: https://
+           docs.djangoproject.com/en/dev/topics/auth/
+           #django.contrib.auth.models.User
 
         """
         if user.is_superuser:
@@ -123,8 +133,15 @@ class NodeManager(models.Manager):
         :type name: str
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
-        :raises: django.http.Http404, django.core.exceptions.PermissionDenied
+        :raises: django.http.Http404_,
+            django.core.exceptions.PermissionDenied_.
 
+        .. _django.http.Http404: https://
+           docs.djangoproject.com/en/dev/topics/http/views/
+           #the-http404-exception
+        .. _django.core.exceptions.PermissionDenied: https://
+           docs.djangoproject.com/en/dev/ref/exceptions/
+           #django.core.exceptions.PermissionDenied
         """
         node = get_object_or_404(Node, system_id=system_id)
         if user.has_perm('access', node):
@@ -135,19 +152,32 @@ class NodeManager(models.Manager):
 
 class Node(CommonInfo):
     """A `Node` represents a physical machine used by the MaaS Server."""
+
+    #: The unique identifier for this `Node`.
+    #: (e.g. 'node-41eba45e-4cfa-11e1-a052-00225f89f211').
     system_id = models.CharField(
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
+
+    #: This `Node`'s hostname.
     hostname = models.CharField(max_length=255, default='', blank=True)
+
+    #: This `Node`'s status. See the vocabulary :class:`NODE_STATUS`.
     status = models.IntegerField(
         max_length=10, choices=NODE_STATUS_CHOICES, editable=False,
         default=NODE_STATUS.DEFAULT_STATUS)
+
+    #: This `Node`'s owner if it's in use, None otherwise.
     owner = models.ForeignKey(
         User, default=None, blank=True, null=True, editable=False)
+
+    #: The action to perform after commissioning.
+    #: See vocabulary :class:`NODE_AFTER_COMMISSIONING_ACTION`.
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
+    #: The :class:`NodeManager`.
     objects = NodeManager()
 
     def __unicode__(self):
@@ -160,14 +190,32 @@ class Node(CommonInfo):
         return NODE_STATUS_CHOICES_DICT[self.status]
 
     def add_mac_address(self, mac_address):
+        """Add a new MAC Address to this `Node`.
+
+        :param mac_address: The MAC Address to be added.
+        :type mac_address: str
+        :raises: django.core.exceptions.ValidationError_
+
+        .. _django.core.exceptions.ValidationError: https://
+           docs.djangoproject.com/en/dev/ref/exceptions/
+           #django.core.exceptions.ValidationError
+        """
+
         mac = MACAddress(mac_address=mac_address, node=self)
         mac.full_clean()
         mac.save()
         return mac
 
     def remove_mac_address(self, mac_address):
-        mac = MACAddress.objects.filter(mac_address=mac_address, node=self)
-        mac.delete()
+        """Remove a MAC Address from this `Node`.
+
+        :param mac_address: The MAC Address to be removed.
+        :type mac_address: str
+
+        """
+        mac = MACAddress.objects.get(mac_address=mac_address, node=self)
+        if mac:
+            mac.delete()
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
@@ -175,7 +223,7 @@ mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 class MACAddress(CommonInfo):
     """A `MACAddress` represents a `MAC Address
-    <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a `Node`.
+    <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
     """
     mac_address = MACAddressField()
     node = models.ForeignKey(Node, editable=False)
