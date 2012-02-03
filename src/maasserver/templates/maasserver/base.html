@@ -31,13 +31,13 @@
         <div class="clear"></div>
       {% endblock %}
       </div>
-      {% if messages %}
-        <ul id="flash-message">
+      <ul id="flash-message">
+        {% if messages %}
           {% for message in messages %}
             <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
           {% endfor %}
-        </ul>
-      {% endif %}
+        {% endif %}
+      </ul>
       <div id="content">{% block content %}{% endblock %}</div>
     </div>
   </div>
