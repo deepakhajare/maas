@@ -140,7 +140,7 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(
+        self.assertSequenceEqual(
             ["log", "oops", "site"],
             sorted(service.namedServices))
         self.assertEqual(
@@ -151,8 +151,8 @@ class TestProvisioningServiceMaker(TestCase):
 
     def test_makeService_with_broker(self):
         """
-        The site service and the AMQP client service are created when no
-        the broker user and password options are given.
+        The log, oops, site, and amqp services are created when the broker
+        user and password options are given.
         """
         options = Options()
         options["brokerpassword"] = "Hoskins"
@@ -161,7 +161,7 @@ class TestProvisioningServiceMaker(TestCase):
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options, _set_proc_title=False)
         self.assertIsInstance(service, MultiService)
-        self.assertEqual(
+        self.assertSequenceEqual(
             ["amqp", "log", "oops", "site"],
             sorted(service.namedServices))
         self.assertEqual(
