@@ -11,7 +11,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from provisioningserver.cobblerclient import CobblerSystem
+from provisioningserver.cobblerclient import (
+    CobblerDistro,
+    CobblerSystem,
+    )
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -25,6 +28,18 @@ class Provisioning(XMLRPC):
     def __init__(self, session=None):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
         self.session = session
+
+    @inlineCallbacks
+    def xmlrpc_add_distro(self, name, initrd, kernel):
+        assert isinstance(name, basestring)
+        assert isinstance(initrd, basestring)
+        assert isinstance(kernel, basestring)
+        distro = yield CobblerDistro.new(
+            self.session, name, {
+                "initrd": initrd,
+                "kernel": kernel,
+                })
+        returnValue(distro.name)
 
     @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):

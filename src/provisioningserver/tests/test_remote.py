@@ -40,6 +40,15 @@ class TestProvisioning(TestCase):
         return cobbler_session
 
     @inlineCallbacks
+    def test_add_distro(self):
+        cobbler_session = self.get_cobbler_session()
+        # Create the distro via the Provisioning API.
+        prov = Provisioning(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        self.assertEqual("distro", distro)
+
+    @inlineCallbacks
     def test_add_node(self):
         cobbler_session = self.get_cobbler_session()
         # Create a distro and a profile in Cobbler.
