@@ -45,6 +45,22 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual("distro", distro)
 
     @inlineCallbacks
+    def test_get_distros(self):
+        cobbler_session = self.get_cobbler_session()
+        prov = ProvisioningAPI(cobbler_session)
+        distros = yield prov.xmlrpc_get_distros()
+        self.assertEqual([], distros)
+        # Create some distros via the Provisioning API.
+        yield prov.xmlrpc_add_distro(
+            "distro3", "an_initrd", "a_kernel")
+        yield prov.xmlrpc_add_distro(
+            "distro1", "an_initrd", "a_kernel")
+        yield prov.xmlrpc_add_distro(
+            "distro2", "an_initrd", "a_kernel")
+        distros = yield prov.xmlrpc_get_distros()
+        self.assertEqual(["distro1", "distro2", "distro3"], distros)
+
+    @inlineCallbacks
     def test_add_profile(self):
         cobbler_session = self.get_cobbler_session()
         # Create a profile via the Provisioning API.

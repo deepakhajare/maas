@@ -44,6 +44,11 @@ class ProvisioningAPI(XMLRPC):
         returnValue(distro.name)
 
     @inlineCallbacks
+    def xmlrpc_get_distros(self):
+        distros = yield CobblerDistro.find(self.session)
+        returnValue(sorted(distro.name for distro in distros))
+
+    @inlineCallbacks
     def xmlrpc_add_profile(self, name, distro):
         assert isinstance(name, basestring)
         assert isinstance(distro, basestring)
