@@ -25,7 +25,7 @@ from twisted.internet.defer import inlineCallbacks
 class TestProvisioningAPI(TestCase):
     """Tests for `provisioningserver.remote.ProvisioningAPI`."""
 
-    run_tests_with = AsynchronousDeferredRunTest
+    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
     def get_cobbler_session(self):
         cobbler_session = CobblerSession(
