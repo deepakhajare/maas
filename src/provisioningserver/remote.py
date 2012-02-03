@@ -57,6 +57,11 @@ class ProvisioningAPI(XMLRPC):
         returnValue(profile.name)
 
     @inlineCallbacks
+    def xmlrpc_get_profiles(self):
+        profiles = yield CobblerProfile.find(self.session)
+        returnValue(sorted(profile.name for profile in profiles))
+
+    @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):
         assert isinstance(name, basestring)
         assert isinstance(profile, basestring)
