@@ -68,3 +68,8 @@ class ProvisioningAPI(XMLRPC):
         system = yield CobblerSystem.new(
             self.session, name, {"profile": profile})
         returnValue(system.name)
+
+    @inlineCallbacks
+    def xmlrpc_get_nodes(self):
+        systems = yield CobblerSystem.find(self.session)
+        returnValue(sorted(system.name for system in systems))

@@ -95,3 +95,19 @@ class TestProvisioningAPI(TestCase):
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         node = yield prov.xmlrpc_add_node("node", profile)
         self.assertEqual("node", node)
+
+    @inlineCallbacks
+    def test_get_nodes(self):
+        cobbler_session = self.get_cobbler_session()
+        prov = ProvisioningAPI(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        nodes = yield prov.xmlrpc_get_nodes()
+        self.assertEqual([], nodes)
+        # Create some nodes via the Provisioning API.
+        yield prov.xmlrpc_add_node("node3", profile)
+        yield prov.xmlrpc_add_node("node1", profile)
+        yield prov.xmlrpc_add_node("node2", profile)
+        nodes = yield prov.xmlrpc_get_nodes()
+        self.assertEqual(["node1", "node2", "node3"], nodes)
