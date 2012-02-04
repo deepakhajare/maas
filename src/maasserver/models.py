@@ -252,7 +252,7 @@ class MACAddress(CommonInfo):
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
 
     :ivar mac_address: The MAC Address.
-    :ivar node: The `Node` related for this `MACAddress`.
+    :ivar node: The `Node` related to this `MACAddress`.
 
     """
     mac_address = MACAddressField()
