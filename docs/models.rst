@@ -2,9 +2,15 @@
 MaaS Objects
 ============
 
+
 .. automodule:: maasserver.models
 
+.. autoclass:: CommonInfo
+    :show-inheritance:
+    :members:
+
 .. autoclass:: Node
+    :show-inheritance:
     :members:
 
 .. autoclass:: NODE_STATUS
@@ -14,8 +20,10 @@ MaaS Objects
     :members:
 
 .. autoclass:: NodeManager
+    :show-inheritance:
     :members:
 
 .. autoclass:: MACAddress
+    :show-inheritance:
     :members:
 

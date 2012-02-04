@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Model."""
+"""MaaS model objects."""
 
 from __future__ import (
     print_function,
@@ -30,6 +30,13 @@ from maasserver.macaddress import MACAddressField
 
 
 class CommonInfo(models.Model):
+    """A base model which records the creation date and the last modification
+    date.
+
+    :ivar created: The creation date.
+    :ivar updated: The last modification date.
+
+    """
     created = models.DateField(editable=False)
     updated = models.DateTimeField(editable=False)
 
@@ -50,11 +57,17 @@ def generate_node_system_id():
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
 # TODO: document this when it's stabilized.
+    #:
     DEFAULT_STATUS = 0
+    #:
     NEW = 0
+    #:
     READY = 1
+    #:
     DEPLOYED = 2
+    #:
     COMMISSIONED = 3
+    #:
     DECOMMISSIONED = 4
 
 
@@ -76,12 +89,19 @@ class NODE_AFTER_COMMISSIONING_ACTION:
 
     """
 # TODO: document this when it's stabilized.
+    #:
     DEFAULT = 0
+    #:
     QUEUE = 0
+    #:
     CHECK = 1
+    #:
     DEPLOY_12_04 = 2
+    #:
     DEPLOY_11_10 = 3
+    #:
     DEPLOY_11_04 = 4
+    #:
     DEPLOY_10_10 = 5
 
 
@@ -106,7 +126,7 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 
 
 class NodeManager(models.Manager):
-    """A utility to manage collections of Nodes."""
+    """A utility to manage the collection of Nodes."""
 
     def get_visible_nodes(self, user):
         """Fetch all the Nodes visible by a User_.
@@ -151,33 +171,39 @@ class NodeManager(models.Manager):
 
 
 class Node(CommonInfo):
-    """A `Node` represents a physical machine used by the MaaS Server."""
+    """A `Node` represents a physical machine used by the MaaS Server.
 
-    #: The unique identifier for this `Node`.
-    #: (e.g. 'node-41eba45e-4cfa-11e1-a052-00225f89f211').
+    :ivar system_id: The unique identifier for this `Node`.
+        (e.g. 'node-41eba45e-4cfa-11e1-a052-00225f89f211').
+    :ivar hostname: This `Node`'s hostname.
+    :ivar status: This `Node`'s status. See the vocabulary
+        :class:`NODE_STATUS`.
+    :ivar owner: This `Node`'s owner if it's in use, None otherwise.
+    :ivar after_commissioning_action: The action to perform after
+        commissioning. See vocabulary
+        :class:`NODE_AFTER_COMMISSIONING_ACTION`.
+    :ivar objects: The :class:`NodeManager`.
+    :ivar hostname: This `Node`'s hostname.
+
+    """
+
     system_id = models.CharField(
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
-    #: This `Node`'s hostname.
     hostname = models.CharField(max_length=255, default='', blank=True)
 
-    #: This `Node`'s status. See the vocabulary :class:`NODE_STATUS`.
     status = models.IntegerField(
         max_length=10, choices=NODE_STATUS_CHOICES, editable=False,
         default=NODE_STATUS.DEFAULT_STATUS)
 
-    #: This `Node`'s owner if it's in use, None otherwise.
     owner = models.ForeignKey(
         User, default=None, blank=True, null=True, editable=False)
 
-    #: The action to perform after commissioning.
-    #: See vocabulary :class:`NODE_AFTER_COMMISSIONING_ACTION`.
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
-    #: The :class:`NodeManager`.
     objects = NodeManager()
 
     def __unicode__(self):
@@ -224,6 +250,10 @@ mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 class MACAddress(CommonInfo):
     """A `MACAddress` represents a `MAC Address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
+
+    :ivar mac_address: The MAC Address.
+    :ivar node: The `Node` related for this `MACAddress`.
+
     """
     mac_address = MACAddressField()
     node = models.ForeignKey(Node, editable=False)
