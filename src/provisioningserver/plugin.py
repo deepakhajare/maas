@@ -12,10 +12,15 @@ __metaclass__ = type
 __all__ = []
 
 from amqpclient import AMQFactory
+from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.remote import ProvisioningAPI
 from provisioningserver.services import (
     LogService,
     OOPSService,
+    )
+from provisioningserver.testing.fakecobbler import (
+    FakeCobbler,
+    FakeTwistedProxy,
     )
 import setproctitle
 from twisted.application.internet import (
@@ -118,9 +123,17 @@ class ProvisioningServiceMaker(object):
             client_service.setName("amqp")
             client_service.setServiceParent(services)
 
+        session = CobblerSession(
+            # TODO: Get these values from command-line arguments.
+            "http://localhost/does/not/exist", "user", "password")
+
+        # TODO: Remove this.
+        fake_cobbler = FakeCobbler({"user": "password"})
+        fake_cobbler_proxy = FakeTwistedProxy(fake_cobbler)
+        session.proxy = fake_cobbler_proxy
+
         site_root = Resource()
-        # TODO: Wire up to a CobblerSession here.
-        site_root.putChild("api", ProvisioningAPI(session=None))
+        site_root.putChild("api", ProvisioningAPI(session))
         site = Site(site_root)
         site_port = options["port"]
         site_service = TCPServer(site_port, site)
