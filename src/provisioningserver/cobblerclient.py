@@ -377,14 +377,14 @@ class CobblerObject:
         else:
             attributes['name'] = name
         missing_attributes = (
-            set(cls.required_attributes) - set(attributes.keys()))
+            set(cls.required_attributes).difference(attributes))
         assert len(missing_attributes) == 0, (
             "Required attributes for %s missing: %s"
             % (cls.object_type, missing_attributes))
 
         args = dict(
             (cls._normalize_attribute(key), value)
-            for key, value in attributes.items())
+            for key, value in attributes.iteritems())
 
         # Overwrite any existing object of the same name.  Unfortunately
         # this parameter goes into the "attributes," and seems to be
