@@ -205,6 +205,20 @@ class CobblerSession:
         returnValue(result)
 
 
+class CobblerObjectType(type):
+    """Metaclass of Cobbler objects."""
+
+    def __new__(mtype, name, bases, attributes):
+        if "known_attributes" in attributes:
+            attributes["known_attributes"] = frozenset(
+                attributes["known_attributes"])
+        if "required_attributes" in attributes:
+            attributes["required_attributes"] = frozenset(
+                attributes["required_attributes"])
+        return super(CobblerObjectType, mtype).__new__(
+            mtype, name, bases, attributes)
+
+
 class CobblerObject:
     """Abstract base class: a type of object in Cobbler's XMLRPC API.
 
@@ -219,6 +233,8 @@ class CobblerObject:
     :ivar known_attributes: Attributes that this type of object is known
         to have.
     """
+
+    __metaclass__ = CobblerObjectType
 
     # What are objects of this type called in the Cobbler API?
     object_type = None

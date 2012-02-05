@@ -484,3 +484,21 @@ class TestCobblerObject(TestCase):
         values_observed = yield (
             cobblerclient.CobblerDistro.get_all_values(session))
         self.assertEqual(values_expected, values_observed)
+
+    def test_known_attributes(self):
+        # The known_attributes class attribute is always a frozenset.
+        self.assertIsInstance(
+            cobblerclient.CobblerObject.known_attributes,
+            frozenset)
+        self.assertIsInstance(
+            cobblerclient.CobblerProfile.known_attributes,
+            frozenset)
+
+    def test_required_attributes(self):
+        # The known_attributes class attribute is always a frozenset.
+        self.assertIsInstance(
+            cobblerclient.CobblerObject.required_attributes,
+            frozenset)
+        self.assertIsInstance(
+            cobblerclient.CobblerDistro.required_attributes,
+            frozenset)
