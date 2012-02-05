@@ -49,7 +49,7 @@ class TestProvisioningAPI(TestCase):
         cobbler_session = self.get_cobbler_session()
         prov = ProvisioningAPI(cobbler_session)
         distros = yield prov.xmlrpc_get_distros()
-        self.assertEqual([], distros)
+        self.assertEqual({}, distros)
         # Create some distros via the Provisioning API.
         yield prov.xmlrpc_add_distro(
             "distro3", "an_initrd", "a_kernel")
@@ -58,7 +58,21 @@ class TestProvisioningAPI(TestCase):
         yield prov.xmlrpc_add_distro(
             "distro2", "an_initrd", "a_kernel")
         distros = yield prov.xmlrpc_get_distros()
-        self.assertEqual(["distro1", "distro2", "distro3"], distros)
+        expected = {
+            u'distro1': {
+                u'initrd': u'an_initrd',
+                u'kernel': u'a_kernel',
+                u'name': u'distro1'},
+            u'distro2': {
+                u'initrd': u'an_initrd',
+                u'kernel': u'a_kernel',
+                u'name': u'distro2'},
+            u'distro3': {
+                u'initrd': u'an_initrd',
+                u'kernel': u'a_kernel',
+                u'name': u'distro3'},
+            }
+        self.assertEqual(expected, distros)
 
     @inlineCallbacks
     def test_add_profile(self):
@@ -77,13 +91,18 @@ class TestProvisioningAPI(TestCase):
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         profiles = yield prov.xmlrpc_get_profiles()
-        self.assertEqual([], profiles)
+        self.assertEqual({}, profiles)
         # Create some profiles via the Provisioning API.
         yield prov.xmlrpc_add_profile("profile3", distro)
         yield prov.xmlrpc_add_profile("profile1", distro)
         yield prov.xmlrpc_add_profile("profile2", distro)
         profiles = yield prov.xmlrpc_get_profiles()
-        self.assertEqual(["profile1", "profile2", "profile3"], profiles)
+        expected = {
+            u'profile1': {u'distro': u'distro', u'name': u'profile1'},
+            u'profile2': {u'distro': u'distro', u'name': u'profile2'},
+            u'profile3': {u'distro': u'distro', u'name': u'profile3'},
+            }
+        self.assertEqual(expected, profiles)
 
     @inlineCallbacks
     def test_add_node(self):
@@ -104,10 +123,15 @@ class TestProvisioningAPI(TestCase):
             "distro", "an_initrd", "a_kernel")
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         nodes = yield prov.xmlrpc_get_nodes()
-        self.assertEqual([], nodes)
+        self.assertEqual({}, nodes)
         # Create some nodes via the Provisioning API.
         yield prov.xmlrpc_add_node("node3", profile)
         yield prov.xmlrpc_add_node("node1", profile)
         yield prov.xmlrpc_add_node("node2", profile)
         nodes = yield prov.xmlrpc_get_nodes()
-        self.assertEqual(["node1", "node2", "node3"], nodes)
+        expected = {
+            u'node1': {u'name': u'node1', u'profile': u'profile'},
+            u'node2': {u'name': u'node2', u'profile': u'profile'},
+            u'node3': {u'name': u'node3', u'profile': u'profile'},
+            }
+        self.assertEqual(expected, nodes)

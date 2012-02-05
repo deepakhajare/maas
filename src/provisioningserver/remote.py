@@ -46,7 +46,7 @@ class ProvisioningAPI(XMLRPC):
     @inlineCallbacks
     def xmlrpc_get_distros(self):
         distros = yield CobblerDistro.get_all_values(self.session)
-        returnValue(sorted(distros))
+        returnValue(distros)
 
     @inlineCallbacks
     def xmlrpc_add_profile(self, name, distro):
@@ -59,7 +59,7 @@ class ProvisioningAPI(XMLRPC):
     @inlineCallbacks
     def xmlrpc_get_profiles(self):
         profiles = yield CobblerProfile.get_all_values(self.session)
-        returnValue(sorted(profiles))
+        returnValue(profiles)
 
     @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):
@@ -72,4 +72,4 @@ class ProvisioningAPI(XMLRPC):
     @inlineCallbacks
     def xmlrpc_get_nodes(self):
         systems = yield CobblerSystem.get_all_values(self.session)
-        returnValue(sorted(systems))
+        returnValue(systems)
