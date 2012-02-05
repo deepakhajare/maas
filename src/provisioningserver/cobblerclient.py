@@ -314,11 +314,12 @@ class CobblerObject:
         result = yield session.call(method, criteria)
         returnValue([cls(session, name) for name in result])
 
-    def _trim_attributes(self, attributes):
+    @classmethod
+    def _trim_attributes(cls, attributes):
         """Return a dict containing only keys from `known_attributes`."""
         return {
             name: value for name, value in attributes.iteritems()
-            if name in self.known_attributes
+            if name in cls.known_attributes
             }
 
     @classmethod
@@ -330,8 +331,9 @@ class CobblerObject:
             to dicts containing their respective attributes.
         """
         method = cls._name_method("get_%s", plural=True)
-        result = yield session.call(method)
-        returnValue(dict((obj['name'], obj) for obj in result))
+        results = yield session.call(method)
+        results = (cls._trim_attributes(result) for result in results)
+        returnValue(dict((obj['name'], obj) for obj in results))
 
     def get_values(self):
         """Load the object's attributes as a dict.
