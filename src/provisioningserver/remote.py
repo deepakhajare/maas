@@ -45,6 +45,8 @@ class ProvisioningAPI(XMLRPC):
 
     @inlineCallbacks
     def xmlrpc_get_distros(self):
+        # WARNING: This could return a *huge* number of results. Consider
+        # adding filtering options to this function before using it in anger.
         distros = yield CobblerDistro.get_all_values(self.session)
         returnValue(distros)
 
@@ -58,6 +60,8 @@ class ProvisioningAPI(XMLRPC):
 
     @inlineCallbacks
     def xmlrpc_get_profiles(self):
+        # WARNING: This could return a *huge* number of results. Consider
+        # adding filtering options to this function before using it in anger.
         profiles = yield CobblerProfile.get_all_values(self.session)
         returnValue(profiles)
 
@@ -71,5 +75,7 @@ class ProvisioningAPI(XMLRPC):
 
     @inlineCallbacks
     def xmlrpc_get_nodes(self):
+        # WARNING: This could return a *huge* number of results. Consider
+        # adding filtering options to this function before using it in anger.
         systems = yield CobblerSystem.get_all_values(self.session)
         returnValue(systems)
