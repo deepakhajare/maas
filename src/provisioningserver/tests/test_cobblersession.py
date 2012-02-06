@@ -486,7 +486,7 @@ class TestCobblerObject(TestCase):
         self.assertEqual(values_expected, values_observed)
 
     def test_known_attributes(self):
-        # The known_attributes class attribute is always a frozenset.
+        # known_attributes, a class attribute, is always a frozenset.
         self.assertIsInstance(
             cobblerclient.CobblerObject.known_attributes,
             frozenset)
@@ -495,7 +495,7 @@ class TestCobblerObject(TestCase):
             frozenset)
 
     def test_required_attributes(self):
-        # The known_attributes class attribute is always a frozenset.
+        # required_attributes, a class attribute, is always a frozenset.
         self.assertIsInstance(
             cobblerclient.CobblerObject.required_attributes,
             frozenset)

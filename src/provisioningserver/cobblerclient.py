@@ -226,6 +226,13 @@ class CobblerObjectType(type):
     """Metaclass of Cobbler objects."""
 
     def __new__(mtype, name, bases, attributes):
+        """Build a new `CobblerObject` class.
+
+        Ensure that `known_attributes` and `required_attributes` are both
+        frozensets. This indicates that they should not be modified at
+        run-time, and it also improves performance of several methods, most
+        notably `_trim_attributes`.
+        """
         if "known_attributes" in attributes:
             attributes["known_attributes"] = frozenset(
                 attributes["known_attributes"])
