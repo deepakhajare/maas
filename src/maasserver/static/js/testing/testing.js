@@ -10,6 +10,23 @@ var module = Y.namespace('maas.testing');
 
 module.TestCase = Y.Base.create('ioMockableTestCase', Y.Test.Case, [], {
 
+    _setUp: function() {
+        if (!Y.Lang.isValue(this._cleanups)) {
+            this._cleanups = [];
+        }
+    },
+
+    addCleanup: function(func) {
+        this._setUp();
+        this._cleanups.push(func);
+    },
+
+    tearDown: function() {
+        this._setUp();
+        var func;
+        while (func = this._cleanups.pop()) { func(); }
+    },
+
    /**
     * Mock the '_io' field of the provided module.  This assumes that
     * the module has a internal reference to its io module named '_io'
@@ -20,31 +37,9 @@ module.TestCase = Y.Base.create('ioMockableTestCase', Y.Test.Case, [], {
     * @param module the module to monkey patch
     */
     mockIO: function(mock, module) {
-        this.old_io = module._io;
-        this.module = module;
-        this.module._io = mock;
-    },
-
-    tearDown: function() {
-        if (Y.Lang.isValue(this.old_io)) {
-            this.module._io = this.old_io;
-        }
-        if (Y.Lang.isValue(this.handlers)) {
-            var handler;
-            while(handler=this.handlers.pop()) {
-                handler.detach();
-            }
-        }
-    },
-
-    mockSuccess: function(response, module) {
-        var mockXhr = {};
-        mockXhr.io = function(url, cfg) {
-           var out = {};
-           out.response = response;
-           cfg.on.success('4', out);
-        };
-        this.mockIO(mockXhr, module);
+        var io = module._io;
+        module._io = mock;
+        this.addCleanup(function() { module._io = io; });
     },
 
    /**
@@ -59,15 +54,18 @@ module.TestCase = Y.Base.create('ioMockableTestCase', Y.Test.Case, [], {
     */
     registerListener: function(source, name, method, context) {
         var handle = source.on(name, method, context);
-        this.cleanupHandler(handle);
+        this.addCleanup(Y.bind(handle.detach, handle));
         return handle;
     },
 
-    cleanupHandler: function(handler) {
-        if (!Y.Lang.isValue(this.handlers)) {
-            this.handlers = [];
-        }
-        this.handlers.push(handler);
+    mockSuccess: function(response, module) {
+        var mockXhr = {};
+        mockXhr.io = function(url, cfg) {
+           var out = {};
+           out.response = response;
+           cfg.on.success('4', out);
+        };
+        this.mockIO(mockXhr, module);
     }
 
 });

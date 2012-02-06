@@ -10,20 +10,12 @@ var namespace = Y.namespace('maas.node_views.tests');
 var module = Y.maas.node_views;
 var suite = new Y.Test.Suite("maas.node_views Tests");
 
-TestCase = Y.Base.create('viewDestroyer', Y.maas.testing.TestCase, [], {
-
-    tearDown: function() {
-        if (Y.Lang.isValue(this.view)) {
-            this.view.destroy();
-        }
-    }
-});
-
-suite.add(new TestCase({
+suite.add(new Y.maas.testing.TestCase({
     name: 'test-node-views-NodeListLoader',
 
     testInitialization: function() {
         var base_view = new Y.maas.node_views.NodeListLoader();
+        this.addCleanup(function() { base_view.destroy(); });
         Y.Assert.areEqual('nodeList', base_view.modelList.name);
         Y.Assert.isFalse(base_view.nodes_loaded);
     },
@@ -39,6 +31,7 @@ suite.add(new TestCase({
         this.mockIO(mockXhr, module);
 
         var base_view = new Y.maas.node_views.NodeListLoader();
+        this.addCleanup(function() { base_view.destroy(); });
         base_view.render();
         Y.Mock.verify(mockXhr);
     },
@@ -47,6 +40,7 @@ suite.add(new TestCase({
         // The view listens to Y.maas.node_add.AddNodeDispatcher and
         // adds the published nodes to its internal this.modelList.
         var base_view = new Y.maas.node_views.NodeListLoader();
+        this.addCleanup(function() { base_view.destroy(); });
         Y.maas.node_add.AddNodeDispatcher.fire(
             Y.maas.node_add.NODE_ADDED_EVENT, {},
             {system_id: '4', hostname: 'dan'});
@@ -69,7 +63,7 @@ suite.add(new TestCase({
 
 }));
 
-suite.add(new TestCase({
+suite.add(new Y.maas.testing.TestCase({
     name: 'test-node-views-NodeDashBoard',
 
     testDisplay: function() {
@@ -78,9 +72,10 @@ suite.add(new TestCase({
             {system_id: '4', hostname: 'dee'}
         ]);
         this.mockSuccess(response, module);
-        this.view = new Y.maas.node_views.NodesDashboard(
+        var view = new Y.maas.node_views.NodesDashboard(
             {append: '#placeholder'});
-        this.view.render();
+        this.addCleanup(function() { view.destroy(); });
+        view.render();
         Y.Assert.areEqual(
             '2 nodes in this cluster',
             Y.one('#placeholder').get('text'));
@@ -89,13 +84,14 @@ suite.add(new TestCase({
     testDisplayUpdate: function() {
         // The display is updated when new nodes are added.
         this.mockSuccess(Y.JSON.stringify([]), module);
-        this.view = new Y.maas.node_views.NodesDashboard(
+        var view = new Y.maas.node_views.NodesDashboard(
             {append: '#placeholder'});
-        this.view.render();
+        this.addCleanup(function() { view.destroy(); });
+        view.render();
         Y.maas.node_add.AddNodeDispatcher.fire(
             Y.maas.node_add.NODE_ADDED_EVENT, {},
             {system_id: '4', hostname: 'dan'});
-        Y.Assert.areEqual(1, this.view.modelList.size());
+        Y.Assert.areEqual(1, view.modelList.size());
         Y.Assert.areEqual(
             '1 node in this cluster',
             Y.one('#placeholder').get('text'));

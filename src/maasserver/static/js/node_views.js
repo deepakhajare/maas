@@ -163,13 +163,8 @@ module.NodesDashboard = Y.Base.create(
     */
     display: function () {
         var size = this.modelList.size();
-        var template;
-        if (size === 1) {
-            template = this.singular_template;
-        }
-        else {
-        template = this.plural_template;
-        }
+        var template = (size === 1) ?
+            this.singular_template : this.plural_template;
         Y.one(this.container).setContent(
             Y.Lang.sub(template, {nb_nodes: size}));
 
