@@ -95,9 +95,9 @@ dispatch_methods = {
 def api_exported(operation_name=True, method='POST'):
     def _decorator(func):
         if method not in dispatch_methods:
-            raise Exception("Invalid method: '%s'" % method)
+            raise ValueError("Invalid method: '%s'" % method)
         if operation_name == dispatch_methods.get(method):
-            raise Exception(
+            raise ValueError(
                 "Cannot define a '%s' operation." % dispatch_methods.get(
                     method))
         func._api_exported = {method: operation_name}
@@ -175,14 +175,14 @@ def api_operations(cls):
     # overriden.
     overriden_methods = set()
     for name, value in vars(cls).iteritems():
-        overriden_methods.update(list(getattr(value, '_api_exported', [])))
+        overriden_methods.update(getattr(value, '_api_exported', {}))
     # Override the appropriate methods with a 'dispatcher' method.
     for method in overriden_methods:
         operations = {
             name: value for name, value in vars(cls).iteritems()
             if is_api_exported(value, method)}
-        if not hasattr(cls, '_available_api_methods'):
-            cls._available_api_methods = {}
+        cls._available_api_methods = getattr(
+            cls, "_available_api_methods", {}).copy()
         cls._available_api_methods[method] = {
             (name if op._api_exported[method] is True
                 else op._api_exported[method]): op
