@@ -84,15 +84,12 @@ class TestProvisioningAPI(TestCase):
         profiles = yield prov.xmlrpc_get_profiles()
         self.assertEqual({}, profiles)
         # Create some profiles via the Provisioning API.
-        yield prov.xmlrpc_add_profile("profile3", distro)
-        yield prov.xmlrpc_add_profile("profile1", distro)
-        yield prov.xmlrpc_add_profile("profile2", distro)
+        expected = {}
+        for num in xrange(3):
+            name = self.getUniqueString()
+            yield prov.xmlrpc_add_profile(name, distro)
+            expected[name] = {u'distro': u'distro', u'name': name}
         profiles = yield prov.xmlrpc_get_profiles()
-        expected = {
-            u'profile1': {u'distro': u'distro', u'name': u'profile1'},
-            u'profile2': {u'distro': u'distro', u'name': u'profile2'},
-            u'profile3': {u'distro': u'distro', u'name': u'profile3'},
-            }
         self.assertEqual(expected, profiles)
 
     @inlineCallbacks
