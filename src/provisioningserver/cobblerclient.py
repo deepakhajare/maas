@@ -222,6 +222,27 @@ class CobblerSession:
         returnValue(result)
 
 
+class CobblerObjectType(type):
+    """Metaclass of Cobbler objects."""
+
+    def __new__(mtype, name, bases, attributes):
+        """Build a new `CobblerObject` class.
+
+        Ensure that `known_attributes` and `required_attributes` are both
+        frozensets. This indicates that they should not be modified at
+        run-time, and it also improves performance of several methods, most
+        notably `_trim_attributes`.
+        """
+        if "known_attributes" in attributes:
+            attributes["known_attributes"] = frozenset(
+                attributes["known_attributes"])
+        if "required_attributes" in attributes:
+            attributes["required_attributes"] = frozenset(
+                attributes["required_attributes"])
+        return super(CobblerObjectType, mtype).__new__(
+            mtype, name, bases, attributes)
+
+
 class CobblerObject:
     """Abstract base class: a type of object in Cobbler's XMLRPC API.
 
@@ -229,6 +250,8 @@ class CobblerObject:
     systems, and other objects it stores in its database and exposes
     through its API.  Implement a new type by inheriting from this class.
     """
+
+    __metaclass__ = CobblerObjectType
 
     # What are objects of this type called in the Cobbler API?
     object_type = None
@@ -325,6 +348,14 @@ class CobblerObject:
         returnValue([cls(session, name) for name in result])
 
     @classmethod
+    def _trim_attributes(cls, attributes):
+        """Return a dict containing only keys from `known_attributes`."""
+        return {
+            name: value for name, value in attributes.iteritems()
+            if name in cls.known_attributes
+            }
+
+    @classmethod
     @inlineCallbacks
     def get_all_values(cls, session):
         """Load the attributes for all objects of this type.
@@ -333,8 +364,9 @@ class CobblerObject:
             to dicts containing their respective attributes.
         """
         method = cls._name_method("get_%s", plural=True)
-        result = yield session.call(method)
-        returnValue(dict((obj['name'], obj) for obj in result))
+        results = yield session.call(method)
+        results = (cls._trim_attributes(result) for result in results)
+        returnValue(dict((obj['name'], obj) for obj in results))
 
     def get_values(self):
         """Load the object's attributes as a dict.
@@ -343,6 +375,7 @@ class CobblerObject:
             attribute names and values.
         """
         d = self.session.call(self._name_method("get_%s"), self.name)
+        d.addCallback(self._trim_attributes)
         return d
 
     @classmethod
@@ -361,14 +394,14 @@ class CobblerObject:
         else:
             attributes['name'] = name
         missing_attributes = (
-            set(cls.required_attributes) - set(attributes.keys()))
+            set(cls.required_attributes).difference(attributes))
         assert len(missing_attributes) == 0, (
             "Required attributes for %s missing: %s"
             % (cls.object_type, missing_attributes))
 
         args = dict(
             (cls._normalize_attribute(key), value)
-            for key, value in attributes.items())
+            for key, value in attributes.iteritems())
 
         # Overwrite any existing object of the same name.  Unfortunately
         # this parameter goes into the "attributes," and seems to be
