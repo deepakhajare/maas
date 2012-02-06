@@ -139,8 +139,8 @@ def perform_api_operation(handler, request, method='POST', *args, **kwargs):
 
 def api_operations(cls):
     """Class decorator (PEP 3129) to be used on piston-based handler classes
-    (i.e. classes inheriting from piston.handler.BaseHandler).  It will add a
-    method {'create','read','update','delete} to the class.
+    (i.e. classes inheriting from piston.handler.BaseHandler).  It will add
+    the required methods {'create','read','update','delete} to the class.
     These methods (called by piston to handle POST/GET/PUT/DELETE requests),
     will route requests to methods decorated with
     @api_exported(method={'POST','GET','PUT','DELETE'} depending on the
