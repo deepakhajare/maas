@@ -113,13 +113,10 @@ class TestProvisioningAPI(TestCase):
         nodes = yield prov.xmlrpc_get_nodes()
         self.assertEqual({}, nodes)
         # Create some nodes via the Provisioning API.
-        yield prov.xmlrpc_add_node("node3", profile)
-        yield prov.xmlrpc_add_node("node1", profile)
-        yield prov.xmlrpc_add_node("node2", profile)
+        expected = {}
+        for num in xrange(3):
+            name = self.getUniqueString()
+            yield prov.xmlrpc_add_node(name, profile)
+            expected[name] = {'name': name, 'profile': 'profile'}
         nodes = yield prov.xmlrpc_get_nodes()
-        expected = {
-            u'node1': {u'name': u'node1', u'profile': u'profile'},
-            u'node2': {u'name': u'node2', u'profile': u'profile'},
-            u'node3': {u'name': u'node3', u'profile': u'profile'},
-            }
         self.assertEqual(expected, nodes)
