@@ -448,13 +448,13 @@ class TestCobblerObject(TestCase):
         session.proxy.set_return_values([values_stored])
         # However, CobblerObject.get_all_values() only returns attributes that
         # are in known_attributes.
-        values_expected = {
-            "alice": {
-                "initrd": "an_initrd",
-                "kernel": "a_kernel",
-                "name": u"alice",
-                },
+        values_expected_for_alice = {
+            "initrd": "an_initrd",
+            "kernel": "a_kernel",
+            "name": u"alice",
             }
         values_observed = yield (
             cobblerclient.CobblerDistro.get_all_values(session))
-        self.assertEqual(values_expected, values_observed)
+        self.assertEqual(
+            values_expected_for_alice,
+            values_observed["alice"])
