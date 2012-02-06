@@ -51,27 +51,18 @@ class TestProvisioningAPI(TestCase):
         distros = yield prov.xmlrpc_get_distros()
         self.assertEqual({}, distros)
         # Create some distros via the Provisioning API.
-        yield prov.xmlrpc_add_distro(
-            "distro3", "an_initrd", "a_kernel")
-        yield prov.xmlrpc_add_distro(
-            "distro1", "an_initrd", "a_kernel")
-        yield prov.xmlrpc_add_distro(
-            "distro2", "an_initrd", "a_kernel")
+        expected = {}
+        for num in xrange(3):
+            initrd = self.getUniqueString()
+            kernel = self.getUniqueString()
+            name = self.getUniqueString()
+            yield prov.xmlrpc_add_distro(name, initrd, kernel)
+            expected[name] = {
+                "initrd": initrd,
+                "kernel": kernel,
+                "name": name,
+                }
         distros = yield prov.xmlrpc_get_distros()
-        expected = {
-            u'distro1': {
-                u'initrd': u'an_initrd',
-                u'kernel': u'a_kernel',
-                u'name': u'distro1'},
-            u'distro2': {
-                u'initrd': u'an_initrd',
-                u'kernel': u'a_kernel',
-                u'name': u'distro2'},
-            u'distro3': {
-                u'initrd': u'an_initrd',
-                u'kernel': u'a_kernel',
-                u'name': u'distro3'},
-            }
         self.assertEqual(expected, distros)
 
     @inlineCallbacks
