@@ -419,13 +419,9 @@ class TestCobblerObject(TestCase):
         session.proxy.set_return_values([values_stored])
         # However, CobblerObject.get_values() only returns attributes that are
         # in known_attributes.
-        values_expected = {
-            "initrd": "an_initrd",
-            "kernel": "a_kernel",
-            "name": u"fred",
-            }
         values_observed = yield distro.get_values()
-        self.assertEqual(values_expected, values_observed)
+        self.assertIn("initrd", values_observed)
+        self.assertNotIn("likes", values_observed)
 
     @inlineCallbacks
     def test_get_all_values_returns_only_known_attributes(self):
@@ -448,13 +444,8 @@ class TestCobblerObject(TestCase):
         session.proxy.set_return_values([values_stored])
         # However, CobblerObject.get_all_values() only returns attributes that
         # are in known_attributes.
-        values_expected_for_alice = {
-            "initrd": "an_initrd",
-            "kernel": "a_kernel",
-            "name": u"alice",
-            }
         values_observed = yield (
             cobblerclient.CobblerDistro.get_all_values(session))
-        self.assertEqual(
-            values_expected_for_alice,
-            values_observed["alice"])
+        values_observed_for_alice = values_observed["alice"]
+        self.assertIn("initrd", values_observed_for_alice)
+        self.assertNotIn("likes", values_observed_for_alice)
