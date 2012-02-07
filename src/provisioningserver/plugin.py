@@ -12,11 +12,9 @@ __metaclass__ = type
 __all__ = []
 
 from amqpclient import AMQFactory
+from provisioningserver.api import ProvisioningAPI
 from provisioningserver.cobblerclient import CobblerSession
-from provisioningserver.remote import (
-    ProvisioningAPI,
-    ProvisioningAPI_XMLRPC,
-    )
+from provisioningserver.remote import ProvisioningAPI_XMLRPC
 from provisioningserver.services import (
     LogService,
     OOPSService,
