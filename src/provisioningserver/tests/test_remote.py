@@ -43,13 +43,12 @@ class TestProvisioningAPI_XMLRPC(TestCase):
 
     def get_provisioning_api(self):
         cobbler_session = self.get_cobbler_session()
-        papi = ProvisioningAPI(cobbler_session)
-        return ProvisioningAPI_XMLRPC(papi)
+        return ProvisioningAPI_XMLRPC(cobbler_session)
 
     def test_ProvisioningAPI_interfaces(self):
         prov = self.get_provisioning_api()
+        verifyObject(IProvisioningAPI, prov)
         verifyObject(IProvisioningAPI_XMLRPC, prov)
-        verifyObject(IProvisioningAPI, prov.papi)
 
     @inlineCallbacks
     def test_add_distro(self):

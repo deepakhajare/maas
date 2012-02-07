@@ -13,51 +13,24 @@ __all__ = [
     "ProvisioningAPI_XMLRPC",
     ]
 
+from provisioningserver.api import ProvisioningAPI
+from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.interfaces import IProvisioningAPI_XMLRPC
 from twisted.web.xmlrpc import XMLRPC
-from zope.interface import implements
+from zope.interface import classImplements
 
 
-class ProvisioningAPI_XMLRPC(XMLRPC):
+class ProvisioningAPI_XMLRPC_Base(XMLRPC, ProvisioningAPI):
 
-    implements(IProvisioningAPI_XMLRPC)
-
-    def __init__(self, papi):
+    def __init__(self, session):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
-        self.papi = papi
+        ProvisioningAPI.__init__(self, session)
 
-    def xmlrpc_add_distro(self, name, initrd, kernel):
-        return self.papi.add_distro(name, initrd, kernel)
 
-    def xmlrpc_add_profile(self, name, distro):
-        return self.papi.add_profile(name, distro)
+ProvisioningAPI_XMLRPC = type(
+    b"ProvisioningAPI_XMLRPC", (ProvisioningAPI_XMLRPC_Base,), {
+        "xmlrpc_%s" % name: getattr(ProvisioningAPI, name)
+        for name in IProvisioningAPI.names(all=True)
+        })
 
-    def xmlrpc_add_node(self, name, profile):
-        return self.papi.add_node(name, profile)
-
-    def xmlrpc_get_distros_by_name(self, names):
-        return self.papi.get_distros_by_name(names)
-
-    def xmlrpc_get_profiles_by_name(self, names):
-        return self.papi.get_profiles_by_name(names)
-
-    def xmlrpc_get_nodes_by_name(self, names):
-        return self.papi.get_nodes_by_name(names)
-
-    def xmlrpc_delete_distros_by_name(self, names):
-        return self.papi.delete_distros_by_name(names)
-
-    def xmlrpc_delete_profiles_by_name(self, names):
-        return self.papi.delete_profiles_by_name(names)
-
-    def xmlrpc_delete_nodes_by_name(self, names):
-        return self.papi.delete_nodes_by_name(names)
-
-    def xmlrpc_get_distros(self):
-        return self.papi.get_distros()
-
-    def xmlrpc_get_profiles(self):
-        return self.papi.get_profiles()
-
-    def xmlrpc_get_nodes(self):
-        return self.papi.get_nodes()
+classImplements(ProvisioningAPI, IProvisioningAPI_XMLRPC)
