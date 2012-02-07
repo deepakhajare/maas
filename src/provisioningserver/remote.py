@@ -18,14 +18,18 @@ from provisioningserver.cobblerclient import (
     CobblerProfile,
     CobblerSystem,
     )
+from provisioningserver.interfaces import IProvisioningAPI_XMLRPC
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
     )
 from twisted.web.xmlrpc import XMLRPC
+from zope.interface import implements
 
 
 class ProvisioningAPI(XMLRPC):
+
+    implements(IProvisioningAPI_XMLRPC)
 
     def __init__(self, session):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)

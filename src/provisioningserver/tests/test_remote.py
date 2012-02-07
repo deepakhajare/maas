@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.cobblerclient import CobblerSession
+from provisioningserver.interfaces import IProvisioningAPI_XMLRPC
 from provisioningserver.remote import ProvisioningAPI
 from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
@@ -20,6 +21,7 @@ from provisioningserver.testing.fakecobbler import (
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import inlineCallbacks
+from zope.interface.verify import verifyObject
 
 
 class TestProvisioningAPI(TestCase):
@@ -38,6 +40,10 @@ class TestProvisioningAPI(TestCase):
     def get_provisioning_api(self):
         cobbler_session = self.get_cobbler_session()
         return ProvisioningAPI(cobbler_session)
+
+    def test_ProvisioningAPI_interface(self):
+        papi = self.get_provisioning_api()
+        verifyObject(IProvisioningAPI_XMLRPC, papi)
 
     @inlineCallbacks
     def test_add_distro(self):
