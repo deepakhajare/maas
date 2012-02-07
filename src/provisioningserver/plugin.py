@@ -13,7 +13,10 @@ __all__ = []
 
 from amqpclient import AMQFactory
 from provisioningserver.cobblerclient import CobblerSession
-from provisioningserver.remote import ProvisioningAPI
+from provisioningserver.remote import (
+    ProvisioningAPI,
+    ProvisioningAPI_XMLRPC,
+    )
 from provisioningserver.services import (
     LogService,
     OOPSService,
@@ -132,8 +135,11 @@ class ProvisioningServiceMaker(object):
         fake_cobbler_proxy = FakeTwistedProxy(fake_cobbler)
         session.proxy = fake_cobbler_proxy
 
+        papi = ProvisioningAPI(session)
+        papi_xmlrpc = ProvisioningAPI_XMLRPC(papi)
+
         site_root = Resource()
-        site_root.putChild("api", ProvisioningAPI(session))
+        site_root.putChild("api", papi_xmlrpc)
         site = Site(site_root)
         site_port = options["port"]
         site_service = TCPServer(site_port, site)

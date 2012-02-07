@@ -12,8 +12,14 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.cobblerclient import CobblerSession
-from provisioningserver.interfaces import IProvisioningAPI_XMLRPC
-from provisioningserver.remote import ProvisioningAPI
+from provisioningserver.interfaces import (
+    IProvisioningAPI,
+    IProvisioningAPI_XMLRPC,
+    )
+from provisioningserver.remote import (
+    ProvisioningAPI,
+    ProvisioningAPI_XMLRPC,
+    )
 from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
     FakeTwistedProxy,
@@ -39,11 +45,13 @@ class TestProvisioningAPI(TestCase):
 
     def get_provisioning_api(self):
         cobbler_session = self.get_cobbler_session()
-        return ProvisioningAPI(cobbler_session)
+        papi = ProvisioningAPI(cobbler_session)
+        return ProvisioningAPI_XMLRPC(papi)
 
-    def test_ProvisioningAPI_interface(self):
-        papi = self.get_provisioning_api()
-        verifyObject(IProvisioningAPI_XMLRPC, papi)
+    def test_ProvisioningAPI_interfaces(self):
+        prov = self.get_provisioning_api()
+        verifyObject(IProvisioningAPI_XMLRPC, prov)
+        verifyObject(IProvisioningAPI, prov.papi)
 
     @inlineCallbacks
     def test_add_distro(self):
