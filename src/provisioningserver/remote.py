@@ -44,6 +44,13 @@ class ProvisioningAPI(XMLRPC):
         returnValue(distro.name)
 
     @inlineCallbacks
+    def xmlrpc_delete_distro(self, name):
+        assert isinstance(name, basestring)
+        distros = yield CobblerDistro.find(self.session, name=name)
+        for distro in distros:
+            yield distro.delete()
+
+    @inlineCallbacks
     def xmlrpc_get_distros(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
@@ -59,6 +66,13 @@ class ProvisioningAPI(XMLRPC):
         returnValue(profile.name)
 
     @inlineCallbacks
+    def xmlrpc_delete_profile(self, name):
+        assert isinstance(name, basestring)
+        profiles = yield CobblerProfile.find(self.session, name=name)
+        for profile in profiles:
+            yield profile.delete()
+
+    @inlineCallbacks
     def xmlrpc_get_profiles(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
@@ -72,6 +86,13 @@ class ProvisioningAPI(XMLRPC):
         system = yield CobblerSystem.new(
             self.session, name, {"profile": profile})
         returnValue(system.name)
+
+    @inlineCallbacks
+    def xmlrpc_delete_node(self, name):
+        assert isinstance(name, basestring)
+        systems = yield CobblerSystem.find(self.session, name=name)
+        for system in systems:
+            yield system.delete()
 
     @inlineCallbacks
     def xmlrpc_get_nodes(self):

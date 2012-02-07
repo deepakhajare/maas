@@ -45,6 +45,19 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual("distro", distro)
 
     @inlineCallbacks
+    def test_delete_distro(self):
+        cobbler_session = self.get_cobbler_session()
+        # Create a distro via the Provisioning API.
+        prov = ProvisioningAPI(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        # Delete it again via the Provisioning API.
+        yield prov.xmlrpc_delete_distro(distro)
+        # It has gone, checked via the Cobbler session.
+        distros = yield prov.xmlrpc_get_distros()
+        self.assertEqual({}, distros)
+
+    @inlineCallbacks
     def test_get_distros(self):
         cobbler_session = self.get_cobbler_session()
         prov = ProvisioningAPI(cobbler_session)
@@ -76,6 +89,20 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual("profile", profile)
 
     @inlineCallbacks
+    def test_delete_profile(self):
+        cobbler_session = self.get_cobbler_session()
+        # Create a profile via the Provisioning API.
+        prov = ProvisioningAPI(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        # Delete it again via the Provisioning API.
+        yield prov.xmlrpc_delete_profile(profile)
+        # It has gone, checked via the Cobbler session.
+        profiles = yield prov.xmlrpc_get_profiles()
+        self.assertEqual({}, profiles)
+
+    @inlineCallbacks
     def test_get_profiles(self):
         cobbler_session = self.get_cobbler_session()
         prov = ProvisioningAPI(cobbler_session)
@@ -102,6 +129,21 @@ class TestProvisioningAPI(TestCase):
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         node = yield prov.xmlrpc_add_node("node", profile)
         self.assertEqual("node", node)
+
+    @inlineCallbacks
+    def test_delete_node(self):
+        cobbler_session = self.get_cobbler_session()
+        # Create a node via the Provisioning API.
+        prov = ProvisioningAPI(cobbler_session)
+        distro = yield prov.xmlrpc_add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        node = yield prov.xmlrpc_add_node("node", profile)
+        # Delete it again via the Provisioning API.
+        yield prov.xmlrpc_delete_node(node)
+        # It has gone, checked via the Cobbler session.
+        nodes = yield prov.xmlrpc_get_nodes()
+        self.assertEqual({}, nodes)
 
     @inlineCallbacks
     def test_get_nodes(self):
