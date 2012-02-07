@@ -18,11 +18,22 @@ from django.conf.urls.defaults import (
     url,
     )
 
+from metadataserver.api import (
+    meta_data,
+    metadata_index,
+    version,
+    user_data,
+    )
+
 
 urlpatterns = patterns(
-    'metadataserver.api',
-    url(r'(?P<version>[^/]+)/meta-data/', 'meta_data', name='meta_data'),
-    url(r'(?P<version>[^/]+)/user-data/', 'user_data', name='user_data'),
-    url(r'(?P<version>[^/]+)/', 'version', name='version'),
-    url(r'', 'versions_index', name='metadata'),
+    '',
+    url(
+        r'(?P<version>[^/]+)/meta-data/', meta_data,
+        name='metadata_meta_data'),
+    url(
+        r'(?P<version>[^/]+)/user-data/', user_data,
+        name='metadata_user_data'),
+    url(r'(?P<version>[^/]+)/', version, name='metadata_version'),
+    url(r'', metadata_index, name='metadata'),
     )

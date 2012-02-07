@@ -10,8 +10,8 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'metadata_indec',
     'meta_data',
-    'versions_index',
     'version',
     'user_data',
     ]
@@ -39,7 +39,7 @@ def check_version(version):
         raise UnknownMetadataVersion("Unknown metadata version: %s" % version)
 
 
-def versions_index(request):
+def metadata_index(request):
     """View: top-level metadata listing."""
     return make_list_response(['latest'])
 
