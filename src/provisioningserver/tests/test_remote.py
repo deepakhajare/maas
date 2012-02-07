@@ -87,11 +87,8 @@ class TestProvisioningAPI(TestCase):
         # Create a distro via the Provisioning API.
         yield prov.xmlrpc_add_distro("alice", "initrd", "kernel")
         distros = yield prov.xmlrpc_get_distros_by_name(["alice", "bob"])
-        # The response contains keys for all named distributions.
-        self.assertSequenceEqual(["alice", "bob"], sorted(distros))
-        # However, the value for "bob" is None; it does not exist.
-        self.assertIsNotNone(distros["alice"])
-        self.assertIsNone(distros["bob"])
+        # The response contains keys for all distributions found.
+        self.assertSequenceEqual(["alice"], sorted(distros))
 
     @inlineCallbacks
     def test_add_profile(self):
@@ -144,11 +141,8 @@ class TestProvisioningAPI(TestCase):
         distro = yield prov.xmlrpc_add_distro("distro", "initrd", "kernel")
         yield prov.xmlrpc_add_profile("alice", distro)
         profiles = yield prov.xmlrpc_get_profiles_by_name(["alice", "bob"])
-        # The response contains keys for all named distributions.
-        self.assertSequenceEqual(["alice", "bob"], sorted(profiles))
-        # However, the value for "bob" is None; it does not exist.
-        self.assertIsNotNone(profiles["alice"])
-        self.assertIsNone(profiles["bob"])
+        # The response contains keys for all profiles found.
+        self.assertSequenceEqual(["alice"], sorted(profiles))
 
     @inlineCallbacks
     def test_add_node(self):
@@ -205,8 +199,5 @@ class TestProvisioningAPI(TestCase):
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         yield prov.xmlrpc_add_node("alice", profile)
         nodes = yield prov.xmlrpc_get_nodes_by_name(["alice", "bob"])
-        # The response contains keys for all named distributions.
-        self.assertSequenceEqual(["alice", "bob"], sorted(nodes))
-        # However, the value for "bob" is None; it does not exist.
-        self.assertIsNotNone(nodes["alice"])
-        self.assertIsNone(nodes["bob"])
+        # The response contains keys for all systems found.
+        self.assertSequenceEqual(["alice"], sorted(nodes))

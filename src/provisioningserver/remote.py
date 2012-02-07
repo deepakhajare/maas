@@ -40,7 +40,7 @@ class ProvisioningAPI(XMLRPC):
         :param names: A list of names to search for.
         :type names: list
         """
-        objects_by_name = {name: None for name in names}
+        objects_by_name = {}
         for name in names:
             objects = yield object_type.find(self.session, name=name)
             for obj in objects:
