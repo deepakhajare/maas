@@ -10,7 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'metadata_indec',
+    'metadata_index',
     'meta_data',
     'version',
     'user_data',
