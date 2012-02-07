@@ -79,6 +79,21 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual(expected, distros)
 
     @inlineCallbacks
+    def test_get_distros_by_name(self):
+        cobbler_session = self.get_cobbler_session()
+        prov = ProvisioningAPI(cobbler_session)
+        distros = yield prov.xmlrpc_get_distros_by_name([])
+        self.assertEqual({}, distros)
+        # Create a distro via the Provisioning API.
+        yield prov.xmlrpc_add_distro("alice", "initrd", "kernel")
+        distros = yield prov.xmlrpc_get_distros_by_name(["alice", "bob"])
+        # The response contains keys for all named distributions.
+        self.assertSequenceEqual(["alice", "bob"], sorted(distros))
+        # However, the value for "bob" is None; it does not exist.
+        self.assertIsNotNone(distros["alice"])
+        self.assertIsNone(distros["bob"])
+
+    @inlineCallbacks
     def test_add_profile(self):
         cobbler_session = self.get_cobbler_session()
         # Create a profile via the Provisioning API.
