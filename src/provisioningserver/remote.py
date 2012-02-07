@@ -99,14 +99,14 @@ class ProvisioningAPI(XMLRPC):
             for obj in objects:
                 yield obj.delete()
 
-    def xmlrpc_delete_distro(self, name):
-        return self.delete_objects_by_name(CobblerDistro, [name])
+    def xmlrpc_delete_distros_by_name(self, names):
+        return self.delete_objects_by_name(CobblerDistro, names)
 
-    def xmlrpc_delete_profile(self, name):
-        return self.delete_objects_by_name(CobblerProfile, [name])
+    def xmlrpc_delete_profiles_by_name(self, names):
+        return self.delete_objects_by_name(CobblerProfile, names)
 
-    def xmlrpc_delete_node(self, name):
-        return self.delete_objects_by_name(CobblerSystem, [name])
+    def xmlrpc_delete_nodes_by_name(self, names):
+        return self.delete_objects_by_name(CobblerSystem, names)
 
     @inlineCallbacks
     def xmlrpc_get_distros(self):

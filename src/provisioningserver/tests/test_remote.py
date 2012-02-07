@@ -67,32 +67,32 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual("node", node)
 
     @inlineCallbacks
-    def test_delete_distro(self):
+    def test_delete_distros_by_name(self):
         # Create a distro via the Provisioning API.
         prov = self.get_provisioning_api()
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         # Delete it again via the Provisioning API.
-        yield prov.xmlrpc_delete_distro(distro)
+        yield prov.xmlrpc_delete_distros_by_name([distro])
         # It has gone, checked via the Cobbler session.
-        distros = yield prov.xmlrpc_get_distros()
+        distros = yield prov.xmlrpc_get_distros_by_name([distro])
         self.assertEqual({}, distros)
 
     @inlineCallbacks
-    def test_delete_profile(self):
+    def test_delete_profiles_by_name(self):
         # Create a profile via the Provisioning API.
         prov = self.get_provisioning_api()
         distro = yield prov.xmlrpc_add_distro(
             "distro", "an_initrd", "a_kernel")
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         # Delete it again via the Provisioning API.
-        yield prov.xmlrpc_delete_profile(profile)
+        yield prov.xmlrpc_delete_profiles_by_name([profile])
         # It has gone, checked via the Cobbler session.
-        profiles = yield prov.xmlrpc_get_profiles()
+        profiles = yield prov.xmlrpc_get_profiles_by_name([profile])
         self.assertEqual({}, profiles)
 
     @inlineCallbacks
-    def test_delete_node(self):
+    def test_delete_nodes_by_name(self):
         # Create a node via the Provisioning API.
         prov = self.get_provisioning_api()
         distro = yield prov.xmlrpc_add_distro(
@@ -100,9 +100,9 @@ class TestProvisioningAPI(TestCase):
         profile = yield prov.xmlrpc_add_profile("profile", distro)
         node = yield prov.xmlrpc_add_node("node", profile)
         # Delete it again via the Provisioning API.
-        yield prov.xmlrpc_delete_node(node)
+        yield prov.xmlrpc_delete_nodes_by_name([node])
         # It has gone, checked via the Cobbler session.
-        nodes = yield prov.xmlrpc_get_nodes()
+        nodes = yield prov.xmlrpc_get_nodes_by_name([node])
         self.assertEqual({}, nodes)
 
     @inlineCallbacks
