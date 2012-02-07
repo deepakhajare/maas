@@ -32,6 +32,34 @@ class ProvisioningAPI(XMLRPC):
         self.session = session
 
     @inlineCallbacks
+    def xmlrpc_add_distro(self, name, initrd, kernel):
+        assert isinstance(name, basestring)
+        assert isinstance(initrd, basestring)
+        assert isinstance(kernel, basestring)
+        distro = yield CobblerDistro.new(
+            self.session, name, {
+                "initrd": initrd,
+                "kernel": kernel,
+                })
+        returnValue(distro.name)
+
+    @inlineCallbacks
+    def xmlrpc_add_profile(self, name, distro):
+        assert isinstance(name, basestring)
+        assert isinstance(distro, basestring)
+        profile = yield CobblerProfile.new(
+            self.session, name, {"distro": distro})
+        returnValue(profile.name)
+
+    @inlineCallbacks
+    def xmlrpc_add_node(self, name, profile):
+        assert isinstance(name, basestring)
+        assert isinstance(profile, basestring)
+        system = yield CobblerSystem.new(
+            self.session, name, {"profile": profile})
+        returnValue(system.name)
+
+    @inlineCallbacks
     def get_objects_by_name(self, object_type, names):
         """Get `object_type` objects by name.
 
@@ -48,6 +76,15 @@ class ProvisioningAPI(XMLRPC):
                 objects_by_name[obj.name] = values
         returnValue(objects_by_name)
 
+    def xmlrpc_get_distros_by_name(self, names):
+        return self.get_objects_by_name(CobblerDistro, names)
+
+    def xmlrpc_get_profiles_by_name(self, names):
+        return self.get_objects_by_name(CobblerProfile, names)
+
+    def xmlrpc_get_nodes_by_name(self, names):
+        return self.get_objects_by_name(CobblerSystem, names)
+
     @inlineCallbacks
     def delete_objects_by_name(self, object_type, names):
         """Delete `object_type` objects by name.
@@ -62,20 +99,14 @@ class ProvisioningAPI(XMLRPC):
             for obj in objects:
                 yield obj.delete()
 
-    @inlineCallbacks
-    def xmlrpc_add_distro(self, name, initrd, kernel):
-        assert isinstance(name, basestring)
-        assert isinstance(initrd, basestring)
-        assert isinstance(kernel, basestring)
-        distro = yield CobblerDistro.new(
-            self.session, name, {
-                "initrd": initrd,
-                "kernel": kernel,
-                })
-        returnValue(distro.name)
-
     def xmlrpc_delete_distro(self, name):
         return self.delete_objects_by_name(CobblerDistro, [name])
+
+    def xmlrpc_delete_profile(self, name):
+        return self.delete_objects_by_name(CobblerProfile, [name])
+
+    def xmlrpc_delete_node(self, name):
+        return self.delete_objects_by_name(CobblerSystem, [name])
 
     @inlineCallbacks
     def xmlrpc_get_distros(self):
@@ -84,20 +115,6 @@ class ProvisioningAPI(XMLRPC):
         distros = yield CobblerDistro.get_all_values(self.session)
         returnValue(distros)
 
-    def xmlrpc_get_distros_by_name(self, names):
-        return self.get_objects_by_name(CobblerDistro, names)
-
-    @inlineCallbacks
-    def xmlrpc_add_profile(self, name, distro):
-        assert isinstance(name, basestring)
-        assert isinstance(distro, basestring)
-        profile = yield CobblerProfile.new(
-            self.session, name, {"distro": distro})
-        returnValue(profile.name)
-
-    def xmlrpc_delete_profile(self, name):
-        return self.delete_objects_by_name(CobblerProfile, [name])
-
     @inlineCallbacks
     def xmlrpc_get_profiles(self):
         # WARNING: This could return a *huge* number of results. Consider
@@ -105,26 +122,9 @@ class ProvisioningAPI(XMLRPC):
         profiles = yield CobblerProfile.get_all_values(self.session)
         returnValue(profiles)
 
-    def xmlrpc_get_profiles_by_name(self, names):
-        return self.get_objects_by_name(CobblerProfile, names)
-
-    @inlineCallbacks
-    def xmlrpc_add_node(self, name, profile):
-        assert isinstance(name, basestring)
-        assert isinstance(profile, basestring)
-        system = yield CobblerSystem.new(
-            self.session, name, {"profile": profile})
-        returnValue(system.name)
-
-    def xmlrpc_delete_node(self, name):
-        return self.delete_objects_by_name(CobblerSystem, [name])
-
     @inlineCallbacks
     def xmlrpc_get_nodes(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
         systems = yield CobblerSystem.get_all_values(self.session)
         returnValue(systems)
-
-    def xmlrpc_get_nodes_by_name(self, names):
-        return self.get_objects_by_name(CobblerSystem, names)
