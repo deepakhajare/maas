@@ -135,6 +135,22 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual(expected, profiles)
 
     @inlineCallbacks
+    def test_get_profiles_by_name(self):
+        cobbler_session = self.get_cobbler_session()
+        prov = ProvisioningAPI(cobbler_session)
+        profiles = yield prov.xmlrpc_get_profiles_by_name([])
+        self.assertEqual({}, profiles)
+        # Create a profile via the Provisioning API.
+        distro = yield prov.xmlrpc_add_distro("distro", "initrd", "kernel")
+        yield prov.xmlrpc_add_profile("alice", distro)
+        profiles = yield prov.xmlrpc_get_profiles_by_name(["alice", "bob"])
+        # The response contains keys for all named distributions.
+        self.assertSequenceEqual(["alice", "bob"], sorted(profiles))
+        # However, the value for "bob" is None; it does not exist.
+        self.assertIsNotNone(profiles["alice"])
+        self.assertIsNone(profiles["bob"])
+
+    @inlineCallbacks
     def test_add_node(self):
         cobbler_session = self.get_cobbler_session()
         # Create a system/node via the Provisioning API.
@@ -177,3 +193,20 @@ class TestProvisioningAPI(TestCase):
             expected[name] = {'name': name, 'profile': 'profile'}
         nodes = yield prov.xmlrpc_get_nodes()
         self.assertEqual(expected, nodes)
+
+    @inlineCallbacks
+    def test_get_nodes_by_name(self):
+        cobbler_session = self.get_cobbler_session()
+        prov = ProvisioningAPI(cobbler_session)
+        nodes = yield prov.xmlrpc_get_nodes_by_name([])
+        self.assertEqual({}, nodes)
+        # Create a node via the Provisioning API.
+        distro = yield prov.xmlrpc_add_distro("distro", "initrd", "kernel")
+        profile = yield prov.xmlrpc_add_profile("profile", distro)
+        yield prov.xmlrpc_add_node("alice", profile)
+        nodes = yield prov.xmlrpc_get_nodes_by_name(["alice", "bob"])
+        # The response contains keys for all named distributions.
+        self.assertSequenceEqual(["alice", "bob"], sorted(nodes))
+        # However, the value for "bob" is None; it does not exist.
+        self.assertIsNotNone(nodes["alice"])
+        self.assertIsNone(nodes["bob"])

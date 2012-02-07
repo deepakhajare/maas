@@ -99,6 +99,9 @@ class ProvisioningAPI(XMLRPC):
         profiles = yield CobblerProfile.get_all_values(self.session)
         returnValue(profiles)
 
+    def xmlrpc_get_profiles_by_name(self, names):
+        return self.get_objects_by_name(CobblerProfile, names)
+
     @inlineCallbacks
     def xmlrpc_add_node(self, name, profile):
         assert isinstance(name, basestring)
@@ -120,3 +123,6 @@ class ProvisioningAPI(XMLRPC):
         # adding filtering options to this function before using it in anger.
         systems = yield CobblerSystem.get_all_values(self.session)
         returnValue(systems)
+
+    def xmlrpc_get_nodes_by_name(self, names):
+        return self.get_objects_by_name(CobblerSystem, names)
