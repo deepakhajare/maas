@@ -32,6 +32,23 @@ class ProvisioningAPI(XMLRPC):
         self.session = session
 
     @inlineCallbacks
+    def get_objects_by_name(self, object_type, names):
+        """Get `object_type` objects by name.
+
+        :param object_type: The type of object to look for.
+        :type object_type: provisioningserver.objectclient.CobblerObjectType
+        :param names: A list of names to search for.
+        :type names: list
+        """
+        objects_by_name = {name: None for name in names}
+        for name in names:
+            objects = yield object_type.find(self.session, name=name)
+            for obj in objects:
+                values = yield obj.get_values()
+                objects_by_name[obj.name] = values
+        returnValue(objects_by_name)
+
+    @inlineCallbacks
     def xmlrpc_add_distro(self, name, initrd, kernel):
         assert isinstance(name, basestring)
         assert isinstance(initrd, basestring)
@@ -57,15 +74,8 @@ class ProvisioningAPI(XMLRPC):
         distros = yield CobblerDistro.get_all_values(self.session)
         returnValue(distros)
 
-    @inlineCallbacks
     def xmlrpc_get_distros_by_name(self, names):
-        distros_by_name = {name: None for name in names}
-        for name in names:
-            distros = yield CobblerDistro.find(self.session, name=name)
-            for distro in distros:
-                values = yield distro.get_values()
-                distros_by_name[distro.name] = values
-        returnValue(distros_by_name)
+        return self.get_objects_by_name(CobblerDistro, names)
 
     @inlineCallbacks
     def xmlrpc_add_profile(self, name, distro):
