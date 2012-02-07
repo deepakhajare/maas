@@ -49,6 +49,20 @@ class ProvisioningAPI(XMLRPC):
         returnValue(objects_by_name)
 
     @inlineCallbacks
+    def delete_objects_by_name(self, object_type, names):
+        """Delete `object_type` objects by name.
+
+        :param object_type: The type of object to delete.
+        :type object_type: provisioningserver.objectclient.CobblerObjectType
+        :param names: A list of names to search for.
+        :type names: list
+        """
+        for name in names:
+            objects = yield object_type.find(self.session, name=name)
+            for obj in objects:
+                yield obj.delete()
+
+    @inlineCallbacks
     def xmlrpc_add_distro(self, name, initrd, kernel):
         assert isinstance(name, basestring)
         assert isinstance(initrd, basestring)
@@ -60,12 +74,8 @@ class ProvisioningAPI(XMLRPC):
                 })
         returnValue(distro.name)
 
-    @inlineCallbacks
     def xmlrpc_delete_distro(self, name):
-        assert isinstance(name, basestring)
-        distros = yield CobblerDistro.find(self.session, name=name)
-        for distro in distros:
-            yield distro.delete()
+        return self.delete_objects_by_name(CobblerDistro, [name])
 
     @inlineCallbacks
     def xmlrpc_get_distros(self):
@@ -85,12 +95,8 @@ class ProvisioningAPI(XMLRPC):
             self.session, name, {"distro": distro})
         returnValue(profile.name)
 
-    @inlineCallbacks
     def xmlrpc_delete_profile(self, name):
-        assert isinstance(name, basestring)
-        profiles = yield CobblerProfile.find(self.session, name=name)
-        for profile in profiles:
-            yield profile.delete()
+        return self.delete_objects_by_name(CobblerProfile, [name])
 
     @inlineCallbacks
     def xmlrpc_get_profiles(self):
@@ -110,12 +116,8 @@ class ProvisioningAPI(XMLRPC):
             self.session, name, {"profile": profile})
         returnValue(system.name)
 
-    @inlineCallbacks
     def xmlrpc_delete_node(self, name):
-        assert isinstance(name, basestring)
-        systems = yield CobblerSystem.find(self.session, name=name)
-        for system in systems:
-            yield system.delete()
+        return self.delete_objects_by_name(CobblerSystem, [name])
 
     @inlineCallbacks
     def xmlrpc_get_nodes(self):
