@@ -298,6 +298,10 @@ class UserProfile(models.Model):
             user=self.user, name=GENERIC_CONSUMER,
             defaults={'status': 'accepted'})
         consumer.generate_random_codes()
+        # This is a 'generic' consumer aimed to service many clients, hence
+        # we don't authenticate the consumer with key/secret key.
+        consumer.secret = ''
+        consumer.save()
         token, _ = Token.objects.get_or_create(
             user=self.user, token_type=Token.ACCESS, consumer=consumer,
             defaults={'is_approved': True})

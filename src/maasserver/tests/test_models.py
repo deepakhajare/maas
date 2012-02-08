@@ -145,8 +145,9 @@ class UserProfileTest(TestCase):
         consumers = Consumer.objects.filter(user=user, name=GENERIC_CONSUMER)
         self.assertEqual([user], [consumer.user for consumer in consumers])
         self.assertEqual(GENERIC_CONSUMER, consumers[0].name)
-        self.assertTrue(isinstance(consumers[0].key, unicode))
         self.assertEqual(KEY_SIZE, len(consumers[0].key))
+        # The generic consumer has an empty secret.
+        self.assertEqual(0, len(consumers[0].secret))
 
     def test_token_creation(self):
         # A token is created each time a user is created.
