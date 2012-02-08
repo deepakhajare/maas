@@ -67,7 +67,8 @@ class ProvisioningAPI:
         """Get `object_type` objects by name.
 
         :param object_type: The type of object to look for.
-        :type object_type: provisioningserver.objectclient.CobblerObjectType
+        :type object_type:
+            :class:`provisioningserver.cobblerclient.CobblerObjectType`
         :param names: A list of names to search for.
         :type names: list
         """
@@ -93,7 +94,8 @@ class ProvisioningAPI:
         """Delete `object_type` objects by name.
 
         :param object_type: The type of object to delete.
-        :type object_type: provisioningserver.objectclient.CobblerObjectType
+        :type object_type:
+            :class:`provisioningserver.cobblerclient.CobblerObjectType`
         :param names: A list of names to search for.
         :type names: list
         """
