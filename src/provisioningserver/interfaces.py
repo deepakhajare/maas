@@ -75,20 +75,27 @@ class IProvisioningAPI_Template:
         """List all nodes."""
 
 
+# All public methods defined in IProvisioningAPI_Template.
 PAPI_FUNCTIONS = {
     name: value.im_func
     for name, value in getmembers(IProvisioningAPI_Template)
     if not name.startswith("_") and isinstance(value, MethodType)
     }
 
+# Construct an interface containing IProvisioningAPI_Template's functions.
 IProvisioningAPI = InterfaceClass(
     b"IProvisioningAPI", (Interface,), PAPI_FUNCTIONS)
 
 
+# The XMLRPC interface must define methods with an xmlrpc_ prefix. Twisted's
+# XMLRPC code relies upon this as an indication that the method is available
+# over-the-wire.
 PAPI_XMLRPC_FUNCTIONS = {
     "xmlrpc_%s" % name: value
     for name, value in PAPI_FUNCTIONS.iteritems()
     }
 
+# Construct an interface containing IProvisioningAPI_Template's functions but
+# with each given an xmlrpc_ prefix to their name.
 IProvisioningAPI_XMLRPC = InterfaceClass(
     b"IProvisioningAPI_XMLRPC", (Interface,), PAPI_XMLRPC_FUNCTIONS)
