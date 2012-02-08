@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for `maasserver.provisioning`."""
+"""Fake Provisioning API."""
 
 from __future__ import (
     print_function,
@@ -9,7 +9,9 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "FakeProvisioningAPI",
+    ]
 
 from maastesting import TestCase
 from zope.interface import implementer
@@ -102,11 +104,3 @@ class TestFakeProvisioningAPI(TestCase):
     def test_interface(self):
         fake = FakeProvisioningAPI()
         verifyObject(IProvisioningAPI, fake)
-
-
-class TestSomething(TestCase):
-
-    #resources = [...]
-
-    def test_something(self):
-        self.assertTrue(1)
