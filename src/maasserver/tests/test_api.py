@@ -26,7 +26,13 @@ from maasserver.testing import (
     TestCase,
     )
 from maasserver.testing.factory import factory
-import oauth2 as oauth
+from oauth.oauth import (
+    generate_nonce,
+    OAuthConsumer,
+    OAuthRequest,
+    OAuthSignatureMethod_PLAINTEXT,
+    OAuthToken,
+    )
 
 
 class NodeAnonAPITest(TestCase):
@@ -47,20 +53,22 @@ class NodeAnonAPITest(TestCase):
 class OAuthAuthenticatedClient(Client):
     def __init__(self, user):
         super(OAuthAuthenticatedClient, self).__init__()
-        self.consumer = user.get_profile().get_authorisation_consumer()
-        self.token = user.get_profile().get_authorisation_token()
+        consumer = user.get_profile().get_authorisation_consumer()
+        token = user.get_profile().get_authorisation_token()
+        self.consumer = OAuthConsumer(str(consumer.key), str(consumer.secret))
+        self.token = OAuthToken(str(token.key), str(token.secret))
 
     def get_extra(self, path):
         params = {
             'oauth_version': "1.0",
-            'oauth_nonce': oauth.generate_nonce(),
+            'oauth_nonce': generate_nonce(),
             'oauth_timestamp': int(time.time()),
             'oauth_token': self.token.key,
             'oauth_consumer_key': self.consumer.key,
         }
-        req = oauth.Request(method="GET", url=path, parameters=params)
-        signature_method = oauth.SignatureMethod_PLAINTEXT()
-        req.sign_request(signature_method, self.consumer, self.token)
+        req = OAuthRequest(http_url=path, parameters=params)
+        req.sign_request(
+            OAuthSignatureMethod_PLAINTEXT(), self.consumer, self.token)
         return req.to_header()
 
     def request(self, **kwargs):
