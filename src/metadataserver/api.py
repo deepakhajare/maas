@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = [
     'metadata_index',
     'meta_data',
-    'version',
+    'version_index',
     'user_data',
     ]
 
@@ -44,7 +44,7 @@ def metadata_index(request):
     return make_list_response(['latest'])
 
 
-def version(request, version):
+def version_index(request, version):
     """View: listing for a given metadata version."""
     check_version(version)
     return make_list_response(['meta-data', 'user-data'])
