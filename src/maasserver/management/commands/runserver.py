@@ -33,6 +33,7 @@ error_template = """
   If the problem persists, please
   <a href="https://bugs.launchpad.net/maas/">file a bug</a>.  Make a note of
   the "oops id": <strong>%(id)s</strong>
+</p>
 </html>
 """.lstrip()
 
