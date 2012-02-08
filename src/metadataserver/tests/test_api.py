@@ -30,13 +30,13 @@ class TestHelpers(TestCase):
     def make_text_response_presents_text_as_text_plain(self):
         input_text = "Hello."
         response = make_text_response(input_text)
-        self.assertEqual('text/plain', response.mimetype)
-        self.assertEqual(input_text, response.contents)
+        self.assertEqual('text/plain', response['Content-Type'])
+        self.assertEqual(input_text, response.content)
 
     def make_list_response_presents_list_as_newline_separated_text(self):
         response = make_list_response(['aaa', 'bbb'])
-        self.assertEqual('text/plain', response.mimetype)
-        self.assertEqual("aaa\nbbb", response.contents)
+        self.assertEqual('text/plain', response['Content-Type'])
+        self.assertEqual("aaa\nbbb", response.content)
 
     def check_version_accepts_latest(self):
         check_version('latest')
@@ -57,26 +57,28 @@ class TestViews(TestCase):
         return None
 
     def test_metadata_index_shows_latest(self):
-        contents = metadata_index(self.fake_request()).contents
+        contents = metadata_index(self.fake_request()).content
         self.assertIn('latest', contents)
 
     def test_metadata_index_shows_only_known_versions(self):
-        contents = metadata_index(self.fake_request()).contents
+        contents = metadata_index(self.fake_request()).content
         for item in contents.splitlines():
             check_version(item)
         # The test is that we get here without exception.
         pass
 
     def test_version_index_shows_meta_data_and_user_data(self):
-        contents = version_index(self.fake_request()).contents
+        contents = version_index(self.fake_request(), 'latest').content
         items = contents.splitlines()
         self.assertIn('meta-data', items)
         self.assertIn('user-data', items)
 
     def test_meta_data_view_returns_text_response(self):
         self.assertEqual(
-            'text/plain', meta_data(self.fake_request(), 'latest').mimetype)
+            'text/plain',
+            meta_data(self.fake_request(), 'latest')['Content-Type'])
 
     def test_user_data_view_returns_text_response(self):
         self.assertEqual(
-            'text/plain', user_data(self.fake_request(), 'latest').mimetype)
+            'text/plain',
+            user_data(self.fake_request(), 'latest')['Content-Type'])
