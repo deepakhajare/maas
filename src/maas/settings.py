@@ -171,6 +171,7 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'django_nose',
     'maasserver',
+    'metadataserver',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )
