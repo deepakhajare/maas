@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Provisioning API for use by the MaaS API server."""
+"""Provisioning API over XML-RPC."""
 
 from __future__ import (
     print_function,
