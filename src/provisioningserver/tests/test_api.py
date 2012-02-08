@@ -12,12 +12,8 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.api import ProvisioningAPI
-from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.interfaces import IProvisioningAPI
-from provisioningserver.testing.fakecobbler import (
-    FakeCobbler,
-    FakeTwistedProxy,
-    )
+from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import inlineCallbacks
@@ -29,17 +25,9 @@ class TestProvisioningAPI(TestCase):
 
     run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
-    def get_cobbler_session(self):
-        cobbler_session = CobblerSession(
-            "http://localhost/does/not/exist", "user", "password")
-        cobbler_fake = FakeCobbler({"user": "password"})
-        cobbler_proxy = FakeTwistedProxy(cobbler_fake)
-        cobbler_session.proxy = cobbler_proxy
-        return cobbler_session
-
     def get_provisioning_api(self):
-        cobbler_session = self.get_cobbler_session()
-        return ProvisioningAPI(cobbler_session)
+        session = make_fake_cobbler_session()
+        return ProvisioningAPI(session)
 
     def test_ProvisioningAPI_interfaces(self):
         papi = self.get_provisioning_api()
