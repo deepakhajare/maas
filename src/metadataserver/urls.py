@@ -17,12 +17,11 @@ from django.conf.urls.defaults import (
     patterns,
     url,
     )
-
 from metadataserver.api import (
     meta_data,
     metadata_index,
-    version_index,
     user_data,
+    version_index,
     )
 
 
