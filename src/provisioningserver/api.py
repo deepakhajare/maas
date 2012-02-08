@@ -19,6 +19,7 @@ from provisioningserver.cobblerclient import (
     CobblerSystem,
     )
 from provisioningserver.interfaces import IProvisioningAPI
+from provisioningserver.utils import deferred
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -74,18 +75,20 @@ class ProvisioningAPI:
         """
         objects_by_name = {}
         for name in names:
-            objects = yield object_type.find(self.session, name=name)
-            for obj in objects:
-                values = yield obj.get_values()
-                objects_by_name[obj.name] = values
+            values = yield object_type(self.session, name).get_values()
+            if values is not None:
+                objects_by_name[name] = values
         returnValue(objects_by_name)
 
+    @deferred
     def get_distros_by_name(self, names):
         return self.get_objects_by_name(CobblerDistro, names)
 
+    @deferred
     def get_profiles_by_name(self, names):
         return self.get_objects_by_name(CobblerProfile, names)
 
+    @deferred
     def get_nodes_by_name(self, names):
         return self.get_objects_by_name(CobblerSystem, names)
 
@@ -100,36 +103,34 @@ class ProvisioningAPI:
         :type names: list
         """
         for name in names:
-            objects = yield object_type.find(self.session, name=name)
-            for obj in objects:
-                yield obj.delete()
+            yield object_type(self.session, name).delete()
 
+    @deferred
     def delete_distros_by_name(self, names):
         return self.delete_objects_by_name(CobblerDistro, names)
 
+    @deferred
     def delete_profiles_by_name(self, names):
         return self.delete_objects_by_name(CobblerProfile, names)
 
+    @deferred
     def delete_nodes_by_name(self, names):
         return self.delete_objects_by_name(CobblerSystem, names)
 
-    @inlineCallbacks
+    @deferred
     def get_distros(self):
-        # WARNING: This could return a *huge* number of results. Consider
+        # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        distros = yield CobblerDistro.get_all_values(self.session)
-        returnValue(distros)
+        return CobblerDistro.get_all_values(self.session)
 
-    @inlineCallbacks
+    @deferred
     def get_profiles(self):
-        # WARNING: This could return a *huge* number of results. Consider
+        # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        profiles = yield CobblerProfile.get_all_values(self.session)
-        returnValue(profiles)
+        return CobblerProfile.get_all_values(self.session)
 
-    @inlineCallbacks
+    @deferred
     def get_nodes(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
-        systems = yield CobblerSystem.get_all_values(self.session)
-        returnValue(systems)
+        return CobblerSystem.get_all_values(self.session)
