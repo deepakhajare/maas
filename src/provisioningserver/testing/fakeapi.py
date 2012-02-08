@@ -66,12 +66,15 @@ class FakeSynchronousProvisioningAPI:
     def add_distro(self, name, initrd, kernel):
         self.distros[name]["initrd"] = initrd
         self.distros[name]["kernel"] = kernel
+        return name
 
     def add_profile(self, name, distro):
         self.profiles[name]["distro"] = distro
+        return name
 
     def add_node(self, name, profile):
         self.nodes[name]["profile"] = profile
+        return name
 
     def get_distros_by_name(self, names):
         return self.distros.select(names)
