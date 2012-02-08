@@ -75,10 +75,9 @@ class ProvisioningAPI:
         """
         objects_by_name = {}
         for name in names:
-            objects = yield object_type.find(self.session, name=name)
-            for obj in objects:
-                values = yield obj.get_values()
-                objects_by_name[obj.name] = values
+            values = yield object_type(self.session, name).get_values()
+            if values is not None:
+                objects_by_name[name] = values
         returnValue(objects_by_name)
 
     @deferred
@@ -104,9 +103,7 @@ class ProvisioningAPI:
         :type names: list
         """
         for name in names:
-            objects = yield object_type.find(self.session, name=name)
-            for obj in objects:
-                yield obj.delete()
+            yield object_type(self.session, name).delete()
 
     @deferred
     def delete_distros_by_name(self, names):
