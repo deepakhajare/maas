@@ -19,6 +19,7 @@ from provisioningserver.cobblerclient import (
     CobblerSystem,
     )
 from provisioningserver.interfaces import IProvisioningAPI
+from provisioningserver.utils import deferred
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -80,12 +81,15 @@ class ProvisioningAPI:
                 objects_by_name[obj.name] = values
         returnValue(objects_by_name)
 
+    @deferred
     def get_distros_by_name(self, names):
         return self.get_objects_by_name(CobblerDistro, names)
 
+    @deferred
     def get_profiles_by_name(self, names):
         return self.get_objects_by_name(CobblerProfile, names)
 
+    @deferred
     def get_nodes_by_name(self, names):
         return self.get_objects_by_name(CobblerSystem, names)
 
@@ -104,12 +108,15 @@ class ProvisioningAPI:
             for obj in objects:
                 yield obj.delete()
 
+    @deferred
     def delete_distros_by_name(self, names):
         return self.delete_objects_by_name(CobblerDistro, names)
 
+    @deferred
     def delete_profiles_by_name(self, names):
         return self.delete_objects_by_name(CobblerProfile, names)
 
+    @deferred
     def delete_nodes_by_name(self, names):
         return self.delete_objects_by_name(CobblerSystem, names)
 
