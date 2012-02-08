@@ -270,11 +270,11 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
-GENERIC_CONSUMER = 'Generic consumer'
+GENERIC_CONSUMER = 'Maas consumer'
 
 
 class UserProfile(models.Model):
-    """A custom UserProfile_
+    """A User profile to store Maas specific methods and fields.
 
     :ivar user: The related User_.
 
@@ -287,10 +287,10 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User)
 
     def reset_authorisation_token(self):
-        """Reset the key and the secret key of the OAuth authorisation token
-        attached to the related User_.
+        """Create (if necessary) and regenerate the keys for the Consumer and
+        the related Token of the OAuth authorisation.
 
-        :return: The resetted Token.
+        :return: The token that was reset.
         :rtype: piston.models.Token
 
         """
@@ -340,7 +340,7 @@ def create_user(sender, instance, created, **kwargs):
         # Create initial authorisation token.
         profile.reset_authorisation_token()
 
-
+# Connect the 'create_user' method to the post save signal of User.
 post_save.connect(create_user, sender=User)
 
 

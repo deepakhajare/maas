@@ -67,8 +67,10 @@ class OAuthAuthenticatedClient(Client):
         # Get test url.
         environ = self._base_environ()
         url = '%s://%s' % (environ['wsgi.url_scheme'], kwargs['PATH_INFO'])
-        # Addi OAuth authorization information to the request.
+        # Add OAuth authorization information to the request.
         extra = self.get_extra(url)
+        # Django uses the 'HTTP_AUTHORIZATION' to look up Authorization
+        # credentials.
         extra['HTTP_AUTHORIZATION'] = extra['Authorization']
         kwargs.update(extra)
 

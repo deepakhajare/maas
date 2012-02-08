@@ -136,7 +136,7 @@ class UserProfileTest(TestCase):
     def test_profile_creation(self):
         # A profile is created each time a user is created.
         user = factory.make_user()
-        self.assertTrue(isinstance(user.get_profile(), UserProfile))
+        self.assertIsInstance(user.get_profile(), UserProfile)
         self.assertEqual(user, user.get_profile().user)
 
     def test_consumer_creation(self):
@@ -154,6 +154,6 @@ class UserProfileTest(TestCase):
         user = factory.make_user()
         tokens = Token.objects.filter(user=user)
         self.assertEqual([user], [token.user for token in tokens])
-        self.assertTrue(isinstance(tokens[0].key, unicode))
+        self.assertIsInstance(tokens[0].key, unicode)
         self.assertEqual(KEY_SIZE, len(tokens[0].key))
         self.assertEqual(Token.ACCESS, tokens[0].token_type)
