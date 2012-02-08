@@ -18,10 +18,12 @@ from provisioningserver.interfaces import (
     IProvisioningAPI,
     IProvisioningAPI_XMLRPC,
     )
+from provisioningserver.utils import xmlrpc_export
 from twisted.web.xmlrpc import XMLRPC
 from zope.interface import implements
 
 
+@xmlrpc_export(IProvisioningAPI)
 class ProvisioningAPI_XMLRPC(XMLRPC, ProvisioningAPI):
 
     implements(IProvisioningAPI_XMLRPC)
@@ -29,8 +31,3 @@ class ProvisioningAPI_XMLRPC(XMLRPC, ProvisioningAPI):
     def __init__(self, session):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
         ProvisioningAPI.__init__(self, session)
-
-# Add an xmlrpc_* method for each function defined in IProvisioningAPI.
-for name in IProvisioningAPI.names(all=True):
-    method = getattr(ProvisioningAPI, name)
-    setattr(ProvisioningAPI_XMLRPC, "xmlrpc_%s" % name, method)

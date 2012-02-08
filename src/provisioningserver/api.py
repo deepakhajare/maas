@@ -73,6 +73,7 @@ class ProvisioningAPI:
         :param names: A list of names to search for.
         :type names: list
         """
+        assert all(isinstance(name, basestring) for name in names)
         objects_by_name = {}
         for name in names:
             values = yield object_type(self.session, name).get_values()
@@ -102,6 +103,7 @@ class ProvisioningAPI:
         :param names: A list of names to search for.
         :type names: list
         """
+        assert all(isinstance(name, basestring) for name in names)
         for name in names:
             yield object_type(self.session, name).delete()
 
