@@ -13,10 +13,8 @@ __all__ = [
     "FakeProvisioningAPI",
     ]
 
-from maastesting import TestCase
-from zope.interface import implementer
-from zope.interface.verify import verifyObject
 from provisioningserver.interfaces import IProvisioningAPI
+from zope.interface import implementer
 
 
 class FakeProvisioningDatabase(dict):
@@ -97,10 +95,3 @@ class FakeProvisioningAPI:
 
     def get_nodes(self):
         return self.nodes.duplicate()
-
-
-class TestFakeProvisioningAPI(TestCase):
-
-    def test_interface(self):
-        fake = FakeProvisioningAPI()
-        verifyObject(IProvisioningAPI, fake)
