@@ -117,23 +117,20 @@ class ProvisioningAPI:
     def delete_nodes_by_name(self, names):
         return self.delete_objects_by_name(CobblerSystem, names)
 
-    @inlineCallbacks
+    @deferred
     def get_distros(self):
-        # WARNING: This could return a *huge* number of results. Consider
+        # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        distros = yield CobblerDistro.get_all_values(self.session)
-        returnValue(distros)
+        return CobblerDistro.get_all_values(self.session)
 
-    @inlineCallbacks
+    @deferred
     def get_profiles(self):
-        # WARNING: This could return a *huge* number of results. Consider
+        # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        profiles = yield CobblerProfile.get_all_values(self.session)
-        returnValue(profiles)
+        return CobblerProfile.get_all_values(self.session)
 
-    @inlineCallbacks
+    @deferred
     def get_nodes(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
-        systems = yield CobblerSystem.get_all_values(self.session)
-        returnValue(systems)
+        return CobblerSystem.get_all_values(self.session)
