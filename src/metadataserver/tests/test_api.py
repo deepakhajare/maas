@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.test.client import Client
 from maastesting import TestCase
 from metadataserver.api import (
     check_version,
@@ -82,3 +83,36 @@ class TestViews(TestCase):
         self.assertEqual(
             'text/plain',
             user_data(self.fake_request(), 'latest')['Content-Type'])
+
+
+class TestURLs(TestCase):
+    """Tests to ensure that URLs get directed to the right views.
+
+    This does not test detailed behaviour of the views, only that they get
+    invoked appropriately.
+    """
+
+    def get_page(self, path):
+        """GET a page; return (status code, content)."""
+        response = Client().get(path)
+        return (response.status_code, response.content.strip())
+
+    def test_metadata_index(self):
+        self.assertEqual((200, 'latest'), self.get_page('/metadata/'))
+
+    def test_version_index(self):
+        status_code, content = self.get_page('/metadata/latest/')
+        self.assertEqual(200, status_code)
+        self.assertIn('meta-data', content)
+
+    def test_meta_data(self):
+        status_code, content = self.get_page('/metadata/latest/meta-data/')
+        self.assertEqual(200, status_code)
+        self.assertIn('kernel-id', content)
+
+    def test_user_data(self):
+        # Note that user-data is a file, not a directory, so does not
+        # need a slash at the end.
+        status_code, content = self.get_page('/metadata/latest/user-data')
+        self.assertEqual(200, status_code)
+        self.assertNotIn('user-data', content)

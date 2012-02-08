@@ -28,10 +28,10 @@ from metadataserver.api import (
 urlpatterns = patterns(
     '',
     url(
-        r'(?P<version>[^/]+)/meta-data/', meta_data,
+        r'(?P<version>[^/]+)/meta-data/$', meta_data,
         name='metadata_meta_data'),
     url(
-        r'(?P<version>[^/]+)/user-data/', user_data,
+        r'(?P<version>[^/]+)/user-data$', user_data,
         name='metadata_user_data'),
     url(r'(?P<version>[^/]+)/', version_index, name='metadata_version'),
     url(r'', metadata_index, name='metadata'),
