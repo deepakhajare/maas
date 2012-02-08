@@ -11,15 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from testtools import TestCase
-from zope.interface.verify import verifyObject
-from provisioningserver.interfaces import IProvisioningAPI
-from provisioningserver.testing.fakeapi import FakeProvisioningAPI
+from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
+from provisioningserver.tests.test_api import TestProvisioningAPI
 
 
-class TestFakeProvisioningAPI(TestCase):
+class TestFakeProvisioningAPI(TestProvisioningAPI):
     """Test :class:`FakeProvisioningAPI`."""
 
-    def test_interface(self):
-        fake = FakeProvisioningAPI()
-        verifyObject(IProvisioningAPI, fake)
+    def get_provisioning_api(self):
+        return FakeAsynchronousProvisioningAPI()

@@ -10,10 +10,14 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "FakeProvisioningAPI",
+    "FakeAsynchronousProvisioningAPI",
+    "FakeSynchronousProvisioningAPI",
     ]
 
+from functools import wraps
+
 from provisioningserver.interfaces import IProvisioningAPI
+from twisted.internet import defer
 from zope.interface import implementer
 
 
@@ -51,10 +55,10 @@ class FakeProvisioningDatabase(dict):
 
 
 @implementer(IProvisioningAPI)
-class FakeProvisioningAPI:
+class FakeSynchronousProvisioningAPI:
 
     def __init__(self):
-        super(FakeProvisioningAPI, self).__init__()
+        super(FakeSynchronousProvisioningAPI, self).__init__()
         self.distros = FakeProvisioningDatabase()
         self.profiles = FakeProvisioningDatabase()
         self.nodes = FakeProvisioningDatabase()
@@ -95,3 +99,17 @@ class FakeProvisioningAPI:
 
     def get_nodes(self):
         return self.nodes.duplicate()
+
+
+def async(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return defer.execute(func, *args, **kwargs)
+    return wrapper
+
+
+FakeAsynchronousProvisioningAPI = type(
+    b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
+        name: async(getattr(FakeSynchronousProvisioningAPI, name))
+        for name in IProvisioningAPI.names(all=True)
+        })
