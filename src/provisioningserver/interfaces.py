@@ -39,40 +39,40 @@ class IProvisioningAPI_Template:
     """
 
     def add_distro(name, initrd, kernel):
-        """ """
+        """Add a distro with the given `name`, `initrd`, and `kernel`."""
 
     def add_profile(name, distro):
-        """ """
+        """Add a profile with the given `name`, and `distro`."""
 
     def add_node(name, profile):
-        """ """
+        """Add a node with the given `name`, and `profile`."""
 
     def get_distros_by_name(names):
-        """ """
+        """List distros with the given `names`."""
 
     def get_profiles_by_name(names):
-        """ """
+        """List profiles with the given `names`."""
 
     def get_nodes_by_name(names):
-        """ """
+        """List nodes with the given `names`."""
 
     def delete_distros_by_name(names):
-        """ """
+        """Delete distros with the given `names`."""
 
     def delete_profiles_by_name(names):
-        """ """
+        """Delete profiles with the given `names`."""
 
     def delete_nodes_by_name(names):
-        """ """
+        """Delete nodes with the given `names`."""
 
     def get_distros():
-        """ """
+        """List all distros."""
 
     def get_profiles():
-        """ """
+        """List all profiles."""
 
     def get_nodes():
-        """ """
+        """List all nodes."""
 
 
 PAPI_FUNCTIONS = {
