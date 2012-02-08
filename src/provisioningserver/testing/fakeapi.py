@@ -1,7 +1,15 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Fake Provisioning API."""
+"""Fake Provisioning API.
+
+:class:`FakeSynchronousProvisioningAPI` is intended to be useful in a Django
+environment, or similar, where the Provisioning API is being used via
+xmlrpclib.ServerProxy for example.
+
+:class:`FakeAsynchronousProvisioningAPI` is intended to be used in a Twisted
+environment, where all functions return :class:`defer.Deferred`s.
+"""
 
 from __future__ import (
     print_function,
@@ -105,12 +113,14 @@ class FakeSynchronousProvisioningAPI:
 
 
 def async(func):
+    """Decorate a function so that it always return a `defer.Deferred`."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         return defer.execute(func, *args, **kwargs)
     return wrapper
 
 
+# Generate an asynchronous variant based on the synchronous one.
 FakeAsynchronousProvisioningAPI = type(
     b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
         name: async(getattr(FakeSynchronousProvisioningAPI, name))
