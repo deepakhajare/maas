@@ -14,23 +14,23 @@ __all__ = [
     ]
 
 from provisioningserver.api import ProvisioningAPI
-from provisioningserver.interfaces import IProvisioningAPI
-from provisioningserver.interfaces import IProvisioningAPI_XMLRPC
+from provisioningserver.interfaces import (
+    IProvisioningAPI,
+    IProvisioningAPI_XMLRPC,
+    )
 from twisted.web.xmlrpc import XMLRPC
-from zope.interface import classImplements
+from zope.interface import implements
 
 
-class ProvisioningAPI_XMLRPC_Base(XMLRPC, ProvisioningAPI):
+class ProvisioningAPI_XMLRPC(XMLRPC, ProvisioningAPI):
+
+    implements(IProvisioningAPI_XMLRPC)
 
     def __init__(self, session):
         XMLRPC.__init__(self, allowNone=True, useDateTime=True)
         ProvisioningAPI.__init__(self, session)
 
-
-ProvisioningAPI_XMLRPC = type(
-    b"ProvisioningAPI_XMLRPC", (ProvisioningAPI_XMLRPC_Base,), {
-        "xmlrpc_%s" % name: getattr(ProvisioningAPI, name)
-        for name in IProvisioningAPI.names(all=True)
-        })
-
-classImplements(ProvisioningAPI, IProvisioningAPI_XMLRPC)
+# Add an xmlrpc_* method for each function defined in IProvisioningAPI.
+for name in IProvisioningAPI.names(all=True):
+    method = getattr(ProvisioningAPI, name)
+    setattr(ProvisioningAPI_XMLRPC, "xmlrpc_%s" % name, method)

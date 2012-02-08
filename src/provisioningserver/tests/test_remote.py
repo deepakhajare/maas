@@ -11,7 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from provisioningserver.api import ProvisioningAPI
 from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.interfaces import (
     IProvisioningAPI,
