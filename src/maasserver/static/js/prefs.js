@@ -35,7 +35,7 @@ Y.extend(TokenWidget, Y.Widget, {
             .set('id','regenerate_error');
         this.spinnerNode = Y.Node.create('<img />')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
-        this.get('srcNode').one('#tokens_regeneration_placeholer')
+        this.get('srcNode').one('#tokens_regeneration_placeholder')
             .append(this.regenerate_link)
             .append(this.status_node);
     },
