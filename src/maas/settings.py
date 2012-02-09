@@ -41,6 +41,8 @@ YUI_DEBUG = DEBUG
 YUI_VERSION = '3.4.1'
 STATIC_LOCAL_SERVE = DEBUG
 
+AUTH_PROFILE_MODULE = 'maasserver.UserProfile'
+
 AUTHENTICATION_BACKENDS = (
     'maasserver.models.MaaSAuthorizationBackend',
     )
@@ -172,6 +174,7 @@ INSTALLED_APPS = (
     'django_nose',
     'maasserver',
     'metadataserver',
+    'piston',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )

@@ -167,6 +167,7 @@ INSTALLED_APPS = (
     'metadataserver',
     'debug_toolbar',
     'django_nose',
+    'piston',
 )
 
 # A sample logging configuration. The only tangible logging
