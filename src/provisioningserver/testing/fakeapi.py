@@ -50,8 +50,8 @@ class FakeProvisioningDatabase(dict):
             if key in self:
                 del self[key]
 
-    def duplicate(self):
-        """Duplicate this mapping.
+    def dump(self):
+        """Dump this mapping.
 
         Keys are assumed to be immutable, and values are assumed to have a
         `copy` method, like a `dict` for example.
@@ -103,13 +103,13 @@ class FakeSynchronousProvisioningAPI:
         return self.nodes.delete(names)
 
     def get_distros(self):
-        return self.distros.duplicate()
+        return self.distros.dump()
 
     def get_profiles(self):
-        return self.profiles.duplicate()
+        return self.profiles.dump()
 
     def get_nodes(self):
-        return self.nodes.duplicate()
+        return self.nodes.dump()
 
 
 def async(func):
