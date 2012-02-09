@@ -40,7 +40,7 @@ from piston.resource import Resource
 
 # URLs accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
-    url(r'^accounts/prefs/$', userprefsview, name='prefs'),
+    url(r'^account/prefs/$', userprefsview, name='prefs'),
     url(r'^accounts/login/$', login, name='login'),
     url(r'^accounts/logout/$', logout, name='logout'),
     url(
