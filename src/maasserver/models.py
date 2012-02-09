@@ -23,8 +23,8 @@ from uuid import uuid1
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.core.files.base import ContentFile
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
@@ -365,11 +365,14 @@ class FileStorage(models.Model):
         """
         self.filename = filename
         # This probably ought to read in chunks but large files are
-        # unexpected.  Also note that uploading a file with the same
+        # not expected.  Also note that uploading a file with the same
         # name as an existing one will cause that file to be written
         # with a new generated name, and the old one remains where it
         # is.  See https://code.djangoproject.com/ticket/6157 - the
         # Django devs consider deleting things dangerous ... ha.
+        # HOWEVER - this operation would need to be atomic anyway so
+        # it's safest left how it is for now (reads can overlap with
+        # writes from Juju).
         content = ContentFile(file_object.read())
         self.data.save(filename, content)
 

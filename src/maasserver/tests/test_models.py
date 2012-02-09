@@ -164,7 +164,7 @@ class UserProfileTest(TestCase):
 
 
 class FileStorageTest(TestCase):
-    """Testing of the FileStorage model."""
+    """Testing of the :class:`FileStorage` model."""
 
     FILEPATH = settings.MEDIA_ROOT
 
@@ -183,9 +183,10 @@ class FileStorageTest(TestCase):
         # The development settings say to write a file starting at
         # /var/tmp/maas, so check one is actually written there.  The field
         # itself is hard-coded to make a directory called "storage".
-        storage = factory.make_file_storage(filename="myfile", data="mydata")
+        factory.make_file_storage(filename="myfile", data="mydata")
 
-        expected_filename = self.FILEPATH + "storage/myfile"
+        expected_filename = os.path.join(
+            self.FILEPATH, "storage", "myfile")
 
         with open(expected_filename) as f:
             self.assertEqual("mydata", f.read())

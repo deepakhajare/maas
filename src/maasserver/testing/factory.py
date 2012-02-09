@@ -15,6 +15,7 @@ __all__ = [
 
 import random
 import string
+from StringIO import StringIO
 
 from django.contrib.auth.models import User
 from maasserver.models import (
@@ -74,7 +75,6 @@ class Factory():
             data = self.getRandomString(1024)
 
         storage = FileStorage()
-        from StringIO import StringIO
         storage.save_file(filename, StringIO(data))
         storage.save()
         return storage
