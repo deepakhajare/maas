@@ -34,6 +34,7 @@ from piston.models import (
     Token,
     )
 
+
 class CommonInfo(models.Model):
     """A base model which records the creation date and the last modification
     date.
