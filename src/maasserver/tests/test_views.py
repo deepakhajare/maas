@@ -44,7 +44,6 @@ class UserPrefsViewTest(LoggedInTestCase):
     def test_prefs_GET_api(self):
         # The preferences page (api tab) displays the API access tokens.
         user = self.logged_in_user
-        user.save()
         response = self.client.get('/accounts/prefs/?tab=1')
         doc = fromstring(response.content)
         # The consumer key and the token key are displayed.
