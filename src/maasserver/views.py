@@ -54,6 +54,7 @@ class NodesCreateView(CreateView):
 def userprefsview(request):
     user = request.user
     tab = request.GET.get('tab', 0)
+    # Process the profile update form.
     if 'profile_submit' in request.POST:
         tab = 0
         profile_form = ProfileForm(
@@ -64,6 +65,8 @@ def userprefsview(request):
             return HttpResponseRedirect('%s?tab=%d' % (reverse('prefs'), tab))
     else:
         profile_form = ProfileForm(instance=user, prefix='profile')
+
+    # Process the password change form.
     if 'password_submit' in request.POST:
         tab = 2
         password_form = PasswordForm(
