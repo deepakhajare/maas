@@ -35,10 +35,8 @@ def get_provisioning_api_proxy():
 
 
 @receiver(post_save, sender=Node)
-def provision_post_save_Node(
-    sender, instance, created, raw, using, **kwargs):
+def provision_post_save_Node(sender, instance, created, **kwargs):
     """Create or update nodes in the provisioning server."""
-    pprint(("SAVE", locals()), stderr)
     # Create or update the node in the provisioning prov.
     papi = get_provisioning_api_proxy()
     nodes = papi.get_nodes_by_name([instance.system_id])
@@ -56,8 +54,7 @@ def provision_post_save_Node(
 
 
 @receiver(post_save, sender=MACAddress)
-def provision_post_save_MACAddress(
-    sender, instance, created, raw, using, **kwargs):
+def provision_post_save_MACAddress(sender, instance, created, **kwargs):
     """Create or update MACs in the provisioning server."""
     pprint(("SAVE", locals()), stderr)
 
