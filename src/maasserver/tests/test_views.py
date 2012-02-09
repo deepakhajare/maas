@@ -27,7 +27,7 @@ class UserPrefsViewTest(LoggedInTestCase):
         user.first_name = 'Steve'
         user.last_name = 'Bam'
         user.save()
-        response = self.client.get('/accounts/prefs/')
+        response = self.client.get('/account/prefs/')
         doc = fromstring(response.content)
         self.assertSequenceEqual(
             ['User preferences for %s' % user.username],
@@ -44,7 +44,7 @@ class UserPrefsViewTest(LoggedInTestCase):
     def test_prefs_GET_api(self):
         # The preferences page (api tab) displays the API access tokens.
         user = self.logged_in_user
-        response = self.client.get('/accounts/prefs/?tab=1')
+        response = self.client.get('/account/prefs/?tab=1')
         doc = fromstring(response.content)
         # The consumer key and the token key/secret are displayed.
         consumer = user.get_profile().get_authorisation_consumer()
@@ -66,7 +66,7 @@ class UserPrefsViewTest(LoggedInTestCase):
         # The preferences page allows the user the update its profile
         # information.
         response = self.client.post(
-            '/accounts/prefs/',
+            '/account/prefs/',
             {
                 'profile_submit': 1, 'profile-first_name': 'John',
                 'profile-last_name': 'Doe', 'profile-email': 'jon@example.com'
@@ -83,7 +83,7 @@ class UserPrefsViewTest(LoggedInTestCase):
         self.logged_in_user.set_password('password')
         old_pw = self.logged_in_user.password
         response = self.client.post(
-            '/accounts/prefs/',
+            '/account/prefs/',
             {
                 'password_submit': 1,
                 'password-old_password': 'test',
