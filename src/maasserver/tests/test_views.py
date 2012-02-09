@@ -79,7 +79,8 @@ class UserPrefsViewTest(LoggedInTestCase):
         self.assertEqual('jon@example.com', user.email)
 
     def test_prefs_POST_password(self):
-        # The preferences page allows the user the change its password.
+        # The preferences page allows the user to change his password.
+        self.logged_in_user.set_password('password')
         old_pw = self.logged_in_user.password
         response = self.client.post(
             '/accounts/prefs/',
