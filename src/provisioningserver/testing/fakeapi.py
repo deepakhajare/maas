@@ -27,6 +27,7 @@ from functools import wraps
 from provisioningserver.interfaces import IProvisioningAPI
 from twisted.internet import defer
 from zope.interface import implementer
+from zope.interface.interface import Method
 
 
 class FakeProvisioningDatabase(dict):
@@ -125,4 +126,5 @@ FakeAsynchronousProvisioningAPI = type(
     b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
         name: async(getattr(FakeSynchronousProvisioningAPI, name))
         for name in IProvisioningAPI.names(all=True)
+        if isinstance(IProvisioningAPI[name], Method)
         })
