@@ -144,6 +144,8 @@ class UserProfileTest(TestCase):
         user = factory.make_user()
         consumers = Consumer.objects.filter(user=user, name=GENERIC_CONSUMER)
         self.assertEqual([user], [consumer.user for consumer in consumers])
+        self.assertEqual(
+            consumers[0], user.get_profile().get_authorisation_consumer())
         self.assertEqual(GENERIC_CONSUMER, consumers[0].name)
         self.assertEqual(KEY_SIZE, len(consumers[0].key))
         # The generic consumer has an empty secret.
@@ -154,6 +156,25 @@ class UserProfileTest(TestCase):
         user = factory.make_user()
         tokens = Token.objects.filter(user=user)
         self.assertEqual([user], [token.user for token in tokens])
+        self.assertEqual(
+            tokens[0], user.get_profile().get_authorisation_token())
         self.assertIsInstance(tokens[0].key, unicode)
         self.assertEqual(KEY_SIZE, len(tokens[0].key))
         self.assertEqual(Token.ACCESS, tokens[0].token_type)
+
+    def test_token_reset(self):
+        # The OAuth Consumer keys and the related Token keys can be
+        # regenerated.
+        profile = factory.make_user().get_profile()
+        consumer_key = profile.get_authorisation_consumer().key
+        token_key = profile.get_authorisation_token().key
+        token_secret = profile.get_authorisation_token().secret
+
+        new_consumer, new_token = profile.reset_authorisation_token()
+        self.assertEqual('', new_consumer.secret)
+        self.assertNotEqual(consumer_key, new_consumer.key)
+        self.assertNotEqual(token_key, new_token.key)
+        self.assertNotEqual(token_secret, new_token.secret)
+
+        self.assertEqual(KEY_SIZE, len(new_token.key))
+        self.assertEqual(KEY_SIZE, len(new_consumer.key))
