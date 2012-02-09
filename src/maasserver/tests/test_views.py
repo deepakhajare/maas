@@ -46,15 +46,21 @@ class UserPrefsViewTest(LoggedInTestCase):
         user = self.logged_in_user
         response = self.client.get('/accounts/prefs/?tab=1')
         doc = fromstring(response.content)
-        # The consumer key and the token key are displayed.
+        # The consumer key and the token key/secret are displayed.
+        consumer = user.get_profile().get_authorisation_consumer()
+        token = user.get_profile().get_authorisation_token()
         self.assertSequenceEqual(
-            [user.get_profile().get_authorisation_consumer().key],
+            [consumer.key],
             [elem.text.strip() for elem in
                 doc.cssselect('div#consumer_key')])
         self.assertSequenceEqual(
-            [user.get_profile().get_authorisation_token().key],
+            [token.key],
             [elem.text.strip() for elem in
                 doc.cssselect('div#token_key')])
+        self.assertSequenceEqual(
+            [token.secret],
+            [elem.text.strip() for elem in
+                doc.cssselect('div#token_secret')])
 
     def test_prefs_POST_profile(self):
         # The preferences page allows the user the update its profile
