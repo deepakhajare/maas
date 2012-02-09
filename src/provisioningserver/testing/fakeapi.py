@@ -66,6 +66,8 @@ class FakeProvisioningDatabase(dict):
 @implementer(IProvisioningAPI)
 class FakeSynchronousProvisioningAPI:
 
+    # TODO: Referential integrity might be a nice thing.
+
     def __init__(self):
         super(FakeSynchronousProvisioningAPI, self).__init__()
         self.distros = FakeProvisioningDatabase()
