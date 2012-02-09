@@ -42,7 +42,7 @@ class UserPrefsViewTest(LoggedInTestCase):
                 doc.cssselect('input#id_profile-first_name')])
 
     def test_prefs_GET_api(self):
-        # The preferences page (profile api) displays the API access tokens.
+        # The preferences page (api tab) displays the API access tokens.
         user = self.logged_in_user
         user.save()
         response = self.client.get('/accounts/prefs/?tab=1')
