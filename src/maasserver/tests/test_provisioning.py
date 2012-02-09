@@ -72,3 +72,15 @@ class TestProvisioning(TestCase):
         node = papi_fake.nodes["frank"]
         profile_name2 = node["profile"]
         self.assertEqual(profile_name1, profile_name2)
+
+    def test_provision_post_delete_Node(self):
+        papi_fake = self.patch_in_fake_papi()
+        node_model = Node(system_id="frank")
+        provisioning.provision_post_save_Node(
+            sender=Node, instance=node_model, created=True)
+        provisioning.provision_post_delete_Node(
+            sender=Node, instance=node_model)
+        # The node is deleted, but the profile and distro remain.
+        self.assertNotEqual({}, papi_fake.distros)
+        self.assertNotEqual({}, papi_fake.profiles)
+        self.assertEqual({}, papi_fake.nodes)

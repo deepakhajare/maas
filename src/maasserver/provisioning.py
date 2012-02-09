@@ -60,14 +60,13 @@ def provision_post_save_MACAddress(sender, instance, created, **kwargs):
 
 
 @receiver(post_delete, sender=Node)
-def provision_post_delete_Node(sender, instance, using, **kwargs):
+def provision_post_delete_Node(sender, instance, **kwargs):
     """Delete nodes in the provisioning server."""
-    pprint(("DELETE", locals()), stderr)
     papi = get_provisioning_api_proxy()
     papi.delete_nodes_by_name([instance.system_id])
 
 
 @receiver(post_delete, sender=MACAddress)
-def provision_post_delete_MACAddress(sender, instance, using, **kwargs):
+def provision_post_delete_MACAddress(sender, instance, **kwargs):
     """Delete MACs in the provisioning server."""
     pprint(("DELETE", locals()), stderr)
