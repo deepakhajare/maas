@@ -18,6 +18,7 @@ import string
 
 from django.contrib.auth.models import User
 from maasserver.models import (
+    FileStorage,
     MACAddress,
     Node,
     NODE_STATUS,
@@ -65,6 +66,18 @@ class Factory():
         admin.is_superuser = True
         admin.save()
         return admin
+
+    def make_file_storage(self, filename=None, data=None):
+        if filename is None:
+            filename = self.getRandomString(255)
+        if data is None:
+            data = self.getRandomString(1024)
+
+        storage = FileStorage()
+        from StringIO import StringIO
+        storage.save_file(filename, StringIO(data))
+        storage.save()
+        return storage
 
 
 # Create factory singleton.

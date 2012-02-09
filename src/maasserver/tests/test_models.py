@@ -11,6 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import os
+import shutil
+
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -157,3 +160,31 @@ class UserProfileTest(TestCase):
         self.assertIsInstance(tokens[0].key, unicode)
         self.assertEqual(KEY_SIZE, len(tokens[0].key))
         self.assertEqual(Token.ACCESS, tokens[0].token_type)
+
+
+class FileStorageTest(TestCase):
+    """Testing of the FileStorage model."""
+
+    FILEPATH = "/var/tmp/maas/"
+
+    def setUp(self):
+        super(FileStorageTest, self).setUp()
+        os.mkdir(self.FILEPATH)
+        self.addCleanup(shutil.rmtree, self.FILEPATH)
+
+    def test_creation(self):
+        storage = factory.make_file_storage(filename="myfile", data="mydata")
+        expected = ["myfile", "mydata"]
+        actual = [storage.filename, storage.data.read()]
+        self.assertEqual(expected, actual)
+
+    def test_creation_writes_a_file(self):
+        # The development settings say to write a file starting at
+        # /var/tmp, so check one is actually written there.  The field
+        # itself is hard-coded to make a directory called "storage".
+        storage = factory.make_file_storage(filename="myfile", data="mydata")
+
+        expected_filename = self.FILEPATH + "storage/myfile"
+
+        with open(expected_filename) as f:
+            self.assertEqual("mydata", f.read())
