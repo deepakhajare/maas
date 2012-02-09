@@ -14,6 +14,7 @@ __all__ = []
 import os
 import shutil
 
+from django.conf import settings
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -165,7 +166,7 @@ class UserProfileTest(TestCase):
 class FileStorageTest(TestCase):
     """Testing of the FileStorage model."""
 
-    FILEPATH = "/var/tmp/maas/"
+    FILEPATH = settings.MEDIA_ROOT
 
     def setUp(self):
         super(FileStorageTest, self).setUp()
@@ -180,7 +181,7 @@ class FileStorageTest(TestCase):
 
     def test_creation_writes_a_file(self):
         # The development settings say to write a file starting at
-        # /var/tmp, so check one is actually written there.  The field
+        # /var/tmp/maas, so check one is actually written there.  The field
         # itself is hard-coded to make a directory called "storage".
         storage = factory.make_file_storage(filename="myfile", data="mydata")
 
