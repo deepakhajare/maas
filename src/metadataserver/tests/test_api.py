@@ -11,7 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from django.test.client import Client
 from maastesting import TestCase
 from metadataserver.api import (
     check_version,
@@ -50,7 +49,7 @@ class TestViews(TestCase):
     def get(self, path):
         # Root of the metadata API service.
         metadata_root = "/metadata"
-        return Client().get(metadata_root + path)
+        return self.client.get(metadata_root + path)
 
     def test_metadata_index_shows_latest(self):
         self.assertIn('latest', self.get('/').content)
