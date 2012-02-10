@@ -1,5 +1,9 @@
 {% extends "maasserver/base.html" %}
 
+{% block nav-active-prefs %}active{% endblock %}
+{% block title %}User preferences for {{ user.username }}{% endblock %}
+{% block page-title %}User preferences for {{ user.username }}{% endblock %}
+
 {% block head %}
   <script type="text/javascript">
   <!--
@@ -27,8 +31,6 @@
 {% endblock %}
 
 {% block content %}
-  <h2>User preferences for {{ user.username }}</h2>
-
   <div id="prefs">
     <ul>
       <li><a href="#profile">Profile</a></li>
