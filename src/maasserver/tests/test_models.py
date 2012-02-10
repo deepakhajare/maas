@@ -11,6 +11,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import os
+import shutil
+
+from django.conf import settings
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -162,19 +166,31 @@ class UserProfileTest(TestCase):
         self.assertEqual(KEY_SIZE, len(tokens[0].key))
         self.assertEqual(Token.ACCESS, tokens[0].token_type)
 
-    def test_token_reset(self):
-        # The OAuth Consumer keys and the related Token keys can be
-        # regenerated.
-        profile = factory.make_user().get_profile()
-        consumer_key = profile.get_authorisation_consumer().key
-        token_key = profile.get_authorisation_token().key
-        token_secret = profile.get_authorisation_token().secret
 
-        new_consumer, new_token = profile.reset_authorisation_token()
-        self.assertEqual('', new_consumer.secret)
-        self.assertNotEqual(consumer_key, new_consumer.key)
-        self.assertNotEqual(token_key, new_token.key)
-        self.assertNotEqual(token_secret, new_token.secret)
+class FileStorageTest(TestCase):
+    """Testing of the :class:`FileStorage` model."""
 
-        self.assertEqual(KEY_SIZE, len(new_token.key))
-        self.assertEqual(KEY_SIZE, len(new_consumer.key))
+    FILEPATH = settings.MEDIA_ROOT
+
+    def setUp(self):
+        super(FileStorageTest, self).setUp()
+        os.mkdir(self.FILEPATH)
+        self.addCleanup(shutil.rmtree, self.FILEPATH)
+
+    def test_creation(self):
+        storage = factory.make_file_storage(filename="myfile", data="mydata")
+        expected = ["myfile", "mydata"]
+        actual = [storage.filename, storage.data.read()]
+        self.assertEqual(expected, actual)
+
+    def test_creation_writes_a_file(self):
+        # The development settings say to write a file starting at
+        # /var/tmp/maas, so check one is actually written there.  The field
+        # itself is hard-coded to make a directory called "storage".
+        factory.make_file_storage(filename="myfile", data="mydata")
+
+        expected_filename = os.path.join(
+            self.FILEPATH, "storage", "myfile")
+
+        with open(expected_filename) as f:
+            self.assertEqual("mydata", f.read())
