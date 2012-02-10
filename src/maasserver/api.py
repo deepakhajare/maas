@@ -260,7 +260,10 @@ class NodesHandler(BaseHandler):
     @api_exported('list', 'GET')
     def list(self, request):
         """Read all Nodes."""
-        return Node.objects.get_visible_nodes(request.user).order_by('id')
+        requested_ids = request.GET.get('id')
+        nodes = Node.objects.get_visible_nodes(
+            request.user, ids=requested_ids)
+        return nodes.order_by('id')
 
     @api_exported('new', 'POST')
     def new(self, request):

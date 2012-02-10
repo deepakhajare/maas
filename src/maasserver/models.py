@@ -134,11 +134,13 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class NodeManager(models.Manager):
     """A utility to manage the collection of Nodes."""
 
-    def get_visible_nodes(self, user):
+    def get_visible_nodes(self, user, ids=None):
         """Fetch all the Nodes visible by a User_.
 
         :param user: The user that should be used in the permission check.
         :type user: User_
+        :param ids: If given, limit result to nodes with these system_ids.
+        :type ids: Sequence.
 
         .. _User: https://
            docs.djangoproject.com/en/dev/topics/auth/
