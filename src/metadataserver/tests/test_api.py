@@ -70,6 +70,6 @@ class TestViews(TestCase):
             'text/plain', self.get('/latest/meta-data/')['Content-Type'])
 
     def test_user_data_view_returns_binary_blob(self):
-        self.assertEqual(
-            'application/octet-stream',
-            self.get('/latest/user-data')['Content-Type'])
+        response = self.get('/latest/user-data')
+        self.assertEqual('application/octet-stream', response['Content-Type'])
+        self.assertIsInstance(response.content, str)
