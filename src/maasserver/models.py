@@ -24,9 +24,15 @@ from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.db import models
+from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from maasserver.macaddress import MACAddressField
+from piston.models import (
+    Consumer,
+    Token,
+    )
 
 
 class CommonInfo(models.Model):
@@ -265,9 +271,117 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
+GENERIC_CONSUMER = 'Maas consumer'
+
+
+class UserProfile(models.Model):
+    """A User profile to store Maas specific methods and fields.
+
+    :ivar user: The related User_.
+
+    .. _UserProfile: https://docs.djangoproject.com/
+       en/dev/topics/auth/
+       #storing-additional-information-about-users
+
+    """
+
+    user = models.OneToOneField(User)
+
+    def reset_authorisation_token(self):
+        """Create (if necessary) and regenerate the keys for the Consumer and
+        the related Token of the OAuth authorisation.
+
+        :return: The token that was reset.
+        :rtype: piston.models.Token
+
+        """
+        consumer, _ = Consumer.objects.get_or_create(
+            user=self.user, name=GENERIC_CONSUMER,
+            defaults={'status': 'accepted'})
+        consumer.generate_random_codes()
+        # This is a 'generic' consumer aimed to service many clients, hence
+        # we don't authenticate the consumer with key/secret key.
+        consumer.secret = ''
+        consumer.save()
+        token, _ = Token.objects.get_or_create(
+            user=self.user, token_type=Token.ACCESS, consumer=consumer,
+            defaults={'is_approved': True})
+        token.generate_random_codes()
+        return token
+
+    def get_authorisation_consumer(self):
+        """Returns the OAuth Consumer attached to the related User_.
+
+        :return: The attached Consumer.
+        :rtype: piston.models.Consumer
+
+        """
+        return Consumer.objects.get(user=self.user, name=GENERIC_CONSUMER)
+
+    def get_authorisation_token(self):
+        """Returns the OAuth authorisation token attached to the related User_.
+
+        :return: The attached Token.
+        :rtype: piston.models.Token
+
+        """
+        consumer = self.get_authorisation_consumer()
+        token = Token.objects.get(
+            user=self.user, token_type=Token.ACCESS, consumer=consumer)
+        return token
+
+
+# When a user is created: create the related profile and the default
+# consumer/token.
+def create_user(sender, instance, created, **kwargs):
+    if created:
+        # Create related UserProfile.
+        profile = UserProfile.objects.create(user=instance)
+
+        # Create initial authorisation token.
+        profile.reset_authorisation_token()
+
+# Connect the 'create_user' method to the post save signal of User.
+post_save.connect(create_user, sender=User)
+
+
+class FileStorage(models.Model):
+    """A simple file storage keyed on file name.
+
+    :ivar filename: A unique file name to use for the data being stored.
+    :ivar data: The file's actual data.
+    """
+
+    filename = models.CharField(max_length=255, unique=True, editable=False)
+    data = models.FileField(upload_to="storage")
+
+    def __unicode__(self):
+        return self.filename
+
+    def save_file(self, filename, file_object):
+        """Save the file to the filesystem and persist to the database.
+
+        The file will end up in MEDIA_ROOT/storage/
+        """
+        self.filename = filename
+        # This probably ought to read in chunks but large files are
+        # not expected.  Also note that uploading a file with the same
+        # name as an existing one will cause that file to be written
+        # with a new generated name, and the old one remains where it
+        # is.  See https://code.djangoproject.com/ticket/6157 - the
+        # Django devs consider deleting things dangerous ... ha.
+        # HOWEVER - this operation would need to be atomic anyway so
+        # it's safest left how it is for now (reads can overlap with
+        # writes from Juju).
+        content = ContentFile(file_object.read())
+        self.data.save(filename, content)
+
+
 # Register the models in the admin site.
-admin.site.register(Node)
+admin.site.register(Consumer)
+admin.site.register(FileStorage)
 admin.site.register(MACAddress)
+admin.site.register(Node)
 
 
 class MaaSAuthorizationBackend(ModelBackend):
