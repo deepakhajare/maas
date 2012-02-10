@@ -152,7 +152,11 @@ class TestProvisioningAPI(TestCase):
         for num in xrange(3):
             name = self.getUniqueString()
             yield papi.add_node(name, profile)
-            expected[name] = {'name': name, 'profile': 'profile'}
+            expected[name] = {
+                'name': name,
+                'profile': 'profile',
+                'mac_addresses': [],
+                }
         nodes = yield papi.get_nodes()
         self.assertEqual(expected, nodes)
 

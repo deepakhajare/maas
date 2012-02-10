@@ -13,6 +13,8 @@ __all__ = [
     "ProvisioningAPI",
     ]
 
+from functools import partial
+
 from provisioningserver.cobblerclient import (
     CobblerDistro,
     CobblerProfile,
@@ -25,6 +27,35 @@ from twisted.internet.defer import (
     returnValue,
     )
 from zope.interface import implements
+
+
+def postprocess_mapping(mapping, function):
+    """Apply `function` to each value in `mapping`, returned in a new dict."""
+    return {
+        key: function(value)
+        for key, value in mapping.iteritems()
+        }
+
+
+def cobbler_to_papi_node(data):
+    """Convert a Cobbler representation of a system to a PAPI node."""
+    interfaces = data.get("interfaces", {})
+    mac_addresses = (
+        interface["mac_address"]
+        for interface in interfaces.itervalues())
+    return {
+        "name": data["name"],
+        "profile": data["profile"],
+        "mac_addresses": [
+            mac_address.strip()
+            for mac_address in mac_addresses
+            if not mac_addresses.isspace()
+            ],
+        }
+
+
+cobbler_mapping_to_papi_nodes = partial(
+    postprocess_mapping, function=cobbler_to_papi_node)
 
 
 class ProvisioningAPI:
@@ -91,7 +122,8 @@ class ProvisioningAPI:
 
     @deferred
     def get_nodes_by_name(self, names):
-        return self.get_objects_by_name(CobblerSystem, names)
+        d = self.get_objects_by_name(CobblerSystem, names)
+        return d.addCallback(cobbler_mapping_to_papi_nodes)
 
     @inlineCallbacks
     def delete_objects_by_name(self, object_type, names):
@@ -135,4 +167,5 @@ class ProvisioningAPI:
     def get_nodes(self):
         # WARNING: This could return a *huge* number of results. Consider
         # adding filtering options to this function before using it in anger.
-        return CobblerSystem.get_all_values(self.session)
+        d = CobblerSystem.get_all_values(self.session)
+        return d.addCallback(cobbler_mapping_to_papi_nodes)
