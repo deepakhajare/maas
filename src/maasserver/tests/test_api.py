@@ -16,10 +16,12 @@ import json
 import time
 
 from django.test.client import Client
+from maasserver.api import NodesNotAvailable
 from maasserver.models import (
     MACAddress,
     Node,
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.testing import (
     LoggedInTestCase,
@@ -370,6 +372,36 @@ class TestNodesAPI(APITestMixin):
         self.assertEqual(
             ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
+
+    def test_POST_acquire_allocates_node(self):
+        # The "acquire" operation allocates a node.
+        available_status = NODE_STATUS.COMMISSIONED
+        acquired_status = NODE_STATUS.DEPLOYED
+        node = factory.make_node(status=available_status, owner=None)
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [node.system_id], extract_system_ids(parsed_result))
+        self.assertEqual(self.logged_in_user, node.owner)
+        self.assertEqual(acquired_status, node.status)
+
+    def test_POST_acquire_fails_if_no_node_present(self):
+        # If no nodes exist, none can be acquired.
+        self.assertRaises(
+            NodesNotAvailable,
+            self.client.post, '/api/nodes/', {'op': 'acquire'})
+
+    def test_POST_acquire_does_not_pick_unavailable_node(self):
+        # The "acquire" operation won't pick nodes that aren't available
+        # for acquisition.
+        available_status = NODE_STATUS.COMMISSIONED
+        unavailable_statuses = (
+            set(NODE_STATUS_CHOICES_DICT) - set([available_status]))
+        for status in unavailable_statuses:
+            factory.make_node(status=status)
+        self.assertRaises(
+            NodesNotAvailable,
+            self.client.post, '/api/nodes/', {'op': 'acquire'})
 
 
 class MACAddressAPITest(APITestMixin):
