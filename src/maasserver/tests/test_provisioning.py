@@ -90,7 +90,7 @@ class TestProvisioningFake(TestCase):
         papi_fake = patch_in_fake_papi(self)
         self.assertIsNot(provisioning.get_provisioning_api_proxy(), papi)
         self.assertIs(provisioning.get_provisioning_api_proxy(), papi_fake)
-        # The fake has small database, and it's empty to begin with.
+        # The fake is pristine; it does not contain sample data.
         self.assertEqual({}, papi_fake.distros)
         self.assertEqual({}, papi_fake.profiles)
         self.assertEqual({}, papi_fake.nodes)
