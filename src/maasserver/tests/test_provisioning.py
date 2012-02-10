@@ -48,9 +48,7 @@ class ProvisioningTests:
         node_model.save()
         node_model.add_mac_address("12:34:56:78:90:12")
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
-        self.assertEqual(
-            {"mac_address": "12:34:56:78:90:12"},
-            node["interfaces"])
+        self.assertEqual(["12:34:56:78:90:12"], node["mac_addresses"])
 
     def test_provision_post_save_Node_update(self):
         # Saving an existing node does not change the profile or distro
@@ -78,9 +76,7 @@ class ProvisioningTests:
         mac_model.mac_address = "11:22:33:44:55:66"
         mac_model.save()
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
-        self.assertEqual(
-            {"mac_address": "11:22:33:44:55:66"},
-            node["interfaces"])
+        self.assertEqual(["11:22:33:44:55:66"], node["mac_addresses"])
 
     def test_provision_post_delete_Node(self):
         node_model = Node(system_id="frank")
@@ -100,7 +96,7 @@ class ProvisioningTests:
         node_model.add_mac_address("12:34:56:78:90:12")
         node_model.remove_mac_address("12:34:56:78:90:12")
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
-        self.assertEqual({}, node["interfaces"])
+        self.assertEqual([], node["mac_addresses"])
 
 
 def patch_in_fake_papi(test):
