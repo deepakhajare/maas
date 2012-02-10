@@ -14,4 +14,5 @@ from maas.development import *
 from maas.settings import *
 
 
+# This should match the setting in Makefile:pserv.pid.
 PSERV_URL = "http://localhost:8001/api"
