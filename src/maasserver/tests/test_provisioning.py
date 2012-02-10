@@ -18,21 +18,71 @@ from maastesting import TestCase
 from provisioningserver.testing.fakeapi import FakeSynchronousProvisioningAPI
 
 
-class TestProvisioning(TestCase):
+class ProvisioningTests:
 
-    def patch_in_fake_papi(self):
-        papi_fake = FakeSynchronousProvisioningAPI()
-        patch = MonkeyPatch(
-            "maasserver.provisioning.get_provisioning_api_proxy",
-            lambda: papi_fake)
-        self.useFixture(patch)
-        return papi_fake
+    # Must be defined in concrete subclasses.
+    papi = None
+
+    def test_provision_post_save_Node_create(self):
+        # Creating and saving a node automatically creates a dummy distro and
+        # profile too, and associates it with the new node.
+        node_model = Node(system_id="frank")
+        provisioning.provision_post_save_Node(
+            sender=Node, instance=node_model, created=True)
+        self.assertEqual(["frank"], sorted(self.papi.nodes))
+        node = self.papi.nodes["frank"]
+        profile_name = node["profile"]
+        self.assertIn(profile_name, self.papi.profiles)
+        profile = self.papi.profiles[profile_name]
+        distro_name = profile["distro"]
+        self.assertIn(distro_name, self.papi.distros)
+
+    def test_provision_post_save_Node_update(self):
+        # Saving an existing node does not change the profile or distro
+        # associated with it.
+        node_model = Node(system_id="frank")
+        provisioning.provision_post_save_Node(
+            sender=Node, instance=node_model, created=True)
+        # Record the current profile name.
+        node = self.papi.nodes["frank"]
+        profile_name1 = node["profile"]
+        # Update the model node.
+        provisioning.provision_post_save_Node(
+            sender=Node, instance=node_model, created=False)
+        # The profile name is unchanged.
+        node = self.papi.nodes["frank"]
+        profile_name2 = node["profile"]
+        self.assertEqual(profile_name1, profile_name2)
+
+    def test_provision_post_delete_Node(self):
+        node_model = Node(system_id="frank")
+        provisioning.provision_post_save_Node(
+            sender=Node, instance=node_model, created=True)
+        provisioning.provision_post_delete_Node(
+            sender=Node, instance=node_model)
+        # The node is deleted, but the profile and distro remain.
+        self.assertNotEqual({}, self.papi.distros)
+        self.assertNotEqual({}, self.papi.profiles)
+        self.assertEqual({}, self.papi.nodes)
+
+
+def patch_in_fake_papi(test):
+    """Patch in a fake Provisioning API for the duration of the test."""
+    papi_fake = FakeSynchronousProvisioningAPI()
+    patch = MonkeyPatch(
+        "maasserver.provisioning.get_provisioning_api_proxy",
+        lambda: papi_fake)
+    test.useFixture(patch)
+    return papi_fake
+
+
+class TestProvisioningFake(TestCase):
 
     def test_patch_in_fake_papi(self):
         # patch_in_fake_papi() patches in a fake provisioning API so that we
         # can observe what the signal handlers are doing.
         papi = provisioning.get_provisioning_api_proxy()
-        papi_fake = self.patch_in_fake_papi()
+        papi_fake = patch_in_fake_papi(self)
         self.assertIsNot(provisioning.get_provisioning_api_proxy(), papi)
         self.assertIs(provisioning.get_provisioning_api_proxy(), papi_fake)
         # The fake has small database, and it's empty to begin with.
@@ -40,47 +90,9 @@ class TestProvisioning(TestCase):
         self.assertEqual({}, papi_fake.profiles)
         self.assertEqual({}, papi_fake.nodes)
 
-    def test_provision_post_save_Node_create(self):
-        # Creating and saving a node automatically creates a dummy distro and
-        # profile too, and associates it with the new node.
-        papi_fake = self.patch_in_fake_papi()
-        node_model = Node(system_id="frank")
-        provisioning.provision_post_save_Node(
-            sender=Node, instance=node_model, created=True)
-        self.assertEqual(["frank"], sorted(papi_fake.nodes))
-        node = papi_fake.nodes["frank"]
-        profile_name = node["profile"]
-        self.assertIn(profile_name, papi_fake.profiles)
-        profile = papi_fake.profiles[profile_name]
-        distro_name = profile["distro"]
-        self.assertIn(distro_name, papi_fake.distros)
 
-    def test_provision_post_save_Node_update(self):
-        # Saving an existing node does not change the profile or distro
-        # associated with it.
-        papi_fake = self.patch_in_fake_papi()
-        node_model = Node(system_id="frank")
-        provisioning.provision_post_save_Node(
-            sender=Node, instance=node_model, created=True)
-        # Record the current profile name.
-        node = papi_fake.nodes["frank"]
-        profile_name1 = node["profile"]
-        # Update the model node.
-        provisioning.provision_post_save_Node(
-            sender=Node, instance=node_model, created=False)
-        # The profile name is unchanged.
-        node = papi_fake.nodes["frank"]
-        profile_name2 = node["profile"]
-        self.assertEqual(profile_name1, profile_name2)
+class TestProvisioningWithFake(ProvisioningTests, TestCase):
 
-    def test_provision_post_delete_Node(self):
-        papi_fake = self.patch_in_fake_papi()
-        node_model = Node(system_id="frank")
-        provisioning.provision_post_save_Node(
-            sender=Node, instance=node_model, created=True)
-        provisioning.provision_post_delete_Node(
-            sender=Node, instance=node_model)
-        # The node is deleted, but the profile and distro remain.
-        self.assertNotEqual({}, papi_fake.distros)
-        self.assertNotEqual({}, papi_fake.profiles)
-        self.assertEqual({}, papi_fake.nodes)
+    def setUp(self):
+        super(TestProvisioningWithFake, self).setUp()
+        self.papi = patch_in_fake_papi(self)
