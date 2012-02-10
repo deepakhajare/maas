@@ -18,36 +18,41 @@
     /* Need to set relative so the box shadow appears over content divs */
     position: relative;
     min-height: 64px;
-    background-color: #5E2750;
+    background-color: #dd4814;
     -webkit-box-shadow: 0 2px 4px 0 rgba(0,0,0,0.2);
     box-shadow: 0 2px 4px 0 rgba(0,0,0,0.2);
     }
 #header a,
 #header {
-    text-shadow: 0 -1px 0 rgba(0,0,0,0.4);
     color: #fff;
     text-decoration: none;
     }
 #header h1 {
     float: left;
-    font-size: 24px;
+    font-size: 18px;
     margin: 15px 30px 0 20px;
+    }
+#header h1 img {
+    margin-right: 7px;
     }
 #main-nav {
     float: right;
     margin-right: 20px;
     font-size: 14px;
     }
-#user-nav li,
 #main-nav li {
     float: left;
     padding: 23px 15px;
     }
 #main-nav li.active {
-    background-color: #4c2041;
+    background-color: #B83A11;
     }
 #user-nav {
     float: left;
+    }
+#user-nav li {
+    float: left;
+    padding: 25px 15px 0 15px;
     }
 
 
