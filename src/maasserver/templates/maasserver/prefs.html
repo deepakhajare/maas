@@ -12,7 +12,8 @@
       srcNode: '#prefs'
     });
     tabview.render();
-    // Select the tab with index {{ tab }}.
+    // Select the tab with index {{ tab }} (which is taken from the
+    // query string and set by the Django view).
     var tab_index = parseInt('{{ tab }}');
     var valid_tab_index = (
         Y.Lang.isValue(tab_index) &&

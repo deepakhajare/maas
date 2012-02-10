@@ -75,6 +75,8 @@ Y.extend(TokenWidget, Y.Widget, {
                         // Parsing error.
                         displayError('Unable to regenerate the tokens.');
                     }
+                    // Update the 3 tokens (consumer key, token key and
+                    // token secret).
                     self.get(
                         'srcNode').one(
                             '#token_key').set('text', token.token_key);
