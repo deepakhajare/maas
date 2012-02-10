@@ -85,7 +85,7 @@ class OAuthAuthenticatedClient(Client):
         return super(OAuthAuthenticatedClient, self).request(**kwargs)
 
 
-class APITestBase(TestCase):
+class APITestCase(TestCase):
     """Extension to `TestCase`: log in first.
 
     :ivar logged_in_user: A user who is currently logged in and can access
@@ -95,7 +95,7 @@ class APITestBase(TestCase):
     """
 
     def setUp(self):
-        super(APITestBase, self).setUp()
+        super(APITestCase, self).setUp()
         self.logged_in_user = factory.make_user(
             username='test', password='test')
         self.client = OAuthAuthenticatedClient(self.logged_in_user)
@@ -118,7 +118,7 @@ class NodeAPILoggedInTest(LoggedInTestCase):
         self.assertEqual([node.system_id], extract_system_ids(parsed_result))
 
 
-class TestNodeAPI(APITestBase):
+class TestNodeAPI(APITestCase):
     """Tests for /api/nodes/<node>/."""
 
     def test_GET_returns_node(self):
@@ -227,7 +227,7 @@ class TestNodeAPI(APITestBase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
 
-class TestNodesAPI(APITestBase):
+class TestNodesAPI(APITestCase):
     """Tests for /api/nodes/."""
 
     def test_GET_list_lists_nodes(self):
@@ -379,7 +379,7 @@ class TestNodesAPI(APITestBase):
             parsed_result['mac_addresses'])
 
 
-class MACAddressAPITest(APITestBase):
+class MACAddressAPITest(APITestCase):
 
     def setUp(self):
         super(MACAddressAPITest, self).setUp()
