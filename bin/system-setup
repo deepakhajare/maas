@@ -1,0 +1,27 @@
+#! /bin/bash -e
+#
+# System-wide setup for odev.  This requires sudo.
+
+## install some dependencies
+pkgs=""
+pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
+pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
+pkgs="$pkgs socat" # for libvirt-> cobbler
+pkgs="$pkgs python-cheetah" # for setup.py
+
+sudo apt-get update -qq || /bin/true
+sudo apt-get install -y $pkgs </dev/null
+
+## add your user to libvirtd group
+sudo adduser $USER libvirtd
+sudo adduser $USER kvm # this is really only necessary for zimmer-build
+
+cat <<EOF
+Done.
+
+The script just added you to the system's libvirtd and kvm groups if you
+weren't already in them.
+
+If you were not previously in the libvirtd and kvm groups, log out now and
+log back in again to make the changes take effect.
+EOF
