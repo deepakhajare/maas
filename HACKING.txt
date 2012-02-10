@@ -40,7 +40,7 @@ when buildout runs.
   http://pypi.python.org/
 
 
-Getting the lastest version of the code
+Getting the latest version of the code
 =======================================
 
 You can grab the code manually from Launchpad but Bazaar makes it easy to fetch
