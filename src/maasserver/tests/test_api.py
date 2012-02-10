@@ -380,16 +380,18 @@ class TestNodesAPI(APITestMixin):
         node = factory.make_node(status=available_status, owner=None)
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
         parsed_result = json.loads(response.content)
-        self.assertItemsEqual(
-            [node.system_id], extract_system_ids(parsed_result))
-        self.assertEqual(self.logged_in_user, node.owner)
+
+        self.assertEqual(node.system_id, parsed_result['system_id'])
+
+        [node] = list(Node.objects.filter(system_id=node.system_id))
         self.assertEqual(acquired_status, node.status)
+        self.assertEqual(self.logged_in_user, node.owner)
 
     def test_POST_acquire_fails_if_no_node_present(self):
         # If no nodes exist, none can be acquired.
-        self.assertRaises(
-            NodesNotAvailable,
-            self.client.post, '/api/nodes/', {'op': 'acquire'})
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        # Fails with server error.
+        self.assertEqual(500, response.status_code)
 
     def test_POST_acquire_does_not_pick_unavailable_node(self):
         # The "acquire" operation won't pick nodes that aren't available
@@ -400,6 +402,7 @@ class TestNodesAPI(APITestMixin):
         for status in unavailable_statuses:
             factory.make_node(status=status)
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        # Fails with server error.
         self.assertEqual(500, response.status_code)
 
 
