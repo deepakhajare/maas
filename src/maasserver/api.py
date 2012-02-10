@@ -18,6 +18,7 @@ __all__ = [
 
 from functools import wraps
 import types
+import xmlrpclib
 
 from django.core.exceptions import (
     PermissionDenied,
@@ -252,6 +253,13 @@ class NodeHandler(BaseHandler):
         return ('node_handler', (node_system_id, ))
 
 
+class NodesNotAvailable(xmlrpclib.Fault):
+    """Requested node(s) are not available to be acquired."""
+
+    def __init__(self, message):
+        super(NodesNotAvailable, self).__init__(1, message)
+
+
 @api_operations
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes / Create Nodes."""
@@ -276,6 +284,10 @@ class NodesHandler(BaseHandler):
         else:
             return HttpResponseBadRequest(
                 form.errors, content_type='application/json')
+
+    @api_exported('acquire', 'POST')
+    def acquire(self, request):
+        pass
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
