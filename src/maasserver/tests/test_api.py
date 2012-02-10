@@ -13,8 +13,12 @@ __all__ = []
 
 import httplib
 import json
+import os
+import shutil
+from StringIO import StringIO
 import time
 
+from django.conf import settings
 from django.test.client import Client
 from maasserver.models import (
     MACAddress,
@@ -85,10 +89,10 @@ class OAuthAuthenticatedClient(Client):
         return super(OAuthAuthenticatedClient, self).request(**kwargs)
 
 
-class APITestMixin(TestCase):
+class APITestCase(TestCase):
 
     def setUp(self):
-        super(APITestMixin, self).setUp()
+        super(APITestCase, self).setUp()
         self.logged_in_user = factory.make_user(
             username='test', password='test')
         self.client = OAuthAuthenticatedClient(self.logged_in_user)
@@ -107,7 +111,7 @@ class NodeAPILoggedInTest(LoggedInTestCase):
             [node.system_id], [node['system_id'] for node in parsed_result])
 
 
-class NodeAPITest(APITestMixin):
+class NodeAPITest(APITestCase):
 
     def test_nodes_GET(self):
         # The api allows for fetching the list of Nodes.
@@ -304,7 +308,7 @@ class NodeAPITest(APITestMixin):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
 
-class MACAddressAPITest(APITestMixin):
+class MACAddressAPITest(APITestCase):
 
     def setUp(self):
         super(MACAddressAPITest, self).setUp()
@@ -435,3 +439,43 @@ class MACAddressAPITest(APITestMixin):
                 self.node.system_id, 'invalid-mac'))
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
+
+class FileStorageAPITest(APITestCase):
+
+    def setUp(self):
+        super(FileStorageAPITest, self).setUp()
+        os.mkdir(settings.MEDIA_ROOT)
+        self.tmpdir = os.path.join(settings.MEDIA_ROOT, "testing")
+        os.mkdir(self.tmpdir)
+        self.addCleanup(shutil.rmtree, settings.MEDIA_ROOT)
+
+    def test_put_file(self):
+        filepath = os.path.join(self.tmpdir, "foo")
+        with open(filepath, "w") as f:
+            f.write("test file contents")
+
+        with open(filepath) as f:
+            response = self.client.post(
+                "/api/files/",
+                {
+                    "op": "add",
+                    "filename": "foo",
+                    "file": f,
+                })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_get_file(self):
+        storage = factory.make_file_storage(
+            filename="foofilers", data="give me rope")
+        response = self.client.get(
+            "/api/files/",
+            {
+                "op": "get",
+                "filename": "foofilers",
+            })
+        parsed_result = json.loads(response.content)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual("give me rope", parsed_result)

@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = [
     "api_doc",
     "generate_api_doc",
+    "FilesHandler",
     "NodeHandler",
     "NodeMacsHandler",
     ]
@@ -23,6 +24,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.core.files import File
 from django.http import HttpResponseBadRequest
 from django.shortcuts import (
     get_object_or_404,
@@ -33,6 +35,7 @@ from docutils import core
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
+    FileStorage,
     MACAddress,
     Node,
     )
@@ -349,6 +352,47 @@ class NodeMacHandler(BaseHandler):
             node_system_id = mac.node.system_id
             mac_address = mac.mac_address
         return ('node_mac_handler', [node_system_id, mac_address])
+
+
+@api_operations
+class FilesHandler(BaseHandler):
+    """File management operations."""
+    allowed_methods = ('GET', 'POST',)
+
+    @api_exported('get', 'GET')
+    def get(self, request):
+        """Get a named file."""
+        filename = request.GET.get("filename", None)
+        if not filename:
+            return XXX # TODO
+        db_file =  FileStorage.objects.get(filename=filename)
+        if not db_file:
+            return XXX # TODO
+        return db_file.data.read()
+
+    @api_exported('add', 'POST')
+    def add(self, request):
+        """Create a new Node."""
+        filename = request.data.get("filename", None)
+        if not filename:
+            return XXX # TODO
+        files = request.FILES
+        if not files:
+            return XXX # TODO
+        if len(files) != 1:
+            return XXX # TODO
+        uploaded_file = files['file']
+
+        # As per the comment in FileStorage, this ought to deal in
+        # chunks instead of reading the file into memory, but large
+        # files are not expected.
+        storage = FileStorage()
+        storage.save_file(filename, uploaded_file)
+        storage.save()
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
 
 
 def generate_api_doc():

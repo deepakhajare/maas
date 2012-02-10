@@ -22,6 +22,7 @@ from django.views.generic.simple import (
     )
 from maasserver.api import (
     api_doc,
+    FilesHandler,
     MaasAPIAuthentication,
     NodeHandler,
     NodeMacHandler,
@@ -67,6 +68,7 @@ node_handler = Resource(NodeHandler, authentication=auth)
 nodes_handler = Resource(NodesHandler, authentication=auth)
 node_mac_handler = Resource(NodeMacHandler, authentication=auth)
 node_macs_handler = Resource(NodeMacsHandler, authentication=auth)
+files_handler = Resource(FilesHandler, authentication=auth)
 
 # API URLs accessible to anonymous users.
 urlpatterns += patterns('',
@@ -86,4 +88,5 @@ urlpatterns += patterns('',
         r'^api/nodes/(?P<system_id>[\w\-]+)/$', node_handler,
         name='node_handler'),
     url(r'^api/nodes/$', nodes_handler, name='nodes_handler'),
+    url(r'^api/files/$', files_handler, name='files_handler'),
 )
