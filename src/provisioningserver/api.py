@@ -49,7 +49,7 @@ def cobbler_to_papi_node(data):
         "mac_addresses": [
             mac_address.strip()
             for mac_address in mac_addresses
-            if not mac_addresses.isspace()
+            if not mac_address.isspace()
             ],
         }
 
