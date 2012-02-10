@@ -41,7 +41,7 @@ when buildout runs.
 
 
 Getting the latest version of the code
-=======================================
+======================================
 
 You can grab the code manually from Launchpad but Bazaar makes it easy to fetch
 the last version of the code. Go into the directory where you want the code
