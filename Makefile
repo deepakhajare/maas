@@ -63,7 +63,7 @@ clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 
-distclean: clean
+distclean: clean pserv-stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs parts
