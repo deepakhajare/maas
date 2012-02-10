@@ -53,9 +53,31 @@ def cobbler_to_papi_node(data):
             ],
         }
 
-
 cobbler_mapping_to_papi_nodes = partial(
     postprocess_mapping, function=cobbler_to_papi_node)
+
+
+def cobbler_to_papi_profile(data):
+    """Convert a Cobbler representation of a profile to a PAPI profile."""
+    return {
+        "name": data["name"],
+        "distro": data["distro"],
+        }
+
+cobbler_mapping_to_papi_profiles = partial(
+    postprocess_mapping, function=cobbler_to_papi_profile)
+
+
+def cobbler_to_papi_distro(data):
+    """Convert a Cobbler representation of a distro to a PAPI distro."""
+    return {
+        "name": data["name"],
+        "initrd": data["initrd"],
+        "kernel": data["kernel"],
+        }
+
+cobbler_mapping_to_papi_distros = partial(
+    postprocess_mapping, function=cobbler_to_papi_distro)
 
 
 class ProvisioningAPI:
@@ -114,11 +136,13 @@ class ProvisioningAPI:
 
     @deferred
     def get_distros_by_name(self, names):
-        return self.get_objects_by_name(CobblerDistro, names)
+        d = self.get_objects_by_name(CobblerDistro, names)
+        return d.addCallback(cobbler_mapping_to_papi_distros)
 
     @deferred
     def get_profiles_by_name(self, names):
-        return self.get_objects_by_name(CobblerProfile, names)
+        d = self.get_objects_by_name(CobblerProfile, names)
+        return d.addCallback(cobbler_mapping_to_papi_profiles)
 
     @deferred
     def get_nodes_by_name(self, names):
@@ -155,13 +179,15 @@ class ProvisioningAPI:
     def get_distros(self):
         # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        return CobblerDistro.get_all_values(self.session)
+        d = CobblerDistro.get_all_values(self.session)
+        return d.addCallback(cobbler_mapping_to_papi_distros)
 
     @deferred
     def get_profiles(self):
         # WARNING: This could return a large number of results. Consider
         # adding filtering options to this function before using it in anger.
-        return CobblerProfile.get_all_values(self.session)
+        d = CobblerProfile.get_all_values(self.session)
+        return d.addCallback(cobbler_mapping_to_papi_profiles)
 
     @deferred
     def get_nodes(self):
