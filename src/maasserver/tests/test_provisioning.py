@@ -19,6 +19,7 @@ from provisioningserver.testing.fakeapi import FakeSynchronousProvisioningAPI
 
 
 class ProvisioningTests:
+    """Tests for the Provisioning API as maasserver sees it."""
 
     # Must be defined in concrete subclasses.
     papi = None
@@ -80,6 +81,7 @@ def patch_in_fake_papi(test):
 
 
 class TestProvisioningFake(TestCase):
+    """Tests for `patch_in_fake_papi`."""
 
     def test_patch_in_fake_papi(self):
         # patch_in_fake_papi() patches in a fake provisioning API so that we
@@ -95,6 +97,7 @@ class TestProvisioningFake(TestCase):
 
 
 class TestProvisioningWithFake(ProvisioningTests, TestCase):
+    """Tests for the Provisioning API using a fake."""
 
     def setUp(self):
         super(TestProvisioningWithFake, self).setUp()
