@@ -10,7 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 
-# SKIP, developement settings should override settings.
+# SKIP, developement settings should override base settings.
 from maas.settings import *
 from maas.development import *
 
