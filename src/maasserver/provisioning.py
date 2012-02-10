@@ -14,6 +14,7 @@ __all__ = []
 from uuid import uuid1
 import xmlrpclib
 
+from django.conf import settings
 from django.db.models.signals import (
     post_delete,
     post_save,
@@ -27,9 +28,16 @@ from maasserver.models import (
 
 def get_provisioning_api_proxy():
     """Return a proxy to the Provisioning API."""
-    url = "http://localhost:8001/api"
-    return xmlrpclib.ServerProxy(
-        url, allow_none=True, use_datetime=True)
+    # FIXME: This is a little ugly.
+    url = settings.PSERV_URL
+    if url is None:
+        from provisioningserver.testing.fakeapi import (
+            FakeSynchronousProvisioningAPI,
+            )
+        return FakeSynchronousProvisioningAPI()
+    else:
+        return xmlrpclib.ServerProxy(
+            url, allow_none=True, use_datetime=True)
 
 
 @receiver(post_save, sender=Node)
