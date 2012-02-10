@@ -11,8 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from pprint import pprint
-from sys import stderr
 from uuid import uuid1
 import xmlrpclib
 
@@ -56,7 +54,7 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
 @receiver(post_save, sender=MACAddress)
 def provision_post_save_MACAddress(sender, instance, created, **kwargs):
     """Create or update MACs in the provisioning server."""
-    pprint(("SAVE", locals()), stderr)
+    # TODO
 
 
 @receiver(post_delete, sender=Node)
@@ -69,4 +67,4 @@ def provision_post_delete_Node(sender, instance, **kwargs):
 @receiver(post_delete, sender=MACAddress)
 def provision_post_delete_MACAddress(sender, instance, **kwargs):
     """Delete MACs in the provisioning server."""
-    pprint(("DELETE", locals()), stderr)
+    # TODO
