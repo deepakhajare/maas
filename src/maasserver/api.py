@@ -260,9 +260,10 @@ class NodesHandler(BaseHandler):
     @api_exported('list', 'GET')
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by id."""
-        requested_ids = request.GET.get('id')
-        nodes = Node.objects.get_visible_nodes(
-            request.user, ids=requested_ids)
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
         return nodes.order_by('id')
 
     @api_exported('new', 'POST')

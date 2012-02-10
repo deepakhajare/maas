@@ -152,10 +152,10 @@ class NodeManager(models.Manager):
         else:
             visible_nodes = self.filter(
                 models.Q(owner__isnull=True) | models.Q(owner=user))
-        if ids is not None:
-            return visible_nodes.filter(system_id__in=ids)
-        else:
+        if ids is None:
             return visible_nodes
+        else:
+            return visible_nodes.filter(system_id__in=ids)
 
     def get_visible_node_or_404(self, system_id, user):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
