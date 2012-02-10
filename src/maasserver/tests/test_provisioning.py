@@ -29,13 +29,16 @@ class ProvisioningTests:
         node_model = Node(system_id="frank")
         provisioning.provision_post_save_Node(
             sender=Node, instance=node_model, created=True)
-        self.assertEqual(["frank"], sorted(self.papi.nodes))
-        node = self.papi.nodes["frank"]
+        nodes = self.papi.get_nodes_by_name(["frank"])
+        self.assertEqual(["frank"], sorted(nodes))
+        node = nodes["frank"]
         profile_name = node["profile"]
-        self.assertIn(profile_name, self.papi.profiles)
-        profile = self.papi.profiles[profile_name]
+        profiles = self.papi.get_profiles_by_name([profile_name])
+        self.assertEqual([profile_name], sorted(profiles))
+        profile = profiles[profile_name]
         distro_name = profile["distro"]
-        self.assertIn(distro_name, self.papi.distros)
+        distros = self.papi.get_distros_by_name([distro_name])
+        self.assertEqual([distro_name], sorted(distros))
 
     def test_provision_post_save_Node_update(self):
         # Saving an existing node does not change the profile or distro
@@ -44,13 +47,13 @@ class ProvisioningTests:
         provisioning.provision_post_save_Node(
             sender=Node, instance=node_model, created=True)
         # Record the current profile name.
-        node = self.papi.nodes["frank"]
+        node = self.papi.get_nodes_by_name(["frank"])["frank"]
         profile_name1 = node["profile"]
         # Update the model node.
         provisioning.provision_post_save_Node(
             sender=Node, instance=node_model, created=False)
         # The profile name is unchanged.
-        node = self.papi.nodes["frank"]
+        node = self.papi.get_nodes_by_name(["frank"])["frank"]
         profile_name2 = node["profile"]
         self.assertEqual(profile_name1, profile_name2)
 
@@ -61,9 +64,9 @@ class ProvisioningTests:
         provisioning.provision_post_delete_Node(
             sender=Node, instance=node_model)
         # The node is deleted, but the profile and distro remain.
-        self.assertNotEqual({}, self.papi.distros)
-        self.assertNotEqual({}, self.papi.profiles)
-        self.assertEqual({}, self.papi.nodes)
+        self.assertNotEqual({}, self.papi.get_distros())
+        self.assertNotEqual({}, self.papi.get_profiles())
+        self.assertEqual({}, self.papi.get_nodes_by_name(["frank"]))
 
 
 def patch_in_fake_papi(test):
