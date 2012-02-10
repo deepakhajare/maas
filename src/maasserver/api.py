@@ -253,11 +253,8 @@ class NodeHandler(BaseHandler):
         return ('node_handler', (node_system_id, ))
 
 
-class NodesNotAvailable(xmlrpclib.Fault):
+class NodesNotAvailable(RuntimeError):
     """Requested node(s) are not available to be acquired."""
-
-    def __init__(self, message):
-        super(NodesNotAvailable, self).__init__(1, message)
 
 
 @api_operations
@@ -287,7 +284,8 @@ class NodesHandler(BaseHandler):
 
     @api_exported('acquire', 'POST')
     def acquire(self, request):
-        pass
+        """Acquire an available node for deployment."""
+        raise NodesNotAvailable("Can't acquire node(s).")
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):

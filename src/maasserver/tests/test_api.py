@@ -399,9 +399,8 @@ class TestNodesAPI(APITestMixin):
             set(NODE_STATUS_CHOICES_DICT) - set([available_status]))
         for status in unavailable_statuses:
             factory.make_node(status=status)
-        self.assertRaises(
-            NodesNotAvailable,
-            self.client.post, '/api/nodes/', {'op': 'acquire'})
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        self.assertEqual(500, response.status_code)
 
 
 class MACAddressAPITest(APITestMixin):
