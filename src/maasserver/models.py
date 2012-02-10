@@ -148,10 +148,14 @@ class NodeManager(models.Manager):
 
         """
         if user.is_superuser:
-            return self.all()
+            visible_nodes = self.all()
         else:
-            return self.filter(
+            visible_nodes = self.filter(
                 models.Q(owner__isnull=True) | models.Q(owner=user))
+        if ids is not None:
+            return visible_nodes.filter(system_id__in=ids)
+        else:
+            return visible_nodes
 
     def get_visible_node_or_404(self, system_id, user):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
