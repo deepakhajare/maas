@@ -18,7 +18,6 @@ __all__ = [
 
 from functools import wraps
 import types
-import xmlrpclib
 
 from django.core.exceptions import (
     PermissionDenied,
@@ -36,6 +35,7 @@ from maasserver.macaddress import validate_mac
 from maasserver.models import (
     MACAddress,
     Node,
+    NODE_STATUS,
     )
 from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
@@ -285,7 +285,16 @@ class NodesHandler(BaseHandler):
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
-        raise NodesNotAvailable("Can't acquire node(s).")
+        available_status = NODE_STATUS.COMMISSIONED
+        acquired_status = NODE_STATUS.DEPLOYED
+        nodes = list(Node.objects.filter(status=available_status)[:1])
+        if len(nodes) == 0:
+            raise NodesNotAvailable("No node is available.")
+        [node] = nodes
+        node.status = acquired_status
+        node.owner = request.user
+        node.save()
+        return node
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
