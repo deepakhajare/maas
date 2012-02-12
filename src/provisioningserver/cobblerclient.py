@@ -467,6 +467,26 @@ class CobblerObject:
         returnValue(cls(session, name))
 
     @inlineCallbacks
+    def modify(self, delta):
+        """Modify an object in Cobbler.
+
+        :param name: Identifying name for the existing object.
+        :param attributes: Dict mapping attribute names to values.
+        """
+        args = dict(
+            (self._normalize_attribute(key), value)
+            for key, value in delta.iteritems())
+        # TODO: Restrict delta in the same way that known_attributes is used
+        # to restrict attributes during object creations.
+        success = yield self.session.call(
+            'xapi_object_edit', self.object_type, self.name, 'edit', args,
+            self.session.token_placeholder)
+        if not success:
+            raise RuntimeError(
+                "Cobbler refused to modify %s '%s'.  Attributes: %s"
+                % (self.object_type, self.name, args))
+
+    @inlineCallbacks
     def delete(self, recurse=True):
         """Delete this object.  Its name must be known.
 

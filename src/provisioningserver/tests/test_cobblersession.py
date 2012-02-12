@@ -16,7 +16,10 @@ from xmlrpclib import Fault
 
 import fixtures
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import fake_token
+from provisioningserver.testing.fakecobbler import (
+    fake_token,
+    make_fake_cobbler_session,
+    )
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -397,6 +400,20 @@ class TestCobblerObject(TestCase):
         with ExpectedException(AssertionError):
             yield cobblerclient.CobblerSystem.new(
                 session, 'incomplete_system', {})
+
+    @inlineCallbacks
+    def test_modify(self):
+        # CobblerObject.modify asserts that all required attributes for a
+        # type of object are provided.
+        session = make_fake_cobbler_session()
+        distro = yield cobblerclient.CobblerDistro.new(
+            session, name="fred", attributes={
+                "initrd": "an_initrd", "kernel": "a_kernel"})
+        distro_before = yield distro.get_values()
+        yield distro.modify({"kernel": "sanders"})
+        distro_after = yield distro.get_values()
+        self.assertNotEqual(distro_before, distro_after)
+        self.assertEqual("sanders", distro_after["kernel"])
 
     @inlineCallbacks
     def test_get_values_returns_only_known_attributes(self):
