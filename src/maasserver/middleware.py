@@ -13,11 +13,16 @@ __all__ = [
     "AccessMiddleware",
     ]
 
+import json
 import re
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect
+from django.http import (
+    HttpResponseBadRequest,
+    HttpResponseRedirect,
+    )
 from django.utils.http import urlquote_plus
 from maasserver.exceptions import MaasException
 
@@ -66,7 +71,7 @@ class APIErrorsMiddleware(object):
     """Convert exceptions raised in the API into a proper API error.
 
     - Convert MaasException instances into the corresponding error.
-
+    - Convert ValidationError into Bad Request.
     """
     def __init__(self):
         self.api_regexp = re.compile(settings.API_URL_REGEXP)
@@ -78,5 +83,15 @@ class APIErrorsMiddleware(object):
                 # The exception is a MaasException: exception.api_error
                 # will give us the proper error type.
                 response = exception.api_error
-                response.write(exception.message)
+                response.write(str(exception))
                 return response
+            if isinstance(exception, ValidationError):
+                if hasattr(exception, 'message_dict'):
+                    # Complex validation error with multiple fields:
+                    # return a json version of the message_dict.
+                    return HttpResponseBadRequest(
+                        json.dumps(exception.message_dict),
+                        content_type='application/json')
+                else:
+                    # Simple validation error: return the error message.
+                    return HttpResponseBadRequest(str(exception))

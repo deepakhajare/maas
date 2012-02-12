@@ -55,24 +55,6 @@ class MaasAPIAuthentication(OAuthAuthentication):
         return rc.FORBIDDEN
 
 
-def validate_and_save(obj):
-    try:
-        obj.full_clean()
-        obj.save()
-        return obj
-    except ValidationError, e:
-        return HttpResponseBadRequest(
-            e.message_dict, content_type='application/json')
-
-
-def validate_mac_address(mac_address):
-    try:
-        validate_mac(mac_address)
-        return True, None
-    except ValidationError:
-        return False, HttpResponseBadRequest('Invalid MAC Address.')
-
-
 dispatch_methods = {
     'GET': 'read',
     'POST': 'create',
@@ -213,7 +195,8 @@ class NodeHandler(BaseHandler):
             system_id=system_id, user=request.user)
         for key, value in request.data.items():
             setattr(node, key, value)
-        return validate_and_save(node)
+        node.full_clean()
+        return node.save()
 
     def delete(self, request, system_id):
         """Delete a specific Node."""
@@ -306,18 +289,13 @@ class NodeMacHandler(BaseHandler):
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
+        validate_mac(mac_address)
         return get_object_or_404(
             MACAddress, node=node, mac_address=mac_address)
 
     def delete(self, request, system_id, mac_address):
         """Delete a specific MAC Address for the specified Node."""
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
-
+        validate_mac(mac_address)
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
