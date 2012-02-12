@@ -88,6 +88,24 @@ class FakeSynchronousProvisioningAPI:
         self.nodes[name]["mac_addresses"] = []
         return name
 
+    def update_distros(self, deltas):
+        for name, delta in deltas.iteritems():
+            distro = self.distros[name]
+            for attribute, value in delta.iteritems():
+                distro[attribute] = value
+
+    def update_profiles(self, deltas):
+        for name, delta in deltas.iteritems():
+            profile = self.profiles[name]
+            for attribute, value in delta.iteritems():
+                profile[attribute] = value
+
+    def update_nodes(self, deltas):
+        for name, delta in deltas.iteritems():
+            node = self.nodes[name]
+            for attribute, value in delta.iteritems():
+                node[attribute] = value
+
     def get_distros_by_name(self, names):
         return self.distros.select(names)
 
