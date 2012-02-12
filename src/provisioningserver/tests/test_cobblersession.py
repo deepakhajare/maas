@@ -482,3 +482,12 @@ class TestCobblerObject(TestCase):
         self.assertIsInstance(
             cobblerclient.CobblerDistro.required_attributes,
             frozenset)
+
+    def test_modification_attributes(self):
+        # modification_attributes, a class attribute, is always a frozenset.
+        self.assertIsInstance(
+            cobblerclient.CobblerObject.modification_attributes,
+            frozenset)
+        self.assertIsInstance(
+            cobblerclient.CobblerDistro.modification_attributes,
+            frozenset)

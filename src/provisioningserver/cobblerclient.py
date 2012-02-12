@@ -280,6 +280,9 @@ class CobblerObjectType(type):
         if "required_attributes" in attributes:
             attributes["required_attributes"] = frozenset(
                 attributes["required_attributes"])
+        if "modification_attributes" in attributes:
+            attributes["modification_attributes"] = frozenset(
+                attributes["modification_attributes"])
         return super(CobblerObjectType, mtype).__new__(
             mtype, name, bases, attributes)
 
@@ -310,6 +313,11 @@ class CobblerObject:
 
     # What attributes does Cobbler require for this type of object?
     required_attributes = []
+
+    # What attributes do we expect to support for modifications to this
+    # object? Cobbler's API accepts some pseudo-attributes, only valid for
+    # making modifications.
+    modification_attributes = []
 
     def __init__(self, session, name):
         """Reference an object in Cobbler.
