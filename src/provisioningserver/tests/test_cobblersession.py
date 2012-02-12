@@ -16,7 +16,10 @@ from xmlrpclib import Fault
 
 import fixtures
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import fake_token
+from provisioningserver.testing.fakecobbler import (
+    fake_token,
+    make_fake_cobbler_session,
+    )
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -399,6 +402,29 @@ class TestCobblerObject(TestCase):
                 session, 'incomplete_system', {})
 
     @inlineCallbacks
+    def test_modify(self):
+        session = make_fake_cobbler_session()
+        distro = yield cobblerclient.CobblerDistro.new(
+            session, name="fred", attributes={
+                "initrd": "an_initrd", "kernel": "a_kernel"})
+        distro_before = yield distro.get_values()
+        yield distro.modify({"kernel": "sanders"})
+        distro_after = yield distro.get_values()
+        self.assertNotEqual(distro_before, distro_after)
+        self.assertEqual("sanders", distro_after["kernel"])
+
+    @inlineCallbacks
+    def test_modify_only_permits_certain_attributes(self):
+        session = make_fake_cobbler_session()
+        distro = yield cobblerclient.CobblerDistro.new(
+            session, name="fred", attributes={
+                "initrd": "an_initrd", "kernel": "a_kernel"})
+        expected = ExpectedException(
+            AssertionError, "Unknown attribute for distro: machine")
+        with expected:
+            yield distro.modify({"machine": "head"})
+
+    @inlineCallbacks
     def test_get_values_returns_only_known_attributes(self):
         session = make_recording_session()
         # Create a new CobblerDistro. The True return value means the faked
@@ -466,4 +492,13 @@ class TestCobblerObject(TestCase):
             frozenset)
         self.assertIsInstance(
             cobblerclient.CobblerDistro.required_attributes,
+            frozenset)
+
+    def test_modification_attributes(self):
+        # modification_attributes, a class attribute, is always a frozenset.
+        self.assertIsInstance(
+            cobblerclient.CobblerObject.modification_attributes,
+            frozenset)
+        self.assertIsInstance(
+            cobblerclient.CobblerDistro.modification_attributes,
             frozenset)
