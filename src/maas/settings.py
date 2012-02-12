@@ -35,7 +35,7 @@ LOGIN_REDIRECT_URL = '/'
 
 API_URL_REGEXP = '^/api/'
 
-# We handle exceptions ourselves (see
+# We handle exceptions ourselves (in
 # maasserver.middleware.APIErrorsMiddleware)
 PISTON_DISPLAY_ERRORS = False
 
