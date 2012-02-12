@@ -19,6 +19,7 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.utils.http import urlquote_plus
+from maasserver.exceptions import MaasException
 
 
 class AccessMiddleware(object):
@@ -59,3 +60,23 @@ class AccessMiddleware(object):
                     self.login_url, urlquote_plus(request.path)))
             else:
                 return None
+
+
+class APIErrorsMiddleware(object):
+    """Convert exceptions raised in the API into a proper API error.
+
+    - Convert MaasException instances into the corresponding error.
+
+    """
+    def __init__(self):
+        self.api_regexp = re.compile(settings.API_URL_REGEXP)
+
+    def process_exception(self, request, exception):
+        if self.api_regexp.match(request.path):
+            # The exception was raised in an API call.
+            if isinstance(exception, MaasException):
+                # The exception is a MaasException: exception.api_error
+                # will give us the proper error type.
+                response = exception.api_error
+                response.write(exception.message)
+                return response
