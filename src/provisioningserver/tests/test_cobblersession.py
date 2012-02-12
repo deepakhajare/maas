@@ -403,8 +403,6 @@ class TestCobblerObject(TestCase):
 
     @inlineCallbacks
     def test_modify(self):
-        # CobblerObject.modify asserts that all required attributes for a
-        # type of object are provided.
         session = make_fake_cobbler_session()
         distro = yield cobblerclient.CobblerDistro.new(
             session, name="fred", attributes={
