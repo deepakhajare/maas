@@ -16,10 +16,7 @@ from xmlrpclib import Fault
 
 import fixtures
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import (
-    fake_token,
-    make_fake_cobbler_session,
-    )
+from provisioningserver.testing.fakecobbler import fake_token
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -403,22 +400,20 @@ class TestCobblerObject(TestCase):
 
     @inlineCallbacks
     def test_modify(self):
-        session = make_fake_cobbler_session()
-        distro = yield cobblerclient.CobblerDistro.new(
-            session, name="fred", attributes={
-                "initrd": "an_initrd", "kernel": "a_kernel"})
-        distro_before = yield distro.get_values()
+        session = make_recording_session()
+        session.proxy.set_return_values([True])
+        distro = cobblerclient.CobblerDistro(session, "fred")
         yield distro.modify({"kernel": "sanders"})
-        distro_after = yield distro.get_values()
-        self.assertNotEqual(distro_before, distro_after)
-        self.assertEqual("sanders", distro_after["kernel"])
+        self.assertEqual(1, len(session.proxy.calls))
+        expected_call = (
+            "xapi_object_edit", "distro", distro.name, "edit",
+            {"kernel": "sanders"}, session.token)
+        self.assertEqual([expected_call], session.proxy.calls)
 
     @inlineCallbacks
     def test_modify_only_permits_certain_attributes(self):
-        session = make_fake_cobbler_session()
-        distro = yield cobblerclient.CobblerDistro.new(
-            session, name="fred", attributes={
-                "initrd": "an_initrd", "kernel": "a_kernel"})
+        session = make_recording_session()
+        distro = cobblerclient.CobblerDistro(session, "fred")
         expected = ExpectedException(
             AssertionError, "Unknown attribute for distro: machine")
         with expected:
