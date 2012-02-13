@@ -378,7 +378,7 @@ class AccountHandler(BaseHandler):
             }
 
 
-def generate_api_doc(title=False):
+def generate_api_doc(add_title=False):
     docs = (
         generate_doc(NodesHandler),
         generate_doc(NodeHandler),
@@ -387,7 +387,7 @@ def generate_api_doc(title=False):
         )
 
     messages = []
-    if title:
+    if add_title:
         messages.extend([
             '**********************\n',
             'MaaS API documentation\n',
