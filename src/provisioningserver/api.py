@@ -14,6 +14,7 @@ __all__ = [
     ]
 
 from functools import partial
+from itertools import count
 
 from provisioningserver.cobblerclient import (
     CobblerDistro,
@@ -78,6 +79,55 @@ def cobbler_to_papi_distro(data):
 
 cobbler_mapping_to_papi_distros = partial(
     postprocess_mapping, function=cobbler_to_papi_distro)
+
+
+def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
+    """Generate `modify_system` dicts for use with `xapi_object_edit`.
+
+    This takes `interfaces` - the current state of a system's interfaces - and
+    generates the operations required to transform it into a list of
+    interfaces containing exactly `mac_addresses`.
+
+    :param interfaces: A dict of interface-names -> interface-configurations.
+    :param mac_addresses: A collection of desired MAC addresses.
+    """
+    # For the sake of this calculation, ignore interfaces without MACs
+    # assigned. We may end up setting the MAC on these interfaces, but whether
+    # or not that happens is undefined (for now).
+    interfaces = {
+        name: configuration
+        for name, configuration in interfaces.iteritems()
+        if configuration["mac_address"] not in (None, "")
+        }
+
+    interface_names_by_mac_address = {
+        interface["mac_address"]: interface_name
+        for interface_name, interface in interfaces.iteritems()
+        }
+    mac_addresses_to_remove = set(
+        interface_names_by_mac_address).difference(mac_addresses)
+    mac_addresses_to_add = set(
+        mac_addresses).difference(interface_names_by_mac_address)
+
+    interface_names = set(interfaces)
+    interface_names_unused = (
+        "eth%d" % num for num in count(0)
+        if "eth%d" % num not in interface_names)
+
+    for mac_address in sorted(mac_addresses_to_remove):
+        interface_name = interface_names_by_mac_address[mac_address]
+        interface_names.remove(interface_name)
+        yield {
+            "interface": interface_name,
+            "delete_interface": True,
+            }
+
+    for mac_address in sorted(mac_addresses_to_add):
+        interface_name = next(interface_names_unused)
+        yield {
+            "interface": interface_name,
+            "mac_address": mac_address,
+            }
 
 
 class ProvisioningAPI:

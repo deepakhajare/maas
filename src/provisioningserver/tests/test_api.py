@@ -18,6 +18,7 @@ from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
     cobbler_to_papi_profile,
+    mac_addresses_to_cobbler_deltas,
     postprocess_mapping,
     ProvisioningAPI,
     )
@@ -102,6 +103,85 @@ class TestFunctions(TestCase):
             "kernel": "lad",
             }
         observed = cobbler_to_papi_distro(data)
+        self.assertEqual(expected, observed)
+
+
+class TestInterfaceDeltas(TestCase):
+
+    def test_mac_addresses_to_cobbler_deltas_set_1(self):
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "",
+                },
+            }
+        mac_addresses_desired = ["12:34:56:78:90:12"]
+        expected = [
+            {"interface": "eth0",
+             "mac_address": "12:34:56:78:90:12"},
+            ]
+        observed = list(
+            mac_addresses_to_cobbler_deltas(
+                current_interfaces, mac_addresses_desired))
+        self.assertEqual(expected, observed)
+
+    def test_mac_addresses_to_cobbler_deltas_set_2(self):
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "",
+                },
+            }
+        mac_addresses_desired = [
+            "11:11:11:11:11:11", "22:22:22:22:22:22"]
+        expected = [
+            {"interface": "eth0",
+             "mac_address": "11:11:11:11:11:11"},
+            {"interface": "eth1",
+             "mac_address": "22:22:22:22:22:22"},
+            ]
+        observed = list(
+            mac_addresses_to_cobbler_deltas(
+                current_interfaces, mac_addresses_desired))
+        self.assertEqual(expected, observed)
+
+    def test_mac_addresses_to_cobbler_deltas_remove_1(self):
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        mac_addresses_desired = ["22:22:22:22:22:22"]
+        expected = [
+            {"interface": "eth0",
+             "delete_interface": True},
+            ]
+        observed = list(
+            mac_addresses_to_cobbler_deltas(
+                current_interfaces, mac_addresses_desired))
+        self.assertEqual(expected, observed)
+
+    def test_mac_addresses_to_cobbler_deltas_set_1_remove_1(self):
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        mac_addresses_desired = [
+            "22:22:22:22:22:22", "33:33:33:33:33:33"]
+        expected = [
+            {"interface": "eth0",
+             "delete_interface": True},
+            {"interface": "eth0",
+             "mac_address": "33:33:33:33:33:33"},
+            ]
+        observed = list(
+            mac_addresses_to_cobbler_deltas(
+                current_interfaces, mac_addresses_desired))
         self.assertEqual(expected, observed)
 
 
