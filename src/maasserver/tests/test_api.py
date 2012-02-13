@@ -531,7 +531,7 @@ class FileStorageAPITest(APITestCase):
         os.mkdir(self.tmpdir)
         self.addCleanup(shutil.rmtree, settings.MEDIA_ROOT)
 
-    def makeFile(self, name="foo", contents="test file contents"):
+    def make_file(self, name="foo", contents="test file contents"):
         """Make a temp file named `name` with contents `contents`.
 
         :return: The full file path of the file that was created.
@@ -541,7 +541,7 @@ class FileStorageAPITest(APITestCase):
             f.write(contents)
         return filepath
 
-    def _createAPIParams(self, op=None, filename=None, fileObj=None):
+    def _create_API_params(self, op=None, filename=None, fileObj=None):
         params = {}
         if op is not None:
             params["op"] = op
@@ -551,44 +551,44 @@ class FileStorageAPITest(APITestCase):
             params["file"] = fileObj
         return params
 
-    def makeAPIPostRequest(self, op=None, filename=None, fileObj=None):
+    def make_API_POST_request(self, op=None, filename=None, fileObj=None):
         """Make an API POST request and return the response."""
-        params = self._createAPIParams(op, filename, fileObj)
+        params = self._create_API_params(op, filename, fileObj)
         return self.client.post("/api/files/", params)
 
-    def makeAPIGetRequest(self, op=None, filename=None, fileObj=None):
+    def make_API_GET_request(self, op=None, filename=None, fileObj=None):
         """Make an API GET request and return the response."""
-        params = self._createAPIParams(op, filename, fileObj)
+        params = self._create_API_params(op, filename, fileObj)
         return self.client.get("/api/files/", params)
 
     def test_add_file_succeeds(self):
-        filepath = self.makeFile()
+        filepath = self.make_file()
 
         with open(filepath) as f:
-            response = self.makeAPIPostRequest("add", "foo", f)
+            response = self.make_API_POST_request("add", "foo", f)
 
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_add_file_fails_with_no_filename(self):
-        filepath = self.makeFile()
+        filepath = self.make_file()
 
         with open(filepath) as f:
-            response = self.makeAPIPostRequest("add", fileObj=f)
+            response = self.make_API_POST_request("add", fileObj=f)
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("Filename not supplied", response.content)
 
     def test_add_file_fails_with_no_file_attached(self):
-        response = self.makeAPIPostRequest("add", "foo")
+        response = self.make_API_POST_request("add", "foo")
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("File not supplied", response.content)
 
     def test_add_file_fails_with_too_many_files(self):
-        filepath = self.makeFile(name="foo")
-        filepath2 = self.makeFile(name="foo2")
+        filepath = self.make_file(name="foo")
+        filepath2 = self.make_file(name="foo2")
 
         with open(filepath) as f, open(filepath2) as f2:
             response = self.client.post(
@@ -607,13 +607,13 @@ class FileStorageAPITest(APITestCase):
     def test_get_file_succeeds(self):
         storage = factory.make_file_storage(
             filename="foofilers", data="give me rope")
-        response = self.makeAPIGetRequest("get", "foofilers")
+        response = self.make_API_GET_request("get", "foofilers")
 
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual("give me rope", response.content)
 
     def test_get_file_fails_with_no_filename(self):
-        response = self.makeAPIGetRequest("get")
+        response = self.make_API_GET_request("get")
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
@@ -621,7 +621,7 @@ class FileStorageAPITest(APITestCase):
 
     def test_get_file_fails_with_missing_file(self):
         #import pdb;pdb.set_trace()
-        response = self.makeAPIGetRequest("get", filename="missingfilename")
+        response = self.make_API_GET_request("get", filename="missingfilename")
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
