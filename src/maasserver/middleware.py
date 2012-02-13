@@ -69,11 +69,11 @@ class AccessMiddleware():
 
 
 class APIErrorsMiddleware():
-    """This middlware_ converts exceptions raised in execution of an API
+    """This middleware_ converts exceptions raised in execution of an API
     method into proper API errors (like "404 Not Found" errors or
     "400 Bad Request" errors).
 
-    .. middlware: https://docs.djangoproject.com
+    .. middleware: https://docs.djangoproject.com
        /en/dev/topics/http/middleware/
 
     - Convert MaasAPIException instances into the corresponding error
