@@ -15,7 +15,6 @@ import httplib
 import json
 import os
 import shutil
-from StringIO import StringIO
 import time
 
 from django.conf import settings
