@@ -339,7 +339,7 @@ class FilesHandler(BaseHandler):
         if not filename:
             raise MaasAPIBadRequest("Filename not supplied")
         try:
-            db_file =  FileStorage.objects.get(filename=filename)
+            db_file = FileStorage.objects.get(filename=filename)
         except ObjectDoesNotExist:
             raise MaasAPINotFound("File not found")
         return HttpResponse(db_file.data.read(), status=httplib.OK)
@@ -363,6 +363,7 @@ class FilesHandler(BaseHandler):
         storage = FileStorage()
         storage.save_file(filename, uploaded_file)
         storage.save()
+        return HttpResponse('', status=httplib.CREATED)
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):

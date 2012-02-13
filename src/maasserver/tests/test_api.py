@@ -567,7 +567,7 @@ class FileStorageAPITest(APITestCase):
         with open(filepath) as f:
             response = self.make_API_POST_request("add", "foo", f)
 
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(httplib.CREATED, response.status_code)
 
     def test_add_file_fails_with_no_filename(self):
         filepath = self.make_file()
