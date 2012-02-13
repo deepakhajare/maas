@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "MaasException",
+    "MaasAPIException",
     "PermissionDenied",
     ]
 
@@ -19,7 +20,11 @@ from piston.utils import rc
 
 
 class MaasException(Exception):
-    """Base class for Maas' exceptions.
+    """Base class for Maas' exceptions."""
+
+
+class MaasAPIException(Exception):
+    """Base class for Maas' API exceptions.
 
     :ivar api_error: The HTTP code that should be returned when this error
         is raised in the API (defaults to 500: "Internal Server Error").
@@ -28,5 +33,5 @@ class MaasException(Exception):
     api_error = rc.INTERNAL_ERROR
 
 
-class PermissionDenied(MaasException):
+class PermissionDenied(MaasAPIException):
     api_error = rc.FORBIDDEN

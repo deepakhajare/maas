@@ -196,7 +196,8 @@ class NodeHandler(BaseHandler):
         for key, value in request.data.items():
             setattr(node, key, value)
         node.full_clean()
-        return node.save()
+        node.save()
+        return node
 
     def delete(self, request, system_id):
         """Delete a specific Node."""

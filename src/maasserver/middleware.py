@@ -24,7 +24,7 @@ from django.http import (
     HttpResponseRedirect,
     )
 from django.utils.http import urlquote_plus
-from maasserver.exceptions import MaasException
+from maasserver.exceptions import MaasAPIException
 
 
 class AccessMiddleware(object):
@@ -79,8 +79,8 @@ class APIErrorsMiddleware(object):
     def process_exception(self, request, exception):
         if self.api_regexp.match(request.path):
             # The exception was raised in an API call.
-            if isinstance(exception, MaasException):
-                # The exception is a MaasException: exception.api_error
+            if isinstance(exception, MaasAPIException):
+                # The exception is a MaasAPIException: exception.api_error
                 # will give us the proper error type.
                 response = exception.api_error
                 response.write(str(exception))
