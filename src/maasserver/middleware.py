@@ -70,7 +70,7 @@ class AccessMiddleware(object):
 class APIErrorsMiddleware(object):
     """Convert exceptions raised in the API into a proper API error.
 
-    - Convert MaasException instances into the corresponding error.
+    - Convert MaasAPIException instances into the corresponding error.
     - Convert ValidationError into Bad Request.
     """
     def __init__(self):
