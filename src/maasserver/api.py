@@ -334,7 +334,12 @@ class FilesHandler(BaseHandler):
 
     @api_exported('get', 'GET')
     def get(self, request):
-        """Get a named file."""
+        """Get a named file from the file storage.
+
+        :param filename: The exact name of the file you want to get.
+        :type filename: string
+        :return: The file is returned in the response content.
+        """
         filename = request.GET.get("filename", None)
         if not filename:
             raise MaasAPIBadRequest("Filename not supplied")
@@ -346,7 +351,13 @@ class FilesHandler(BaseHandler):
 
     @api_exported('add', 'POST')
     def add(self, request):
-        """Create a new Node."""
+        """Add a new file to the file storage.
+
+        :param filename: The file name to use in the storage.
+        :type filename: string
+        :param file: Actual file data with content type
+            application/octet-stream
+        """
         filename = request.data.get("filename", None)
         if not filename:
             raise MaasAPIBadRequest("Filename not supplied")
@@ -394,6 +405,7 @@ class AccountHandler(BaseHandler):
 
 def generate_api_doc(add_title=False):
     docs = (
+        generate_doc(FilesHandler),
         generate_doc(NodesHandler),
         generate_doc(NodeHandler),
         generate_doc(NodeMacsHandler),
