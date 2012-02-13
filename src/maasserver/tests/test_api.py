@@ -87,10 +87,17 @@ class OAuthAuthenticatedClient(Client):
         return super(OAuthAuthenticatedClient, self).request(**kwargs)
 
 
-class APITestMixin(TestCase):
+class APITestCase(TestCase):
+    """Extension to `TestCase`: log in first.
+
+    :ivar logged_in_user: A user who is currently logged in and can access
+        the API.
+    :ivar client: Authenticated API client (unsurprisingly, logged in as
+        `logged_in_user`).
+    """
 
     def setUp(self):
-        super(APITestMixin, self).setUp()
+        super(APITestCase, self).setUp()
         self.logged_in_user = factory.make_user(
             username='test', password='test')
         self.client = OAuthAuthenticatedClient(self.logged_in_user)
@@ -113,7 +120,7 @@ class NodeAPILoggedInTest(LoggedInTestCase):
         self.assertEqual([node.system_id], extract_system_ids(parsed_result))
 
 
-class TestNodeAPI(APITestMixin):
+class TestNodeAPI(APITestCase):
     """Tests for /api/nodes/<node>/."""
 
     def test_GET_returns_node(self):
@@ -174,8 +181,14 @@ class TestNodeAPI(APITestMixin):
         response = self.client.put(
             '/api/nodes/%s/' % node.system_id,
             {'hostname': 'too long' * 100})
+        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(
+            {u'hostname':
+                [u'Ensure this value has at most 255 characters '
+                  '(it has 800).']},
+            parsed_result)
 
     def test_PUT_refuses_to_update_invisible_node(self):
         # The request to update a single node is denied if the node isn't
@@ -222,7 +235,7 @@ class TestNodeAPI(APITestMixin):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
 
-class TestNodesAPI(APITestMixin):
+class TestNodesAPI(APITestCase):
     """Tests for /api/nodes/."""
 
     def test_GET_list_lists_nodes(self):
@@ -406,7 +419,7 @@ class TestNodesAPI(APITestMixin):
         self.assertEqual(500, response.status_code)
 
 
-class MACAddressAPITest(APITestMixin):
+class MACAddressAPITest(APITestCase):
 
     def setUp(self):
         super(MACAddressAPITest, self).setUp()
