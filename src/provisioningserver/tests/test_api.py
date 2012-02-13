@@ -146,6 +146,41 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual("node", node)
 
     @inlineCallbacks
+    def test_update_distros(self):
+        papi = self.get_provisioning_api()
+        distro = yield papi.add_distro(
+            "distro", "an_initrd", "a_kernel")
+        yield papi.update_distros(
+            {distro: {"initrd": "zig", "kernel": "zag"}})
+        values = yield papi.get_distros_by_name([distro])
+        self.assertEqual("zig", values[distro]["initrd"])
+        self.assertEqual("zag", values[distro]["kernel"])
+
+    @inlineCallbacks
+    def test_update_profiles(self):
+        papi = self.get_provisioning_api()
+        distro1 = yield papi.add_distro(
+            "distro1", "an_initrd", "a_kernel")
+        distro2 = yield papi.add_distro(
+            "distro2", "an_initrd", "a_kernel")
+        profile = yield papi.add_profile("profile", distro1)
+        yield papi.update_profiles({profile: {"distro": distro2}})
+        values = yield papi.get_profiles_by_name([profile])
+        self.assertEqual(distro2, values[profile]["distro"])
+
+    @inlineCallbacks
+    def test_update_nodes(self):
+        papi = self.get_provisioning_api()
+        distro = yield papi.add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile1 = yield papi.add_profile("profile1", distro)
+        profile2 = yield papi.add_profile("profile2", distro)
+        node = yield papi.add_node("node", profile1)
+        yield papi.update_nodes({node: {"profile": profile2}})
+        values = yield papi.get_nodes_by_name([node])
+        self.assertEqual(profile2, values[node]["profile"])
+
+    @inlineCallbacks
     def test_delete_distros_by_name(self):
         # Create a distro via the Provisioning API.
         papi = self.get_provisioning_api()
