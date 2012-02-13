@@ -34,7 +34,12 @@ class MaasAPIException(Exception):
 
 
 class PermissionDenied(MaasAPIException):
-    """HTTP error 403: Forbidden.  User is logged in, but lacks permission."""
+    """HTTP error 403: Forbidden.  User is logged in, but lacks permission.
+
+    Do not confuse this with 401: Unauthorized ("you need to be logged in
+    for this, so please authenticate").  The Piston error codes do confuse
+    the two.
+    """
     api_error = httplib.FORBIDDEN
 
 
