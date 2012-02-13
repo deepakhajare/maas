@@ -220,6 +220,7 @@ class FakeCobbler:
         if len(matches) == 0:
             return None
         else:
+            # TODO: Use deepcopy; some attributes are mutable.
             return matches[0]
 
     def _api_get_objects(self, object_type):
@@ -231,6 +232,7 @@ class FakeCobbler:
         """
         # Assumption: these operations look only at saved objects.
         location = self.store[None].get(object_type, {})
+        # TODO: Use deepcopy; some attributes are mutable.
         return [obj.copy() for obj in location.values()]
 
     def _api_modify_object(self, token, object_type, handle, key, value):
@@ -248,6 +250,7 @@ class FakeCobbler:
             saved_obj = self._get_object_if_present(None, object_type, handle)
             if saved_obj is None:
                 self._raise_bad_handle(object_type, handle)
+            # TODO: Use deepcopy; some attributes are mutable.
             session_obj = saved_obj.copy()
             self._add_object_to_session(
                 token, object_type, handle, session_obj)
@@ -316,6 +319,25 @@ class FakeCobbler:
         self.tokens[token] = user
         return token
 
+    def _xapi_edit_system_interfaces(self, token, handle, name, attrs):
+        """Edit system interfaces with Cobbler's crazy protocol."""
+        obj_state = self._api_get_object('system', name)
+        interface_name = attrs.pop("interface")
+        interfaces = obj_state.get("interfaces", {})
+        if "mac_address" in attrs:
+            interface = interfaces.setdefault(interface_name, {})
+            interface["mac_address"] = attrs.pop("mac_address")
+        elif "delete_interface" in attrs:
+            if interface_name in interfaces:
+                del interfaces[interface_name]
+        else:
+            raise AssertionError(
+                "Edit operation defined interface but "
+                "not mac_address or delete_interface. "
+                "Got: %r" % (attrs,))
+        self._api_modify_object(
+            token, 'system', handle, "interfaces", interfaces)
+
     def xapi_object_edit(self, object_type, name, operation, attrs, token):
         """Swiss-Army-Knife API: create/rename/copy/edit object."""
         if operation == 'remove':
@@ -329,7 +351,8 @@ class FakeCobbler:
             return self._api_save_object(token, object_type, handle)
         elif operation == 'edit':
             handle = self._api_get_handle(token, object_type, name)
-            # TODO: Handle interface changes.
+            if object_type == "system" and "interface" in attrs:
+                self._xapi_edit_system_interfaces(token, handle, name, attrs)
             for key, value in attrs.iteritems():
                 self._api_modify_object(token, object_type, handle, key, value)
             return self._api_save_object(token, object_type, handle)

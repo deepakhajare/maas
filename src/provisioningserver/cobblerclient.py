@@ -650,6 +650,7 @@ class CobblerSystem(CobblerObject):
         'gateway',
         # FQDN:
         'hostname',
+        'interfaces',
         # Space-separated key=value pairs:
         'kernel_options'
         'kickstart',
@@ -684,6 +685,7 @@ class CobblerSystem(CobblerObject):
         'profile',
         ]
     modification_attributes = [
+        'delete_interface',
         'interface',  # Required for mac_address and delete_interface.
         'mac_address',
         'profile',

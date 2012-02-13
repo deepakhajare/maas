@@ -440,6 +440,19 @@ class TestCobblerSystem(CobblerObjectTestScenario, TestCase):
         returnValue(handles)
 
     @inlineCallbacks
+    def test_interface_modifications(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        obj = yield fake_cobbler_object(session, self.cobbler_class, name)
+        yield obj.modify(
+            {"interface": "eth0", "mac_address": "12:34:56:78:90:12"})
+        state = yield obj.get_values()
+        interfaces = state.get("interfaces", {})
+        self.assertEqual(["eth0"], sorted(interfaces))
+        state_eth0 = interfaces["eth0"]
+        self.assertEqual("12:34:56:78:90:12", state_eth0["mac_address"])
+
+    @inlineCallbacks
     def test_powerOnMultiple(self):
         session = yield fake_cobbler_session()
         names, systems = yield self.make_systems(session, 3)
