@@ -17,10 +17,17 @@ __all__ = [
     "NodeMacsHandler",
     ]
 
+import httplib
 import types
 
-from django.core.exceptions import ValidationError
-from django.http import HttpResponseBadRequest
+from django.core.exceptions import (
+    ObjectDoesNotExist,
+    ValidationError,
+    )
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    )
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
@@ -329,12 +336,14 @@ class FilesHandler(BaseHandler):
     def get(self, request):
         """Get a named file."""
         filename = request.GET.get("filename", None)
+        #import pdb; pdb.set_trace()
         if not filename:
             raise MaasAPIBadRequest("Filename not supplied")
-        db_file =  FileStorage.objects.get(filename=filename)
-        if not db_file:
+        try:
+            db_file =  FileStorage.objects.get(filename=filename)
+        except ObjectDoesNotExist:
             raise MaasAPINotFound("File not found")
-        return db_file.data.read()
+        return HttpResponse(db_file.data.read(), status=httplib.OK)
 
     @api_exported('add', 'POST')
     def add(self, request):
