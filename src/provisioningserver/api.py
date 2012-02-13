@@ -97,7 +97,7 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
     interfaces = {
         name: configuration
         for name, configuration in interfaces.iteritems()
-        if configuration["mac_address"] not in (None, "")
+        if configuration["mac_address"]
         }
 
     interface_names_by_mac_address = {
