@@ -26,6 +26,7 @@ from django.shortcuts import (
     )
 from django.template import RequestContext
 from docutils import core
+from maasserver.exceptions import NodesNotAvailable
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
@@ -218,10 +219,6 @@ class NodeHandler(BaseHandler):
         if node is not None:
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
-
-
-class NodesNotAvailable(RuntimeError):
-    """Requested node(s) are not available to be acquired."""
 
 
 @api_operations

@@ -16,7 +16,6 @@ import json
 import time
 
 from django.test.client import Client
-from maasserver.api import NodesNotAvailable
 from maasserver.models import (
     MACAddress,
     Node,
@@ -403,8 +402,8 @@ class TestNodesAPI(APITestCase):
     def test_POST_acquire_fails_if_no_node_present(self):
         # If no nodes exist, none can be acquired.
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
-        # Fails with server error.
-        self.assertEqual(500, response.status_code)
+        # Fails with Conflict error: resource can't satisfy request.
+        self.assertEqual(409, response.status_code)
 
     def test_POST_acquire_does_not_pick_unavailable_node(self):
         # The "acquire" operation won't pick nodes that aren't available
@@ -415,8 +414,8 @@ class TestNodesAPI(APITestCase):
         for status in unavailable_statuses:
             factory.make_node(status=status)
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
-        # Fails with server error.
-        self.assertEqual(500, response.status_code)
+        # Fails with Conflict error: resource can't satisfy request.
+        self.assertEqual(409, response.status_code)
 
 
 class MACAddressAPITest(APITestCase):
