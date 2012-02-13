@@ -394,7 +394,6 @@ class TestNodesAPI(APITestCase):
         parsed_result = json.loads(response.content)
 
         self.assertEqual(node.system_id, parsed_result['system_id'])
-
         [node] = list(Node.objects.filter(system_id=node.system_id))
         self.assertEqual(acquired_status, node.status)
         self.assertEqual(self.logged_in_user, node.owner)
@@ -403,19 +402,19 @@ class TestNodesAPI(APITestCase):
         # If no nodes exist, none can be acquired.
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
         # Fails with Conflict error: resource can't satisfy request.
-        self.assertEqual(409, response.status_code)
+        self.assertEqual(httplib.CONFLICT, response.status_code)
 
     def test_POST_acquire_does_not_pick_unavailable_node(self):
         # The "acquire" operation won't pick nodes that aren't available
         # for acquisition.
         available_status = NODE_STATUS.COMMISSIONED
         unavailable_statuses = (
-            set(NODE_STATUS_CHOICES_DICT) - set([available_status]))
+            set(NODE_STATUS_CHOICES_DICT.keys()) - set([available_status]))
         for status in unavailable_statuses:
             factory.make_node(status=status)
         response = self.client.post('/api/nodes/', {'op': 'acquire'})
         # Fails with Conflict error: resource can't satisfy request.
-        self.assertEqual(409, response.status_code)
+        self.assertEqual(httplib.CONFLICT, response.status_code)
 
 
 class MACAddressAPITest(APITestCase):
