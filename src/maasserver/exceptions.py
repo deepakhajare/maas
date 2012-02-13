@@ -18,7 +18,7 @@ __all__ = [
     ]
 
 
-from piston.utils import rc
+import httplib
 
 
 class MaasException(Exception):
@@ -32,17 +32,17 @@ class MaasAPIException(Exception):
         is raised in the API (defaults to 500: "Internal Server Error").
 
     """
-    api_error = rc.INTERNAL_ERROR
+    api_error = httplib.INTERNAL_SERVER_ERROR
 
 
 class MaasAPIBadRequest(MaasAPIException):
-    api_error = rc.BAD_REQUEST
+    api_error = httplib.BAD_REQUEST
 
 
 class MaasAPINotFound(MaasAPIException):
-    api_error = rc.NOT_FOUND
+    api_error = httplib.NOT_FOUND
 
 
 class PermissionDenied(MaasAPIException):
-    api_error = rc.FORBIDDEN
+    api_error = httplib.UNAUTHORIZED
 
