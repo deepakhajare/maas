@@ -12,10 +12,14 @@ __metaclass__ = type
 __all__ = [
     "api_doc",
     "generate_api_doc",
+    "AccountHandler",
     "NodeHandler",
+    "NodesHandler",
+    "NodeMacHandler",
     "NodeMacsHandler",
     ]
 
+import sys
 import types
 
 from django.core.exceptions import ValidationError
@@ -34,7 +38,10 @@ from maasserver.models import (
     )
 from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
-from piston.handler import BaseHandler
+from piston.handler import (
+    BaseHandler,
+    HandlerMetaClass,
+    )
 from piston.utils import rc
 
 
@@ -169,7 +176,7 @@ def api_operations(cls):
         dispatcher.__doc__ = (
             "The actual operation to execute depends on the value of the '%s' "
             "parameter:\n\n" % OP_PARAM)
-        dispatcher.__doc__ += "\n- ".join(
+        dispatcher.__doc__ += "\n".join(
             "- Operation '%s' (op=%s):\n\t%s" % (name, name, op.__doc__)
             for name, op in cls._available_api_methods[method].iteritems())
 
@@ -336,14 +343,28 @@ class AccountHandler(BaseHandler):
             'consumer_key': consumer.key,
             }
 
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('account_handler', [])
+
 
 def generate_api_doc(add_title=False):
-    docs = (
-        generate_doc(NodesHandler),
-        generate_doc(NodeHandler),
-        generate_doc(NodeMacsHandler),
-        generate_doc(NodeMacHandler),
-        )
+    # Fetch all the API Handlers (objects with the class
+    # HandlerMetaClass).
+    modname = globals()['__name__']
+    module = sys.modules[modname]
+    handlers = [
+        getattr(module, itemname) for itemname in module.__all__
+        if getattr(module, itemname).__class__ == HandlerMetaClass
+        ]
+    # Make sure each handler defines a 'resource_uri' method (this is
+    # easily forgotten and essential to have a proper documentation).
+    for handler in handlers:
+        has_resource_uri = hasattr(handler, 'resource_uri')
+        assert has_resource_uri, "Missing resource_uri in %s" % (
+            handler.__name__)
+
+    docs = [generate_doc(handler) for handler in handlers]
 
     messages = []
     if add_title:
