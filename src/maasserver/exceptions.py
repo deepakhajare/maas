@@ -11,7 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "MaasException",
+    "MaasAPIBadRequest",
     "MaasAPIException",
+    "MaasAPINotFound",
     "PermissionDenied",
     ]
 
@@ -33,5 +35,14 @@ class MaasAPIException(Exception):
     api_error = rc.INTERNAL_ERROR
 
 
+class MaasAPIBadRequest(MaasAPIException):
+    api_error = rc.BAD_REQUEST
+
+
+class MaasAPINotFound(MaasAPIException):
+    api_error = rc.NOT_FOUND
+
+
 class PermissionDenied(MaasAPIException):
     api_error = rc.FORBIDDEN
+

@@ -19,7 +19,6 @@ __all__ = [
 
 import types
 
-from django.core.files import File
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest
 from django.shortcuts import (
@@ -28,6 +27,10 @@ from django.shortcuts import (
     )
 from django.template import RequestContext
 from docutils import core
+from maasserver.exceptions import (
+    MaasAPIBadRequest,
+    MaasAPINotFound,
+    )
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
@@ -327,10 +330,10 @@ class FilesHandler(BaseHandler):
         """Get a named file."""
         filename = request.GET.get("filename", None)
         if not filename:
-            return XXX # TODO
+            raise MaasAPIBadRequest("Filename not supplied")
         db_file =  FileStorage.objects.get(filename=filename)
         if not db_file:
-            return XXX # TODO
+            raise MaasAPINotFound("File not found")
         return db_file.data.read()
 
     @api_exported('add', 'POST')
@@ -338,12 +341,12 @@ class FilesHandler(BaseHandler):
         """Create a new Node."""
         filename = request.data.get("filename", None)
         if not filename:
-            return XXX # TODO
+            raise MaasAPIBadRequest("Filename not supplied")
         files = request.FILES
         if not files:
-            return XXX # TODO
+            raise MaasAPIBadRequest("File not supplied")
         if len(files) != 1:
-            return XXX # TODO
+            raise MaasAPIBadRequest("Exactly one file must be supplied")
         uploaded_file = files['file']
 
         # As per the comment in FileStorage, this ought to deal in

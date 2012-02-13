@@ -531,32 +531,95 @@ class FileStorageAPITest(APITestCase):
         os.mkdir(self.tmpdir)
         self.addCleanup(shutil.rmtree, settings.MEDIA_ROOT)
 
-    def test_put_file(self):
-        filepath = os.path.join(self.tmpdir, "foo")
+    def makeFile(self, name="foo", contents="test file contents"):
+        """Make a temp file named `name` with contents `contents`.
+
+        :return: The full file path of the file that was created.
+        """
+        filepath = os.path.join(self.tmpdir, name)
         with open(filepath, "w") as f:
-            f.write("test file contents")
+            f.write(contents)
+        return filepath
+
+    def makeAPIRequest(self, op=None, filename=None, file=None):
+        """Make an API request and return the parsed response."""
+        params = {}
+        if op is not None:
+            params["op"] = op
+        if filename is not None:
+            params["filename"] = filename
+        if file is not None:
+            params["file"] = file
+        return self.client.post("/api/files/", params)
+
+    def test_add_file_succeeds(self):
+        filepath = self.makeFile()
 
         with open(filepath) as f:
+            response = self.makeAPIRequest("add", "foo", f)
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_add_file_fails_with_no_filename(self):
+        filepath = self.makeFile()
+
+        with open(filepath) as f:
+            response = self.makeAPIRequest("add", file=f)
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/html', response['Content-Type'])
+        self.assertEqual("Filename not supplied", response.content)
+
+    def test_add_file_fails_with_no_file_attached(self):
+        response = self.makeAPIRequest("add", "foo")
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/html', response['Content-Type'])
+        self.assertEqual("File not supplied", response.content)
+
+    def test_add_file_fails_with_too_many_files(self):
+        filepath = self.makeFile(name="foo")
+        filepath2 = self.makeFile(name="foo2")
+
+        with open(filepath) as f, open(filepath2) as f2:
             response = self.client.post(
                 "/api/files/",
                 {
                     "op": "add",
                     "filename": "foo",
                     "file": f,
+                    "file2": f2,
                 })
         parsed_result = json.loads(response.content)
 
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/html', response['Content-Type'])
+        self.assertEqual("Exactly one file must be supplied", response.content)
 
-    def test_get_file(self):
+    def test_get_file_succeeds(self):
         storage = factory.make_file_storage(
             filename="foofilers", data="give me rope")
-        response = self.client.get(
-            "/api/files/",
-            {
-                "op": "get",
-                "filename": "foofilers",
-            })
+        response = self.makeAPIRequest("get", "foofilers")
         parsed_result = json.loads(response.content)
+
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual("give me rope", parsed_result)
+
+    def test_get_file_fails_with_no_filename(self):
+        response = self.makeAPIRequest("get")
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/html', response['Content-Type'])
+        self.assertEqual("Filename not supplied", response.content)
+
+    def test_get_file_fails_with_missing_file(self):
+        response = self.makeAPIRequest("get", "missingfilename")
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+        self.assertIn('text/html', response['Content-Type'])
+        self.assertEqual("Filename not supplied", response.content)
