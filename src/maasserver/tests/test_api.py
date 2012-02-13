@@ -620,7 +620,6 @@ class FileStorageAPITest(APITestCase):
         self.assertEqual("Filename not supplied", response.content)
 
     def test_get_file_fails_with_missing_file(self):
-        #import pdb;pdb.set_trace()
         response = self.make_API_GET_request("get", filename="missingfilename")
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)

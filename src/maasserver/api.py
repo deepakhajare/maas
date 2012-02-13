@@ -336,7 +336,6 @@ class FilesHandler(BaseHandler):
     def get(self, request):
         """Get a named file."""
         filename = request.GET.get("filename", None)
-        #import pdb; pdb.set_trace()
         if not filename:
             raise MaasAPIBadRequest("Filename not supplied")
         try:
