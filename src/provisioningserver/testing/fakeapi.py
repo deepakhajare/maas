@@ -91,20 +91,17 @@ class FakeSynchronousProvisioningAPI:
     def modify_distros(self, deltas):
         for name, delta in deltas.iteritems():
             distro = self.distros[name]
-            for attribute, value in delta.iteritems():
-                distro[attribute] = value
+            distro.update(delta)
 
     def modify_profiles(self, deltas):
         for name, delta in deltas.iteritems():
             profile = self.profiles[name]
-            for attribute, value in delta.iteritems():
-                profile[attribute] = value
+            profile.update(delta)
 
     def modify_nodes(self, deltas):
         for name, delta in deltas.iteritems():
             node = self.nodes[name]
-            for attribute, value in delta.iteritems():
-                node[attribute] = value
+            node.update(delta)
 
     def get_distros_by_name(self, names):
         return self.distros.select(names)
