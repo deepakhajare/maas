@@ -261,6 +261,36 @@ class TestProvisioningAPI(TestCase):
         self.assertEqual(profile2_name, values[node_name]["profile"])
 
     @inlineCallbacks
+    def test_modify_nodes_set_mac_addresses(self):
+        papi = self.get_provisioning_api()
+        distro_name = yield papi.add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile_name = yield papi.add_profile("profile1", distro_name)
+        node_name = yield papi.add_node("node", profile_name)
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": ["55:55:55:55:55:55"]}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual(
+            ["55:55:55:55:55:55"], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
+    def test_modify_nodes_remove_mac_addresses(self):
+        papi = self.get_provisioning_api()
+        distro_name = yield papi.add_distro(
+            "distro", "an_initrd", "a_kernel")
+        profile_name = yield papi.add_profile("profile1", distro_name)
+        node_name = yield papi.add_node("node", profile_name)
+        mac_addresses_from = ["55:55:55:55:55:55", "66:66:66:66:66:66"]
+        mac_addresses_to = ["66:66:66:66:66:66"]
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": mac_addresses_from}})
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": mac_addresses_to}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual(
+            ["66:66:66:66:66:66"], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
     def test_delete_distros_by_name(self):
         # Create a distro via the Provisioning API.
         papi = self.get_provisioning_api()

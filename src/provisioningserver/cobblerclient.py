@@ -684,6 +684,8 @@ class CobblerSystem(CobblerObject):
         'profile',
         ]
     modification_attributes = [
+        'interface',  # Required for mac_address and delete_interface.
+        'mac_address',
         'profile',
         ]
 

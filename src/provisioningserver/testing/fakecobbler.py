@@ -329,6 +329,7 @@ class FakeCobbler:
             return self._api_save_object(token, object_type, handle)
         elif operation == 'edit':
             handle = self._api_get_handle(token, object_type, name)
+            # TODO: Handle interface changes.
             for key, value in attrs.iteritems():
                 self._api_modify_object(token, object_type, handle, key, value)
             return self._api_save_object(token, object_type, handle)

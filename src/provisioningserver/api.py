@@ -179,7 +179,17 @@ class ProvisioningAPI:
     @inlineCallbacks
     def modify_nodes(self, deltas):
         for name, delta in deltas.iteritems():
-            yield CobblerSystem(self.session, name).modify(delta)
+            system = CobblerSystem(self.session, name)
+            if "mac_addresses" in delta:
+                # This needs to be handled carefully.
+                mac_addresses = delta.pop("mac_addresses")
+                system_state = yield system.get_values()
+                interfaces = system_state.get("interfaces", {})
+                interface_modifications = mac_addresses_to_cobbler_deltas(
+                    interfaces, mac_addresses)
+                for interface_modification in interface_modifications:
+                    yield system.modify(interface_modification)
+            yield system.modify(delta)
 
     @inlineCallbacks
     def get_objects_by_name(self, object_type, names):
