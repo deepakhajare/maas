@@ -100,9 +100,9 @@ class APITestCase(TestCase):
             username='test', password='test')
         self.client = OAuthAuthenticatedClient(self.logged_in_user)
 
-    def become_admin(self, admin=True):
+    def become_admin(self):
         """Promote the logged-in user to admin."""
-        self.logged_in_user.is_superuser = admin
+        self.logged_in_user.is_superuser = True
         self.logged_in_user.save()
 
 
@@ -162,13 +162,12 @@ class TestNodeAPI(APITestCase):
 
     def test_POST_stop_is_permitted_for_admin(self):
         node = factory.make_node()
-        self.become_admin(True)
+        self.become_admin()
         response = self.client.post(self.get_uri(node), {'op': 'stop'})
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_POST_stop_is_forbidden_to_normal_user(self):
         node = factory.make_node()
-        self.become_admin(False)
         response = self.client.post(self.get_uri(node), {'op': 'stop'})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
