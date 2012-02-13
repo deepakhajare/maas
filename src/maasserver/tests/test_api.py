@@ -629,11 +629,11 @@ class FileStorageAPITest(APITestCase):
 
     def test_get_file_succeeds(self):
         storage = factory.make_file_storage(
-            filename="foofilers", data="give me rope")
+            filename="foofilers", data=b"give me rope")
         response = self.make_API_GET_request("get", "foofilers")
 
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual("give me rope", response.content)
+        self.assertEqual(b"give me rope", response.content)
 
     def test_get_file_fails_with_no_filename(self):
         response = self.make_API_GET_request("get")
