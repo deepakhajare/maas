@@ -32,7 +32,6 @@ from maasserver.macaddress import validate_mac
 from maasserver.models import (
     MACAddress,
     Node,
-    NODE_STATUS,
     )
 from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
@@ -249,14 +248,10 @@ class NodesHandler(BaseHandler):
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
-        available_status = NODE_STATUS.COMMISSIONED
-        acquired_status = NODE_STATUS.DEPLOYED
-        nodes = list(Node.objects.filter(status=available_status)[:1])
-        if len(nodes) == 0:
+        node = Node.objects.get_available_node_for_acquisition(request.user)
+        if node is None:
             raise NodesNotAvailable("No node is available.")
-        [node] = nodes
-        node.status = acquired_status
-        node.owner = request.user
+        node.acquire(request.user)
         node.save()
         return node
 
