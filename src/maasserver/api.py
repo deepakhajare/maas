@@ -361,8 +361,8 @@ class AccountHandler(BaseHandler):
     allowed_methods = ('POST',)
 
     @api_exported('reset_authorisation_token')
-    def reset_authorisation_token(self, request):
-        """Regenerate the token and the secret of the OAuth Token.
+    def create_authorisation_token(self, request):
+        """Create an authorisation OAuth token and OAuth consumer.
 
         :return: A json dict with three keys: 'token_key',
             'token_secret' and 'consumer_key' (e.g.
@@ -371,7 +371,7 @@ class AccountHandler(BaseHandler):
 
         """
         profile = request.user.get_profile()
-        consumer, token = profile.reset_authorisation_token()
+        consumer, token = profile.create_authorisation_token()
         return {
             'token_key': token.key, 'token_secret': token.secret,
             'consumer_key': consumer.key,
