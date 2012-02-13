@@ -47,14 +47,14 @@ class IProvisioningAPI_Template:
     def add_node(name, profile):
         """Add a node with the given `name`, and `profile`."""
 
-    def update_distros(deltas):
+    def modify_distros(deltas):
         """Apply deltas to existing distros.
 
         :param deltas: A dict, with each key identifying an existing distro by
             name, and each value being a dict of modifications to apply to it.
         """
 
-    def update_profiles(deltas):
+    def modify_profiles(deltas):
         """Apply deltas to existing profiles.
 
         :param deltas: A dict, with each key identifying an existing profile
@@ -62,7 +62,7 @@ class IProvisioningAPI_Template:
             it.
         """
 
-    def update_nodes(deltas):
+    def modify_nodes(deltas):
         """Apply deltas to existing nodes.
 
         :param deltas: A dict, with each key identifying an existing node by
