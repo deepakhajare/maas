@@ -17,14 +17,10 @@ __all__ = [
     "NodeMacsHandler",
     ]
 
-from functools import wraps
 import types
 
-from django.core.exceptions import (
-    PermissionDenied,
-    ValidationError,
-    )
 from django.core.files import File
+from django.core.exceptions import ValidationError
 from django.http import HttpResponseBadRequest
 from django.shortcuts import (
     get_object_or_404,
@@ -60,34 +56,6 @@ class MaasAPIAuthentication(OAuthAuthentication):
 
     def challenge(self):
         return rc.FORBIDDEN
-
-
-def validate_and_save(obj):
-    try:
-        obj.full_clean()
-        obj.save()
-        return obj
-    except ValidationError, e:
-        return HttpResponseBadRequest(
-            e.message_dict, content_type='application/json')
-
-
-def validate_mac_address(mac_address):
-    try:
-        validate_mac(mac_address)
-        return True, None
-    except ValidationError:
-        return False, HttpResponseBadRequest('Invalid MAC Address.')
-
-
-def perm_denied_handler(view_func):
-    def _decorator(request, *args, **kwargs):
-        try:
-            response = view_func(request, *args, **kwargs)
-            return response
-        except PermissionDenied:
-            return rc.FORBIDDEN
-    return wraps(view_func)(_decorator)
 
 
 dispatch_methods = {
@@ -219,22 +187,21 @@ class NodeHandler(BaseHandler):
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
-    @perm_denied_handler
     def read(self, request, system_id):
         """Read a specific Node."""
         return Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
 
-    @perm_denied_handler
     def update(self, request, system_id):
         """Update a specific Node."""
         node = Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
         for key, value in request.data.items():
             setattr(node, key, value)
-        return validate_and_save(node)
+        node.full_clean()
+        node.save()
+        return node
 
-    @perm_denied_handler
     def delete(self, request, system_id):
         """Delete a specific Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -262,8 +229,12 @@ class NodesHandler(BaseHandler):
 
     @api_exported('list', 'GET')
     def list(self, request):
-        """Read all Nodes."""
-        return Node.objects.get_visible_nodes(request.user).order_by('id')
+        """List Nodes visible to the user, optionally filtered by id."""
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        return nodes.order_by('id')
 
     @api_exported('new', 'POST')
     def new(self, request):
@@ -289,7 +260,6 @@ class NodeMacsHandler(BaseHandler):
     """
     allowed_methods = ('GET', 'POST',)
 
-    @perm_denied_handler
     def read(self, request, system_id):
         """Read all MAC Addresses related to a Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -318,25 +288,18 @@ class NodeMacHandler(BaseHandler):
     fields = ('mac_address',)
     model = MACAddress
 
-    @perm_denied_handler
     def read(self, request, system_id, mac_address):
         """Read a MAC Address related to a Node."""
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
+        validate_mac(mac_address)
         return get_object_or_404(
             MACAddress, node=node, mac_address=mac_address)
 
-    @perm_denied_handler
     def delete(self, request, system_id, mac_address):
         """Delete a specific MAC Address for the specified Node."""
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
-
+        validate_mac(mac_address)
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
@@ -395,7 +358,29 @@ class FilesHandler(BaseHandler):
         return ('files_handler', [])
 
 
-def generate_api_doc():
+class AccountHandler(BaseHandler):
+    """Manage the current logged-in user."""
+    allowed_methods = ('POST',)
+
+    @api_exported('reset_authorisation_token')
+    def reset_authorisation_token(self, request):
+        """Regenerate the token and the secret of the OAuth Token.
+
+        :return: A json dict with three keys: 'token_key',
+            'token_secret' and 'consumer_key' (e.g.
+            {token_key: 's65244576fgqs', token_secret: 'qsdfdhv34',
+             consumer_key: '68543fhj854fg'}).
+
+        """
+        profile = request.user.get_profile()
+        consumer, token = profile.reset_authorisation_token()
+        return {
+            'token_key': token.key, 'token_secret': token.secret,
+            'consumer_key': consumer.key,
+            }
+
+
+def generate_api_doc(add_title=False):
     docs = (
         generate_doc(NodesHandler),
         generate_doc(NodeHandler),
@@ -403,7 +388,14 @@ def generate_api_doc():
         generate_doc(NodeMacHandler),
         )
 
-    messages = ['MaaS API\n========\n\n']
+    messages = []
+    if add_title:
+        messages.extend([
+            '**********************\n',
+            'MaaS API documentation\n',
+            '**********************\n',
+            '\n\n']
+            )
     for doc in docs:
         for method in doc.get_methods():
             messages.append(

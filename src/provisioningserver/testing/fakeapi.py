@@ -27,6 +27,7 @@ from functools import wraps
 from provisioningserver.interfaces import IProvisioningAPI
 from twisted.internet import defer
 from zope.interface import implementer
+from zope.interface.interface import Method
 
 
 class FakeProvisioningDatabase(dict):
@@ -65,6 +66,8 @@ class FakeProvisioningDatabase(dict):
 @implementer(IProvisioningAPI)
 class FakeSynchronousProvisioningAPI:
 
+    # TODO: Referential integrity might be a nice thing.
+
     def __init__(self):
         super(FakeSynchronousProvisioningAPI, self).__init__()
         self.distros = FakeProvisioningDatabase()
@@ -82,6 +85,7 @@ class FakeSynchronousProvisioningAPI:
 
     def add_node(self, name, profile):
         self.nodes[name]["profile"] = profile
+        self.nodes[name]["mac_addresses"] = []
         return name
 
     def get_distros_by_name(self, names):
@@ -125,4 +129,5 @@ FakeAsynchronousProvisioningAPI = type(
     b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
         name: async(getattr(FakeSynchronousProvisioningAPI, name))
         for name in IProvisioningAPI.names(all=True)
+        if isinstance(IProvisioningAPI[name], Method)
         })

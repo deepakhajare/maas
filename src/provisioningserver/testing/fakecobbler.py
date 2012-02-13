@@ -168,6 +168,11 @@ class FakeCobbler:
         name = "name-%s-%d" % (object_type, unique_id)
         new_object = {
             'name': name,
+            'comment': (
+                "Cobbler stores lots of things we're not interested in; "
+                "this comment is here to break tests that let Cobbler's "
+                "data leak out of the Provisioning Server."
+                ),
         }
         self._add_object_to_session(token, object_type, handle, new_object)
         return handle
@@ -208,7 +213,7 @@ class FakeCobbler:
 
     def _api_get_object(self, object_type, name):
         """Get object's attributes by name."""
-        location = self.store[None][object_type]
+        location = self.store[None].get(object_type, {})
         matches = [obj for obj in location.values() if obj['name'] == name]
         assert len(matches) <= 1, (
             "Multiple %s objects are called '%s'." % (object_type, name))

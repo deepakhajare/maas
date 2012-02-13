@@ -23,11 +23,11 @@ from uuid import uuid1
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
+from maasserver.exceptions import PermissionDenied
 from maasserver.macaddress import MACAddressField
 from piston.models import (
     Consumer,
@@ -134,11 +134,13 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class NodeManager(models.Manager):
     """A utility to manage the collection of Nodes."""
 
-    def get_visible_nodes(self, user):
+    def get_visible_nodes(self, user, ids=None):
         """Fetch all the Nodes visible by a User_.
 
         :param user: The user that should be used in the permission check.
         :type user: User_
+        :param ids: If given, limit result to nodes with these system_ids.
+        :type ids: Sequence.
 
         .. _User: https://
            docs.djangoproject.com/en/dev/topics/auth/
@@ -146,10 +148,14 @@ class NodeManager(models.Manager):
 
         """
         if user.is_superuser:
-            return self.all()
+            visible_nodes = self.all()
         else:
-            return self.filter(
+            visible_nodes = self.filter(
                 models.Q(owner__isnull=True) | models.Q(owner=user))
+        if ids is None:
+            return visible_nodes
+        else:
+            return visible_nodes.filter(system_id__in=ids)
 
     def get_visible_node_or_404(self, system_id, user):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
@@ -160,14 +166,11 @@ class NodeManager(models.Manager):
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
         :raises: django.http.Http404_,
-            django.core.exceptions.PermissionDenied_.
+            maasserver.exceptions.PermissionDenied_.
 
         .. _django.http.Http404: https://
            docs.djangoproject.com/en/dev/topics/http/views/
            #the-http404-exception
-        .. _django.core.exceptions.PermissionDenied: https://
-           docs.djangoproject.com/en/dev/ref/exceptions/
-           #django.core.exceptions.PermissionDenied
         """
         node = get_object_or_404(Node, system_id=system_id)
         if user.has_perm('access', node):
@@ -291,8 +294,8 @@ class UserProfile(models.Model):
         """Create (if necessary) and regenerate the keys for the Consumer and
         the related Token of the OAuth authorisation.
 
-        :return: The token that was reset.
-        :rtype: piston.models.Token
+        :return: A tuple containing the Consumer and the Token that were reset.
+        :rtype: tuple
 
         """
         consumer, _ = Consumer.objects.get_or_create(
@@ -307,7 +310,7 @@ class UserProfile(models.Model):
             user=self.user, token_type=Token.ACCESS, consumer=consumer,
             defaults={'is_approved': True})
         token.generate_random_codes()
-        return token
+        return consumer, token
 
     def get_authorisation_consumer(self):
         """Returns the OAuth Consumer attached to the related User_.
