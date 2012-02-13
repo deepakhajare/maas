@@ -117,17 +117,17 @@ class ProvisioningAPI:
         returnValue(system.name)
 
     @inlineCallbacks
-    def update_distros(self, deltas):
+    def modify_distros(self, deltas):
         for name, delta in deltas.iteritems():
             yield CobblerDistro(self.session, name).modify(delta)
 
     @inlineCallbacks
-    def update_profiles(self, deltas):
+    def modify_profiles(self, deltas):
         for name, delta in deltas.iteritems():
             yield CobblerProfile(self.session, name).modify(delta)
 
     @inlineCallbacks
-    def update_nodes(self, deltas):
+    def modify_nodes(self, deltas):
         for name, delta in deltas.iteritems():
             yield CobblerSystem(self.session, name).modify(delta)
 
