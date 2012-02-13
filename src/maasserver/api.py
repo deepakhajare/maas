@@ -32,6 +32,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     )
+from maasserver.provisioning import get_provisioning_api_proxy
 from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
 from piston.handler import BaseHandler
@@ -178,9 +179,10 @@ def api_operations(cls):
     return cls
 
 
+@api_operations
 class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
-    allowed_methods = ('GET', 'DELETE', 'PUT')
+    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
@@ -217,6 +219,14 @@ class NodeHandler(BaseHandler):
         if node is not None:
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
+
+    @api_exported('stop', 'POST')
+    def stop(self, request, system_id):
+        """Shut down a node."""
+        node = Node.objects.get_visible_node_or_404(
+            system_id=system_id, user=request.user)
+        get_provisioning_api_proxy().stop_nodes([node.hostname])
+        return rc.ALL_OK
 
 
 @api_operations

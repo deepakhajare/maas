@@ -74,6 +74,12 @@ class IProvisioningAPI_Template:
     def get_nodes():
         """List all nodes."""
 
+    def start_nodes(names):
+        """Start up nodes with the given `names`."""
+
+    def stop_nodes(names):
+        """Shut down nodes with the given `names`."""
+
 
 # All public methods defined in IProvisioningAPI_Template.
 PAPI_FUNCTIONS = {

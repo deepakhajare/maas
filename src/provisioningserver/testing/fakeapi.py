@@ -115,6 +115,12 @@ class FakeSynchronousProvisioningAPI:
     def get_nodes(self):
         return self.nodes.dump()
 
+    def start_nodes(self, names):
+        pass
+
+    def stop_nodes(self, names):
+        pass
+
 
 def async(func):
     """Decorate a function so that it always return a `defer.Deferred`."""
