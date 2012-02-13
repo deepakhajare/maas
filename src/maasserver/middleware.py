@@ -28,7 +28,7 @@ from django.utils.http import urlquote_plus
 from maasserver.exceptions import MaasAPIException
 
 
-class AccessMiddleware():
+class AccessMiddleware:
     """Protect access to views.
 
     Most UI views are visible only to logged-in users, but there are pages
@@ -68,7 +68,7 @@ class AccessMiddleware():
                 return None
 
 
-class APIErrorsMiddleware():
+class APIErrorsMiddleware:
     """This middleware_ converts exceptions raised in execution of an API
     method into proper API errors (like "404 Not Found" errors or
     "400 Bad Request" errors).
