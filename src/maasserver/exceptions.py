@@ -16,7 +16,7 @@ __all__ = [
     ]
 
 
-from piston.utils import rc
+import httplib
 
 
 class MaasException(Exception):
@@ -30,18 +30,13 @@ class MaasAPIException(Exception):
         is raised in the API (defaults to 500: "Internal Server Error").
 
     """
-    api_error = rc.INTERNAL_ERROR
+    api_error = httplib.INTERNAL_SERVER_ERROR
 
 
 class PermissionDenied(MaasAPIException):
-    api_error = rc.FORBIDDEN
+    api_error = httplib.UNAUTHORIZED
 
 
 class NodesNotAvailable(MaasAPIException):
     """Requested node(s) are not available to be acquired."""
-    # Error code 409: Conflict.  Piston calls it "conflict/duplicate
-    # entry" after its most likely cause, but really it can be any
-    # resource state where the request can't be satisfied for the
-    # moment (typically because of some third-party request).
-    # http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.10
-    api_error = rc.DUPLICATE_ENTRY
+    api_error = httplib.CONFLICT
