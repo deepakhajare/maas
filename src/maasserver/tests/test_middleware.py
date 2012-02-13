@@ -52,12 +52,12 @@ class APIErrorsMiddlewareTest(TestCase):
 
         class MyException(MaasAPIException):
             api_error = httplib.UNAUTHORIZED
-        exception = MyException("Error \xc3\xa9t\xc3\xa9t\xc3\xa9!")
+        exception = MyException("Error %s" % unichr(233))
         fake_request = self.get_fake_api_request()
         response = middleware.process_exception(fake_request, exception)
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
         self.assertEqual(
-            "Error \xc3\xa9t\xc3\xa9t\xc3\xa9!",
+            "Error %s" % unichr(233),
             response.content.decode('utf8'))
 
     def test_process_ValidationError_message_dict(self):
