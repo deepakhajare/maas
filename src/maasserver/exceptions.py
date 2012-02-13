@@ -45,4 +45,3 @@ class MaasAPINotFound(MaasAPIException):
 
 class PermissionDenied(MaasAPIException):
     api_error = httplib.UNAUTHORIZED
-
