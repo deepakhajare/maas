@@ -109,21 +109,37 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
     mac_addresses_to_add = set(
         mac_addresses).difference(interface_names_by_mac_address)
 
+    # Keep track of the used interface names.
     interface_names = set(interfaces)
+    # The following generator will lazily return interface names that can be
+    # used when adding MAC addresses.
     interface_names_unused = (
         "eth%d" % num for num in count(0)
         if "eth%d" % num not in interface_names)
 
+    # Create a delta to remove an interface in Cobbler. We sort the MAC
+    # addresses to provide stability in this function's output (which
+    # facilitates testing).
     for mac_address in sorted(mac_addresses_to_remove):
         interface_name = interface_names_by_mac_address[mac_address]
+        # Deallocate this interface name from our records; it can be used when
+        # allocating interfaces later.
         interface_names.remove(interface_name)
         yield {
             "interface": interface_name,
             "delete_interface": True,
             }
 
+    # Create a delta to add an interface in Cobbler. We sort the MAC addresses
+    # to provide stability in this function's output (which facilitates
+    # testing).
     for mac_address in sorted(mac_addresses_to_add):
         interface_name = next(interface_names_unused)
+        # Allocate this interface name in our records; it's not actually
+        # necessary (interface_names_unused will never go backwards) but we do
+        # it defensively in case of later additions to this function, and
+        # because it has a satifying symmetry.
+        interface_names.add(interface_name)
         yield {
             "interface": interface_name,
             "mac_address": mac_address,
