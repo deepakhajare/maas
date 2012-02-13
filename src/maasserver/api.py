@@ -26,6 +26,7 @@ from django.shortcuts import (
     )
 from django.template import RequestContext
 from docutils import core
+from maasserver.exceptions import PermissionDenied
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
@@ -225,6 +226,10 @@ class NodeHandler(BaseHandler):
         """Shut down a node."""
         node = Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
+        # An unowned node is visible to the user, but they still can't
+        # shut it down.
+        if not request.user.is_superuser and node.owner != request.user:
+            raise PermissionDenied("Can't stop a node you don't own.")
         get_provisioning_api_proxy().stop_nodes([node.hostname])
         return rc.ALL_OK
 
