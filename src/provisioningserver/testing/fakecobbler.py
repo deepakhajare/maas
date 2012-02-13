@@ -16,6 +16,7 @@ __all__ = [
     'make_fake_cobbler_session',
     ]
 
+from copy import deepcopy
 from fnmatch import fnmatch
 from itertools import count
 from random import randint
@@ -220,8 +221,7 @@ class FakeCobbler:
         if len(matches) == 0:
             return None
         else:
-            # TODO: Use deepcopy; some attributes are mutable.
-            return matches[0]
+            return deepcopy(matches[0])
 
     def _api_get_objects(self, object_type):
         """Return all saved objects of type `object_type`.
@@ -232,8 +232,7 @@ class FakeCobbler:
         """
         # Assumption: these operations look only at saved objects.
         location = self.store[None].get(object_type, {})
-        # TODO: Use deepcopy; some attributes are mutable.
-        return [obj.copy() for obj in location.values()]
+        return [deepcopy(obj) for obj in location.values()]
 
     def _api_modify_object(self, token, object_type, handle, key, value):
         """Set an attribute on an object.
@@ -250,8 +249,7 @@ class FakeCobbler:
             saved_obj = self._get_object_if_present(None, object_type, handle)
             if saved_obj is None:
                 self._raise_bad_handle(object_type, handle)
-            # TODO: Use deepcopy; some attributes are mutable.
-            session_obj = saved_obj.copy()
+            session_obj = deepcopy(saved_obj)
             self._add_object_to_session(
                 token, object_type, handle, session_obj)
 
