@@ -192,7 +192,6 @@ class Node(CommonInfo):
         commissioning. See vocabulary
         :class:`NODE_AFTER_COMMISSIONING_ACTION`.
     :ivar objects: The :class:`NodeManager`.
-    :ivar hostname: This `Node`'s hostname.
 
     """
 
