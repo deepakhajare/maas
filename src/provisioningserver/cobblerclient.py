@@ -659,8 +659,6 @@ class CobblerSystem(CobblerObject):
         # Space-separated key=value pairs for preseed:
         'ks_meta',
         'mgmt_classes',
-        # A special dict; see below.
-        'modify_interface',
         # Unqualified host name:
         'name',
         'name_servers',
@@ -690,11 +688,6 @@ class CobblerSystem(CobblerObject):
         'mac_address',
         'profile',
         ]
-
-    # The modify_interface dict can contain:
-    #  * "macaddress-eth0" etc.
-    #  * "ipaddress-eth0" etc.
-    #  * "dnsname-eth0" etc.
 
     @classmethod
     def _callPowerMultiple(cls, session, operation, system_names):
