@@ -215,9 +215,9 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual(
-            {u'hostname':
-                [u'Ensure this value has at most 255 characters '
-                  '(it has 800).']},
+            {'hostname':
+                ['Ensure this value has at most 255 characters '
+                 '(it has 800).']},
             parsed_result)
 
     def test_PUT_refuses_to_update_invisible_node(self):
@@ -414,6 +414,30 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(
             ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
+
+    def test_POST_returns_available_node(self):
+        # The "acquire" operation returns an available node.
+        available_status = NODE_STATUS.COMMISSIONED
+        node = factory.make_node(status=available_status, owner=None)
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        self.assertEqual(200, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(node.system_id, parsed_result['system_id'])
+
+    def test_POST_acquire_allocates_node(self):
+        # The "acquire" operation allocates the node it returns.
+        available_status = NODE_STATUS.COMMISSIONED
+        node = factory.make_node(status=available_status, owner=None)
+        self.client.post('/api/nodes/', {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertEqual(self.logged_in_user, node.owner)
+
+    def test_POST_acquire_fails_if_no_node_present(self):
+        # The "acquire" operation returns a Conflict error if no nodes
+        # are available.
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        # Fails with Conflict error: resource can't satisfy request.
+        self.assertEqual(httplib.CONFLICT, response.status_code)
 
 
 class MACAddressAPITest(APITestCase):
