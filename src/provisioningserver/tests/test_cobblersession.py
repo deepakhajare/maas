@@ -404,7 +404,6 @@ class TestCobblerObject(TestCase):
         session.proxy.set_return_values([True])
         distro = cobblerclient.CobblerDistro(session, "fred")
         yield distro.modify({"kernel": "sanders"})
-        self.assertEqual(1, len(session.proxy.calls))
         expected_call = (
             "xapi_object_edit", "distro", distro.name, "edit",
             {"kernel": "sanders"}, session.token)
