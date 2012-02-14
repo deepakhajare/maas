@@ -157,14 +157,6 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    def test_POST_stop_requests_node_shutdown(self):
-        node = factory.make_node()
-        self.become_admin()
-# TODO: Verify that Cobbler, or at least the Provisioning API, gets
-# called.  Normally we'd inject a fake.  But how do we do that here?
-        response = self.client.post(self.get_uri(node), {'op': 'stop'})
-        self.fail("TEST THIS")
-
     def test_POST_stop_is_permitted_for_admin(self):
         node = factory.make_node()
         self.become_admin()
