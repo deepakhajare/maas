@@ -289,10 +289,10 @@ class ProvisioningAPI:
 
     @deferred
     def start_nodes(self, names):
-        d = CobblerSystem.powerOnMultiple(names)
+        d = CobblerSystem.powerOnMultiple(self.session, names)
         return d
 
     @deferred
     def stop_nodes(self, names):
-        d = CobblerSystem.powerOffMultiple(names)
+        d = CobblerSystem.powerOffMultiple(self.session, names)
         return d
