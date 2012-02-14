@@ -242,7 +242,8 @@ class NodeManager(models.Manager):
         :type ids: QuerySet
         :param by_user: Requesting user.
         :type by_user: User_
-        :return: A list of Nodes whose shutdown was actually requested.
+        :return: Those Nodes for which shutdown was actually requested.
+        :rtype: list
         """
         self._set_provisioning_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
@@ -259,7 +260,7 @@ class NodeManager(models.Manager):
         :type ids: QuerySet
         :param by_user: Requesting user.
         :type by_user: User_
-        :return: A list of Nodes for which power-on was actually requested.
+        :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
         self._set_provisioning_proxy()
