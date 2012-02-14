@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import codecs
 import os
 import shutil
 
@@ -22,6 +23,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     UserProfile,
     )
 from maasserver.testing.factory import factory
@@ -63,6 +65,13 @@ class NodeTest(TestCase):
         macs = MACAddress.objects.filter(
             node=node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(0, macs)
+
+    def test_acquire(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONED)
+        user = factory.make_user()
+        node.acquire(user)
+        self.assertEqual(user, node.owner)
+        self.assertEqual(NODE_STATUS.DEPLOYED, node.status)
 
 
 class NodeManagerTest(TestCase):
@@ -135,6 +144,35 @@ class NodeManagerTest(TestCase):
             PermissionDenied,
             Node.objects.get_visible_node_or_404,
             user_node.system_id, factory.make_user())
+
+    def test_get_available_node_for_acquisition_finds_available_node(self):
+        user = factory.make_user()
+        node = self.make_node(None)
+        self.assertEqual(
+            node, Node.objects.get_available_node_for_acquisition(user))
+
+    def test_get_available_node_for_acquisition_returns_none_if_empty(self):
+        user = factory.make_user()
+        self.assertEqual(
+            None, Node.objects.get_available_node_for_acquisition(user))
+
+    def test_get_available_node_for_acquisition_ignores_taken_nodes(self):
+        user = factory.make_user()
+        available_status = NODE_STATUS.COMMISSIONED
+        unavailable_statuses = (
+            set(NODE_STATUS_CHOICES_DICT.keys()) - set([available_status]))
+        for status in unavailable_statuses:
+            factory.make_node(status=status)
+        self.assertEqual(
+            None, Node.objects.get_available_node_for_acquisition(user))
+
+    def test_get_available_node_for_acquisition_ignores_invisible_nodes(self):
+        user = factory.make_user()
+        node = self.make_node()
+        node.owner = factory.make_user()
+        node.save()
+        self.assertEqual(
+            None, Node.objects.get_available_node_for_acquisition(user))
 
 
 class MACAddressTest(TestCase):
@@ -223,7 +261,7 @@ class FileStorageTest(TestCase):
         self.addCleanup(shutil.rmtree, self.FILEPATH)
 
     def test_creation(self):
-        storage = factory.make_file_storage(filename="myfile", data="mydata")
+        storage = factory.make_file_storage(filename="myfile", data=b"mydata")
         expected = ["myfile", "mydata"]
         actual = [storage.filename, storage.data.read()]
         self.assertEqual(expected, actual)
@@ -232,10 +270,22 @@ class FileStorageTest(TestCase):
         # The development settings say to write a file starting at
         # /var/tmp/maas, so check one is actually written there.  The field
         # itself is hard-coded to make a directory called "storage".
-        factory.make_file_storage(filename="myfile", data="mydata")
+        factory.make_file_storage(filename="myfile", data=b"mydata")
 
         expected_filename = os.path.join(
             self.FILEPATH, "storage", "myfile")
 
         with open(expected_filename) as f:
             self.assertEqual("mydata", f.read())
+
+    def test_stores_binary_data(self):
+        # This horrible binary data could never, ever, under any
+        # encoding known to man be intepreted as text.  Switch the bytes
+        # of the byte-order mark around and by design you get an invalid
+        # codepoint; put a byte with the high bit set between bytes that
+        # have it cleared, and you have a guaranteed non-UTF-8 sequence.
+        binary_data = codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00'
+        # And yet, because FileStorage supports binary data, it comes
+        # out intact.
+        storage = factory.make_file_storage(filename="x", data=binary_data)
+        self.assertEqual(binary_data, storage.data.read())

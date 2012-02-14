@@ -11,7 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "MaasException",
+    "MaasAPIBadRequest",
     "MaasAPIException",
+    "MaasAPINotFound",
     "PermissionDenied",
     ]
 
@@ -33,5 +35,24 @@ class MaasAPIException(Exception):
     api_error = httplib.INTERNAL_SERVER_ERROR
 
 
+class MaasAPIBadRequest(MaasAPIException):
+    api_error = httplib.BAD_REQUEST
+
+
+class MaasAPINotFound(MaasAPIException):
+    api_error = httplib.NOT_FOUND
+
+
 class PermissionDenied(MaasAPIException):
-    api_error = httplib.UNAUTHORIZED
+    """HTTP error 403: Forbidden.  User is logged in, but lacks permission.
+
+    Do not confuse this with 401: Unauthorized ("you need to be logged in
+    for this, so please authenticate").  The Piston error codes do confuse
+    the two.
+    """
+    api_error = httplib.FORBIDDEN
+
+
+class NodesNotAvailable(MaasAPIException):
+    """Requested node(s) are not available to be acquired."""
+    api_error = httplib.CONFLICT

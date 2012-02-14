@@ -13,26 +13,40 @@ __all__ = [
     "api_doc",
     "generate_api_doc",
     "AccountHandler",
+    "FilesHandler",
     "NodeHandler",
     "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
     ]
 
+import httplib
 import sys
 import types
 
-from django.core.exceptions import ValidationError
-from django.http import HttpResponseBadRequest
+from django.core.exceptions import (
+    ObjectDoesNotExist,
+    ValidationError,
+    )
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    )
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
     )
 from django.template import RequestContext
 from docutils import core
+from maasserver.exceptions import (
+    MaasAPIBadRequest,
+    MaasAPINotFound,
+    NodesNotAvailable,
+    )
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
+    FileStorage,
     MACAddress,
     Node,
     )
@@ -251,6 +265,16 @@ class NodesHandler(BaseHandler):
             return HttpResponseBadRequest(
                 form.errors, content_type='application/json')
 
+    @api_exported('acquire', 'POST')
+    def acquire(self, request):
+        """Acquire an available node for deployment."""
+        node = Node.objects.get_available_node_for_acquisition(request.user)
+        if node is None:
+            raise NodesNotAvailable("No node is available.")
+        node.acquire(request.user)
+        node.save()
+        return node
+
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('nodes_handler', [])
@@ -322,6 +346,60 @@ class NodeMacHandler(BaseHandler):
 
 
 @api_operations
+class FilesHandler(BaseHandler):
+    """File management operations."""
+    allowed_methods = ('GET', 'POST',)
+
+    @api_exported('get', 'GET')
+    def get(self, request):
+        """Get a named file from the file storage.
+
+        :param filename: The exact name of the file you want to get.
+        :type filename: string
+        :return: The file is returned in the response content.
+        """
+        filename = request.GET.get("filename", None)
+        if not filename:
+            raise MaasAPIBadRequest("Filename not supplied")
+        try:
+            db_file = FileStorage.objects.get(filename=filename)
+        except ObjectDoesNotExist:
+            raise MaasAPINotFound("File not found")
+        return HttpResponse(db_file.data.read(), status=httplib.OK)
+
+    @api_exported('add', 'POST')
+    def add(self, request):
+        """Add a new file to the file storage.
+
+        :param filename: The file name to use in the storage.
+        :type filename: string
+        :param file: Actual file data with content type
+            application/octet-stream
+        """
+        filename = request.data.get("filename", None)
+        if not filename:
+            raise MaasAPIBadRequest("Filename not supplied")
+        files = request.FILES
+        if not files:
+            raise MaasAPIBadRequest("File not supplied")
+        if len(files) != 1:
+            raise MaasAPIBadRequest("Exactly one file must be supplied")
+        uploaded_file = files['file']
+
+        # As per the comment in FileStorage, this ought to deal in
+        # chunks instead of reading the file into memory, but large
+        # files are not expected.
+        storage = FileStorage()
+        storage.save_file(filename, uploaded_file)
+        storage.save()
+        return HttpResponse('', status=httplib.CREATED)
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
+
+
+@api_operations
 class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
     allowed_methods = ('POST',)
@@ -334,7 +412,7 @@ class AccountHandler(BaseHandler):
             'token_secret' and 'consumer_key' (e.g.
             {token_key: 's65244576fgqs', token_secret: 'qsdfdhv34',
             consumer_key: '68543fhj854fg'}).
-        :rtype: str (json)
+        :rtype: string (json)
 
         """
         profile = request.user.get_profile()

@@ -13,8 +13,11 @@ __all__ = []
 
 import httplib
 import json
+import os
+import shutil
 import time
 
+from django.conf import settings
 from django.test.client import Client
 from maasserver.models import (
     MACAddress,
@@ -140,7 +143,7 @@ class TestNodeAPI(APITestCase):
 
         response = self.client.get('/api/nodes/%s/' % other_node.system_id)
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_GET_refuses_to_access_nonexistent_node(self):
         # When fetching a Node, the api returns a 'Not Found' (404) error
@@ -197,7 +200,7 @@ class TestNodeAPI(APITestCase):
 
         response = self.client.put('/api/nodes/%s/' % other_node.system_id)
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_PUT_refuses_to_update_nonexistent_node(self):
         # When updating a Node, the api returns a 'Not Found' (404) error
@@ -224,7 +227,7 @@ class TestNodeAPI(APITestCase):
 
         response = self.client.delete('/api/nodes/%s/' % other_node.system_id)
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_refuses_to_delete_nonexistent_node(self):
         # When deleting a Node, the api returns a 'Not Found' (404) error
@@ -385,6 +388,30 @@ class TestNodesAPI(APITestCase):
             ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
 
+    def test_POST_returns_available_node(self):
+        # The "acquire" operation returns an available node.
+        available_status = NODE_STATUS.COMMISSIONED
+        node = factory.make_node(status=available_status, owner=None)
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        self.assertEqual(200, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(node.system_id, parsed_result['system_id'])
+
+    def test_POST_acquire_allocates_node(self):
+        # The "acquire" operation allocates the node it returns.
+        available_status = NODE_STATUS.COMMISSIONED
+        node = factory.make_node(status=available_status, owner=None)
+        self.client.post('/api/nodes/', {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertEqual(self.logged_in_user, node.owner)
+
+    def test_POST_acquire_fails_if_no_node_present(self):
+        # The "acquire" operation returns a Conflict error if no nodes
+        # are available.
+        response = self.client.post('/api/nodes/', {'op': 'acquire'})
+        # Fails with Conflict error: resource can't satisfy request.
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
 
 class MACAddressAPITest(APITestCase):
 
@@ -407,14 +434,14 @@ class MACAddressAPITest(APITestCase):
             self.mac2.mac_address, parsed_result[1]['mac_address'])
 
     def test_macs_GET_forbidden(self):
-        # When fetching MAC Addresses, the api returns a 'Unauthorized' (401)
+        # When fetching MAC Addresses, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         other_node = factory.make_node(
             status=NODE_STATUS.DEPLOYED, owner=factory.make_user())
         response = self.client.get(
             '/api/nodes/%s/macs/' % other_node.system_id)
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_GET_not_found(self):
         # When fetching MAC Addresses, the api returns a 'Not Found' (404)
@@ -432,14 +459,14 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_GET_node_forbidden(self):
-        # When fetching a MAC Address, the api returns a 'Unauthorized' (401)
+        # When fetching a MAC Address, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         other_node = factory.make_node(
             status=NODE_STATUS.DEPLOYED, owner=factory.make_user())
         response = self.client.get(
             '/api/nodes/%s/macs/0-aa-22-cc-44-dd/' % other_node.system_id)
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_GET_node_bad_request(self):
         # When fetching a MAC Address, the api returns a 'Bad Request' (400)
@@ -490,7 +517,7 @@ class MACAddressAPITest(APITestCase):
             self.node.macaddress_set.count())
 
     def test_macs_DELETE_mac_forbidden(self):
-        # When deleting a MAC Address, the api returns a 'Unauthorized' (401)
+        # When deleting a MAC Address, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         other_node = factory.make_node(
             status=NODE_STATUS.DEPLOYED, owner=factory.make_user())
@@ -498,7 +525,7 @@ class MACAddressAPITest(APITestCase):
             '/api/nodes/%s/macs/%s/' % (
                 other_node.system_id, self.mac1.mac_address))
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_DELETE_not_found(self):
         # When deleting a MAC Address, the api returns a 'Not Found' (404)
@@ -552,3 +579,108 @@ class AccountAPITest(APITestCase):
             '/api/account/', {'op': 'delete_authorisation_token'})
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
+
+class FileStorageAPITest(APITestCase):
+
+    def setUp(self):
+        super(FileStorageAPITest, self).setUp()
+        os.mkdir(settings.MEDIA_ROOT)
+        self.tmpdir = os.path.join(settings.MEDIA_ROOT, "testing")
+        os.mkdir(self.tmpdir)
+        self.addCleanup(shutil.rmtree, settings.MEDIA_ROOT)
+
+    def make_file(self, name="foo", contents="test file contents"):
+        """Make a temp file named `name` with contents `contents`.
+
+        :return: The full file path of the file that was created.
+        """
+        filepath = os.path.join(self.tmpdir, name)
+        with open(filepath, "w") as f:
+            f.write(contents)
+        return filepath
+
+    def _create_API_params(self, op=None, filename=None, fileObj=None):
+        params = {}
+        if op is not None:
+            params["op"] = op
+        if filename is not None:
+            params["filename"] = filename
+        if fileObj is not None:
+            params["file"] = fileObj
+        return params
+
+    def make_API_POST_request(self, op=None, filename=None, fileObj=None):
+        """Make an API POST request and return the response."""
+        params = self._create_API_params(op, filename, fileObj)
+        return self.client.post("/api/files/", params)
+
+    def make_API_GET_request(self, op=None, filename=None, fileObj=None):
+        """Make an API GET request and return the response."""
+        params = self._create_API_params(op, filename, fileObj)
+        return self.client.get("/api/files/", params)
+
+    def test_add_file_succeeds(self):
+        filepath = self.make_file()
+
+        with open(filepath) as f:
+            response = self.make_API_POST_request("add", "foo", f)
+
+        self.assertEqual(httplib.CREATED, response.status_code)
+
+    def test_add_file_fails_with_no_filename(self):
+        filepath = self.make_file()
+
+        with open(filepath) as f:
+            response = self.make_API_POST_request("add", fileObj=f)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual("Filename not supplied", response.content)
+
+    def test_add_file_fails_with_no_file_attached(self):
+        response = self.make_API_POST_request("add", "foo")
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual("File not supplied", response.content)
+
+    def test_add_file_fails_with_too_many_files(self):
+        filepath = self.make_file(name="foo")
+        filepath2 = self.make_file(name="foo2")
+
+        with open(filepath) as f, open(filepath2) as f2:
+            response = self.client.post(
+                "/api/files/",
+                {
+                    "op": "add",
+                    "filename": "foo",
+                    "file": f,
+                    "file2": f2,
+                })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual("Exactly one file must be supplied", response.content)
+
+    def test_get_file_succeeds(self):
+        storage = factory.make_file_storage(
+            filename="foofilers", data=b"give me rope")
+        response = self.make_API_GET_request("get", "foofilers")
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(b"give me rope", response.content)
+
+    def test_get_file_fails_with_no_filename(self):
+        response = self.make_API_GET_request("get")
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual("Filename not supplied", response.content)
+
+    def test_get_file_fails_with_missing_file(self):
+        response = self.make_API_GET_request("get", filename="missingfilename")
+
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual("File not found", response.content)
