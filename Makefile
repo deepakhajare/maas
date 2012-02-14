@@ -12,8 +12,12 @@ bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/maas bin/test.maas: bin/buildout buildout.cfg setup.py
+bin/maas: bin/buildout buildout.cfg setup.py
 	bin/buildout install maas
+	@touch --no-create $@
+
+bin/test.maas: bin/buildout buildout.cfg setup.py
+	bin/buildout install maas-test
 	@touch --no-create $@
 
 bin/twistd.pserv: bin/buildout buildout.cfg setup.py
