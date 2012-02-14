@@ -29,7 +29,6 @@ from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from maasserver.exceptions import PermissionDenied
 from maasserver.macaddress import MACAddressField
-from maasserver.provisioning import get_provisioning_api_proxy
 from piston.models import (
     Consumer,
     Token,
@@ -231,6 +230,8 @@ class NodeManager(models.Manager):
         :param by_user: Requesting user.
         :return: A list of Nodes whose shutdown was actually requested.
         """
+        # Avoid circular imports.
+        from maasserver.provisioning import get_provisioning_api_proxy
         proxy = get_provisioning_api_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
         proxy.stop_nodes([node.system_id for node in nodes])

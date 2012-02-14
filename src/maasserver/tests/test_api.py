@@ -160,21 +160,17 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    def test_POST_stop_is_permitted_for_admin(self):
-        node = factory.make_node()
-        self.become_admin()
-        response = self.client.post(self.get_uri(node), {'op': 'stop'})
-        self.assertEqual(httplib.OK, response.status_code)
-
-    def test_POST_stop_is_forbidden_to_normal_user(self):
+    def test_POST_stop_checks_permission(self):
         node = factory.make_node()
         response = self.client.post(self.get_uri(node), {'op': 'stop'})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
-    def test_POST_stop_is_permitted_for_node_owner(self):
+    def test_POST_stop_returns_node(self):
         node = factory.make_node(owner=self.logged_in_user)
         response = self.client.post(self.get_uri(node), {'op': 'stop'})
         self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            node.system_id, json.loads(response.content)['system_id'])
 
     def test_POST_stop_may_be_repeated(self):
         node = factory.make_node(owner=self.logged_in_user)

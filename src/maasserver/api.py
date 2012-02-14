@@ -241,7 +241,7 @@ class NodeHandler(BaseHandler):
         if len(nodes) == 0:
             raise PermissionDenied(
                 "You are not allowed to shut down this system.")
-        return rc.ALL_OK
+        return nodes[0]
 
 
 @api_operations
