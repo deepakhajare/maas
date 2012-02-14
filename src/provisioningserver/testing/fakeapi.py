@@ -73,7 +73,10 @@ class FakeSynchronousProvisioningAPI:
         self.distros = FakeProvisioningDatabase()
         self.profiles = FakeProvisioningDatabase()
         self.nodes = FakeProvisioningDatabase()
-        # To record power-on/power-off commands:
+        # This records nodes that start/stop commands have been issued
+        # for.  If a node has been started, its name maps to 'start'; if
+        # it has been stopped, its name maps to 'stop' (whichever
+        # happened most recently).
         self.power_status = {}
 
     def add_distro(self, name, initrd, kernel):
