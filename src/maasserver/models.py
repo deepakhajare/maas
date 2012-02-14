@@ -245,6 +245,22 @@ class NodeManager(models.Manager):
         self.provisioning_proxy.stop_nodes([node.system_id for node in nodes])
         return nodes
 
+    def start_nodes(self, ids, by_user):
+        """Request on given user's behalf that the given nodes be started up.
+
+        Power-on is only requested for nodes that the user has ownership
+        privileges for; any other nodes in the request are ignored.
+
+        :param ids: Sequence of `system_id` values for nodes to start.
+        :param by_user: Requesting user.
+        :return: A list of Nodes for which power-on was actually requested.
+        """
+        self._set_provisioning_proxy()
+        nodes = self.get_editable_nodes(by_user, ids=ids)
+        self.provisioning_proxy.start_nodes(
+            [node.system_id for node in nodes])
+        return nodes
+
 
 class Node(CommonInfo):
     """A `Node` represents a physical machine used by the MaaS Server.
