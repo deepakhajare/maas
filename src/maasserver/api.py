@@ -240,7 +240,7 @@ class NodeHandler(BaseHandler):
         nodes = Node.objects.stop_nodes([system_id], request.user)
         if len(nodes) == 0:
             raise PermissionDenied(
-                "You are not allowed to shut down this system.")
+                "You are not allowed to shut down this node.")
         return nodes[0]
 
 

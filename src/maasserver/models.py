@@ -148,9 +148,11 @@ class NodeManager(models.Manager):
     def filter_by_ids(self, query, ids=None):
         """Filter `query` result set by system_id values.
 
-        :param query: A result set of Nodes.
+        :param query: A queryset of Nodes.
+        :type query: QuerySet_
         :param ids: Optional set of ids to filter by.  If given, nodes whose
-            system_ids are not in this sequence will be ignored.
+            system_ids are not in `ids` will be ignored.
+        :type param_ids: Sequence
         :return: A filtered version of `query`.
         """
         if ids is None:
@@ -191,7 +193,7 @@ class NodeManager(models.Manager):
         if user.is_superuser:
             visible_nodes = self.all()
         else:
-            visible_nodes = self.filter(models.Q(owner=user))
+            visible_nodes = self.filter(owner=user)
         return self.filter_by_ids(visible_nodes, ids)
 
     def get_visible_node_or_404(self, system_id, user):
@@ -237,7 +239,9 @@ class NodeManager(models.Manager):
         privileges for; any other nodes in the request are ignored.
 
         :param ids: Sequence of `system_id` values for nodes to shut down.
+        :type ids: QuerySet
         :param by_user: Requesting user.
+        :type by_user: User_
         :return: A list of Nodes whose shutdown was actually requested.
         """
         self._set_provisioning_proxy()
