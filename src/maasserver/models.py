@@ -327,7 +327,7 @@ class UserProfile(models.Model):
             is_approved=True).order_by('id')
 
     def create_authorisation_token(self):
-        """Create a new Token and its related  Consumer (OAuth authorisation).
+        """Create a new Token and its related Consumer (OAuth authorisation).
 
         :return: A tuple containing the Consumer and the Token that were
             created.
@@ -356,7 +356,7 @@ class UserProfile(models.Model):
 
         """
         token = get_object_or_404(
-            Token,  user=self.user, token_type=Token.ACCESS, key=token_key)
+            Token, user=self.user, token_type=Token.ACCESS, key=token_key)
         token.consumer.delete()
         token.delete()
 

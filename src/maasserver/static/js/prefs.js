@@ -81,7 +81,10 @@ Y.extend(TokenWidget, Y.Widget, {
         var self = this;
         var cfg = {
             method: 'POST',
-            data: 'op=delete_authorisation_token&token_key=' + token_key,
+            data: Y.QueryString.stringify({
+                op: 'delete_authorisation_token',
+                token_key: token_key
+                }),
             sync: false,
             on: {
                 start: Y.bind(self.showSpinner, self),

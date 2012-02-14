@@ -445,17 +445,17 @@ class AccountHandler(BaseHandler):
 def generate_api_doc(add_title=False):
     # Fetch all the API Handlers (objects with the class
     # HandlerMetaClass).
-    modname = globals()['__name__']
-    module = sys.modules[modname]
-    handlers = [
-        getattr(module, itemname) for itemname in module.__all__
-        if getattr(module, itemname).__class__ == HandlerMetaClass
-        ]
+    module = sys.modules[__name__]
+
+    all = [getattr(module, name) for name in module.__all__]
+    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
+
     # Make sure each handler defines a 'resource_uri' method (this is
     # easily forgotten and essential to have a proper documentation).
     for handler in handlers:
-        has_resource_uri = hasattr(handler, 'resource_uri')
-        assert has_resource_uri, "Missing resource_uri in %s" % (
+        sentinel = object()
+        resource_uri = getattr(handler, "resource_uri", sentinel)
+        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
             handler.__name__)
 
     docs = [generate_doc(handler) for handler in handlers]
