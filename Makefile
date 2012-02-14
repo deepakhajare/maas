@@ -38,7 +38,7 @@ bin/sphinx: bin/buildout buildout.cfg setup.py
 
 bin/py bin/ipy: bin/buildout buildout.cfg setup.py
 	bin/buildout install repl
-	@touch --no-create $@
+	@touch --no-create bin/py bin/ipy
 
 dev-db:
 	utilities/maasdb start ./db/ disposable
