@@ -41,6 +41,7 @@ class UserPrefsViewTest(LoggedInTestCase):
     def test_prefs_GET_api(self):
         # The preferences page (api tab) displays the API access tokens.
         user = self.logged_in_user
+        # Create a few tokens.
         for i in xrange(3):
             user.get_profile().create_authorisation_token()
         response = self.client.get('/account/prefs/?tab=1')
@@ -48,6 +49,7 @@ class UserPrefsViewTest(LoggedInTestCase):
         # The OAuth tokens are displayed.
         for token in user.get_profile().get_authorisation_tokens():
             consumer = token.consumer
+            # The token string is a compact representation of the keys.
             token_string = '%s:%s:%s' % (consumer.key, token.key, token.secret)
             self.assertSequenceEqual(
                 [token_string],
