@@ -102,6 +102,11 @@ class NodeManagerTest(TestCase):
             [node], Node.objects.filter_by_ids(Node.objects.all(), None))
 
     def test_get_visible_nodes_for_user_lists_visible_nodes(self):
+        """get_visible_nodes lists the nodes a user has access to.
+
+        When run for a regular user it returns unowned nodes, and nodes
+        owned by that user.
+        """
         user = factory.make_user()
         visible_nodes = [self.make_node(owner) for owner in [None, user]]
         self.make_node(factory.make_user())
