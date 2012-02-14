@@ -240,7 +240,7 @@ class NodeHandler(BaseHandler):
         nodes = Node.objects.stop_nodes([system_id], request.user)
         if len(nodes) == 0:
             raise PermissionDenied(
-                "You are not allowed to shut down this system.")
+                "You are not allowed to shut down this node.")
         return nodes[0]
 
     @api_exported('start', 'POST')
@@ -249,7 +249,7 @@ class NodeHandler(BaseHandler):
         nodes = Node.objects.start_nodes([system_id], request.user)
         if len(nodes) == 0:
             raise PermissionDenied(
-                "You are not allowed to start up this system.")
+                "You are not allowed to start up this node.")
         return nodes[0]
 
 
