@@ -41,7 +41,7 @@ Y.extend(TokenWidget, Y.Widget, {
             .set('href', '#')
             .set('id','create_token')
             .set('text', "Create a new API token");
-        this.status_node = Y.Node.create('<span />')
+        this.status_node = Y.Node.create('<div />')
             .set('id','create_error');
         this.spinnerNode = Y.Node.create('<img />')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
@@ -90,7 +90,7 @@ Y.extend(TokenWidget, Y.Widget, {
                     row.remove();
                  },
                 failure: function(id, out) {
-                    displayError('Unable to delete the token.');
+                    self.displayError('Unable to delete the token.');
                 }
             }
         };
@@ -165,7 +165,7 @@ Y.extend(TokenWidget, Y.Widget, {
                     }
                     catch(e) {
                         // Parsing error.
-                        displayError('Unable to create a new token.');
+                        self.displayError('Unable to create a new token.');
                     }
                     // Generate a token from the keys.
                     var token = self.createTokenFromKeys(
@@ -175,7 +175,7 @@ Y.extend(TokenWidget, Y.Widget, {
                     self.addToken(token, keys.token_key);
                  },
                 failure: function(id, out) {
-                    displayError('Unable to create a new token.');
+                    self.displayError('Unable to create a new token.');
                 }
             }
         };
