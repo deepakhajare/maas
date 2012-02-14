@@ -301,7 +301,8 @@ class UserProfile(models.Model):
 
         """
         return Token.objects.select_related().filter(
-            user=self.user, token_type=Token.ACCESS, is_approved=True)
+            user=self.user, token_type=Token.ACCESS,
+            is_approved=True).order_by('id')
 
     def create_authorisation_token(self):
         """Create a new Token and its related  Consumer (OAuth authorisation).

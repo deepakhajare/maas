@@ -326,14 +326,15 @@ class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
     allowed_methods = ('POST',)
 
-    @api_exported('reset_authorisation_token')
+    @api_exported('create_authorisation_token', method='POST')
     def create_authorisation_token(self, request):
         """Create an authorisation OAuth token and OAuth consumer.
 
-        :return: A json dict with three keys: 'token_key',
+        :return: a json dict with three keys: 'token_key',
             'token_secret' and 'consumer_key' (e.g.
             {token_key: 's65244576fgqs', token_secret: 'qsdfdhv34',
-             consumer_key: '68543fhj854fg'}).
+            consumer_key: '68543fhj854fg'}).
+        :rtype: str (json)
 
         """
         profile = request.user.get_profile()
@@ -342,6 +343,21 @@ class AccountHandler(BaseHandler):
             'token_key': token.key, 'token_secret': token.secret,
             'consumer_key': consumer.key,
             }
+
+    @api_exported('delete_authorisation_token', method='POST')
+    def delete_authorisation_token(self, request):
+        """Delete an authorisation OAuth token and the related OAuth consumer.
+
+        :param token_key: The key of the token to be deleted.
+        :type token_key: str
+
+        """
+        profile = request.user.get_profile()
+        token_key = request.data.get('token_key', None)
+        if token_key is None:
+            raise ValidationError('No provided token_key!')
+        profile.delete_authorisation_token(token_key)
+        return rc.DELETED
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
