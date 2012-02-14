@@ -238,8 +238,8 @@ class NodeManager(models.Manager):
         Shutdown is only requested for nodes that the user has ownership
         privileges for; any other nodes in the request are ignored.
 
-        :param ids: Sequence of `system_id` values for nodes to shut down.
-        :type ids: QuerySet
+        :param ids: The `system_id` values for nodes to be shut down.
+        :type ids: Sequence
         :param by_user: Requesting user.
         :type by_user: User_
         :return: Those Nodes for which shutdown was actually requested.
@@ -256,8 +256,8 @@ class NodeManager(models.Manager):
         Power-on is only requested for nodes that the user has ownership
         privileges for; any other nodes in the request are ignored.
 
-        :param ids: Sequence of `system_id` values for nodes to start.
-        :type ids: QuerySet
+        :param ids: The `system_id` values for nodes to be started.
+        :type ids: Sequence
         :param by_user: Requesting user.
         :type by_user: User_
         :return: Those Nodes for which power-on was actually requested.
