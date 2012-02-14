@@ -73,6 +73,8 @@ class FakeSynchronousProvisioningAPI:
         self.distros = FakeProvisioningDatabase()
         self.profiles = FakeProvisioningDatabase()
         self.nodes = FakeProvisioningDatabase()
+        # To record power-on/power-off commands:
+        self.power_status = {}
 
     def add_distro(self, name, initrd, kernel):
         self.distros[name]["initrd"] = initrd
@@ -131,10 +133,12 @@ class FakeSynchronousProvisioningAPI:
         return self.nodes.dump()
 
     def start_nodes(self, names):
-        pass
+        for name in names:
+            self.power_status[name] = 'start'
 
     def stop_nodes(self, names):
-        pass
+        for name in names:
+            self.power_status[name] = 'stop'
 
 
 def async(func):

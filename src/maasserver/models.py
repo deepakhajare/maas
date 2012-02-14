@@ -134,6 +134,17 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class NodeManager(models.Manager):
     """A utility to manage the collection of Nodes."""
 
+    # Twisted XMLRPC proxy for talking to the provisioning API.  Created
+    # on demand.
+    provisioning_proxy = None
+
+    def _set_provisioning_proxy(self):
+        """Set up the provisioning-API proxy if needed."""
+        # Avoid circular imports.
+        from maasserver.provisioning import get_provisioning_api_proxy
+        if self.provisioning_proxy is None:
+            self.provisioning_proxy = get_provisioning_api_proxy()
+
     def filter_by_ids(self, query, ids=None):
         """Filter `query` result set by system_id values.
 
@@ -183,7 +194,6 @@ class NodeManager(models.Manager):
             visible_nodes = self.filter(models.Q(owner=user))
         return self.filter_by_ids(visible_nodes, ids)
 
-
     def get_visible_node_or_404(self, system_id, user):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
         this system_id exist or if the provided user cannot see this `Node`.
@@ -230,11 +240,9 @@ class NodeManager(models.Manager):
         :param by_user: Requesting user.
         :return: A list of Nodes whose shutdown was actually requested.
         """
-        # Avoid circular imports.
-        from maasserver.provisioning import get_provisioning_api_proxy
-        proxy = get_provisioning_api_proxy()
+        self._set_provisioning_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
-        proxy.stop_nodes([node.system_id for node in nodes])
+        self.provisioning_proxy.stop_nodes([node.system_id for node in nodes])
         return nodes
 
 

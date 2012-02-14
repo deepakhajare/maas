@@ -86,7 +86,7 @@ class NodeManagerTest(TestCase):
     def test_filter_by_ids_filters_nodes_by_ids(self):
         nodes = [factory.make_node() for counter in range(5)]
         ids = [node.system_id for node in nodes]
-        selection = slice(1,3)
+        selection = slice(1, 3)
         self.assertItemsEqual(
             nodes[selection],
             Node.objects.filter_by_ids(Node.objects.all(), ids[selection]))
@@ -207,8 +207,9 @@ class NodeManagerTest(TestCase):
         output = Node.objects.stop_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
-
-        self.fail("TEST THIS")
+        self.assertEqual(
+            'stop',
+            Node.objects.provisioning_proxy.power_status[node.system_id])
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [self.make_node(factory.make_user()) for counter in range(3)]
