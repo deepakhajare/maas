@@ -63,24 +63,23 @@ def generate_node_system_id():
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
     DEFAULT_STATUS = 0
-    #: MaaS is aware of the node and has assigned it a system ID,
-    #: but has done nothing else to it.
+    #: The node has been created and has a system ID assigned to it.
     DECLARED = 0
     #: Testing and other commissioning steps are taking place.
     COMMISSIONING = 1
     #: Smoke or burn-in testing has a found a problem.
     FAILED_TESTS = 2
-    #: The MaaS can't contact the node.
+    #: The node can't be contacted.
     MISSING = 3
     #: The node is in the general pool ready to be deployed.
     READY = 4
     #: The node is ready for named deployment.
     RESERVED = 5
-    #: The node is powering a service from a charm or is ready
-    #: for use with a fresh Ubuntu install.
+    #: The node is powering a service from a charm or is ready for use with
+    #: a fresh Ubuntu install.
     ALLOCATED = 6
-    #: The node has been removed from service manually until the
-    #: MaaS owner overrides the retirement.
+    #: The node has been removed from service manually until an admin
+    #: overrides the retirement.
     RETIRED = 7
 
 
