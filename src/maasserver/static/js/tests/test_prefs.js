@@ -31,6 +31,9 @@ suite.add(new Y.maas.testing.TestCase({
         // The placeholder node for errors has been created.
         var status_node = widget.get('srcNode').one('#create_error');
         Y.Assert.isNotNull(status_node);
+        Y.Assert.areEqual(
+            '',
+            widget.get('srcNode').one('#create_error').get('text'));
     },
 
     test_nb_tokens: function() {
@@ -58,6 +61,26 @@ suite.add(new Y.maas.testing.TestCase({
         var link = widget.get('srcNode').one('.delete-link');
         link.simulate('click');
         Y.Assert.isTrue(fired);
+    },
+
+    testDeleteTokenFail: function() {
+        // If the API call to delete a token fails, an error is displayed.
+        var mockXhr = new Y.Base();
+        var fired = false;
+        mockXhr.io = function(url, cfg) {
+            fired = true;
+            cfg.on.failure(3);
+        };
+        this.mockIO(mockXhr, module);
+        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        this.addCleanup(function() { widget.destroy(); });
+        widget.render();
+        var link = widget.get('srcNode').one('.delete-link');
+        link.simulate('click');
+        Y.Assert.isTrue(fired);
+        Y.Assert.areEqual(
+            'Unable to delete the token.',
+            widget.get('srcNode').one('#create_error').get('text'));
     },
 
     testDeleteTokenDisplay: function() {
@@ -109,6 +132,26 @@ suite.add(new Y.maas.testing.TestCase({
         var create_link = widget.get('srcNode').one('#create_token');
         create_link.simulate('click');
         Y.Assert.isTrue(fired);
+    },
+
+    testCreateTokenFail: function() {
+        // If the API call to create a token fails, an error is displayed.
+        var mockXhr = new Y.Base();
+        var fired = false;
+        mockXhr.io = function(url, cfg) {
+            fired = true;
+            cfg.on.failure(3);
+        };
+        this.mockIO(mockXhr, module);
+        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        this.addCleanup(function() { widget.destroy(); });
+        widget.render();
+        var create_link = widget.get('srcNode').one('#create_token');
+        create_link.simulate('click');
+        Y.Assert.isTrue(fired);
+        Y.Assert.areEqual(
+            'Unable to create a new token.',
+            widget.get('srcNode').one('#create_error').get('text'));
     },
 
     testCreateTokenDisplay: function() {
