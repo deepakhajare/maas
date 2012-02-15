@@ -17,6 +17,7 @@ from unittest import skip
 
 from fixtures import TempDir
 from provisioningserver.plugin import (
+    Config,
     Options,
     ProvisioningServiceMaker,
     )
@@ -27,6 +28,53 @@ from testtools.matchers import (
     )
 from twisted.application.service import MultiService
 from twisted.python.usage import UsageError
+
+
+class TestConfig(TestCase):
+    """Tests for `provisioningserver.plugin.Config`."""
+
+    def test_defaults(self):
+        expected = {
+            'broker': {
+                'host': 'localhost',
+                'password': '',
+                'port': 5673,
+                'username': '',
+                'vhost': u'/',
+                },
+            'logfile': '/some/where.log',
+            'oops': {
+                'directory': '',
+                'reporter': '',
+                },
+            'port': 8001,
+            }
+        mandatory_arguments = {
+            "logfile": "/some/where.log",
+            }
+        observed = Config.to_python(mandatory_arguments)
+        self.assertEqual(expected, observed)
+
+    def test_parse(self):
+        # Configuration can be parsed from a snipped of YAML.
+        observed = Config.parse(
+            b'logfile: "/some/where.log"')
+        self.assertEqual("/some/where.log", observed["logfile"])
+
+    def test_load(self):
+        # Configuration can be loaded and parsed from a file.
+        filename = os.path.join(
+            self.useFixture(TempDir()).path, "config.yaml")
+        with open(filename, "wb") as stream:
+            stream.write(b'logfile: "/some/where.log"')
+        observed = Config.load(filename)
+        self.assertEqual("/some/where.log", observed["logfile"])
+
+    def test_load_example(self):
+        # The example configuration can be loaded and validated.
+        filename = os.path.join(
+            os.path.dirname(__file__), "pserv.example.yaml")
+        Config.load(filename)
 
 
 class TestOptions(TestCase):

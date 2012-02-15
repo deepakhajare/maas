@@ -1,0 +1,23 @@
+# Example Provisioning Server configuration.
+
+# The port on which the Provisioning API will be made available.
+port: 1123
+# Where to log. This log can be rotated by sending SIGUSR1 to the
+# running server.
+logfile: "/tmp/ironfist.log"
+
+# OOPS configuration (optional).
+oops:
+  # Where to store OOPS reports (optional).
+  directory: "/tmp/killed/by"
+  # The OOPS reporter name (optional, but must be specified if an OOPS
+  # directory is configured).
+  reporter: "death"
+
+# Message broker configuration (optional, not currently used).
+broker:
+  host: "localhost"
+  port: 1543
+  username: "lemmy"
+  password: "overkill"
+  vhost: "/hammersmith"

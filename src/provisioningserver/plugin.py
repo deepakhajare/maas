@@ -12,6 +12,12 @@ __metaclass__ = type
 __all__ = []
 
 from amqpclient import AMQFactory
+from formencode import Schema
+from formencode.validators import (
+    Int,
+    RequireIfPresent,
+    String,
+    )
 from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.remote import ProvisioningAPI_XMLRPC
 from provisioningserver.services import (
@@ -38,7 +44,55 @@ from twisted.python import (
     )
 from twisted.web.resource import Resource
 from twisted.web.server import Site
+import yaml
 from zope.interface import implements
+
+
+class ConfigOops(Schema):
+    """Configuration validator for OOPS options."""
+
+    if_key_missing = None
+
+    directory = String(if_missing=b"")
+    reporter = String(if_missing=b"")
+
+    chained_validators = (
+        RequireIfPresent("reporter", present="directory"),
+        )
+
+
+class ConfigBroker(Schema):
+    """Configuration validator for message broker options."""
+
+    if_key_missing = None
+
+    host = String(if_missing=b"localhost")
+    port = Int(min=1, max=65535, if_missing=5673)
+    username = String(if_missing=b"")
+    password = String(if_missing=b"")
+    vhost = String(if_missing="/")
+
+
+class Config(Schema):
+    """Configuration validator."""
+
+    if_key_missing = None
+
+    port = Int(min=1, max=65535, if_missing=8001)
+    logfile = String(not_empty=True)
+    oops = ConfigOops
+    broker = ConfigBroker
+
+    @classmethod
+    def parse(cls, stream):
+        """Load a YAML configuration from `stream` and validate."""
+        return cls().to_python(yaml.load(stream))
+
+    @classmethod
+    def load(cls, filename):
+        """Load a YAML configuration from `filename` and validate."""
+        with open(filename, "rb") as stream:
+            return cls.parse(stream)
 
 
 class Options(usage.Options):
