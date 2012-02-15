@@ -12,33 +12,51 @@ __metaclass__ = type
 __all__ = [
     "api_doc",
     "generate_api_doc",
+    "AccountHandler",
+    "FilesHandler",
     "NodeHandler",
+    "NodesHandler",
+    "NodeMacHandler",
     "NodeMacsHandler",
     ]
 
-from functools import wraps
+import httplib
+import sys
 import types
 
 from django.core.exceptions import (
-    PermissionDenied,
+    ObjectDoesNotExist,
     ValidationError,
     )
-from django.http import HttpResponseBadRequest
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    )
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
     )
 from django.template import RequestContext
 from docutils import core
+from maasserver.exceptions import (
+    MaasAPIBadRequest,
+    MaasAPINotFound,
+    NodesNotAvailable,
+    PermissionDenied,
+    )
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.macaddress import validate_mac
 from maasserver.models import (
+    FileStorage,
     MACAddress,
     Node,
     )
 from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
-from piston.handler import BaseHandler
+from piston.handler import (
+    BaseHandler,
+    HandlerMetaClass,
+    )
 from piston.utils import rc
 
 
@@ -57,34 +75,6 @@ class MaasAPIAuthentication(OAuthAuthentication):
 
     def challenge(self):
         return rc.FORBIDDEN
-
-
-def validate_and_save(obj):
-    try:
-        obj.full_clean()
-        obj.save()
-        return obj
-    except ValidationError, e:
-        return HttpResponseBadRequest(
-            e.message_dict, content_type='application/json')
-
-
-def validate_mac_address(mac_address):
-    try:
-        validate_mac(mac_address)
-        return True, None
-    except ValidationError:
-        return False, HttpResponseBadRequest('Invalid MAC Address.')
-
-
-def perm_denied_handler(view_func):
-    def _decorator(request, *args, **kwargs):
-        try:
-            response = view_func(request, *args, **kwargs)
-            return response
-        except PermissionDenied:
-            return rc.FORBIDDEN
-    return wraps(view_func)(_decorator)
 
 
 dispatch_methods = {
@@ -201,7 +191,7 @@ def api_operations(cls):
         dispatcher.__doc__ = (
             "The actual operation to execute depends on the value of the '%s' "
             "parameter:\n\n" % OP_PARAM)
-        dispatcher.__doc__ += "\n- ".join(
+        dispatcher.__doc__ += "\n".join(
             "- Operation '%s' (op=%s):\n\t%s" % (name, name, op.__doc__)
             for name, op in cls._available_api_methods[method].iteritems())
 
@@ -210,28 +200,28 @@ def api_operations(cls):
     return cls
 
 
+@api_operations
 class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
-    allowed_methods = ('GET', 'DELETE', 'PUT')
+    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
-    @perm_denied_handler
     def read(self, request, system_id):
         """Read a specific Node."""
         return Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
 
-    @perm_denied_handler
     def update(self, request, system_id):
         """Update a specific Node."""
         node = Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
         for key, value in request.data.items():
             setattr(node, key, value)
-        return validate_and_save(node)
+        node.full_clean()
+        node.save()
+        return node
 
-    @perm_denied_handler
     def delete(self, request, system_id):
         """Delete a specific Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -251,6 +241,24 @@ class NodeHandler(BaseHandler):
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
 
+    @api_exported('stop', 'POST')
+    def stop(self, request, system_id):
+        """Shut down a node."""
+        nodes = Node.objects.stop_nodes([system_id], request.user)
+        if len(nodes) == 0:
+            raise PermissionDenied(
+                "You are not allowed to shut down this node.")
+        return nodes[0]
+
+    @api_exported('start', 'POST')
+    def start(self, request, system_id):
+        """Power up a node."""
+        nodes = Node.objects.start_nodes([system_id], request.user)
+        if len(nodes) == 0:
+            raise PermissionDenied(
+                "You are not allowed to start up this node.")
+        return nodes[0]
+
 
 @api_operations
 class NodesHandler(BaseHandler):
@@ -259,8 +267,12 @@ class NodesHandler(BaseHandler):
 
     @api_exported('list', 'GET')
     def list(self, request):
-        """Read all Nodes."""
-        return Node.objects.get_visible_nodes(request.user).order_by('id')
+        """List Nodes visible to the user, optionally filtered by id."""
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        return nodes.order_by('id')
 
     @api_exported('new', 'POST')
     def new(self, request):
@@ -272,6 +284,16 @@ class NodesHandler(BaseHandler):
         else:
             return HttpResponseBadRequest(
                 form.errors, content_type='application/json')
+
+    @api_exported('acquire', 'POST')
+    def acquire(self, request):
+        """Acquire an available node for deployment."""
+        node = Node.objects.get_available_node_for_acquisition(request.user)
+        if node is None:
+            raise NodesNotAvailable("No node is available.")
+        node.acquire(request.user)
+        node.save()
+        return node
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -286,7 +308,6 @@ class NodeMacsHandler(BaseHandler):
     """
     allowed_methods = ('GET', 'POST',)
 
-    @perm_denied_handler
     def read(self, request, system_id):
         """Read all MAC Addresses related to a Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -315,25 +336,18 @@ class NodeMacHandler(BaseHandler):
     fields = ('mac_address',)
     model = MACAddress
 
-    @perm_denied_handler
     def read(self, request, system_id, mac_address):
         """Read a MAC Address related to a Node."""
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
+        validate_mac(mac_address)
         return get_object_or_404(
             MACAddress, node=node, mac_address=mac_address)
 
-    @perm_denied_handler
     def delete(self, request, system_id, mac_address):
         """Delete a specific MAC Address for the specified Node."""
-        valid, response = validate_mac_address(mac_address)
-        if not valid:
-            return response
-
+        validate_mac(mac_address)
         node = Node.objects.get_visible_node_or_404(
             user=request.user, system_id=system_id)
 
@@ -352,37 +366,128 @@ class NodeMacHandler(BaseHandler):
 
 
 @api_operations
+class FilesHandler(BaseHandler):
+    """File management operations."""
+    allowed_methods = ('GET', 'POST',)
+
+    @api_exported('get', 'GET')
+    def get(self, request):
+        """Get a named file from the file storage.
+
+        :param filename: The exact name of the file you want to get.
+        :type filename: string
+        :return: The file is returned in the response content.
+        """
+        filename = request.GET.get("filename", None)
+        if not filename:
+            raise MaasAPIBadRequest("Filename not supplied")
+        try:
+            db_file = FileStorage.objects.get(filename=filename)
+        except ObjectDoesNotExist:
+            raise MaasAPINotFound("File not found")
+        return HttpResponse(db_file.data.read(), status=httplib.OK)
+
+    @api_exported('add', 'POST')
+    def add(self, request):
+        """Add a new file to the file storage.
+
+        :param filename: The file name to use in the storage.
+        :type filename: string
+        :param file: Actual file data with content type
+            application/octet-stream
+        """
+        filename = request.data.get("filename", None)
+        if not filename:
+            raise MaasAPIBadRequest("Filename not supplied")
+        files = request.FILES
+        if not files:
+            raise MaasAPIBadRequest("File not supplied")
+        if len(files) != 1:
+            raise MaasAPIBadRequest("Exactly one file must be supplied")
+        uploaded_file = files['file']
+
+        # As per the comment in FileStorage, this ought to deal in
+        # chunks instead of reading the file into memory, but large
+        # files are not expected.
+        storage = FileStorage()
+        storage.save_file(filename, uploaded_file)
+        storage.save()
+        return HttpResponse('', status=httplib.CREATED)
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
+
+
+@api_operations
 class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
     allowed_methods = ('POST',)
 
-    @api_exported('reset_authorisation_token')
-    def reset_authorisation_token(self, request):
-        """Regenerate the token and the secret of the OAuth Token.
+    @api_exported('create_authorisation_token', method='POST')
+    def create_authorisation_token(self, request):
+        """Create an authorisation OAuth token and OAuth consumer.
 
-        :return: A json dict with three keys: 'token_key',
+        :return: a json dict with three keys: 'token_key',
             'token_secret' and 'consumer_key' (e.g.
             {token_key: 's65244576fgqs', token_secret: 'qsdfdhv34',
-             consumer_key: '68543fhj854fg'}).
+            consumer_key: '68543fhj854fg'}).
+        :rtype: string (json)
 
         """
         profile = request.user.get_profile()
-        consumer, token = profile.reset_authorisation_token()
+        consumer, token = profile.create_authorisation_token()
         return {
             'token_key': token.key, 'token_secret': token.secret,
             'consumer_key': consumer.key,
             }
 
+    @api_exported('delete_authorisation_token', method='POST')
+    def delete_authorisation_token(self, request):
+        """Delete an authorisation OAuth token and the related OAuth consumer.
 
-def generate_api_doc():
-    docs = (
-        generate_doc(NodesHandler),
-        generate_doc(NodeHandler),
-        generate_doc(NodeMacsHandler),
-        generate_doc(NodeMacHandler),
-        )
+        :param token_key: The key of the token to be deleted.
+        :type token_key: str
 
-    messages = ['MaaS API\n========\n\n']
+        """
+        profile = request.user.get_profile()
+        token_key = request.data.get('token_key', None)
+        if token_key is None:
+            raise ValidationError('No provided token_key!')
+        profile.delete_authorisation_token(token_key)
+        return rc.DELETED
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('account_handler', [])
+
+
+def generate_api_doc(add_title=False):
+    # Fetch all the API Handlers (objects with the class
+    # HandlerMetaClass).
+    module = sys.modules[__name__]
+
+    all = [getattr(module, name) for name in module.__all__]
+    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
+
+    # Make sure each handler defines a 'resource_uri' method (this is
+    # easily forgotten and essential to have a proper documentation).
+    for handler in handlers:
+        sentinel = object()
+        resource_uri = getattr(handler, "resource_uri", sentinel)
+        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
+            handler.__name__)
+
+    docs = [generate_doc(handler) for handler in handlers]
+
+    messages = []
+    if add_title:
+        messages.extend([
+            '**********************\n',
+            'MaaS API documentation\n',
+            '**********************\n',
+            '\n\n']
+            )
     for doc in docs:
         for method in doc.get_methods():
             messages.append(

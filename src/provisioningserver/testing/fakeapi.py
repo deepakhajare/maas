@@ -27,6 +27,7 @@ from functools import wraps
 from provisioningserver.interfaces import IProvisioningAPI
 from twisted.internet import defer
 from zope.interface import implementer
+from zope.interface.interface import Method
 
 
 class FakeProvisioningDatabase(dict):
@@ -65,11 +66,18 @@ class FakeProvisioningDatabase(dict):
 @implementer(IProvisioningAPI)
 class FakeSynchronousProvisioningAPI:
 
+    # TODO: Referential integrity might be a nice thing.
+
     def __init__(self):
         super(FakeSynchronousProvisioningAPI, self).__init__()
         self.distros = FakeProvisioningDatabase()
         self.profiles = FakeProvisioningDatabase()
         self.nodes = FakeProvisioningDatabase()
+        # This records nodes that start/stop commands have been issued
+        # for.  If a node has been started, its name maps to 'start'; if
+        # it has been stopped, its name maps to 'stop' (whichever
+        # happened most recently).
+        self.power_status = {}
 
     def add_distro(self, name, initrd, kernel):
         self.distros[name]["initrd"] = initrd
@@ -82,7 +90,23 @@ class FakeSynchronousProvisioningAPI:
 
     def add_node(self, name, profile):
         self.nodes[name]["profile"] = profile
+        self.nodes[name]["mac_addresses"] = []
         return name
+
+    def modify_distros(self, deltas):
+        for name, delta in deltas.iteritems():
+            distro = self.distros[name]
+            distro.update(delta)
+
+    def modify_profiles(self, deltas):
+        for name, delta in deltas.iteritems():
+            profile = self.profiles[name]
+            profile.update(delta)
+
+    def modify_nodes(self, deltas):
+        for name, delta in deltas.iteritems():
+            node = self.nodes[name]
+            node.update(delta)
 
     def get_distros_by_name(self, names):
         return self.distros.select(names)
@@ -111,6 +135,14 @@ class FakeSynchronousProvisioningAPI:
     def get_nodes(self):
         return self.nodes.dump()
 
+    def start_nodes(self, names):
+        for name in names:
+            self.power_status[name] = 'start'
+
+    def stop_nodes(self, names):
+        for name in names:
+            self.power_status[name] = 'stop'
+
 
 def async(func):
     """Decorate a function so that it always return a `defer.Deferred`."""
@@ -125,4 +157,5 @@ FakeAsynchronousProvisioningAPI = type(
     b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
         name: async(getattr(FakeSynchronousProvisioningAPI, name))
         for name in IProvisioningAPI.names(all=True)
+        if isinstance(IProvisioningAPI[name], Method)
         })

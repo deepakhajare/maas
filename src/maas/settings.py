@@ -35,6 +35,10 @@ LOGIN_REDIRECT_URL = '/'
 
 API_URL_REGEXP = '^/api/'
 
+# We handle exceptions ourselves (in
+# maasserver.middleware.APIErrorsMiddleware)
+PISTON_DISPLAY_ERRORS = False
+
 DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
@@ -151,6 +155,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
+    'maasserver.middleware.APIErrorsMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'
@@ -201,3 +206,7 @@ LOGGING = {
         },
     }
 }
+
+# The location of the Provisioning API XML-RPC endpoint. If PSERV_URL is None,
+# use the fake Provisioning API.
+PSERV_URL = None

@@ -207,6 +207,15 @@ class CobblerObjectTestScenario:
             AssertionError,
             self.cobbler_class._normalize_attribute, 'some-unknown-attribute')
 
+    def test_normalize_attribute_alternative_attributes(self):
+        # _normalize_attribute() can be passed a different set of attributes
+        # against which to normalize.
+        allowed_attributes = set(["some-unknown-attribute"])
+        self.assertEqual(
+            'some-unknown-attribute',
+            self.cobbler_class._normalize_attribute(
+                'some-unknown-attribute', allowed_attributes))
+
     @inlineCallbacks
     def test_create_object(self):
         session = yield fake_cobbler_session()
@@ -280,6 +289,13 @@ class CobblerObjectTestScenario:
         found_obj = all_objects[name]
         self.assertEqual(name, found_obj['name'])
         self.assertEqual(comment, found_obj['comment'])
+
+    @inlineCallbacks
+    def test_get_values_returns_None_for_non_existent_object(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        values = yield self.cobbler_class(session, name).get_values()
+        self.assertIsNone(values)
 
     @inlineCallbacks
     def test_get_handle_finds_handle(self):
@@ -422,6 +438,32 @@ class TestCobblerSystem(CobblerObjectTestScenario, TestCase):
             handle = yield system._get_handle()
             handles.append(handle)
         returnValue(handles)
+
+    @inlineCallbacks
+    def test_interface_set_mac_address(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        obj = yield fake_cobbler_object(session, self.cobbler_class, name)
+        yield obj.modify(
+            {"interface": "eth0", "mac_address": "12:34:56:78:90:12"})
+        state = yield obj.get_values()
+        interfaces = state.get("interfaces", {})
+        self.assertEqual(["eth0"], sorted(interfaces))
+        state_eth0 = interfaces["eth0"]
+        self.assertEqual("12:34:56:78:90:12", state_eth0["mac_address"])
+
+    @inlineCallbacks
+    def test_interface_delete_interface(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        obj = yield fake_cobbler_object(session, self.cobbler_class, name)
+        yield obj.modify(
+            {"interface": "eth0", "mac_address": "12:34:56:78:90:12"})
+        yield obj.modify(
+            {"interface": "eth0", "delete_interface": "ignored"})
+        state = yield obj.get_values()
+        interfaces = state.get("interfaces", {})
+        self.assertEqual([], sorted(interfaces))
 
     @inlineCallbacks
     def test_powerOnMultiple(self):

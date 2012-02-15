@@ -23,11 +23,11 @@ from uuid import uuid1
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
+from maasserver.exceptions import PermissionDenied
 from maasserver.macaddress import MACAddressField
 from piston.models import (
     Consumer,
@@ -62,27 +62,36 @@ def generate_node_system_id():
 
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
-# TODO: document this when it's stabilized.
-    #:
     DEFAULT_STATUS = 0
-    #:
-    NEW = 0
-    #:
-    READY = 1
-    #:
-    DEPLOYED = 2
-    #:
-    COMMISSIONED = 3
-    #:
-    DECOMMISSIONED = 4
+    #: The node has been created and has a system ID assigned to it.
+    DECLARED = 0
+    #: Testing and other commissioning steps are taking place.
+    COMMISSIONING = 1
+    #: Smoke or burn-in testing has a found a problem.
+    FAILED_TESTS = 2
+    #: The node can't be contacted.
+    MISSING = 3
+    #: The node is in the general pool ready to be deployed.
+    READY = 4
+    #: The node is ready for named deployment.
+    RESERVED = 5
+    #: The node is powering a service from a charm or is ready for use with
+    #: a fresh Ubuntu install.
+    ALLOCATED = 6
+    #: The node has been removed from service manually until an admin
+    #: overrides the retirement.
+    RETIRED = 7
 
 
 NODE_STATUS_CHOICES = (
-    (NODE_STATUS.NEW, u'New'),
-    (NODE_STATUS.READY, u'Ready to Commission'),
-    (NODE_STATUS.DEPLOYED, u'Deployed'),
-    (NODE_STATUS.COMMISSIONED, u'Commissioned'),
-    (NODE_STATUS.DECOMMISSIONED, u'Decommissioned'),
+    (NODE_STATUS.DECLARED, "Declared"),
+    (NODE_STATUS.COMMISSIONING, "Commissioning"),
+    (NODE_STATUS.FAILED_TESTS, "Failed tests"),
+    (NODE_STATUS.MISSING, "Missing"),
+    (NODE_STATUS.READY, "Ready"),
+    (NODE_STATUS.RESERVED, "Reserved"),
+    (NODE_STATUS.ALLOCATED, "Allocated"),
+    (NODE_STATUS.RETIRED, "Retired"),
 )
 
 
@@ -134,11 +143,39 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class NodeManager(models.Manager):
     """A utility to manage the collection of Nodes."""
 
-    def get_visible_nodes(self, user):
-        """Fetch all the Nodes visible by a User_.
+    # Twisted XMLRPC proxy for talking to the provisioning API.  Created
+    # on demand.
+    provisioning_proxy = None
+
+    def _set_provisioning_proxy(self):
+        """Set up the provisioning-API proxy if needed."""
+        # Avoid circular imports.
+        from maasserver.provisioning import get_provisioning_api_proxy
+        if self.provisioning_proxy is None:
+            self.provisioning_proxy = get_provisioning_api_proxy()
+
+    def filter_by_ids(self, query, ids=None):
+        """Filter `query` result set by system_id values.
+
+        :param query: A queryset of Nodes.
+        :type query: QuerySet_
+        :param ids: Optional set of ids to filter by.  If given, nodes whose
+            system_ids are not in `ids` will be ignored.
+        :type param_ids: Sequence
+        :return: A filtered version of `query`.
+        """
+        if ids is None:
+            return query
+        else:
+            return query.filter(system_id__in=ids)
+
+    def get_visible_nodes(self, user, ids=None):
+        """Fetch Nodes visible by a User_.
 
         :param user: The user that should be used in the permission check.
         :type user: User_
+        :param ids: If given, limit result to nodes with these system_ids.
+        :type ids: Sequence.
 
         .. _User: https://
            docs.djangoproject.com/en/dev/topics/auth/
@@ -146,10 +183,27 @@ class NodeManager(models.Manager):
 
         """
         if user.is_superuser:
-            return self.all()
+            visible_nodes = self.all()
         else:
-            return self.filter(
+            visible_nodes = self.filter(
                 models.Q(owner__isnull=True) | models.Q(owner=user))
+        return self.filter_by_ids(visible_nodes, ids)
+
+    def get_editable_nodes(self, user, ids=None):
+        """Fetch Nodes a User_ has ownership privileges on.
+
+        An admin has ownership privileges on all nodes.
+
+        :param user: The user that should be used in the permission check.
+        :type user: User_
+        :param ids: If given, limit result to nodes with these system_ids.
+        :type ids: Sequence.
+        """
+        if user.is_superuser:
+            visible_nodes = self.all()
+        else:
+            visible_nodes = self.filter(owner=user)
+        return self.filter_by_ids(visible_nodes, ids)
 
     def get_visible_node_or_404(self, system_id, user):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
@@ -160,20 +214,69 @@ class NodeManager(models.Manager):
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
         :raises: django.http.Http404_,
-            django.core.exceptions.PermissionDenied_.
+            maasserver.exceptions.PermissionDenied_.
 
         .. _django.http.Http404: https://
            docs.djangoproject.com/en/dev/topics/http/views/
            #the-http404-exception
-        .. _django.core.exceptions.PermissionDenied: https://
-           docs.djangoproject.com/en/dev/ref/exceptions/
-           #django.core.exceptions.PermissionDenied
         """
         node = get_object_or_404(Node, system_id=system_id)
         if user.has_perm('access', node):
             return node
         else:
             raise PermissionDenied
+
+    def get_available_node_for_acquisition(self, for_user):
+        """Find a `Node` to be acquired by the given user.
+
+        :param for_user: The user who is to acquire the node.
+        :return: A `Node`, or None if none are available.
+        """
+        available_nodes = (
+            self.get_visible_nodes(for_user)
+                .filter(status=NODE_STATUS.READY))
+        available_nodes = list(available_nodes[:1])
+        if len(available_nodes) == 0:
+            return None
+        else:
+            return available_nodes[0]
+
+    def stop_nodes(self, ids, by_user):
+        """Request on given user's behalf that the given nodes be shut down.
+
+        Shutdown is only requested for nodes that the user has ownership
+        privileges for; any other nodes in the request are ignored.
+
+        :param ids: The `system_id` values for nodes to be shut down.
+        :type ids: Sequence
+        :param by_user: Requesting user.
+        :type by_user: User_
+        :return: Those Nodes for which shutdown was actually requested.
+        :rtype: list
+        """
+        self._set_provisioning_proxy()
+        nodes = self.get_editable_nodes(by_user, ids=ids)
+        self.provisioning_proxy.stop_nodes([node.system_id for node in nodes])
+        return nodes
+
+    def start_nodes(self, ids, by_user):
+        """Request on given user's behalf that the given nodes be started up.
+
+        Power-on is only requested for nodes that the user has ownership
+        privileges for; any other nodes in the request are ignored.
+
+        :param ids: The `system_id` values for nodes to be started.
+        :type ids: Sequence
+        :param by_user: Requesting user.
+        :type by_user: User_
+        :return: Those Nodes for which power-on was actually requested.
+        :rtype: list
+        """
+        self._set_provisioning_proxy()
+        nodes = self.get_editable_nodes(by_user, ids=ids)
+        self.provisioning_proxy.start_nodes(
+            [node.system_id for node in nodes])
+        return nodes
 
 
 class Node(CommonInfo):
@@ -189,7 +292,6 @@ class Node(CommonInfo):
         commissioning. See vocabulary
         :class:`NODE_AFTER_COMMISSIONING_ACTION`.
     :ivar objects: The :class:`NodeManager`.
-    :ivar hostname: This `Node`'s hostname.
 
     """
 
@@ -249,6 +351,13 @@ class Node(CommonInfo):
         if mac:
             mac.delete()
 
+    def acquire(self, by_user):
+        """Mark commissioned node as acquired by the given user."""
+        assert self.status == NODE_STATUS.READY
+        assert self.owner is None
+        self.status = NODE_STATUS.ALLOCATED
+        self.owner = by_user
+
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
@@ -291,49 +400,54 @@ class UserProfile(models.Model):
         self.user.consumers.all().delete()
         self.user.delete()
         super(UserProfile, self).delete()
+        
+    def get_authorisation_tokens(self):
+        """Fetches all the user's OAuth tokens.
 
-    def reset_authorisation_token(self):
-        """Create (if necessary) and regenerate the keys for the Consumer and
-        the related Token of the OAuth authorisation.
+        :return: A QuerySet of the tokens.
+        :rtype: django.db.models.query.QuerySet_
 
-        :return: A tuple containing the Consumer and the Token that were reset.
+        .. _django.db.models.query.QuerySet: https://docs.djangoproject.com/
+           en/dev/ref/models/querysets/
+
+        """
+        return Token.objects.select_related().filter(
+            user=self.user, token_type=Token.ACCESS,
+            is_approved=True).order_by('id')
+
+    def create_authorisation_token(self):
+        """Create a new Token and its related Consumer (OAuth authorisation).
+
+        :return: A tuple containing the Consumer and the Token that were
+            created.
         :rtype: tuple
 
         """
-        consumer, _ = Consumer.objects.get_or_create(
-            user=self.user, name=GENERIC_CONSUMER,
-            defaults={'status': 'accepted'})
+        consumer = Consumer.objects.create(
+            user=self.user, name=GENERIC_CONSUMER, status='accepted')
         consumer.generate_random_codes()
         # This is a 'generic' consumer aimed to service many clients, hence
         # we don't authenticate the consumer with key/secret key.
         consumer.secret = ''
         consumer.save()
-        token, _ = Token.objects.get_or_create(
+        token = Token.objects.create(
             user=self.user, token_type=Token.ACCESS, consumer=consumer,
-            defaults={'is_approved': True})
+            is_approved=True)
         token.generate_random_codes()
         return consumer, token
 
-    def get_authorisation_consumer(self):
-        """Returns the OAuth Consumer attached to the related User_.
+    def delete_authorisation_token(self, token_key):
+        """Delete the user's OAuth token wich key token_key.
 
-        :return: The attached Consumer.
-        :rtype: piston.models.Consumer
-
-        """
-        return Consumer.objects.get(user=self.user, name=GENERIC_CONSUMER)
-
-    def get_authorisation_token(self):
-        """Returns the OAuth authorisation token attached to the related User_.
-
-        :return: The attached Token.
-        :rtype: piston.models.Token
+        :param token_key: The key of the token to be deleted.
+        :type token_key: str
+        :raises: django.http.Http404_
 
         """
-        consumer = self.get_authorisation_consumer()
-        token = Token.objects.get(
-            user=self.user, token_type=Token.ACCESS, consumer=consumer)
-        return token
+        token = get_object_or_404(
+            Token, user=self.user, token_type=Token.ACCESS, key=token_key)
+        token.consumer.delete()
+        token.delete()
 
 
 # When a user is created: create the related profile and the default
@@ -344,7 +458,7 @@ def create_user(sender, instance, created, **kwargs):
         profile = UserProfile.objects.create(user=instance)
 
         # Create initial authorisation token.
-        profile.reset_authorisation_token()
+        profile.create_authorisation_token()
 
 # Connect the 'create_user' method to the post save signal of User.
 post_save.connect(create_user, sender=User)

@@ -13,9 +13,9 @@ __all__ = [
     "factory",
     ]
 
+from io import BytesIO
 import random
 import string
-from StringIO import StringIO
 
 from django.contrib.auth.models import User
 from maasserver.models import (
@@ -28,7 +28,7 @@ from maasserver.models import (
 
 class Factory():
 
-    def getRandomString(self, size):
+    def getRandomString(self, size=10):
         return "".join(
             random.choice(string.letters + string.digits)
             for x in xrange(size))
@@ -75,7 +75,7 @@ class Factory():
             data = self.getRandomString(1024)
 
         storage = FileStorage()
-        storage.save_file(filename, StringIO(data))
+        storage.save_file(filename, BytesIO(data))
         storage.save()
         return storage
 
