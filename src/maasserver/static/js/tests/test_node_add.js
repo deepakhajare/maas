@@ -70,7 +70,7 @@ suite.add(new Y.maas.testing.TestCase({
 
     testNodeidPopulation: function() {
         var mockXhr = new Y.Base();
-        mockXhr.io = function(url, cfg) {
+        mockXhr.send = function(url, cfg) {
             cfg.on.success(3, {response: Y.JSON.stringify({system_id: 3})});
         };
         this.mockIO(mockXhr, module);
