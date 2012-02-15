@@ -131,10 +131,7 @@ class ProvisioningServiceMaker(object):
         services = MultiService()
 
         config_file = options["config-file"]
-        if config_file is None:
-            config = Config.parse(b"")
-        else:
-            config = Config.load(config_file)
+        config = Config.load(config_file)
 
         log_service = LogService(config["logfile"])
         log_service.setServiceParent(services)
