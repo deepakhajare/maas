@@ -36,4 +36,5 @@
 #   url: "localhost"
 #   username: "admin"
 #   password: "test"
+#   fake: false
 #

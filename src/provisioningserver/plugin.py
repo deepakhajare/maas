@@ -25,10 +25,6 @@ from provisioningserver.services import (
     LogService,
     OOPSService,
     )
-from provisioningserver.testing.fakecobbler import (
-    FakeCobbler,
-    FakeTwistedProxy,
-    )
 from twisted.application.internet import (
     TCPClient,
     TCPServer,
@@ -169,17 +165,14 @@ class ProvisioningServiceMaker(object):
             client_service.setName("amqp")
             client_service.setServiceParent(services)
 
-        session = CobblerSession(
-            # TODO: Get these values from command-line arguments.
-            "http://localhost/does/not/exist", "user", "password")
-
-        # TODO: Remove this.
-        fake_cobbler = FakeCobbler({"user": "password"})
-        fake_cobbler_proxy = FakeTwistedProxy(fake_cobbler)
-        session.proxy = fake_cobbler_proxy
+        cobbler_config = config["cobbler"]
+        cobbler_session = CobblerSession(
+            cobbler_config["url"], cobbler_config["username"],
+            cobbler_config["password"])
+        papi = ProvisioningAPI_XMLRPC(cobbler_session)
 
         site_root = Resource()
-        site_root.putChild("api", ProvisioningAPI_XMLRPC(session))
+        site_root.putChild("api", papi)
         site = Site(site_root)
         site_port = config["port"]
         site_service = TCPServer(site_port, site)
