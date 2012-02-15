@@ -1,23 +1,20 @@
-# Example Provisioning Server configuration.
+# Provisioning Server (pserv) configuration.
 
 # The port on which the Provisioning API will be made available.
-port: 1123
+#port: 8001
 # Where to log. This log can be rotated by sending SIGUSR1 to the
 # running server.
-logfile: "/tmp/ironfist.log"
+logfile: "pserv.log"
 
 # OOPS configuration (optional).
-oops:
-  # Where to store OOPS reports (optional).
-  directory: "/tmp/killed/by"
-  # The OOPS reporter name (optional, but must be specified if an OOPS
-  # directory is configured).
-  reporter: "death"
+# oops:
+#   directory: "/tmp/killed/by"
+#   reporter: "death"
 
 # Message broker configuration (optional, not currently used).
-broker:
-  host: "localhost"
-  port: 1543
-  username: "lemmy"
-  password: "overkill"
-  vhost: "/hammersmith"
+# broker:
+#   host: "localhost"
+#   port: 1543
+#   username: "lemmy"
+#   password: "overkill"
+#   vhost: "/hammersmith"
