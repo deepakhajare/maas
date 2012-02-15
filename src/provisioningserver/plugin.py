@@ -28,7 +28,6 @@ from provisioningserver.testing.fakecobbler import (
     FakeCobbler,
     FakeTwistedProxy,
     )
-import setproctitle
 from twisted.application.internet import (
     TCPClient,
     TCPServer,
@@ -114,19 +113,8 @@ class ProvisioningServiceMaker(object):
         self.tapname = name
         self.description = description
 
-    def makeService(self, options, _set_proc_title=True):
-        """Construct a service.
-
-        :param _set_proc_title: For testing; if `False` this will stop the
-            obfuscation of command-line parameters in the process title.
-        """
-        # Required to hide the command line options that include a password.
-        # There is a small window where it can be seen though, between
-        # invocation and when this code runs. TODO: Make this optional (so
-        # that we don't override process title in tests).
-        if _set_proc_title:
-            setproctitle.setproctitle("maas provisioning service")
-
+    def makeService(self, options):
+        """Construct a service."""
         services = MultiService()
 
         config_file = options["config-file"]

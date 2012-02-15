@@ -141,7 +141,7 @@ class TestProvisioningServiceMaker(TestCase):
         options = Options()
         options["config-file"] = self.write_config({})
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
-        service = service_maker.makeService(options, _set_proc_title=False)
+        service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
             ["log", "oops", "site"],
@@ -159,7 +159,7 @@ class TestProvisioningServiceMaker(TestCase):
         options["config-file"] = self.write_config(
             {"broker": {"username": "Bob", "password": "Hoskins"}})
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
-        service = service_maker.makeService(options, _set_proc_title=False)
+        service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
             ["amqp", "log", "oops", "site"],
