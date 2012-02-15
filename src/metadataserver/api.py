@@ -17,7 +17,11 @@ __all__ = [
     ]
 
 from django.http import HttpResponse
-from maasserver.exceptions import MaasAPINotFound
+from maasserver.exceptions import (
+    MaasAPINotFound,
+    Unauthorized,
+    )
+from metadataserver.nodeinituser import NodeInitUser
 
 
 class UnknownMetadataVersion(MaasAPINotFound):
@@ -28,10 +32,21 @@ class UnknownNode(MaasAPINotFound):
     """Not a known node."""
 
 
+def extract_oauth_key(auth_data):
+    """Extract the oauth key from auth data in HTTP header."""
+    for entry in auth_data.split():
+        key_value = entry.split('=', 1)
+        if len(key_value) == 2:
+            key, value = key_value
+            if key == 'oauth_token':
+                return value
+    raise Unauthorized("No oauth token found for metadata request.")
+
+
 def get_node_for_request(request):
     """Return the `Node` that `request` is authorized to query for."""
-# TODO: One envisages a future implementation to be somewhat more optimistic.
-    raise UnknownNode()
+    key = extract_oauth_key(request.META['HTTP_AUTHORIZATION'])
+    return NodeInitUser.get_node_for_key(key)
 
 
 def make_text_response(contents):
