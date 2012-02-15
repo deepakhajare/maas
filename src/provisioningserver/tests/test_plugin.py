@@ -48,23 +48,19 @@ class TestConfig(TestCase):
                 'username': None,
                 'password': None,
                 },
-            'logfile': '/some/where.log',
+            'logfile': 'pserv.log',
             'oops': {
                 'directory': '',
                 'reporter': '',
                 },
             'port': 8001,
             }
-        mandatory_arguments = {
-            "logfile": "/some/where.log",
-            }
-        observed = Config.to_python(mandatory_arguments)
+        observed = Config.to_python({})
         self.assertEqual(expected, observed)
 
     def test_parse(self):
-        # Configuration can be parsed from a snipped of YAML.
-        observed = Config.parse(
-            b'logfile: "/some/where.log"')
+        # Configuration can be parsed from a snippet of YAML.
+        observed = Config.parse(b'logfile: "/some/where.log"')
         self.assertEqual("/some/where.log", observed["logfile"])
 
     def test_load(self):
@@ -86,7 +82,6 @@ class TestConfig(TestCase):
     def test_oops_directory_without_reporter(self):
         # It is an error to omit the OOPS reporter if directory is specified.
         config = (
-            'logfile: "/some/where.log"\n'
             'oops:\n'
             '  directory: /tmp/oops\n'
             )
@@ -126,9 +121,6 @@ class TestProvisioningServiceMaker(TestCase):
         self.tempdir = self.useFixture(TempDir()).path
 
     def write_config(self, config):
-        if "logfile" not in config:
-            logfile = os.path.join(self.tempdir, "pserv.log")
-            config = dict(config, logfile=logfile)
         config_filename = os.path.join(self.tempdir, "config.yaml")
         with open(config_filename, "wb") as stream:
             yaml.dump(config, stream)
