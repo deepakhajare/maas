@@ -10,8 +10,19 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'NodeKey',
     ]
 
-#from django.db import models
+from django.db.models import (
+    CharField,
+    ForeignKey,
+    Model,
+    )
+from maasserver.models import Node
+from piston.models import KEY_SIZE
 
-# Nothing here yet.
+
+class NodeKey(Model):
+    """Associate a Node with its OAuth (token) key."""
+    node = ForeignKey(Node, null=False, editable=False)
+    key = CharField(max_length=KEY_SIZE, null=False, editable=False)

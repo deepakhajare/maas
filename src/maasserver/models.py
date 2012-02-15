@@ -34,6 +34,12 @@ from piston.models import (
     Token,
     )
 
+# User names reserved to the system.
+SYSTEM_USERS = [
+    # For nodes' access to the metadata API:
+    'maas-node-init',
+    ]
+
 
 class CommonInfo(models.Model):
     """A base model which records the creation date and the last modification
@@ -62,27 +68,36 @@ def generate_node_system_id():
 
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
-# TODO: document this when it's stabilized.
-    #:
     DEFAULT_STATUS = 0
-    #:
-    NEW = 0
-    #:
-    READY = 1
-    #:
-    DEPLOYED = 2
-    #:
-    COMMISSIONED = 3
-    #:
-    DECOMMISSIONED = 4
+    #: The node has been created and has a system ID assigned to it.
+    DECLARED = 0
+    #: Testing and other commissioning steps are taking place.
+    COMMISSIONING = 1
+    #: Smoke or burn-in testing has a found a problem.
+    FAILED_TESTS = 2
+    #: The node can't be contacted.
+    MISSING = 3
+    #: The node is in the general pool ready to be deployed.
+    READY = 4
+    #: The node is ready for named deployment.
+    RESERVED = 5
+    #: The node is powering a service from a charm or is ready for use with
+    #: a fresh Ubuntu install.
+    ALLOCATED = 6
+    #: The node has been removed from service manually until an admin
+    #: overrides the retirement.
+    RETIRED = 7
 
 
 NODE_STATUS_CHOICES = (
-    (NODE_STATUS.NEW, u'New'),
-    (NODE_STATUS.READY, u'Ready to Commission'),
-    (NODE_STATUS.DEPLOYED, u'Deployed'),
-    (NODE_STATUS.COMMISSIONED, u'Commissioned'),
-    (NODE_STATUS.DECOMMISSIONED, u'Decommissioned'),
+    (NODE_STATUS.DECLARED, "Declared"),
+    (NODE_STATUS.COMMISSIONING, "Commissioning"),
+    (NODE_STATUS.FAILED_TESTS, "Failed tests"),
+    (NODE_STATUS.MISSING, "Missing"),
+    (NODE_STATUS.READY, "Ready"),
+    (NODE_STATUS.RESERVED, "Reserved"),
+    (NODE_STATUS.ALLOCATED, "Allocated"),
+    (NODE_STATUS.RETIRED, "Retired"),
 )
 
 
@@ -225,7 +240,7 @@ class NodeManager(models.Manager):
         """
         available_nodes = (
             self.get_visible_nodes(for_user)
-                .filter(status=NODE_STATUS.COMMISSIONED))
+                .filter(status=NODE_STATUS.READY))
         available_nodes = list(available_nodes[:1])
         if len(available_nodes) == 0:
             return None
@@ -344,9 +359,9 @@ class Node(CommonInfo):
 
     def acquire(self, by_user):
         """Mark commissioned node as acquired by the given user."""
-        assert self.status == NODE_STATUS.COMMISSIONED
+        assert self.status == NODE_STATUS.READY
         assert self.owner is None
-        self.status = NODE_STATUS.DEPLOYED
+        self.status = NODE_STATUS.ALLOCATED
         self.owner = by_user
 
 
@@ -372,6 +387,30 @@ class MACAddress(CommonInfo):
 
 
 GENERIC_CONSUMER = 'Maas consumer'
+
+
+def create_auth_token(user):
+    """Create new Token and Consumer (OAuth authorisation) for `user`.
+
+    :param user: The user to create a token for.
+    :type user: User
+    :return: A tuple containing the Consumer and the Token that were
+        created.
+    :rtype: tuple
+
+    """
+    consumer = Consumer.objects.create(
+        user=user, name=GENERIC_CONSUMER, status='accepted')
+    consumer.generate_random_codes()
+    # This is a 'generic' consumer aimed to service many clients, hence
+    # we don't authenticate the consumer with key/secret key.
+    consumer.secret = ''
+    consumer.save()
+    token = Token.objects.create(
+        user=user, token_type=Token.ACCESS, consumer=consumer,
+        is_approved=True)
+    token.generate_random_codes()
+    return consumer, token
 
 
 class UserProfile(models.Model):
@@ -409,18 +448,7 @@ class UserProfile(models.Model):
         :rtype: tuple
 
         """
-        consumer = Consumer.objects.create(
-            user=self.user, name=GENERIC_CONSUMER, status='accepted')
-        consumer.generate_random_codes()
-        # This is a 'generic' consumer aimed to service many clients, hence
-        # we don't authenticate the consumer with key/secret key.
-        consumer.secret = ''
-        consumer.save()
-        token = Token.objects.create(
-            user=self.user, token_type=Token.ACCESS, consumer=consumer,
-            is_approved=True)
-        token.generate_random_codes()
-        return consumer, token
+        return create_auth_token(self.user)
 
     def delete_authorisation_token(self, token_key):
         """Delete the user's OAuth token wich key token_key.
@@ -439,7 +467,7 @@ class UserProfile(models.Model):
 # When a user is created: create the related profile and the default
 # consumer/token.
 def create_user(sender, instance, created, **kwargs):
-    if created:
+    if created and instance.username not in SYSTEM_USERS:
         # Create related UserProfile.
         profile = UserProfile.objects.create(user=instance)
 
