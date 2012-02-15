@@ -11,12 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.contrib.auth.models import User
 from maasserver.models import UserProfile
+from maasserver.testing.factory import factory
 from maastesting import TestCase
-from metadataserver.models import (
-    NodeInitUser,
-    User,
-    )
+from metadataserver.models import NodeKey
+from metadataserver.nodeinituser import NodeInitUser
 
 
 class TestNodeInitUser(TestCase):
@@ -31,7 +31,24 @@ class TestNodeInitUser(TestCase):
         self.assertEqual(user.id, NodeInitUser().user.id)
 
     def test_holds_node_init_user(self):
-        user = NodeInitUser.get().user
+        user = NodeInitUser().user
         self.assertIsInstance(user, User)
         self.assertEqual(NodeInitUser.user_name, user.username)
         self.assertItemsEqual([], UserProfile.objects.filter(user=user))
+
+    def test_create_key_registers_node_key(self):
+        node = factory.make_node()
+        consumer, token = NodeInitUser().create_token(node)
+        nodekey = NodeKey.objects.get(node=node, key=token.key)
+        self.assertNotEqual(None, nodekey)
+
+    def test_get_node_for_key_finds_node(self):
+        node = factory.make_node()
+        consumer, token = NodeInitUser().create_token(node)
+        self.assertEqual(node, NodeInitUser().get_node_for_key(token.key))
+
+    def test_get_node_for_key_raises_DoesNotExist_if_key_not_found(self):
+        node_init_user = NodeInitUser()
+        non_key = factory.getRandomString()
+        self.assertRaises(
+            NodeKey.DoesNotExist, node_init_user.get_node_for_key, non_key)
