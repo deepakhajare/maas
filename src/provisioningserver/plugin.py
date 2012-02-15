@@ -171,10 +171,10 @@ class ProvisioningServiceMaker(object):
         cobbler_session = CobblerSession(
             cobbler_config["url"], cobbler_config["username"],
             cobbler_config["password"])
-        papi = ProvisioningAPI_XMLRPC(cobbler_session)
+        papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
 
         site_root = Resource()
-        site_root.putChild("api", papi)
+        site_root.putChild("api", papi_xmlrpc)
         site = Site(site_root)
         site_port = config["port"]
         site_service = TCPServer(site_port, site)
