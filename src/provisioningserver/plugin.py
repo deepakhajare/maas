@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from getpass import getuser
+
 from amqpclient import AMQFactory
 from formencode import Schema
 from formencode.validators import (
@@ -64,8 +66,8 @@ class ConfigBroker(Schema):
 
     host = String(if_missing=b"localhost")
     port = Int(min=1, max=65535, if_missing=5673)
-    username = String(if_missing=None)
-    password = String(if_missing=None)
+    username = String(if_missing=getuser())
+    password = String(if_missing=b"test")
     vhost = String(if_missing="/")
 
 
@@ -78,8 +80,8 @@ class ConfigCobbler(Schema):
         add_http=True, require_tld=False,
         if_missing=b"http://localhost/cobbler_api",
         )
-    username = String(if_missing=None)
-    password = String(if_missing=None)
+    username = String(if_missing=getuser())
+    password = String(if_missing=b"test")
 
 
 class Config(Schema):
@@ -150,9 +152,9 @@ class ProvisioningServiceMaker(object):
         broker_password = broker_config["password"]
         broker_vhost = broker_config["vhost"]
 
-        # Connecting to RabbitMQ is optional; it is not yet a required
-        # component of a running MaaS installation.
-        if broker_username is not None and broker_password is not None:
+        # Connecting to RabbitMQ is not yet a required component of a running
+        # MaaS installation; skip unless the password has been set explicitly.
+        if broker_password is not b"test":
             cb_connected = lambda ignored: None  # TODO
             cb_disconnected = lambda ignored: None  # TODO
             cb_failed = lambda (connector, reason): (

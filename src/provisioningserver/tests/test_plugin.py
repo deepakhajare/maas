@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from getpass import getuser
 from functools import partial
 import os
 
@@ -39,14 +40,14 @@ class TestConfig(TestCase):
             'broker': {
                 'host': 'localhost',
                 'port': 5673,
-                'username': None,
-                'password': None,
+                'username': getuser(),
+                'password': 'test',
                 'vhost': u'/',
                 },
             'cobbler': {
                 'url': 'http://localhost/cobbler_api',
-                'username': None,
-                'password': None,
+                'username': getuser(),
+                'password': 'test',
                 },
             'logfile': 'pserv.log',
             'oops': {
