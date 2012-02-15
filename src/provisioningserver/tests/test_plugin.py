@@ -38,10 +38,15 @@ class TestConfig(TestCase):
         expected = {
             'broker': {
                 'host': 'localhost',
-                'password': None,
                 'port': 5673,
                 'username': None,
+                'password': None,
                 'vhost': u'/',
+                },
+            'cobbler': {
+                'url': 'http://localhost/cobbler_api',
+                'username': None,
+                'password': None,
                 },
             'logfile': '/some/where.log',
             'oops': {

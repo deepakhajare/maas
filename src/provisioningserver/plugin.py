@@ -17,6 +17,7 @@ from formencode.validators import (
     Int,
     RequireIfPresent,
     String,
+    URL,
     )
 from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.remote import ProvisioningAPI_XMLRPC
@@ -72,6 +73,19 @@ class ConfigBroker(Schema):
     vhost = String(if_missing="/")
 
 
+class ConfigCobbler(Schema):
+    """Configuration validator for connecting to Cobbler."""
+
+    if_key_missing = None
+
+    url = URL(
+        add_http=True, require_tld=False,
+        if_missing=b"http://localhost/cobbler_api",
+        )
+    username = String(if_missing=None)
+    password = String(if_missing=None)
+
+
 class Config(Schema):
     """Configuration validator."""
 
@@ -81,6 +95,7 @@ class Config(Schema):
     logfile = String(not_empty=True)
     oops = ConfigOops
     broker = ConfigBroker
+    cobbler = ConfigCobbler
 
     @classmethod
     def parse(cls, stream):
