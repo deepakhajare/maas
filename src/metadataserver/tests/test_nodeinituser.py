@@ -45,10 +45,9 @@ class TestNodeInitUser(TestCase):
     def test_get_node_for_key_finds_node(self):
         node = factory.make_node()
         consumer, token = NodeInitUser().create_token(node)
-        self.assertEqual(node, NodeInitUser().get_node_for_key(token.key))
+        self.assertEqual(node, NodeInitUser.get_node_for_key(token.key))
 
     def test_get_node_for_key_raises_DoesNotExist_if_key_not_found(self):
-        node_init_user = NodeInitUser()
         non_key = factory.getRandomString()
         self.assertRaises(
-            NodeKey.DoesNotExist, node_init_user.get_node_for_key, non_key)
+            NodeKey.DoesNotExist, NodeInitUser.get_node_for_key, non_key)

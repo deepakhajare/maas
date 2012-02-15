@@ -64,7 +64,8 @@ class NodeInitUser:
         NodeKey.objects.create(node=node, key=token.key).save()
         return consumer, token
 
-    def get_node_for_key(self, key):
+    @staticmethod
+    def get_node_for_key(key):
         """Find the `Node` that `key` was created for.
 
         :raise NodeKey.DoesNotExist: if `key` is not associated with any node.
