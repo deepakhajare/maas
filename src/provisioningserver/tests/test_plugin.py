@@ -74,7 +74,8 @@ class TestConfig(TestCase):
     def test_load_example(self):
         # The example configuration can be loaded and validated.
         filename = os.path.join(
-            os.path.dirname(__file__), "pserv.example.yaml")
+            os.path.dirname(__file__), os.pardir,
+            os.pardir, os.pardir, "etc", "pserv.yaml")
         Config.load(filename)
 
     def test_oops_directory_without_reporter(self):
