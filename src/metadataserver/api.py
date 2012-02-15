@@ -17,10 +17,21 @@ __all__ = [
     ]
 
 from django.http import HttpResponse
+from maasserver.exceptions import MaasAPINotFound
 
 
-class UnknownMetadataVersion(RuntimeError):
+class UnknownMetadataVersion(MaasAPINotFound):
     """Not a known metadata version."""
+
+
+class UnknownNode(MaasAPINotFound):
+    """Not a known node."""
+
+
+def get_node_for_request(request):
+    """Return the `Node` that `request` is authorized to query for."""
+# TODO: One envisages a future implementation to be somewhat more optimistic.
+    raise UnknownNode()
 
 
 def make_text_response(contents):
@@ -50,13 +61,39 @@ def version_index(request, version):
     return make_list_response(['meta-data', 'user-data'])
 
 
-def meta_data(request, version):
-    """View: meta-data listing for a given version."""
+def retrieve_unknown_item(node, item_path):
+    """Retrieve meta-data: unknown sub-item."""
+    raise MaasAPINotFound("No such metadata item: %s" % '/'.join(item_path))
+
+
+def retrieve_local_hostname(node, item_path):
+    """Retrieve meta-data: local-hostname."""
+    return make_text_response(node.hostname)
+
+
+def meta_data(request, version, item=None):
+    """View: meta-data listing for a given version, or meta-data item."""
     check_version(version)
-    items = [
-        'kernel-id',
-        ]
-    return make_list_response(items)
+    node = get_node_for_request(request)
+
+    # Functions to retrieve meta-data items.
+    retrievers = {
+        'local-hostname': retrieve_local_hostname,
+        }
+
+    if not item:
+        return make_list_response(sorted(retrievers.keys()))
+
+    item_path = item.split('/')
+    retriever = retrievers.get(item_path[0], retrieve_unknown_item)
+    return retriever(node, item_path[1:])
+
+
+def meta_data_local_hostname(request, version):
+    """View: return node's local-hostname."""
+    check_version(version)
+    node = get_node_for_request(request)
+    return make_text_response(node.hostname)
 
 
 def user_data(request, version):

@@ -11,6 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import httplib
+
+from maasserver.testing.factory import factory
 from maastesting import TestCase
 from metadataserver.api import (
     check_version,
@@ -46,7 +49,7 @@ class TestHelpers(TestCase):
 class TestViews(TestCase):
     """Tests for the API views."""
 
-    def get(self, path):
+    def get(self, path, logged_in_for_node=None):
         # Root of the metadata API service.
         metadata_root = "/metadata"
         return self.client.get(metadata_root + path)
@@ -66,8 +69,23 @@ class TestViews(TestCase):
         self.assertIn('user-data', items)
 
     def test_meta_data_view_returns_text_response(self):
-        self.assertEqual(
+        self.assertIn(
             'text/plain', self.get('/latest/meta-data/')['Content-Type'])
+
+    def test_meta_data_unknown_item_is_not_found(self):
+        node = factory.make_node()
+        response = self.get(
+            '/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA',
+            logged_in_for_node=node)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_meta_data_local_hostname(self):
+        node = factory.make_node(hostname=factory.getRandomString())
+        response = self.get(
+            '/latest/meta-data/local-hostname', logged_in_for_node=node)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertEqual(node.hostname, response.content)
 
     def test_user_data_view_returns_binary_blob(self):
         response = self.get('/latest/user-data')
