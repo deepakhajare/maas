@@ -15,6 +15,10 @@ __all__ = [
     ]
 
 from django import forms
+from django.contrib.auth.forms import (
+    UserChangeForm,
+    UserCreationForm,
+    )
 from django.contrib.auth.models import User
 from django.forms import ModelForm
 from maasserver.macaddress import MACAddressFormField
@@ -91,4 +95,26 @@ class NodeWithMACAddressesForm(NodeForm):
 class ProfileForm(ModelForm):
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email')
+        fields = ('first_name', 'last_name', 'email', 'is_superuser')
+
+
+class NewUserCreationForm(UserCreationForm):
+    is_superuser = forms.BooleanField(
+        label="Administrator status", required=False)
+
+    def save(self, commit=True):
+        user = super(NewUserCreationForm, self).save(commit=False)
+        if self.cleaned_data.get('is_superuser', False):
+            user.is_superuser = True
+        user.save()
+        return user
+
+
+class EditUserForm(UserChangeForm):
+    is_superuser = forms.BooleanField(
+        label="Administrator status", required=False)
+
+    class Meta:
+        model = User
+        fields = (
+            'username', 'first_name', 'last_name', 'email', 'is_superuser')

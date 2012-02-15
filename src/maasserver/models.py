@@ -287,6 +287,11 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(User)
 
+    def delete(self):
+        self.user.consumers.all().delete()
+        self.user.delete()
+        super(UserProfile, self).delete()
+
     def reset_authorisation_token(self):
         """Create (if necessary) and regenerate the keys for the Consumer and
         the related Token of the OAuth authorisation.
