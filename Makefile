@@ -77,7 +77,8 @@ distclean: clean pserv-stop
 	$(RM) -r docs/_build/
 
 pserv.pid: bin/twistd.pserv
-	bin/twistd.pserv --pidfile=$@ maas-pserv --port=8001
+	bin/twistd.pserv --pidfile=$@ maas-pserv \
+	    --config-file=etc/pserv.example.yaml
 
 pserv-start: pserv.pid
 
