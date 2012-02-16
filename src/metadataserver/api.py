@@ -45,7 +45,10 @@ def extract_oauth_key(auth_data):
 
 def get_node_for_request(request):
     """Return the `Node` that `request` is authorized to query for."""
-    key = extract_oauth_key(request.META['HTTP_AUTHORIZATION'])
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if auth_header is None:
+        raise Unauthorized("No authorization header received.")
+    key = extract_oauth_key(auth_header)
     return NodeKey.objects.get_node_for_key(key)
 
 

@@ -21,6 +21,7 @@ from metadataserver.api import (
     make_text_response,
     UnknownMetadataVersion,
     )
+from metadataserver.models import NodeKey
 
 
 class TestHelpers(TestCase):
@@ -49,10 +50,16 @@ class TestHelpers(TestCase):
 class TestViews(TestCase):
     """Tests for the API views."""
 
-    def get(self, path, logged_in_for_node=None):
+    def get(self, path, **headers):
         # Root of the metadata API service.
         metadata_root = "/metadata"
-        return self.client.get(metadata_root + path)
+        return self.client.get(metadata_root + path, **headers)
+
+    def make_node_and_auth_header(self):
+        node = factory.make_node()
+        consumer, token = NodeKey.objects.create_token(node)
+        header = 'oauth_token=%s' % token.key
+        return node, header
 
     def test_metadata_index_shows_latest(self):
         self.assertIn('latest', self.get('/').content)
@@ -73,16 +80,16 @@ class TestViews(TestCase):
             'text/plain', self.get('/latest/meta-data/')['Content-Type'])
 
     def test_meta_data_unknown_item_is_not_found(self):
-        node = factory.make_node()
+        node, header = self.make_node_and_auth_header()
         response = self.get(
             '/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA',
-            logged_in_for_node=node)
+            HTTP_AUTHORIZATION=header)
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_meta_data_local_hostname(self):
-        node = factory.make_node(hostname=factory.getRandomString())
+        node, header = self.make_node_and_auth_header()
         response = self.get(
-            '/latest/meta-data/local-hostname', logged_in_for_node=node)
+            '/latest/meta-data/local-hostname', HTTP_AUTHORIZATION=header)
         self.assertEqual(httplib.OK, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual(node.hostname, response.content)
