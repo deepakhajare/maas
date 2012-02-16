@@ -13,41 +13,25 @@ __all__ = []
 
 from django.contrib.auth.models import User
 from maasserver.models import UserProfile
-from maasserver.testing.factory import factory
 from maastesting import TestCase
-from metadataserver.models import NodeKey
-from metadataserver.nodeinituser import NodeInitUser
+from metadataserver.nodeinituser import (
+    get_node_init_user,
+    user_name,
+    )
 
 
 class TestNodeInitUser(TestCase):
     """Test the special "user" that makes metadata requests from nodes."""
 
-    def test_always_wraps_same_user(self):
-        node_init_user = NodeInitUser()
-        self.assertEqual(node_init_user.user.id, NodeInitUser().user.id)
-
-    def test_reloads_if_already_created(self):
-        user = NodeInitUser().user
-        self.assertEqual(user.id, NodeInitUser().user.id)
+    def test_always_returns_same_user(self):
+        node_init_user = get_node_init_user()
+        self.assertEqual(node_init_user.id, get_node_init_user().id)
 
     def test_holds_node_init_user(self):
-        user = NodeInitUser().user
+        user = get_node_init_user()
         self.assertIsInstance(user, User)
-        self.assertEqual(NodeInitUser.user_name, user.username)
-        self.assertItemsEqual([], UserProfile.objects.filter(user=user))
+        self.assertEqual(user_name, user.username)
 
-    def test_create_key_registers_node_key(self):
-        node = factory.make_node()
-        consumer, token = NodeInitUser().create_token(node)
-        nodekey = NodeKey.objects.get(node=node, key=token.key)
-        self.assertNotEqual(None, nodekey)
-
-    def test_get_node_for_key_finds_node(self):
-        node = factory.make_node()
-        consumer, token = NodeInitUser().create_token(node)
-        self.assertEqual(node, NodeInitUser.get_node_for_key(token.key))
-
-    def test_get_node_for_key_raises_DoesNotExist_if_key_not_found(self):
-        non_key = factory.getRandomString()
-        self.assertRaises(
-            NodeKey.DoesNotExist, NodeInitUser.get_node_for_key, non_key)
+    def test_node_init_user_has_no_profile(self):
+        user = get_node_init_user()
+        self.assertRaises(UserProfile.DoesNotExist, user.get_profile)

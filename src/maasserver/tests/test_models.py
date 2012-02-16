@@ -24,7 +24,6 @@ from maasserver.models import (
     Node,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
-    SYSTEM_USERS,
     UserProfile,
     )
 from maasserver.testing.factory import factory
@@ -278,16 +277,11 @@ class UserProfileTest(TestCase):
         self.assertEqual(KEY_SIZE, len(consumer.key))
         self.assertEqual('', consumer.secret)
 
-    def test_profile_is_created_for_regular_user(self):
-        # A profile is created each time a normal user is created.
+    def test_profile_creation(self):
+        # A profile is created each time a user is created.
         user = factory.make_user()
         self.assertIsInstance(user.get_profile(), UserProfile)
         self.assertEqual(user, user.get_profile().user)
-
-    def test_profile_is_not_created_for_system_user(self):
-        # No profile is created for a system user.
-        users = [factory.make_user(username=name) for name in SYSTEM_USERS]
-        self.assertItemsEqual([], UserProfile.objects.filter(user__in=users))
 
     def test_consumer_creation(self):
         # A generic consumer is created each time a user is created.
