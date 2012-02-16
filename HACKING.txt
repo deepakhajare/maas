@@ -72,6 +72,11 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
+Add yourself as a user in Cobbler. For convenience, give yourself the
+password ``test``::
+
+    $ sudo htdigest /etc/cobbler/users.digest Cobbler $USER
+
 Run the development webserver::
 
     $ make run
