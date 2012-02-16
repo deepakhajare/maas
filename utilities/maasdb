@@ -179,7 +179,7 @@ main() {
     local COMMAND DATADIR
     COMMAND="$1"
     DATADIR="$2"
-    if ! shift
+    if ! shift 2
     then
         usage
         exit 1
