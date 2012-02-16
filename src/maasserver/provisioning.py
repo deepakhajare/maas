@@ -13,7 +13,6 @@ __all__ = [
     'get_provisioning_api_proxy',
     ]
 
-from uuid import uuid1
 import xmlrpclib
 
 from django.conf import settings
@@ -50,13 +49,12 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
     if instance.system_id in nodes:
         profile = nodes[instance.system_id]["profile"]
     else:
-        # TODO: Get these from somewhere.
-        distro = papi.add_distro(
-            "distro-%s" % uuid1().get_hex(),
-            "initrd", "kernel")
-        profile = papi.add_profile(
-            "profile-%s" % uuid1().get_hex(),
-            distro)
+        # TODO: Choose a sensible profile.
+        profiles = papi.get_profiles()
+        assert len(profiles) >= 1, (
+            "No profiles defined in Cobbler; has "
+            "cobbler-ubuntu-import been run?")
+        profile = sorted(profiles)[0]
     papi.add_node(instance.system_id, profile)
 
 
