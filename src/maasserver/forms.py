@@ -99,7 +99,7 @@ class ProfileForm(ModelForm):
 
 
 class NewUserCreationForm(UserCreationForm):
-    # Override the default label.
+    # Add is_superuser field.
     is_superuser = forms.BooleanField(
         label="Administrator status", required=False)
 
