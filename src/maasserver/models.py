@@ -29,16 +29,15 @@ from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from maasserver.exceptions import PermissionDenied
 from maasserver.macaddress import MACAddressField
+from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
     Token,
     )
 
-
-# User names reserved to the system.
+# Special users internal to MaaS.
 SYSTEM_USERS = [
-    # For nodes' access to the metadata API:
-    'maas-node-init',
+    nodeinituser.user_name,
     ]
 
 
@@ -468,6 +467,7 @@ class UserProfile(models.Model):
 # When a user is created: create the related profile and the default
 # consumer/token.
 def create_user(sender, instance, created, **kwargs):
+    # System users do not have profiles.
     if created and instance.username not in SYSTEM_USERS:
         # Create related UserProfile.
         profile = UserProfile.objects.create(user=instance)
