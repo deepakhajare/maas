@@ -57,7 +57,7 @@ class TestConfig(TestCase):
         self.assertEqual(expected, observed)
 
     def test_parse(self):
-        # Configuration can be parsed from a snipped of YAML.
+        # Configuration can be parsed from a snippet of YAML.
         observed = Config.parse(
             b'logfile: "/some/where.log"')
         self.assertEqual("/some/where.log", observed["logfile"])
