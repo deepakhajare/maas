@@ -114,7 +114,7 @@ class SettingsTest(AdminLoggedInTestCase):
         users = UserProfile.objects.all_users()
         response = self.client.get('/settings/')
         doc = fromstring(response.content)
-        tab = doc.cssselect('#users')
+        tab = doc.cssselect('#users')[0]
         all_links = [elem.get('href') for elem in tab.cssselect('a')]
         # "Add a user" link.
         self.assertIn(reverse('accounts-add'), all_links)
