@@ -104,13 +104,6 @@ def meta_data(request, version, item=None):
     return retriever(node, item_path[1:])
 
 
-def meta_data_local_hostname(request, version):
-    """View: return node's local-hostname."""
-    check_version(version)
-    node = get_node_for_request(request)
-    return make_text_response(node.hostname)
-
-
 def user_data(request, version):
     """View: user-data blob for a given version."""
     check_version(version)
