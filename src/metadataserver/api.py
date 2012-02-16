@@ -21,7 +21,7 @@ from maasserver.exceptions import (
     MaasAPINotFound,
     Unauthorized,
     )
-from metadataserver.nodeinituser import NodeInitUser
+from metadataserver.models import NodeKey
 
 
 class UnknownMetadataVersion(MaasAPINotFound):
@@ -46,7 +46,7 @@ def extract_oauth_key(auth_data):
 def get_node_for_request(request):
     """Return the `Node` that `request` is authorized to query for."""
     key = extract_oauth_key(request.META['HTTP_AUTHORIZATION'])
-    return NodeInitUser.get_node_for_key(key)
+    return NodeKey.objects.get_node_for_key(key)
 
 
 def make_text_response(contents):
