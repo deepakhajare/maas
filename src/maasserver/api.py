@@ -409,9 +409,12 @@ class FilesHandler(BaseHandler):
         # As per the comment in FileStorage, this ought to deal in
         # chunks instead of reading the file into memory, but large
         # files are not expected.
-        storage = FileStorage()
+        try:
+            storage = FileStorage.objects.get(filename=filename)
+        except ObjectDoesNotExist:
+            storage = FileStorage()
+
         storage.save_file(filename, uploaded_file)
-        storage.save()
         return HttpResponse('', status=httplib.CREATED)
 
     @classmethod
