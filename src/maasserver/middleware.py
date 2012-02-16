@@ -118,6 +118,6 @@ class ConsoleExceptionMiddleware:
         import traceback
         import sys
         exc_info = sys.exc_info()
-        print(("#" * 34) + " Exception " + ("#" * 34))
+        print(" Exception ".center(79, "#"))
         print(''.join(traceback.format_exception(*exc_info)))
         print("#" * 79)
