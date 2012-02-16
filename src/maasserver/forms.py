@@ -95,10 +95,11 @@ class NodeWithMACAddressesForm(NodeForm):
 class ProfileForm(ModelForm):
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'is_superuser')
+        fields = ('first_name', 'last_name', 'email')
 
 
 class NewUserCreationForm(UserCreationForm):
+    # Override the default label.
     is_superuser = forms.BooleanField(
         label="Administrator status", required=False)
 
@@ -111,6 +112,7 @@ class NewUserCreationForm(UserCreationForm):
 
 
 class EditUserForm(UserChangeForm):
+    # Override the default label.
     is_superuser = forms.BooleanField(
         label="Administrator status", required=False)
 

@@ -36,6 +36,7 @@ from maasserver.views import (
     AccountsAdd,
     AccountsDelete,
     AccountsEdit,
+    AccountsView,
     logout,
     NodeListView,
     NodesCreateView,
@@ -82,6 +83,9 @@ urlpatterns += patterns('maasserver.views',
     adminurl(
         r'^accounts/(?P<username>\w+)/edit/$', AccountsEdit.as_view(),
         name='accounts-edit'),
+    adminurl(
+        r'^accounts/(?P<username>\w+)/view/$', AccountsView.as_view(),
+        name='accounts-view'),
     adminurl(
         r'^accounts/(?P<username>\w+)/del/$', AccountsDelete.as_view(),
         name='accounts-del'),

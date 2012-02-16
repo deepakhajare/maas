@@ -29,15 +29,20 @@ from django.template import RequestContext
 from django.views.generic import (
     CreateView,
     DeleteView,
+    DetailView,
     ListView,
     UpdateView,
     )
+from maasserver.exceptions import CannotDeleteUserException
 from maasserver.forms import (
     EditUserForm,
     NewUserCreationForm,
     ProfileForm,
     )
-from maasserver.models import Node
+from maasserver.models import (
+    Node,
+    UserProfile,
+    )
 
 
 def logout(request):
@@ -98,6 +103,18 @@ def userprefsview(request):
         context_instance=RequestContext(request))
 
 
+class AccountsView(DetailView):
+
+    template_name = 'maasserver/user_view.html'
+
+    context_object_name = 'view_user'
+
+    def get_object(self):
+        username = self.kwargs.get('username', None)
+        user = get_object_or_404(User, username=username)
+        return user
+
+
 class AccountsAdd(CreateView):
 
     form_class = NewUserCreationForm
@@ -121,15 +138,18 @@ class AccountsDelete(DeleteView):
         user = get_object_or_404(User, username=username)
         return user.get_profile()
 
-    def get_success_url(self):
+    def get_next_url(self):
         return reverse('settings')
 
     def delete(self, request, *args, **kwargs):
         profile = self.get_object()
         username = profile.user.username
-        profile.delete()
-        messages.info(request, "User %s deleted." % username)
-        return HttpResponseRedirect(self.get_success_url())
+        try:
+            profile.delete()
+            messages.info(request, "User %s deleted." % username)
+        except CannotDeleteUserException, e:
+            messages.info(request, unicode(e))
+        return HttpResponseRedirect(self.get_next_url())
 
 
 class AccountsEdit(UpdateView):
@@ -149,7 +169,7 @@ class AccountsEdit(UpdateView):
 
 def settings(request):
     tab = request.GET.get('tab', 0)
-    user_list = User.objects.all().order_by('username')
+    user_list = UserProfile.objects.all_users().order_by('username')
     return render_to_response(
         'maasserver/settings.html',
         {

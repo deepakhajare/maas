@@ -12,12 +12,17 @@ __metaclass__ = type
 __all__ = []
 
 import codecs
+from operator import attrgetter
 import os
 import shutil
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from maasserver.exceptions import PermissionDenied
+from maasserver.exceptions import (
+    CannotDeleteUserException,
+    PermissionDenied,
+    )
 from maasserver.models import (
     GENERIC_CONSUMER,
     MACAddress,
@@ -319,6 +324,35 @@ class UserProfileTest(TestCase):
         # when the user was created plus the one we've created manually.
         self.assertEqual(2, tokens.count())
         self.assertEqual(token, list(tokens.order_by('id'))[1])
+
+    def test_delete(self):
+        # Deleting a profile also deletes the related user.
+        profile = factory.make_user().get_profile()
+        profile_id = profile.id
+        profile.delete()
+        self.assertFalse(User.objects.filter(id=profile_id).exists())
+        self.assertFalse(
+            UserProfile.objects.filter(id=profile_id).exists())
+
+    def test_delete_consumers_tokens(self):
+        # Deleting a profile deletes the related tokens and consumers.
+        profile = factory.make_user().get_profile()
+        token_ids, consumer_ids = zip(*[
+            map(attrgetter('id'), profile.create_authorisation_token())
+            for i in range(3)])
+        profile.delete()
+        self.assertFalse(Consumer.objects.filter(id__in=consumer_ids).exists())
+        self.assertFalse(Token.objects.filter(id__in=token_ids).exists())
+
+    def test_delete_attached_nodes(self):
+        # Cannot delete a user with nodes attached to it.
+        profile = factory.make_user().get_profile()
+        factory.make_node(owner=profile.user)
+        message = (
+            "User %s cannot be deleted: it still has 1 node\(s\) deployed\." %
+            profile.user.username)
+        self.assertRaisesRegexp(
+            CannotDeleteUserException, message, profile.delete)
 
 
 class FileStorageTest(TestCase):

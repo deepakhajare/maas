@@ -41,37 +41,45 @@
             <tr>
               <th>User</th>
               <th>Is superuser?</th>
-              <th>Joined</th>
+              <th>Number of nodes in use</th>
+              <th>Last login</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
           {% for user_item in user_list %}
 	    <tr class="user" id="{{ user_item.username }}">
-              <td>{{ user_item.username }}</td>
+              <td>
+                <a class="user"
+                   href="{% url 'accounts-view' user_item.username %}">
+                  {{ user_item.username }}
+                </a>
+              </td>
               <td>
                 {% if user_item.is_superuser %}
                   <img src="{{ STATIC_URL }}img/yes.png" />
                 {% endif %}
               </td>
-              <td>{{ user_item.date_joined }}</td>
+              <td>{{ user_item.node_set.count }}</td>
+              <td>{{ user_item.last_login }}</td>
               <td>
                 <a href="{% url 'accounts-edit' user_item.username %}"
         	   title="Edit user {{ user_item.username }}">
                   <img src="{{ STATIC_URL}}img/edit.png" />
                 </a>
-        	<a title="Delete user {{ user_item.username }}"
-                   class="delete-user"
-                   href="{% url 'accounts-del' user_item.username %}">
-                  <img src="{{ STATIC_URL}}img/yes.png" />
-        #TODO: use delete.png
-                </a>
-                <form method="POST"
-                      action="{% url 'accounts-del' user_item.username %}">
-                  <input type="hidden" name="username"
-                         value="{{ user_item.username }}" />
-                </form>
-	              </td>
+                {% if user != user_item %}
+          	  <a title="Delete user {{ user_item.username }}"
+                     class="delete-user"
+                     href="{% url 'accounts-del' user_item.username %}">
+                    <img src="{{ STATIC_URL}}img/delete.png" />
+                  </a>
+                  <form method="POST"
+                        action="{% url 'accounts-del' user_item.username %}">
+                    <input type="hidden" name="username"
+                           value="{{ user_item.username }}" />
+                  </form>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
           </tbody>
