@@ -13,6 +13,7 @@ __all__ = [
     'get_provisioning_api_proxy',
     ]
 
+import warnings
 import xmlrpclib
 
 from django.conf import settings
@@ -28,14 +29,24 @@ from maasserver.models import (
 
 
 def get_provisioning_api_proxy():
-    """Return a proxy to the Provisioning API."""
-    # FIXME: This is a little ugly.
+    """Return a proxy to the Provisioning API.
+
+    If ``PSERV_URL`` is not set, we attempt to return a handle to a fake proxy
+    implementation. This will not be available in a packaged version of MaaS,
+    in which case an error is raised.
+    """
     url = settings.PSERV_URL
     if url is None:
-        from provisioningserver.testing.fakeapi import (
-            FakeSynchronousProvisioningAPI,
-            )
-        return FakeSynchronousProvisioningAPI()
+        try:
+            from maasserver import testing
+        except ImportError:
+            # This is probably in a package.
+            raise RuntimeError("PSERV_URL must be defined.")
+        else:
+            warnings.warn(
+                "PSERV_URL is None; using the fake Provisioning API.",
+                RuntimeWarning)
+            return testing.get_fake_provisioning_api_proxy()
     else:
         return xmlrpclib.ServerProxy(
             url, allow_none=True, use_datetime=True)

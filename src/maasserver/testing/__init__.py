@@ -10,6 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "get_fake_provisioning_api_proxy",
     "LoggedInTestCase",
     "TestCase",
     ]
