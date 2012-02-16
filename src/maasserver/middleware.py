@@ -112,11 +112,12 @@ class APIErrorsMiddleware:
             # "Internal Server Error" response.
             return None
 
+
 class ConsoleExceptionMiddleware:
     def process_exception(self, request, exception):
         import traceback
         import sys
         exc_info = sys.exc_info()
-        print("######################## Exception #############################")
+        print(("#" * 34) + " Exception " + ("#" * 34))
         print(''.join(traceback.format_exception(*exc_info)))
-        print("################################################################")
+        print("#" * 79)
