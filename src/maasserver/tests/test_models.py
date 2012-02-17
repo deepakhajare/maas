@@ -330,8 +330,11 @@ class UserProfileTest(TestCase):
         # Deleting a profile also deletes the related user.
         profile = factory.make_user().get_profile()
         profile_id = profile.id
+        self.assertTrue(User.objects.filter(id=profile.user.id).exists())
+        self.assertTrue(
+            UserProfile.objects.filter(id=profile_id).exists())
         profile.delete()
-        self.assertFalse(User.objects.filter(id=profile_id).exists())
+        self.assertFalse(User.objects.filter(id=profile.user.id).exists())
         self.assertFalse(
             UserProfile.objects.filter(id=profile_id).exists())
 
