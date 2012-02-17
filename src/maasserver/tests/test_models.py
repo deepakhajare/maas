@@ -353,11 +353,7 @@ class UserProfileTest(TestCase):
         # Cannot delete a user with nodes attached to it.
         profile = factory.make_user().get_profile()
         factory.make_node(owner=profile.user)
-        message = (
-            "User %s cannot be deleted: it still has 1 node\(s\) deployed\." %
-            profile.user.username)
-        self.assertRaisesRegexp(
-            CannotDeleteUserException, message, profile.delete)
+        self.assertRaises(CannotDeleteUserException, profile.delete)
 
     def test_manager_all_users(self):
         users = set()
