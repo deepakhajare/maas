@@ -147,7 +147,7 @@ class AccountsDelete(DeleteView):
         try:
             profile.delete()
             messages.info(request, "User %s deleted." % username)
-        except CannotDeleteUserException, e:
+        except CannotDeleteUserException as e:
             messages.info(request, unicode(e))
         return HttpResponseRedirect(self.get_next_url())
 
