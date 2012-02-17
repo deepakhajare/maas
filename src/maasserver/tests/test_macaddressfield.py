@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import ValidationError
-from maasserver.macaddress import validate_mac
+from maasserver.fields import validate_mac
 from maasserver.models import MACAddress
 from maasserver.testing import TestCase
 from maasserver.testing.factory import factory

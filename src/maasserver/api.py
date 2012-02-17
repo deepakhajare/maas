@@ -24,9 +24,7 @@ import httplib
 import sys
 import types
 
-from django.core.exceptions import (
-    ValidationError,
-    )
+from django.core.exceptions import ValidationError
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -43,8 +41,8 @@ from maasserver.exceptions import (
     NodesNotAvailable,
     PermissionDenied,
     )
+from maasserver.fields import validate_mac
 from maasserver.forms import NodeWithMACAddressesForm
-from maasserver.macaddress import validate_mac
 from maasserver.models import (
     FileStorage,
     MACAddress,

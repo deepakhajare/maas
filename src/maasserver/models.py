@@ -33,7 +33,7 @@ from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
     )
-from maasserver.macaddress import MACAddressField
+from maasserver.fields import MACAddressField
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
