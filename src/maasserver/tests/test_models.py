@@ -12,7 +12,6 @@ __metaclass__ = type
 __all__ = []
 
 import codecs
-from operator import attrgetter
 import os
 import shutil
 
@@ -342,9 +341,12 @@ class UserProfileTest(TestCase):
     def test_delete_consumers_tokens(self):
         # Deleting a profile deletes the related tokens and consumers.
         profile = factory.make_user().get_profile()
-        token_ids, consumer_ids = zip(*[
-            map(attrgetter('id'), profile.create_authorisation_token())
-            for i in range(3)])
+        token_ids = []
+        consumer_ids = []
+        for i in xrange(3):
+            token, consumer = profile.create_authorisation_token()
+            token_ids.append(token.id)
+            consumer_ids.append(consumer.id)
         profile.delete()
         self.assertFalse(Consumer.objects.filter(id__in=consumer_ids).exists())
         self.assertFalse(Token.objects.filter(id__in=token_ids).exists())
@@ -353,11 +355,7 @@ class UserProfileTest(TestCase):
         # Cannot delete a user with nodes attached to it.
         profile = factory.make_user().get_profile()
         factory.make_node(owner=profile.user)
-        message = (
-            "User %s cannot be deleted: it still has 1 node\(s\) deployed\." %
-            profile.user.username)
-        self.assertRaisesRegexp(
-            CannotDeleteUserException, message, profile.delete)
+        self.assertRaises(CannotDeleteUserException, profile.delete)
 
     def test_manager_all_users(self):
         users = set()
