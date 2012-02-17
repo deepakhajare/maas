@@ -25,6 +25,7 @@ from maasserver.exceptions import (
     )
 from maasserver.models import (
     GENERIC_CONSUMER,
+    SYSTEM_USERS,
     MACAddress,
     Node,
     NODE_STATUS,
@@ -353,6 +354,20 @@ class UserProfileTest(TestCase):
             profile.user.username)
         self.assertRaisesRegexp(
             CannotDeleteUserException, message, profile.delete)
+
+    def test_manager_all_users(self):
+        users = set()
+        for i in range(3):
+            users.add(factory.make_user())
+        all_users = set(UserProfile.objects.all_users())
+        self.assertEqual(users, all_users)
+
+    def test_manager_all_users_no_system_user(self):
+        for i in range(3):
+            factory.make_user()
+        usernames = set(
+            user.username for user in UserProfile.objects.all_users())
+        self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
 
 
 class FileStorageTest(TestCase):

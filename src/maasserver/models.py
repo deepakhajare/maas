@@ -434,9 +434,8 @@ class UserProfileManager(models.Manager):
         :rtype: django.db.models.query.QuerySet_
 
         """
-        userprofile_ids = UserProfile.objects.filter(
-            ).values_list('id', flat=True)
-        return User.objects.filter(id__in=userprofile_ids)
+        user_ids = UserProfile.objects.all().values_list('user', flat=True)
+        return User.objects.filter(id__in=user_ids)
 
 
 class UserProfile(models.Model):
