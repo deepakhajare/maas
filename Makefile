@@ -12,8 +12,12 @@ bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/maas bin/test.maas: bin/buildout buildout.cfg setup.py
+bin/maas: bin/buildout buildout.cfg setup.py
 	bin/buildout install maas
+	@touch --no-create $@
+
+bin/test.maas: bin/buildout buildout.cfg setup.py
+	bin/buildout install maas-test
 	@touch --no-create $@
 
 bin/twistd.pserv: bin/buildout buildout.cfg setup.py
@@ -34,7 +38,7 @@ bin/sphinx: bin/buildout buildout.cfg setup.py
 
 bin/py bin/ipy: bin/buildout buildout.cfg setup.py
 	bin/buildout install repl
-	@touch --no-create $@
+	@touch --no-create bin/py bin/ipy
 
 dev-db:
 	utilities/maasdb start ./db/ disposable
@@ -73,7 +77,7 @@ distclean: clean pserv-stop
 	$(RM) -r docs/_build/
 
 pserv.pid: bin/twistd.pserv
-	bin/twistd.pserv --pidfile=$@ maas-pserv --port=8001
+	bin/twistd.pserv --pidfile=$@ maas-pserv --config-file=etc/pserv.yaml
 
 pserv-start: pserv.pid
 

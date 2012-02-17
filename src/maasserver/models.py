@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "generate_node_system_id",
+    "FileStorage",
     "NODE_STATUS",
     "Node",
     "MACAddress",
@@ -33,10 +34,17 @@ from maasserver.exceptions import (
     PermissionDenied,
     )
 from maasserver.macaddress import MACAddressField
+from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
     Token,
     )
+
+# Special users internal to MaaS.
+SYSTEM_USERS = [
+    # For nodes' access to the metadata API:
+    nodeinituser.user_name,
+    ]
 
 
 class CommonInfo(models.Model):
@@ -53,11 +61,11 @@ class CommonInfo(models.Model):
     class Meta:
         abstract = True
 
-    def save(self):
+    def save(self, *args, **kwargs):
         if not self.id:
             self.created = datetime.date.today()
         self.updated = datetime.datetime.today()
-        super(CommonInfo, self).save()
+        super(CommonInfo, self).save(*args, **kwargs)
 
 
 def generate_node_system_id():
@@ -387,6 +395,30 @@ class MACAddress(CommonInfo):
 GENERIC_CONSUMER = 'Maas consumer'
 
 
+def create_auth_token(user):
+    """Create new Token and Consumer (OAuth authorisation) for `user`.
+
+    :param user: The user to create a token for.
+    :type user: User
+    :return: A tuple containing the Consumer and the Token that were
+        created.
+    :rtype: tuple
+
+    """
+    consumer = Consumer.objects.create(
+        user=user, name=GENERIC_CONSUMER, status='accepted')
+    consumer.generate_random_codes()
+    # This is a 'generic' consumer aimed to service many clients, hence
+    # we don't authenticate the consumer with key/secret key.
+    consumer.secret = ''
+    consumer.save()
+    token = Token.objects.create(
+        user=user, token_type=Token.ACCESS, consumer=consumer,
+        is_approved=True)
+    token.generate_random_codes()
+    return consumer, token
+
+
 class UserProfileManager(models.Manager):
     """A utility to manage the collection of UserProfile (or User).
 
@@ -454,18 +486,7 @@ class UserProfile(models.Model):
         :rtype: tuple
 
         """
-        consumer = Consumer.objects.create(
-            user=self.user, name=GENERIC_CONSUMER, status='accepted')
-        consumer.generate_random_codes()
-        # This is a 'generic' consumer aimed to service many clients, hence
-        # we don't authenticate the consumer with key/secret key.
-        consumer.secret = ''
-        consumer.save()
-        token = Token.objects.create(
-            user=self.user, token_type=Token.ACCESS, consumer=consumer,
-            is_approved=True)
-        token.generate_random_codes()
-        return consumer, token
+        return create_auth_token(self.user)
 
     def delete_authorisation_token(self, token_key):
         """Delete the user's OAuth token wich key token_key.
@@ -484,7 +505,8 @@ class UserProfile(models.Model):
 # When a user is created: create the related profile and the default
 # consumer/token.
 def create_user(sender, instance, created, **kwargs):
-    if created:
+    # System users do not have profiles.
+    if created and instance.username not in SYSTEM_USERS:
         # Create related UserProfile.
         profile = UserProfile.objects.create(user=instance)
 
