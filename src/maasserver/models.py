@@ -423,7 +423,8 @@ class UserProfileManager(models.Manager):
     """A utility to manage the collection of UserProfile (or User).
 
     This should be used when dealing with UserProfiles or Users because it
-    deals gracefully with system users.
+    returns only users with a profile attached to them (as opposed to system
+    users who don't have a profile).
     """
 
     def all_users(self):
