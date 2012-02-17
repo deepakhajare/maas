@@ -358,9 +358,7 @@ class UserProfileTest(TestCase):
         self.assertRaises(CannotDeleteUserException, profile.delete)
 
     def test_manager_all_users(self):
-        users = set()
-        for i in range(3):
-            users.add(factory.make_user())
+        users = set(factory.make_user() for i in xrange(3))
         all_users = set(UserProfile.objects.all_users())
         self.assertEqual(users, all_users)
 
