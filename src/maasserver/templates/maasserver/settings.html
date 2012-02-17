@@ -65,13 +65,13 @@
               <td>
                 <a href="{% url 'accounts-edit' user_item.username %}"
         	   title="Edit user {{ user_item.username }}">
-                  <img src="{{ STATIC_URL}}img/edit.png" />
+                  <img src="{{ STATIC_URL }}img/edit.png" />
                 </a>
                 {% if user != user_item %}
           	  <a title="Delete user {{ user_item.username }}"
                      class="delete-user"
                      href="{% url 'accounts-del' user_item.username %}">
-                    <img src="{{ STATIC_URL}}img/delete.png" />
+                    <img src="{{ STATIC_URL }}img/delete.png" />
                   </a>
                   <form method="POST"
                         action="{% url 'accounts-del' user_item.username %}">
