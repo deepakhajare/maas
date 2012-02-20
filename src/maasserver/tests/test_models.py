@@ -23,12 +23,13 @@ from maasserver.exceptions import (
     PermissionDenied,
     )
 from maasserver.models import (
+    Config,
     GENERIC_CONSUMER,
-    SYSTEM_USERS,
     MACAddress,
     Node,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
+    SYSTEM_USERS,
     UserProfile,
     )
 from maasserver.testing import TestCase
@@ -409,3 +410,69 @@ class FileStorageTest(TestCase):
         # out intact.
         storage = factory.make_file_storage(filename="x", data=binary_data)
         self.assertEqual(binary_data, storage.data.read())
+
+
+class ConfigTest(TestCase):
+    """Testing of the :class:`Config` model."""
+
+    def test_stores_types(self):
+        values = [
+            None,
+            True,
+            False,
+            3.33,
+            "A simple string",
+            [1, 2.43, "3"],
+            {"not": 5, 4: "test"},
+            set([1, "42"])
+            ]
+        for value in values:
+            name = factory.getRandomString()
+            config = Config(name=name, value=value)
+            config.save()
+
+            config = Config.objects.get(name=name)
+            self.assertEqual(value, config.value)
+
+    def test_field_exact_lookup(self):
+        # Value can be query via an 'exact' lookup.
+        Config.objects.create(name='name', value=[4, 6, {}])
+        config = Config.objects.get(value=[4, 6, {}])
+        self.assertEqual('name', config.name)
+
+    def test_field_none_lookup(self):
+        # Value can be queried via a 'isnull' lookup.
+        Config.objects.create(name='name', value=None)
+        config = Config.objects.get(value__isnull=True)
+        self.assertEqual('name', config.name)
+
+    def test_field_another_lookup_fails(self):
+        # Others lookups are not allowed.
+        self.assertRaises(TypeError, Config.objects.get, value__gte=3)
+
+    def test_manager_get_config_found(self):
+        Config.objects.create(name='name', value='config')
+        Config.objects.filter(value__isnull=True)
+        config = Config.objects.get_config('name')
+        self.assertEqual('config', config)
+
+    def test_manager_get_config_not_found(self):
+        config = Config.objects.get_config('name', 'default value')
+        self.assertEqual('default value', config)
+
+    def test_manager_get_config_not_found_none(self):
+        config = Config.objects.get_config('name')
+        self.assertIsNone(config)
+
+    def test_manager_get_config_list_returns_config_list(self):
+        Config.objects.create(name='name', value='config1')
+        Config.objects.create(name='name', value='config2')
+        config_list = Config.objects.get_config_list('name')
+        self.assertSequenceEqual(['config1', 'config2'], config_list)
+
+    def test_manager_set_config_creates_config(self):
+        Config.objects.set_config('name', 'config1')
+        Config.objects.set_config('name', 'config2')
+        self.assertSequenceEqual(
+            ['config1', 'config2'],
+            [config.value for config in Config.objects.filter(name='name')])
