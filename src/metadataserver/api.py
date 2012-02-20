@@ -10,18 +10,49 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'metadata_index',
-    'meta_data',
-    'version_index',
-    'user_data',
+    'IndexHandler',
+    'MetaDataHandler',
+    'UserDataHandler',
+    'VersionIndexHandler',
     ]
 
 from django.http import HttpResponse
 from piston.handler import BaseHandler
 
 
-class UnknownMetadataVersion(RuntimeError):
+from maasserver.exceptions import (
+    MaasAPINotFound,
+    Unauthorized,
+    )
+from metadataserver.models import NodeKey
+
+
+class UnknownMetadataVersion(MaasAPINotFound):
     """Not a known metadata version."""
+
+
+class UnknownNode(MaasAPINotFound):
+    """Not a known node."""
+
+
+def extract_oauth_key(auth_data):
+    """Extract the oauth key from auth data in HTTP header."""
+    for entry in auth_data.split():
+        key_value = entry.split('=', 1)
+        if len(key_value) == 2:
+            key, value = key_value
+            if key == 'oauth_token':
+                return value
+    raise Unauthorized("No oauth token found for metadata request.")
+
+
+def get_node_for_request(request):
+    """Return the `Node` that `request` is authorized to query for."""
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if auth_header is None:
+        raise Unauthorized("No authorization header received.")
+    key = extract_oauth_key(auth_header)
+    return NodeKey.objects.get_node_for_key(key)
 
 
 def make_text_response(contents):

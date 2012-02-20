@@ -24,9 +24,7 @@ import httplib
 import sys
 import types
 
-from django.core.exceptions import (
-    ValidationError,
-    )
+from django.core.exceptions import ValidationError
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
