@@ -82,39 +82,6 @@ class MACAddressAdapter:
 psycopg2.extensions.register_adapter(MACAddressField, MACAddressAdapter)
 
 
-class PickleableObjectField(Field):
-    """A field that can store any "pickleable" python object in the database.
-
-    """
-
-    def __init__(self, *args, **kwargs):
-        #kwargs.setdefault('editable', False)
-        super(PickleableObjectField, self).__init__(*args, **kwargs)
-
-    def to_python(self, value):
-        """db -> python: b64decode and unpickle the value."""
-        return loads(b64decode(value))
-
-    def get_db_prep_value(self, value):
-        """python -> db: pickle and b64encode the value."""
-        return b64encode(dumps(deepcopy(value)))
-
-    def value_to_string(self, obj):
-        """Serialization method."""
-        value = self._get_val_from_obj(obj)
-        return self.get_db_prep_value(value)
-
-    def get_prep_lookup(self, lookup_type, value):
-        # We only handle 'exact'. All others are errors.
-        if lookup_type == 'exact':
-            return self.get_prep_value(value)
-        else:
-            raise TypeError('Lookup type %r not supported.' % lookup_type)
-
-    def get_internal_type(self):
-        return "TextField"
-
-
 # Fix the protocol used in case the default value changes.
 DEFAULT_PROTOCOL = 2
 
