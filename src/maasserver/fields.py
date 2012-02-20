@@ -14,12 +14,8 @@ __all__ = [
     "MACAddressFormField",
     ]
 
-from base64 import (
-    b64decode,
-    b64encode,
-    )
 from copy import deepcopy
-from cPickle import (
+from json import (
     dumps,
     loads,
     )
@@ -86,21 +82,21 @@ psycopg2.extensions.register_adapter(MACAddressField, MACAddressAdapter)
 DEFAULT_PROTOCOL = 2
 
 
-class PickleableObjectField(Field):
-    """A field that will store any pickleable python object."""
+class JSONObjectField(Field):
+    """A field that will store any jsonizable python object."""
 
     __metaclass__ = SubfieldBase
 
     def __init__(self, *args, **kwargs):
         # The field cannot be edited.
         kwargs.setdefault('editable', False)
-        super(PickleableObjectField, self).__init__(*args, **kwargs)
+        super(JSONObjectField, self).__init__(*args, **kwargs)
 
     def to_python(self, value):
         """db -> python: b64decode and unpickle the object."""
         if value is not None:
             try:
-                return loads(b64decode(value))
+                return loads(value)
             except:
                 return value
         else:
@@ -112,7 +108,7 @@ class PickleableObjectField(Field):
             # We call force_unicode here explicitly, so that the encoded string
             # isn't rejected by the postgresql_psycopg2 backend.
             return force_unicode(
-                b64encode(dumps(deepcopy(value), DEFAULT_PROTOCOL)))
+                dumps(deepcopy(value), DEFAULT_PROTOCOL))
         else:
             return None
 
@@ -122,5 +118,5 @@ class PickleableObjectField(Field):
     def get_prep_lookup(self, lookup_type, value):
         if lookup_type not in ['exact', 'isnull']:
             raise TypeError('Lookup type %s is not supported.' % lookup_type)
-        return super(PickleableObjectField, self).get_prep_lookup(
+        return super(JSONObjectField, self).get_prep_lookup(
             lookup_type, value)

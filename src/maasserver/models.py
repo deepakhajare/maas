@@ -35,8 +35,8 @@ from maasserver.exceptions import (
     PermissionDenied,
     )
 from maasserver.fields import (
+    JSONObjectField,
     MACAddressField,
-    PickleableObjectField,
     )
 from metadataserver import nodeinituser
 from piston.models import (
@@ -614,7 +614,7 @@ class Config(models.Model):
     """
 
     name = models.CharField(max_length=255, unique=False)
-    value = PickleableObjectField(null=True)
+    value = JSONObjectField(null=True)
 
     objects = ConfigManager()
 

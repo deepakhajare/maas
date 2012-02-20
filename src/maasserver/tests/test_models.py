@@ -424,7 +424,6 @@ class ConfigTest(TestCase):
             "A simple string",
             [1, 2.43, "3"],
             {"not": 5, "another": "test"},
-            set([1, "42"])
             ]
         for value in values:
             name = factory.getRandomString()
