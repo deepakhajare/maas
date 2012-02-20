@@ -564,12 +564,11 @@ class ConfigManager(models.Manager):
         exist.
 
         :param name: The name of the config item.
-        :type name: str
+        :type name: basestring
         :param name: The optional default value to return if no such config
             item exists.
         :type name: object
         :return: A config value.
-        :rtype: object
         :raises: Config.MultipleObjectsReturned
         """
         try:
@@ -582,7 +581,7 @@ class ConfigManager(models.Manager):
         name.
 
         :param name: The name of the config items.
-        :type name: str
+        :type name: basestring
         :return: A list of the config values.
         :rtype: list
         """
@@ -592,9 +591,9 @@ class ConfigManager(models.Manager):
         """Set or overwrite a config value.
 
         :param name: The name of the config item to set.
-        :type name: str
+        :type name: basestring
         :param value: The value of the config item to set.
-        :type value: object
+        :type value: Any jsonizable object
         """
         try:
             existing = self.get(name=name)
@@ -608,7 +607,7 @@ class Config(models.Model):
     """Configuration settings.
 
     :ivar name: The name of the configuration option.
-    :type name: string
+    :type name: basestring
     :ivar value: The configuration value.
     :type value: Any pickleable python object.
     """
