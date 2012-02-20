@@ -67,7 +67,7 @@ clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 
-distclean: clean pserv-stop
+distclean: clean shutdown
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs parts
@@ -76,16 +76,30 @@ distclean: clean pserv-stop
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
-pserv.pid: bin/twistd.pserv
-	bin/twistd.pserv --pidfile=$@ maas-pserv --config-file=etc/pserv.yaml
-
-pserv-start: pserv.pid
-
-pserv-stop:
-	{ test -e pserv.pid && cat pserv.pid; } | xargs --no-run-if-empty kill
-
-run: bin/maas dev-db pserv.pid
+run: bin/maas dev-db start
 	bin/maas runserver 8000 --settings=maas.demo
+
+services/scan.pid:
+	@svscan services > services/scan.log 2>&1 <&- & \
+	    echo $$! > services/scan.pid
+
+start: bin/twistd.pserv dev-db services/scan.pid
+	@find services -type f -name run -printf '%h\0' \
+	    | xargs -n1 -0 svc -u
+
+stop:
+	@find services -type f -name run -printf '%h\0' \
+	    | xargs -n1 -0 svc -d
+
+status: services
+	@find services -type f -name run -printf '%h\0' \
+	    | xargs -n1 -0 svstat
+
+shutdown: pidfile=services/scan.pid
+shutdown:
+	@test ! -f $(pidfile) || { kill `cat $(pidfile)` && $(RM) $(pidfile); }
+	@find services -type f -name run -printf '%h\0' \
+	    | xargs -n1 -0 svc -dx
 
 harness: bin/maas dev-db
 	bin/maas shell
@@ -95,5 +109,5 @@ syncdb: bin/maas dev-db
 
 .PHONY: \
     build check clean dev-db distclean doc \
-    harness lint pserv-start pserv-stop run \
-    syncdb test sampledata
+    harness lint run shutdown syncdb test \
+    sampledata start stop status \

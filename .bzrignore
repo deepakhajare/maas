@@ -16,5 +16,8 @@
 ./parts
 ./pserv.log
 ./pserv.pid
+./services/*/log/supervise
+./services/*/supervise
+./services/scan.*
 ./TAGS
 ./tags
