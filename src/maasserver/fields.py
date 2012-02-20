@@ -116,10 +116,6 @@ class PickleableObjectField(Field):
         else:
             return None
 
-    def value_to_string(self, obj):
-        value = self._get_val_from_obj(obj)
-        return self.get_db_prep_value(value)
-
     def get_internal_type(self):
         return 'TextField'
 
