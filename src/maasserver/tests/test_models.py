@@ -474,5 +474,5 @@ class ConfigTest(TestCase):
         Config.objects.set_config('name', 'config1')
         Config.objects.set_config('name', 'config2')
         self.assertSequenceEqual(
-            ['config1', 'config2'],
+            ['config2'],
             [config.value for config in Config.objects.filter(name='name')])

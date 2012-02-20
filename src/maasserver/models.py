@@ -589,15 +589,19 @@ class ConfigManager(models.Manager):
         return [config.value for config in self.filter(name=name)]
 
     def set_config(self, name, value):
-        """Return the config value list corresponding to the given config
-        name.
+        """Set or overwrite a config value.
 
-        :param name: The name of the config item to create.
+        :param name: The name of the config item to set.
         :type name: str
-        :param value: The value of the config item to create.
+        :param value: The value of the config item to set.
         :type value: object
         """
-        self.create(name=name, value=value)
+        try:
+            existing = self.get(name=name)
+            existing.value = value
+            existing.save()
+        except Config.DoesNotExist:
+            self.create(name=name, value=value)
 
 
 class Config(models.Model):
