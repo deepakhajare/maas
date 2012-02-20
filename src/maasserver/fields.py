@@ -27,7 +27,6 @@ from django.db.models import (
     SubfieldBase,
     )
 from django.forms import RegexField
-from django.utils.encoding import force_unicode
 import psycopg2.extensions
 
 
@@ -105,10 +104,7 @@ class JSONObjectField(Field):
     def get_db_prep_value(self, value):
         """python -> db: pickle and b64encode."""
         if value is not None:
-            # We call force_unicode here explicitly, so that the encoded string
-            # isn't rejected by the postgresql_psycopg2 backend.
-            return force_unicode(
-                dumps(deepcopy(value), DEFAULT_PROTOCOL))
+            return dumps(deepcopy(value), DEFAULT_PROTOCOL)
         else:
             return None
 
