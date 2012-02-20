@@ -86,11 +86,6 @@ class JSONObjectField(Field):
 
     __metaclass__ = SubfieldBase
 
-    def __init__(self, *args, **kwargs):
-        # The field cannot be edited.
-        kwargs.setdefault('editable', False)
-        super(JSONObjectField, self).__init__(*args, **kwargs)
-
     def to_python(self, value):
         """db -> python: b64decode and unpickle the object."""
         if value is not None:
