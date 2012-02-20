@@ -50,30 +50,12 @@ from maasserver.models import (
     MACAddress,
     Node,
     )
-from piston.authentication import OAuthAuthentication
 from piston.doc import generate_doc
 from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
 from piston.utils import rc
-
-
-class MaasAPIAuthentication(OAuthAuthentication):
-    """A piston authentication class that uses the currently logged-in user
-    if there is one, and defaults to piston's OAuthAuthentication if not.
-
-    """
-
-    def is_authenticated(self, request):
-        if request.user.is_authenticated():
-            return request.user
-        else:
-            return super(
-                MaasAPIAuthentication, self).is_authenticated(request)
-
-    def challenge(self):
-        return rc.FORBIDDEN
 
 
 dispatch_methods = {

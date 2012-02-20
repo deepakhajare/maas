@@ -38,8 +38,8 @@ class AccessMiddleware:
     """
 
     def __init__(self):
-        # URL prefixes that do not require authentication by Django.
-        public_url_roots = [
+        # URL prefixes that are not auth-checked by this middleware.
+        irrelevant_url_roots = [
             # Login/logout pages: must be visible to anonymous users.
             reverse('login'),
             reverse('logout'),
@@ -48,12 +48,12 @@ class AccessMiddleware:
             reverse('favicon'),
             reverse('robots'),
             reverse('api-doc'),
-            # Metadata service is for use by nodes; no login.
+            # Metadata service has its own access middleware.
             reverse('metadata'),
             # API calls are protected by piston.
             settings.API_URL_REGEXP,
             ]
-        self.public_urls = re.compile("|".join(public_url_roots))
+        self.public_urls = re.compile("|".join(irrelevant_url_roots))
         self.login_url = reverse('login')
 
     def process_request(self, request):

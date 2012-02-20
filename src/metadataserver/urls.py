@@ -17,22 +17,30 @@ from django.conf.urls.defaults import (
     patterns,
     url,
     )
+from maas.api_auth import api_auth
 from metadataserver.api import (
-    meta_data,
-    metadata_index,
-    user_data,
-    version_index,
+    MetaDataHandler,
+    UserDataHandler,
+    VersionIndexHandler,
+    IndexHandler,
     )
+from piston.resource import Resource
+
+
+meta_data_handler = Resource(MetaDataHandler, authentication=api_auth)
+user_data_handler = Resource(UserDataHandler, authentication=api_auth)
+version_index_handler = Resource(VersionIndexHandler, authentication=api_auth)
+index_handler = Resource(IndexHandler, authentication=api_auth)
 
 
 urlpatterns = patterns(
     '',
     url(
-        r'(?P<version>[^/]+)/meta-data/$', meta_data,
+        r'metadata/(?P<version>[^/]+)/meta-data/$', meta_data_handler,
         name='metadata_meta_data'),
     url(
-        r'(?P<version>[^/]+)/user-data$', user_data,
+        r'metadata/(?P<version>[^/]+)/user-data$', user_data_handler,
         name='metadata_user_data'),
-    url(r'(?P<version>[^/]+)/', version_index, name='metadata_version'),
-    url(r'', metadata_index, name='metadata'),
+    url(r'metadata/(?P<version>[^/]+)/', version_index_handler, name='metadata_version'),
+    url(r'metadata/', index_handler, name='metadata'),
     )

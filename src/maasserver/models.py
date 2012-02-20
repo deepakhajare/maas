@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "generate_node_system_id",
+    "get_auth_tokens",
     "FileStorage",
     "NODE_STATUS",
     "Node",
@@ -414,6 +415,21 @@ def create_auth_token(user):
     return consumer, token
 
 
+def get_auth_tokens(user):
+    """Fetches all the user's OAuth tokens.
+
+    :return: A QuerySet of the tokens.
+    :rtype: django.db.models.query.QuerySet_
+
+    .. _django.db.models.query.QuerySet: https://docs.djangoproject.com/
+       en/dev/ref/models/querysets/
+
+    """
+    return Token.objects.select_related().filter(
+        user=user, token_type=Token.ACCESS, is_approved=True).order_by('id')
+
+
+
 class UserProfile(models.Model):
     """A User profile to store Maas specific methods and fields.
 
@@ -437,9 +453,7 @@ class UserProfile(models.Model):
            en/dev/ref/models/querysets/
 
         """
-        return Token.objects.select_related().filter(
-            user=self.user, token_type=Token.ACCESS,
-            is_approved=True).order_by('id')
+        return get_auth_tokens(self.user)
 
     def create_authorisation_token(self):
         """Create a new Token and its related Consumer (OAuth authorisation).

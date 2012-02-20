@@ -17,6 +17,7 @@ __all__ = [
     ]
 
 from django.http import HttpResponse
+from piston.handler import BaseHandler
 
 
 class UnknownMetadataVersion(RuntimeError):
@@ -39,28 +40,38 @@ def check_version(version):
         raise UnknownMetadataVersion("Unknown metadata version: %s" % version)
 
 
-def metadata_index(request):
-    """View: top-level metadata listing."""
-    return make_list_response(['latest'])
+class MetadataViewHandler(BaseHandler):
+    allowed_methods = ('GET',)
+
+    def read(self, request):
+        return make_list_response(self.fields)
 
 
-def version_index(request, version):
-    """View: listing for a given metadata version."""
-    check_version(version)
-    return make_list_response(['meta-data', 'user-data'])
+class IndexHandler(MetadataViewHandler):
+    """Top-level metadata listing."""
+
+    fields = ('latest',)
 
 
-def meta_data(request, version):
-    """View: meta-data listing for a given version."""
-    check_version(version)
-    items = [
-        'kernel-id',
-        ]
-    return make_list_response(items)
+class VersionIndexHandler(MetadataViewHandler):
+    """Listing for a given metadata version."""
+
+    fields = ('meta-data', 'user-data')
+
+    def read(self, request, version):
+        check_version(version)
+        return super(VersionIndexHandler, self).read(request)
 
 
-def user_data(request, version):
-    """View: user-data blob for a given version."""
-    check_version(version)
-    data = b"User data here."
-    return HttpResponse(data, mimetype='application/octet-stream')
+class MetaDataHandler(VersionIndexHandler):
+    """Meta-data listing for a given version."""
+
+    fields = ('local-hostname',)
+
+
+class UserDataHandler(MetadataViewHandler):
+    """User-data blob for a given version."""
+    def read(self, request, version):
+        check_version(version)
+        data = b"User data here."
+        return HttpResponse(data, mimetype='application/octet-stream')
