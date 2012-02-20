@@ -128,11 +128,11 @@
     font-size: 36px;
     color: #fff;
     margin: 0 20px;
-    padding: 20px 0;
+    padding: 14px 0 20px 0;
     background: transparent url(../img/content_tail.png) no-repeat 50px bottom;
     }
 #content {
-    padding: 20px;
+    padding: 20px 20px 40px 20px;
     background-color: #fff;
     -moz-border-radius: 4px;
     -webkit-border-radius: 4px;
