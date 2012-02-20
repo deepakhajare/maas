@@ -423,7 +423,7 @@ class ConfigTest(TestCase):
             3.33,
             "A simple string",
             [1, 2.43, "3"],
-            {"not": 5, 4: "test"},
+            {"not": 5, "another": "test"},
             set([1, "42"])
             ]
         for value in values:
