@@ -76,9 +76,6 @@ distclean: clean shutdown
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
-run: bin/maas dev-db start
-	bin/maas runserver 8000 --settings=maas.demo
-
 services/scan.pid:
 	@svscan services > services/scan.log 2>&1 <&- & \
 	    echo $$! > services/scan.pid
@@ -87,9 +84,14 @@ start: bin/twistd.pserv dev-db services/scan.pid
 	@find services -type f -name run -printf '%h\0' \
 	    | xargs -n1 -0 svc -u
 
+run: start
+	@tail --follow=name logs/*/current
+
 stop:
 	@find services -type f -name run -printf '%h\0' \
 	    | xargs -n1 -0 svc -d
+
+restart: stop start
 
 status: services
 	@find services -type f -name run -printf '%h\0' \
@@ -109,5 +111,5 @@ syncdb: bin/maas dev-db
 
 .PHONY: \
     build check clean dev-db distclean doc \
-    harness lint run shutdown syncdb test \
-    sampledata start stop status \
+    harness lint restart run shutdown syncdb \
+    test sampledata start stop status

@@ -7,10 +7,7 @@ set -o errexit
 # Treat unset variables as an error when substituting.
 set -o nounset
 
-# Move to the project root.
-cd ../..
-
-# Exec the Provisioning Server.
-script="$(readlink -f bin/twistd.pserv)"
-config="$(readlink -f etc/pserv.yaml)"
-exec "${script}" --nodaemon maas-pserv --config-file "${config}"
+# Exec log service for the MaaS API and Web UI Server.
+logdir="../../../logs/api" && mkdir -p "${logdir}"
+# Rotate when logs reach 1MB, keeping no more than 10.
+exec multilog s1048576 n10 "${logdir}"
