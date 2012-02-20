@@ -452,7 +452,6 @@ class ConfigTest(TestCase):
 
     def test_manager_get_config_found(self):
         Config.objects.create(name='name', value='config')
-        Config.objects.filter(value__isnull=True)
         config = Config.objects.get_config('name')
         self.assertEqual('config', config)
 
