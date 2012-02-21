@@ -432,8 +432,7 @@ class ConfigTest(TestCase):
         Config.objects.create(name='name', value='config1')
         Config.objects.create(name='name', value='config2')
         config_list = Config.objects.get_config_list('name')
-        self.assertSequenceEqual(
-            sorted(['config1', 'config2']), sorted(config_list))
+        self.assertItemsEqual(['config1', 'config2'], config_list)
 
     def test_manager_set_config_creates_config(self):
         Config.objects.set_config('name', 'config1')
