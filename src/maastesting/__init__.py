@@ -56,9 +56,14 @@ class TestCase(testtools.TestCase, django.test.TestCase):
 class TestModelTestCase(TestCase):
     """A custom test case that adds support for test-only models.
 
-    Subclass this and:
-    - populate self.app with 'myapp1.tests'
+    For instance, if you want to have a model object used solely for testing
+    in your application 'myapp1' you would create a test case that uses
+    TestModelTestCase as its base class and:
+    - initialize self.app with 'myapp1.tests'
     - define the models used for testing in myapp1.tests.models
+
+    This way the models defined in myapp1.tests.models will be available in
+    this test case (and this test case only).
     """
 
     # Set the appropriate application to be loaded.
