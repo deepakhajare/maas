@@ -189,7 +189,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
         this.loggedOffNode = Y.Node.create('<span />')
             .set('text', "You have been logged out, please ")
             .append(Y.Node.create('<a />')
-                .set('text', 'login')
+                .set('text', 'log in')
                 .set('href', MAAS_config.uris.login))
             .append(Y.Node.create('<span />')
                 .set('text', ' again.'));
