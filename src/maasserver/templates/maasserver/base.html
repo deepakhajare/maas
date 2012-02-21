@@ -8,16 +8,18 @@
     <title>{% block title %}{% endblock %} | {% include "maasserver/site_title.html" %}</title>
     {% block js-conf %}{% include "maasserver/js-conf.html" %}{% endblock %}
     {% block head %}{% endblock %}
-    <script type="text/javascript">
-    <!--
-    YUI().use('maas.user_panel', function (Y) {
-      Y.on('load', function() {
-        var panel = Y.maas.user_panel.createUserPanelWidget()
-        Y.one('#user-options-link').on('click', Y.maas.user_panel.showUserPanelWidget);
-      });
-    });
-    // -->
-    </script>
+    {% if user.is_authenticated %}
+        <script type="text/javascript">
+        <!--
+        YUI().use('maas.user_panel', function (Y) {
+          Y.on('load', function() {
+            var panel = Y.maas.user_panel.createUserPanelWidget()
+            Y.one('#user-options-link').on('click', Y.maas.user_panel.showUserPanelWidget);
+          });
+        });
+        // -->
+        </script>
+    {% endif %}
 </head>
 <body class="{% block layout-modifiers %}{% endblock %}">
   {% block html_includes %}{% endblock %}

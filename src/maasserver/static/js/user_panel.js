@@ -30,7 +30,7 @@ module.createUserPanelWidget = function(event) {
         zIndex: 2,
         hideOn: [{eventName: 'clickoutside'}],
         visible: false,
-        render: true,
+        render: true
         };
     module._user_panel_singleton = new Y.Overlay(cfg);
     Y.one(cfg.srcNode).removeClass('hidden');
