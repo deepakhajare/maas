@@ -61,7 +61,7 @@ class TestModelTestCase(TestCase):
     - define the models used for testing in myapp1.tests.models
     """
 
-    # Add the appropriate application to be loaded.
+    # Set the appropriate application to be loaded.
     app = None
 
     def _pre_setup(self):
