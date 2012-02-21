@@ -95,7 +95,6 @@ class NodeWithMACAddressesFormTest(TestCase):
 
 
 class TestOptionForm(ConfigForm):
-
     field1 = forms.CharField(label="Field 1", max_length=10)
     field2 = forms.BooleanField(label="Field 2", required=False)
 
