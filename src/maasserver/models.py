@@ -10,7 +10,10 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "create_auth_token",
     "generate_node_system_id",
+    "get_auth_tokens",
+    "Config",
     "FileStorage",
     "NODE_STATUS",
     "Node",
@@ -33,7 +36,10 @@ from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
     )
-from maasserver.macaddress import MACAddressField
+from maasserver.fields import (
+    JSONObjectField,
+    MACAddressField,
+    )
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -400,9 +406,8 @@ def create_auth_token(user):
 
     :param user: The user to create a token for.
     :type user: User
-    :return: A tuple containing the Consumer and the Token that were
-        created.
-    :rtype: tuple
+    :return: The created Token.
+    :rtype: piston.models.Token
 
     """
     consumer = Consumer.objects.create(
@@ -416,7 +421,21 @@ def create_auth_token(user):
         user=user, token_type=Token.ACCESS, consumer=consumer,
         is_approved=True)
     token.generate_random_codes()
-    return consumer, token
+    return token
+
+
+def get_auth_tokens(user):
+    """Fetches all the user's OAuth tokens.
+
+    :return: A QuerySet of the tokens.
+    :rtype: django.db.models.query.QuerySet_
+
+    .. _django.db.models.query.QuerySet: https://docs.djangoproject.com/
+       en/dev/ref/models/querysets/
+
+    """
+    return Token.objects.select_related().filter(
+        user=user, token_type=Token.ACCESS, is_approved=True).order_by('id')
 
 
 class UserProfileManager(models.Manager):
@@ -474,9 +493,7 @@ class UserProfile(models.Model):
            en/dev/ref/models/querysets/
 
         """
-        return Token.objects.select_related().filter(
-            user=self.user, token_type=Token.ACCESS,
-            is_approved=True).order_by('id')
+        return get_auth_tokens(self.user)
 
     def create_authorisation_token(self):
         """Create a new Token and its related Consumer (OAuth authorisation).
@@ -486,7 +503,8 @@ class UserProfile(models.Model):
         :rtype: tuple
 
         """
-        return create_auth_token(self.user)
+        token = create_auth_token(self.user)
+        return token.consumer, token
 
     def delete_authorisation_token(self, token_key):
         """Delete the user's OAuth token wich key token_key.
@@ -549,8 +567,77 @@ class FileStorage(models.Model):
         self.data.save(filename, content)
 
 
+class ConfigManager(models.Manager):
+    """A utility to manage the configuration settings.
+
+    """
+
+    def get_config(self, name, default=None):
+        """Return the config value corresponding to the given config name.
+        Return None or the provided default if the config value does not
+        exist.
+
+        :param name: The name of the config item.
+        :type name: basestring
+        :param name: The optional default value to return if no such config
+            item exists.
+        :type name: object
+        :return: A config value.
+        :raises: Config.MultipleObjectsReturned
+        """
+        try:
+            return self.get(name=name).value
+        except Config.DoesNotExist:
+            return default
+
+    def get_config_list(self, name):
+        """Return the config value list corresponding to the given config
+        name.
+
+        :param name: The name of the config items.
+        :type name: basestring
+        :return: A list of the config values.
+        :rtype: list
+        """
+        return [config.value for config in self.filter(name=name)]
+
+    def set_config(self, name, value):
+        """Set or overwrite a config value.
+
+        :param name: The name of the config item to set.
+        :type name: basestring
+        :param value: The value of the config item to set.
+        :type value: Any jsonizable object
+        """
+        try:
+            existing = self.get(name=name)
+            existing.value = value
+            existing.save()
+        except Config.DoesNotExist:
+            self.create(name=name, value=value)
+
+
+class Config(models.Model):
+    """Configuration settings.
+
+    :ivar name: The name of the configuration option.
+    :type name: basestring
+    :ivar value: The configuration value.
+    :type value: Any pickleable python object.
+    """
+
+    name = models.CharField(max_length=255, unique=False)
+    value = JSONObjectField(null=True)
+
+    objects = ConfigManager()
+
+    def __unicode__(self):
+        return "%s: %s" % (self.name, self.value)
+
+
 # Register the models in the admin site.
 admin.site.register(Consumer)
+admin.site.register(Config)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
