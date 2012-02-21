@@ -11,9 +11,9 @@
 {% block head %}
   <script type="text/javascript">
   <!--
-  YUI().use('maas.add_node', function (Y) {
+  YUI().use('maas.node_add', function (Y) {
     Y.on('load', function() {
-      Y.one('#addnode').on('click', Y.maas.add_node.showAddNodeWidget);
+      Y.one('#addnode').on('click', Y.maas.node_add.showAddNodeWidget);
     });
   });
   // -->
@@ -47,5 +47,5 @@
       {% endfor %}
     </table>
   {% endif%}
-  <a id="addnode" href="#">Add Node</a>
+  <a id="addnode" href="#">Add node</a>
 {% endblock %}
