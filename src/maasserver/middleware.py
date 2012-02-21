@@ -52,6 +52,7 @@ class AccessMiddleware:
             reverse('metadata'),
             # API calls are protected by piston.
             settings.API_URL_REGEXP,
+            settings.METADATA_URL_REGEXP,
             ]
         self.public_urls = re.compile("|".join(irrelevant_url_roots))
         self.login_url = reverse('login')

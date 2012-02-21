@@ -33,7 +33,9 @@ OOPS_REPOSITORY = 'logs'
 LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 
-API_URL_REGEXP = '^/(api|metadata)/'
+API_URL_REGEXP = '^/api/'
+METADATA_URL_REGEXP = '^/metadata/'
+
 
 # We handle exceptions ourselves (in
 # maasserver.middleware.APIErrorsMiddleware)

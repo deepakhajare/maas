@@ -20,7 +20,6 @@ import time
 from django.conf import settings
 from django.test.client import Client
 from maasserver.models import (
-    create_auth_token,
     get_auth_tokens,
     MACAddress,
     Node,
@@ -31,7 +30,6 @@ from maasserver.testing import (
     TestCase,
     )
 from maasserver.testing.factory import factory
-from metadataserver.nodeinituser import get_node_init_user
 from oauth.oauth import (
     generate_nonce,
     OAuthConsumer,
@@ -48,15 +46,6 @@ class NodeAnonAPITest(TestCase):
         response = self.client.get('/api/nodes/')
 
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
-
-    def test_node_init_user_cannot_access_API(self):
-        # The special "node init user" has access to the metadata API,
-        # but it can't access the MaaS API.
-        node_init_user = get_node_init_user()
-        create_auth_token(node_init_user)
-        node_init_client = OAuthAuthenticatedClient(node_init_user)
-        self.assertEqual(
-            httplib.FORBIDDEN, node_init_client.get('/api/nodes').status_code)
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
