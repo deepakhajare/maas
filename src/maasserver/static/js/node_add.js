@@ -177,7 +177,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
     },
 
     /**
-     * Initialize the various nodes objects this widget will use.
+     * Initialize the nodes this widget will use.
      *
      * @method initializeNodes
      */
