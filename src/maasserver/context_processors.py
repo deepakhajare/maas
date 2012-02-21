@@ -23,5 +23,5 @@ def yui(context):
         'YUI_VERSION': settings.YUI_VERSION,
     }
 
-def site(context):
-    return {'site': Site.objects.get_current()}
+def global_options(context):
+    return {'global_options': {'site_name': 'Temporary Cluster Name'}}
