@@ -402,9 +402,8 @@ def create_auth_token(user):
 
     :param user: The user to create a token for.
     :type user: User
-    :return: A tuple containing the Consumer and the Token that were
-        created.
-    :rtype: tuple
+    :return: The created Token.
+    :rtype: Token
 
     """
     consumer = Consumer.objects.create(
@@ -418,7 +417,7 @@ def create_auth_token(user):
         user=user, token_type=Token.ACCESS, consumer=consumer,
         is_approved=True)
     token.generate_random_codes()
-    return consumer, token
+    return token
 
 
 def get_auth_tokens(user):
@@ -500,7 +499,8 @@ class UserProfile(models.Model):
         :rtype: tuple
 
         """
-        return create_auth_token(self.user)
+        token = create_auth_token(self.user)
+        return token.consumer, token
 
     def delete_authorisation_token(self, token_key):
         """Delete the user's OAuth token wich key token_key.

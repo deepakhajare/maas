@@ -287,27 +287,26 @@ class AuthTokensTest(TestCase):
 
     def test_create_auth_token(self):
         user = factory.make_user()
-        consumer, token = create_auth_token(user)
-        self.assertEqual(consumer, token.consumer)
+        token = create_auth_token(user)
         self.assertEqual(user, token.user)
-        self.assertEqual(user, consumer.user)
+        self.assertEqual(user, token.consumer.user)
         self.assertTrue(token.is_approved)
-        self.assertConsumerValid(consumer)
+        self.assertConsumerValid(token.consumer)
         self.assertTokenValid(token)
 
     def test_get_auth_tokens_finds_tokens_for_user(self):
         user = factory.make_user()
-        consumer, token = create_auth_token(user)
+        token = create_auth_token(user)
         self.assertIn(token, get_auth_tokens(user))
 
     def test_get_auth_tokens_ignores_other_users(self):
         user, other_user = factory.make_user(), factory.make_user()
-        unrelated_consumer, unrelated_token = create_auth_token(other_user)
+        unrelated_token = create_auth_token(other_user)
         self.assertNotIn(unrelated_token, get_auth_tokens(user))
 
     def test_get_auth_tokens_ignores_unapproved_tokens(self):
         user = factory.make_user()
-        consumer, token = create_auth_token(user)
+        token = create_auth_token(user)
         token.is_approved = False
         token.save()
         self.assertNotIn(token, get_auth_tokens(user))
