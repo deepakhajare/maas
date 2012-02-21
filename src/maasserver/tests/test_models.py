@@ -24,6 +24,7 @@ from maasserver.exceptions import (
     )
 from maasserver.models import (
     Config,
+    DEFAULT_CONFIG,
     GENERIC_CONSUMER,
     MACAddress,
     Node,
@@ -427,6 +428,13 @@ class ConfigTest(TestCase):
     def test_manager_get_config_not_found_none(self):
         config = Config.objects.get_config('name')
         self.assertIsNone(config)
+
+    def test_manager_get_config_not_found_in_default_config(self):
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        DEFAULT_CONFIG[name] = value
+        config = Config.objects.get_config(name, None)
+        self.assertEqual(value, config)
 
     def test_manager_get_config_list_returns_config_list(self):
         Config.objects.create(name='name', value='config1')

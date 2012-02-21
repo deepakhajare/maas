@@ -553,6 +553,12 @@ class FileStorage(models.Model):
         self.data.save(filename, content)
 
 
+# Default values for config options.
+DEFAULT_CONFIG = {
+    'maas_name': "My",
+    }
+
+
 class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
@@ -574,7 +580,7 @@ class ConfigManager(models.Manager):
         try:
             return self.get(name=name).value
         except Config.DoesNotExist:
-            return default
+            return DEFAULT_CONFIG.get(name, default)
 
     def get_config_list(self, name):
         """Return the config value list corresponding to the given config
