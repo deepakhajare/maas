@@ -403,7 +403,7 @@ def create_auth_token(user):
     :param user: The user to create a token for.
     :type user: User
     :return: The created Token.
-    :rtype: Token
+    :rtype: piston.models.Token
 
     """
     consumer = Consumer.objects.create(
