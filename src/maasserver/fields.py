@@ -77,29 +77,27 @@ class MACAddressAdapter:
 psycopg2.extensions.register_adapter(MACAddressField, MACAddressAdapter)
 
 
-# Fix the protocol used in case the default value changes.
-DEFAULT_PROTOCOL = 2
-
-
 class JSONObjectField(Field):
     """A field that will store any jsonizable python object."""
 
     __metaclass__ = SubfieldBase
 
     def to_python(self, value):
-        """db -> python: b64decode and unpickle the object."""
+        """db -> python: json load."""
         if value is not None:
-            try:
-                return loads(value)
-            except:
-                return value
+            if isinstance(value, basestring):
+                try:
+                    return loads(value)
+                except ValueError:
+                    pass
+            return value
         else:
             return None
 
     def get_db_prep_value(self, value):
-        """python -> db: pickle and b64encode."""
+        """python -> db: json dump."""
         if value is not None:
-            return dumps(deepcopy(value), DEFAULT_PROTOCOL)
+            return dumps(deepcopy(value))
         else:
             return None
 
@@ -108,6 +106,6 @@ class JSONObjectField(Field):
 
     def get_prep_lookup(self, lookup_type, value):
         if lookup_type not in ['exact', 'isnull']:
-            raise TypeError('Lookup type %s is not supported.' % lookup_type)
+            raise TypeError("Lookup type %s is not supported." % lookup_type)
         return super(JSONObjectField, self).get_prep_lookup(
             lookup_type, value)

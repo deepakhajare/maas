@@ -415,40 +415,6 @@ class FileStorageTest(TestCase):
 class ConfigTest(TestCase):
     """Testing of the :class:`Config` model."""
 
-    def test_stores_types(self):
-        values = [
-            None,
-            True,
-            False,
-            3.33,
-            "A simple string",
-            [1, 2.43, "3"],
-            {"not": 5, "another": "test"},
-            ]
-        for value in values:
-            name = factory.getRandomString()
-            config = Config(name=name, value=value)
-            config.save()
-
-            config = Config.objects.get(name=name)
-            self.assertEqual(value, config.value)
-
-    def test_field_exact_lookup(self):
-        # Value can be query via an 'exact' lookup.
-        Config.objects.create(name='name', value=[4, 6, {}])
-        config = Config.objects.get(value=[4, 6, {}])
-        self.assertEqual('name', config.name)
-
-    def test_field_none_lookup(self):
-        # Value can be queried via a 'isnull' lookup.
-        Config.objects.create(name='name', value=None)
-        config = Config.objects.get(value__isnull=True)
-        self.assertEqual('name', config.name)
-
-    def test_field_another_lookup_fails(self):
-        # Others lookups are not allowed.
-        self.assertRaises(TypeError, Config.objects.get, value__gte=3)
-
     def test_manager_get_config_found(self):
         Config.objects.create(name='name', value='config')
         config = Config.objects.get_config('name')
