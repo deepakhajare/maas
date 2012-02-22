@@ -160,12 +160,21 @@ class TestViews(TestCase):
         response = self.get('/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA', client)
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    def test_meta_data_local_hostname(self):
+    def test_meta_data_local_hostname_returns_hostname(self):
         hostname = factory.getRandomString()
         client = self.make_node_client(factory.make_node(hostname=hostname))
         response = self.get('/latest/meta-data/local-hostname', client)
         self.assertEqual(
             (httplib.OK, hostname),
+            (response.status_code, response.content.decode('ascii')))
+        self.assertIn('text/plain', response['Content-Type'])
+
+    def test_meta_data_instance_id_returns_system_id(self):
+        node = factory.make_node()
+        client = self.make_node_client(node)
+        response = self.get('/latest/meta-data/instance-id', client)
+        self.assertEqual(
+            (httplib.OK, node.system_id),
             (response.status_code, response.content.decode('ascii')))
         self.assertIn('text/plain', response['Content-Type'])
 
