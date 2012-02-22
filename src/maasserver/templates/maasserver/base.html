@@ -86,7 +86,9 @@
           {% endif %}
         </ul>
         {% if user.is_authenticated %}
-          <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
+          {% block page-title-block %}
+            <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
+          {% endblock %}
         {% endif %}
         <div id="content">
             <div id="sidebar">{% block sidebar %}{% endblock %}</div>

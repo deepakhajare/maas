@@ -2,7 +2,6 @@
 
 {% block nav-active-index %}active{% endblock %}
 {% block title %}Dashboard{% endblock %}
-{% block page-title %}Dashboard{% endblock %}
 
 {% block html_includes %}{% include "maasserver/snippets.html" %}
 {% endblock %}
@@ -31,6 +30,16 @@
   });
   // -->
   </script>
+{% endblock %}
+
+{% block page-title-block %}
+  {% if user.is_superuser %}
+    <form action="" method="" class="page-title-form">
+      <input type="text" value="{{ global_options.site_name }}" title="Edit the name of this MaaS" />
+    </form>
+  {% else %}
+    <h1 id="page-title">{% include "maasserver/site_title.html" %}</h1>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
