@@ -69,24 +69,28 @@ class AccessMiddleware:
                 return None
 
 
-class APIErrorsMiddleware:
-    """This middleware_ converts exceptions raised in execution of an API
-    method into proper API errors (like "404 Not Found" errors or
-    "400 Bad Request" errors).
+class ExceptionMiddleware:
+    """Convert exceptions into appropriate HttpResponse responses.
 
-    .. middleware: https://docs.djangoproject.com
-       /en/dev/topics/http/middleware/
+    For example, a MaasAPINotFound exception will result in a 404 response
+    to the client.
 
-    - Convert MaasAPIException instances into the corresponding error
-      (see maasserver.exceptions).
-    - Convert ValidationError instances into Bad Request error.
+    Subclass this for each sub-tree of the http path tree that needs
+    exceptions handled in this way, and provide a `path_regex`.
+
+    :ivar path_regex: A regular expression matching any path that needs
+        its exceptions handled.
     """
+
+    path_regex = None
+
     def __init__(self):
-        self.api_regexp = re.compile(settings.API_URL_REGEXP)
+        self.path_matcher = re.compile(self.path_regex)
 
     def process_exception(self, request, exception):
-        if not self.api_regexp.match(request.path):
-            # The exception was *not* raised in an API call.
+        """Called by django: process an exception."""
+        if not self.path_matcher.match(request.path):
+            # Not a path we're handling exceptions for.
             return None
 
         if isinstance(exception, MaasAPIException):
@@ -112,6 +116,22 @@ class APIErrorsMiddleware:
             # Do not handle the exception, this will result in a
             # "Internal Server Error" response.
             return None
+
+
+class APIErrorsMiddleware(ExceptionMiddleware):
+    """This middleware_ converts exceptions raised in execution of an API
+    method into proper API errors (like "404 Not Found" errors or
+    "400 Bad Request" errors).
+
+    .. middleware: https://docs.djangoproject.com
+       /en/dev/topics/http/middleware/
+
+    - Convert MaasAPIException instances into the corresponding error
+      (see maasserver.exceptions).
+    - Convert ValidationError instances into Bad Request error.
+    """
+
+    path_regex = settings.API_URL_REGEXP
 
 
 class ConsoleExceptionMiddleware:

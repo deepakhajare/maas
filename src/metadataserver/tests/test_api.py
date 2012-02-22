@@ -16,10 +16,7 @@ import httplib
 from random import randint
 from time import time
 
-from maasserver.exceptions import (
-    MaasAPINotFound,
-    Unauthorized,
-    )
+from maasserver.exceptions import Unauthorized
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maastesting import TestCase
@@ -160,9 +157,8 @@ class TestViews(TestCase):
 
     def test_meta_data_unknown_item_is_not_found(self):
         client = self.make_node_client()
-        self.assertRaises(
-            MaasAPINotFound,
-            self.get, '/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA', client)
+        response = self.get('/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA', client)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_meta_data_local_hostname(self):
         hostname = factory.getRandomString()
