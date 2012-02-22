@@ -23,7 +23,8 @@
       var add_node_link = Y.Node.create('<a />')
           .set('id', 'addnode')
           .set('text', "Add node")
-          .set('href', '#');
+          .set('href', '#')
+          .addClass('button');
       Y.one('#content').append(add_node_link);
       add_node_link.on('click', Y.maas.node_add.showAddNodeWidget);
     });
