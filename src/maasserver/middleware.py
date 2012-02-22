@@ -73,11 +73,14 @@ class AccessMiddleware:
 class ExceptionMiddleware:
     """Convert exceptions into appropriate HttpResponse responses.
 
-    For example, a MaasAPINotFound exception will result in a 404 response
-    to the client.  Validation errors become "bad request"
+    For example, a MaasAPINotFound exception processed by a middleware
+    based on this class will result in an http 404 response to the client.
+    Validation errors become "bad request" responses.
 
-    Subclass this for each sub-tree of the http path tree that needs
-    exceptions handled in this way, and provide a `path_regex`.
+    This is an abstract base class.  Subclass it for each sub-tree of the
+    http path tree that needs exceptions handled in this way, and provide a
+    `path_regex`.  Then register your concrete class in
+    settings.MIDDLEWARE_CLASSES.
 
     .. middleware: https://docs.djangoproject.com
        /en/dev/topics/http/middleware/
@@ -89,10 +92,12 @@ class ExceptionMiddleware:
     path_regex = None
 
     def __init__(self):
+        assert self.path_regex is not None, (
+            "%s needs a path_regex." % self.__class__)
         self.path_matcher = re.compile(self.path_regex)
 
     def process_exception(self, request, exception):
-        """Called by django: process an exception."""
+        """Django middleware callback."""
         if not self.path_matcher.match(request.path):
             # Not a path we're handling exceptions for.
             return None
