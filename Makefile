@@ -102,7 +102,8 @@ status: $(addsuffix @status,$(services))
 
 shutdown: $(addsuffix @shutdown,$(services))
 
-services/%/@supervise: services/%/@deps logs/%
+services/%/@supervise: services/%/@deps
+	@mkdir -p logs/$*
 	@if ! svok $(@D); then \
 	    logdir=$(PWD)/logs/$* supervise $(@D) & fi
 	@while ! svok $(@D); do sleep 0.1; done
@@ -123,10 +124,6 @@ services/%/@status:
 services/pserv/@deps: bin/twistd.pserv
 
 services/api/@deps: bin/maas dev-db
-
-.PRECIOUS: logs/%
-logs/%:
-	@mkdir -p $@
 
 .PHONY: \
     build check clean dev-db distclean doc \
