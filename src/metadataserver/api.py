@@ -127,7 +127,7 @@ class MetaDataHandler(VersionIndexHandler):
         if item is None or len(item) == 0:
             # Requesting the list of attributes, not any particular
             # attribute.
-            return super(VersionIndexHandler, self).read(request)
+            return super(MetaDataHandler, self).read(request)
 
         node = get_node_for_request(request)
         producer = self.get_attribute_producer(item)
