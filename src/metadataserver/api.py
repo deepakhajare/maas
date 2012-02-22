@@ -124,12 +124,12 @@ class MetaDataHandler(VersionIndexHandler):
         return producers[field]
 
     def read(self, request, version, item=None):
-        check_version(version)
         if item is None or len(item) == 0:
             # Requesting the list of attributes, not any particular
             # attribute.
-            return super(MetaDataHandler, self).read(request)
+            return super(MetaDataHandler, self).read(request, version)
 
+        check_version(version)
         node = get_node_for_request(request)
         producer = self.get_attribute_producer(item)
         return producer(node, version, item)

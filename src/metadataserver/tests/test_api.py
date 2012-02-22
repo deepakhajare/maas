@@ -151,10 +151,18 @@ class TestViews(TestCase):
         self.assertIn('meta-data', items)
         self.assertIn('user-data', items)
 
-    def test_meta_data_view_returns_text_response(self):
+    def test_meta_data_view_lists_fields(self):
         client = self.make_node_client()
         response = self.get('/latest/meta-data/', client)
         self.assertIn('text/plain', response['Content-Type'])
+        self.assertItemsEqual(
+            MetaDataHandler.fields, response.content.split())
+
+    def test_meta_data_view_is_sorted(self):
+        client = self.make_node_client()
+        response = self.get('/latest/meta-data/', client)
+        attributes = response.content.split()
+        self.assertEqual(sorted(attributes), attributes)
 
     def test_meta_data_unknown_item_is_not_found(self):
         client = self.make_node_client()
