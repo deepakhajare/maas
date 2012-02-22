@@ -67,6 +67,11 @@ dispatch_methods = {
 def access_restricted(handler_method):
     """API method decorator: restrict access to handler.
 
+    RESTRICT ACCESS TO EVERY API ENTRY POINT, whether it's piston's built-in
+    read/create/update/delete methods or the "api_exported" ones we add.
+    We'll want to automate that so that you don't have to remember it, but for
+    now this is the only way we have.
+
     In particular, the node-init user and deactivated users are not allowed
     access to API methods.
 
