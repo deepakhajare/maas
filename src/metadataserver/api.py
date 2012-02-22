@@ -99,7 +99,7 @@ class VersionIndexHandler(MetadataViewHandler):
 class MetaDataHandler(VersionIndexHandler):
     """Meta-data listing for a given version."""
 
-    fields = ('local-hostname',)
+    fields = ('instance-id', 'local-hostname',)
 
     def get_attribute_producer(self, item):
         """Return a callable to deliver a given metadata item.
@@ -118,6 +118,7 @@ class MetaDataHandler(VersionIndexHandler):
 
         producers = {
             'local-hostname': self.local_hostname,
+            'instance-id': self.instance_id,
         }
 
         return producers[field]
@@ -134,7 +135,12 @@ class MetaDataHandler(VersionIndexHandler):
         return producer(node, version, item)
 
     def local_hostname(self, node, version, item):
+        """Produce local-hostname attribute."""
         return make_text_response(node.hostname)
+
+    def instance_id(self, node, version, item):
+        """Produce instance-id attribute."""
+        return make_text_response(node.system_id)
 
 
 class UserDataHandler(MetadataViewHandler):
