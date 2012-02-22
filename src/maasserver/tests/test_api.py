@@ -46,7 +46,7 @@ class NodeAnonAPITest(TestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_node_init_user_has_no_access(self):
+    def test_node_init_user_cannot_access(self):
         token = NodeKey.objects.create_token(factory.make_node())
         client = OAuthAuthenticatedClient(get_node_init_user(), token)
         response = client.get('/api/nodes/', {'op': 'list'})
