@@ -9,10 +9,18 @@ form li {
 form li.form-submit {
     padding: 8px 0 0 0;
     margin-bottom: 0;
+    text-align: right;
+    }
+.form-errors,
+form .errors {
+    color: #DE3E25;
     }
 label {
     display: block;
     margin-bottom: 4px;
+    }
+label .required {
+    color: #aea79f;
     }
 textarea,
 input[type="password"],
@@ -30,6 +38,11 @@ textarea:focus,
 input[type="password"]:focus,
 input[type="text"]:focus {
     border-color: #000;
+    }
+li.error textarea,
+li.error input[type="password"],
+li.error input[type="text"] {
+    background-color: #F2CFCE;
     }
 .yui3-button,
 .button,
