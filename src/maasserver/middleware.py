@@ -77,9 +77,9 @@ class ExceptionMiddleware:
     based on this class will result in an http 404 response to the client.
     Validation errors become "bad request" responses.
 
-    This is an abstract base class.  Subclass it for each sub-tree of the
-    http path tree that needs exceptions handled in this way, and provide a
-    `path_regex`.  Then register your concrete class in
+    Use this as an abstract base class for middleware_ classes that apply
+    to sub-trees of the http path tree.  Subclass this class, provide a
+    `path_regex`, and register your concrete class in
     settings.MIDDLEWARE_CLASSES.
 
     .. middleware: https://docs.djangoproject.com
