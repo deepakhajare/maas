@@ -124,6 +124,7 @@ services/pserv/@deps: bin/twistd.pserv
 
 services/api/@deps: bin/maas dev-db
 
+.PRECIOUS: logs/%
 logs/%:
 	@mkdir -p $@
 
