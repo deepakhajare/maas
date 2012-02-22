@@ -77,7 +77,7 @@ class MetadataViewHandler(BaseHandler):
     allowed_methods = ('GET',)
 
     def read(self, request):
-        return make_list_response(self.fields)
+        return make_list_response(sorted(self.fields))
 
 
 class IndexHandler(MetadataViewHandler):
