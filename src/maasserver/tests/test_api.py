@@ -28,6 +28,7 @@ from maasserver.testing import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
+from metadataserver.nodeinituser import get_node_init_user
 
 
 class NodeAnonAPITest(TestCase):
@@ -43,6 +44,11 @@ class NodeAnonAPITest(TestCase):
         response = self.client.get('/api/doc/')
 
         self.assertEqual(httplib.OK, response.status_code)
+
+    def test_node_init_user_has_no_access(self):
+        client = OAuthAuthenticatedClient(get_node_init_user())
+        response = client.get('/api/nodes/')
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
 class APITestCase(TestCase):
