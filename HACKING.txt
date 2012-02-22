@@ -72,9 +72,10 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler:
+Install Cobbler, and import at least one distro and profile::
 
-    $ sudo apt-get install cobbler
+    $ sudo apt-get install apache2 cobbler
+    $ sudo cobbler-ubuntu-import precise-i386  # For example.
 
 Add yourself as a user in Cobbler. For convenience, give yourself the
 password ``test``::
