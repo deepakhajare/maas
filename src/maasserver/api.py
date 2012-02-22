@@ -15,6 +15,7 @@ __all__ = [
     "AccountHandler",
     "FilesHandler",
     "NodeHandler",
+    "AnonNodesHandler",
     "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
@@ -50,6 +51,7 @@ from maasserver.models import (
     )
 from piston.doc import generate_doc
 from piston.handler import (
+    AnonymousBaseHandler,
     BaseHandler,
     HandlerMetaClass,
     )
@@ -240,18 +242,9 @@ class NodeHandler(BaseHandler):
 
 
 @api_operations
-class NodesHandler(BaseHandler):
-    """Manage collection of Nodes / Create Nodes."""
-    allowed_methods = ('GET', 'POST',)
-
-    @api_exported('list', 'GET')
-    def list(self, request):
-        """List Nodes visible to the user, optionally filtered by id."""
-        match_ids = request.GET.getlist('id')
-        if match_ids == []:
-            match_ids = None
-        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
-        return nodes.order_by('id')
+class AnonNodesHandler(AnonymousBaseHandler):
+    """Create Nodes."""
+    allowed_methods = ('POST',)
 
     @api_exported('new', 'POST')
     def new(self, request):
@@ -263,6 +256,26 @@ class NodesHandler(BaseHandler):
         else:
             return HttpResponseBadRequest(
                 form.errors, content_type='application/json')
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('nodes_handler', [])
+
+
+@api_operations
+class NodesHandler(BaseHandler):
+    """Manage collection of Nodes."""
+    allowed_methods = ('GET', 'POST',)
+    anonymous = AnonNodesHandler
+
+    @api_exported('list', 'GET')
+    def list(self, request):
+        """List Nodes visible to the user, optionally filtered by id."""
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        return nodes.order_by('id')
 
     @api_exported('acquire', 'POST')
     def acquire(self, request):
