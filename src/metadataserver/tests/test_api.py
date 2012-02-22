@@ -26,6 +26,7 @@ from metadataserver.api import (
     get_node_for_request,
     make_list_response,
     make_text_response,
+    MetaDataHandler,
     UnknownMetadataVersion,
     )
 from metadataserver.models import NodeKey
@@ -159,6 +160,11 @@ class TestViews(TestCase):
         client = self.make_node_client()
         response = self.get('/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA', client)
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_get_attribute_producer_supports_all_fields(self):
+        handler = MetaDataHandler()
+        producers = map(handler.get_attribute_producer, handler.fields)
+        self.assertNotIn(None, producers)
 
     def test_meta_data_local_hostname_returns_hostname(self):
         hostname = factory.getRandomString()
