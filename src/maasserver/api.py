@@ -245,6 +245,7 @@ class NodeHandler(BaseHandler):
 class AnonNodesHandler(AnonymousBaseHandler):
     """Create Nodes."""
     allowed_methods = ('POST',)
+    fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
     @api_exported('new', 'POST')
     def new(self, request):
