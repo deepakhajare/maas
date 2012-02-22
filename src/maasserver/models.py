@@ -569,7 +569,6 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
-    'maas_name': "My",
     }
 
 
