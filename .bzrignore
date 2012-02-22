@@ -21,3 +21,5 @@
 ./services/scan.*
 ./TAGS
 ./tags
+./twistd.log
+./twisted/plugins/dropin.cache
