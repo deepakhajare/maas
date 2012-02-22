@@ -56,6 +56,19 @@ class AnonymousEnlistmentAPITest(TestCase):
             ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             [mac.mac_address for mac in diane.macaddress_set.all()])
 
+    def test_POST_limited_fields(self):
+        response = self.client.post(
+            '/api/nodes/',
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            ['hostname', 'system_id', 'macaddress_set'], list(parsed_result))
+
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
         # request data, a 'Bad request' response is returned.
