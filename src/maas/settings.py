@@ -158,7 +158,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
     'maasserver.middleware.APIErrorsMiddleware',
-    'metadataserver.middleware.AccessMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'

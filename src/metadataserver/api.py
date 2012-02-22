@@ -17,14 +17,13 @@ __all__ = [
     ]
 
 from django.http import HttpResponse
-from piston.handler import BaseHandler
-
-
 from maasserver.exceptions import (
     MaasAPINotFound,
+    PermissionDenied,
     Unauthorized,
     )
 from metadataserver.models import NodeKey
+from piston.handler import BaseHandler
 
 
 class UnknownMetadataVersion(MaasAPINotFound):
@@ -42,7 +41,7 @@ def extract_oauth_key(auth_data):
         if len(key_value) == 2:
             key, value = key_value
             if key == 'oauth_token':
-                return value
+                return value.rstrip(',').strip('"')
     raise Unauthorized("No oauth token found for metadata request.")
 
 
@@ -52,7 +51,10 @@ def get_node_for_request(request):
     if auth_header is None:
         raise Unauthorized("No authorization header received.")
     key = extract_oauth_key(auth_header)
-    return NodeKey.objects.get_node_for_key(key)
+    try:
+        return NodeKey.objects.get_node_for_key(key)
+    except NodeKey.DoesNotExist:
+        raise PermissionDenied("Not authenticated as a known node.")
 
 
 def make_text_response(contents):
@@ -99,9 +101,45 @@ class MetaDataHandler(VersionIndexHandler):
 
     fields = ('local-hostname',)
 
+    def get_attribute_producer(self, item):
+        """Return a callable to deliver a given metadata item.
+
+        :param item: Sub-path for the attribute, e.g. "local-hostname" to
+            get a handler that returns the logged-in node's hostname.
+        :type item: basestring
+        :return: A callable that accepts as arguments the logged-in node;
+            the requested metadata version (e.g. "latest"); and `item`.  It
+            returns an HttpResponse.
+        :rtype: Callable
+        """
+        field = item.split('/')[0]
+        if field not in self.fields:
+            raise MaasAPINotFound("Unknown metadata attribute: %s" % field)
+
+        producers = {
+            'local-hostname': self.local_hostname,
+        }
+
+        return producers[field]
+
+    def read(self, request, version, item=None):
+        check_version(version)
+        if item is None or len(item) == 0:
+            # Requesting the list of attributes, not any particular
+            # attribute.
+            return super(VersionIndexHandler, self).read(request)
+
+        node = get_node_for_request(request)
+        producer = self.get_attribute_producer(item)
+        return producer(node, version, item)
+
+    def local_hostname(self, node, version, item):
+        return make_text_response(node.hostname)
+
 
 class UserDataHandler(MetadataViewHandler):
     """User-data blob for a given version."""
+
     def read(self, request, version):
         check_version(version)
         data = b"User data here."

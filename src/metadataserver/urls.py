@@ -36,14 +36,14 @@ index_handler = Resource(IndexHandler, authentication=api_auth)
 urlpatterns = patterns(
     '',
     url(
-        r'metadata/(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
+        r'(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
         meta_data_handler,
         name='metadata_meta_data'),
     url(
-        r'metadata/(?P<version>[^/]+)/user-data$', user_data_handler,
+        r'(?P<version>[^/]+)/user-data$', user_data_handler,
         name='metadata_user_data'),
     url(
-        r'metadata/(?P<version>[^/]+)/', version_index_handler,
+        r'(?P<version>[^/]+)/', version_index_handler,
         name='metadata_version'),
-    url(r'metadata/', index_handler, name='metadata'),
+    url(r'', index_handler, name='metadata'),
     )
