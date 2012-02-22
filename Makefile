@@ -76,40 +76,56 @@ distclean: clean shutdown
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
-services/scan.pid:
-	@svscan services > services/scan.log 2>&1 <&- & \
-	    echo $$! > services/scan.pid
-
-start: bin/twistd.pserv dev-db services/scan.pid
-	@find services -type f -name run -printf '%h\0' \
-	    | xargs -n1 -0 svc -u
-
-run: start
-	@tail --follow=name logs/*/current
-
-stop:
-	@find services -type f -name run -printf '%h\0' \
-	    | xargs -n1 -0 svc -d
-
-restart: stop start
-
-status: services
-	@find services -type f -name run -printf '%h\0' \
-	    | xargs -n1 -0 svstat
-
-shutdown: pidfile=services/scan.pid
-shutdown:
-	@test ! -f $(pidfile) || { kill `cat $(pidfile)` && $(RM) $(pidfile); }
-	@find services -type f -name run -printf '%h\0' \
-	    | xargs -n1 -0 svc -dx
-
 harness: bin/maas dev-db
 	bin/maas shell
 
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 
+services := api pserv
+services := $(patsubst %,services/%/,$(services))
+
+# The services/*/@something targets below are phony - they will never
+# correspond to an existing file - but we want them to be evaluated
+# for building.
+
+start: $(addsuffix @start,$(services))
+
+stop: $(addsuffix @stop,$(services))
+
+run: start
+	@tail --follow=name logs/*/current
+
+status: $(addsuffix @status,$(services))
+
+shutdown: $(addsuffix @shutdown,$(services))
+
+services/%/@supervise: services/%/@deps logs/%
+	@if ! svok $(@D); then \
+	    logdir=$(PWD)/logs/$* supervise $(@D) & fi
+	@while ! svok $(@D); do sleep 0.1; done
+
+services/%/@start: services/%/@supervise
+	@svc -u $(@D)
+
+services/%/@stop: services/%/@supervise
+	@svc -d $(@D)
+
+services/%/@shutdown:
+	@if svok $(@D); then svc -dx $(@D); fi
+	@while svok $(@D); do sleep 0.1; done
+
+services/%/@status:
+	@svstat $(@D)
+
+services/pserv/@deps: bin/twistd.pserv
+
+services/api/@deps: bin/maas dev-db
+
+logs/%:
+	@mkdir -p $@
+
 .PHONY: \
     build check clean dev-db distclean doc \
-    harness lint restart run shutdown syncdb \
-    test sampledata start stop status
+    harness lint run shutdown syncdb test \
+    sampledata start stop status

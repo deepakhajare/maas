@@ -10,7 +10,10 @@ set -o nounset
 # Move to the project root.
 cd ../..
 
+# Start logging, if requested.
+[ -z "${logdir:-}" ] || exec &> >(
+    exec multilog s1048576 n10 "${logdir}")
+
 # Exec the MaaS API and Web UI Server.
 script="$(readlink -f bin/maas)"
-# Django's automatic reloader interferes with daemontools.
 exec "${script}" runserver 8000 --settings=maas.demo --noreload

@@ -10,6 +10,10 @@ set -o nounset
 # Move to the project root.
 cd ../..
 
+# Start logging, if requested.
+[ -z "${logdir:-}" ] || exec &> >(
+    exec multilog s1048576 n10 "${logdir}")
+
 # Exec the Provisioning Server.
 script="$(readlink -f bin/twistd.pserv)"
 config="$(readlink -f etc/pserv.yaml)"
