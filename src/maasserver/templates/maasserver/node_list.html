@@ -5,6 +5,7 @@
 {% block page-title %}{{ node_list|length }} node{{ node_list|length|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
 {% block site-switcher %}{% endblock %}
 {% block layout-modifiers %}sidebar{% endblock %}
+{% block header-search %}{% endblock %}
 
 {% block html_includes %}{% include "maasserver/snippets.html" %}
 {% endblock %}
@@ -21,6 +22,7 @@
   </script>
 {% endblock %}
 
+
 {% block sidebar %}
   <h3>Filters</h3>
   <form action="" method="get">
@@ -35,6 +37,9 @@
 {% endblock %}
 
 {% block content %}
+  <form action="" method="get" class="block full-width inline-form">
+    <label for="list-search">Search nodes</label> <input type="text" name="query" id="list-search" value="" /><input type="submit" value="Search" />
+  </form>
   {% if node_list|length %}
     <form action="" method="post">
       <table class="list">

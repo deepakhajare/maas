@@ -35,7 +35,7 @@ input[type="text"]:focus {
 .button,
 button,
 input[type="submit"] {
-    padding: 6px 30px;
+    padding: 4px 30px;
     color: #fff;
     border: 1px solid #ab370f;
     background-color: #DD4814;
@@ -50,7 +50,6 @@ input[type="submit"] {
     -webkit-border-radius: 6px;
     border-radius: 6px;
     text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
-    font-size: 14px;
     }
 .yui3-button:hover,
 .button:hover,
@@ -62,4 +61,13 @@ input[type="submit"]:hover {
     background-image: -webkit-linear-gradient(bottom, rgb(199,66,18) 0%, rgb(236,94,43) 100%);
     background-image: -ms-linear-gradient(bottom, rgb(199,66,18) 0%, rgb(236,94,43) 100%);
     text-decoration: none;
+    }
+
+
+/******************************************************************************
+    modifier: inline-form
+*/
+.inline-form label {
+    display: inline;
+    margin-right: 4px;
     }
