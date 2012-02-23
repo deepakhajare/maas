@@ -14,13 +14,14 @@ __all__ = [
     'TestModelTestCase',
     ]
 
+import unittest
+
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import loading
 import django.test
 import testresources
 import testtools
-import unittest
 
 
 class TestCase(testtools.TestCase, django.test.TestCase):
