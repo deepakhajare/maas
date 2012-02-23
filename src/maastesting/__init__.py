@@ -20,6 +20,7 @@ from django.db.models import loading
 import django.test
 import testresources
 import testtools
+import unittest
 
 
 class TestCase(testtools.TestCase, django.test.TestCase):
@@ -52,6 +53,10 @@ class TestCase(testtools.TestCase, django.test.TestCase):
         testresources.tearDownResources(
             self, self.resources, testresources._get_result())
 
+    def assertItemsEqual(self, expected_seq, actual_seq, msg=None):
+        # Django's implementation for this seems to be broken and was
+        # probably only added to support compatibility with python 2.6.
+        return unittest.TestCase.assertItemsEqual(self, expected_seq, actual_seq, msg)
 
 class TestModelTestCase(TestCase):
     """A custom test case that adds support for test-only models.
