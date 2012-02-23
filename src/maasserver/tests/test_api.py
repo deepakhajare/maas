@@ -79,7 +79,7 @@ class AnonymousEnlistmentAPITest(TestCase):
             })
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(
-            ['hostname', 'system_id', 'macaddress_set'], list(parsed_result))
+            ['hostname', 'system_id', 'macaddress_set'], parsed_result.keys())
 
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
