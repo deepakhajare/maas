@@ -34,8 +34,7 @@ class AnonymousEnlistmentAPITest(TestCase):
     # Nodes can be enlisted anonymously.
 
     def test_POST_new_creates_node(self):
-        # The API allows a Node to be created and associated with MAC
-        # Addresses.
+        # The API allows a Node to be created.
         response = self.client.post(
             '/api/nodes/',
             {
@@ -52,11 +51,24 @@ class AnonymousEnlistmentAPITest(TestCase):
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(2, diane.after_commissioning_action)
+
+    def test_POST_new_associates_mac_addresses(self):
+        # The API allows a Node to be created and associated with MAC
+        # Addresses.
+        self.client.post(
+            '/api/nodes/',
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        [diane] = Node.objects.filter(hostname='diane')
         self.assertItemsEqual(
             ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             [mac.mac_address for mac in diane.macaddress_set.all()])
 
-    def test_POST_limited_fields(self):
+    def test_POST_returns_limited_fields(self):
         response = self.client.post(
             '/api/nodes/',
             {
