@@ -76,31 +76,6 @@ class RestrictedResource(Resource):
             return actor, anonymous
 
 
-def access_restricted(handler_method):
-    """API method decorator: restrict access to handler.
-
-    RESTRICT ACCESS TO EVERY API ENTRY POINT, whether it's piston's built-in
-    read/create/update/delete methods or the "api_exported" ones we add.
-    We'll want to automate that so that you don't have to remember it, but for
-    now this is the only way we have.
-
-    In particular, the node-init user and deactivated users are not allowed
-    access to API methods.
-
-    Use this only on Piston request-handling methods.  The method is
-    assumed to take a "self" as its first argument, and a Django web
-    request (or something that looks like one) as a second.  There may
-    be other arguments, including keyword arguments.
-    """
-
-    def call_method(self, request, *args, **kwargs):
-        if not request.user.is_active:
-            raise PermissionDenied("User is not allowed access to this API.")
-        return handler_method(self, request, *args, **kwargs)
-
-    return call_method
-
-
 def api_exported(operation_name=True, method='POST'):
     def _decorator(func):
         if method not in dispatch_methods:
