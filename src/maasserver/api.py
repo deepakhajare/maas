@@ -53,6 +53,7 @@ from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.resource import Resource
 from piston.utils import rc
 
 
@@ -62,6 +63,17 @@ dispatch_methods = {
     'PUT': 'update',
     'DELETE': 'delete',
     }
+
+
+class RestrictedResource(Resource):
+
+    def authenticate(self, request, rm):
+        actor, anonymous = super(
+            RestrictedResource, self).authenticate(request, rm)
+        if not anonymous and not request.user.is_active:
+            raise PermissionDenied("User is not allowed access to this API.")
+        else:
+            return actor, anonymous
 
 
 def access_restricted(handler_method):
@@ -211,13 +223,11 @@ class NodeHandler(BaseHandler):
     model = Node
     fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
 
-    @access_restricted
     def read(self, request, system_id):
         """Read a specific Node."""
         return Node.objects.get_visible_node_or_404(
             system_id=system_id, user=request.user)
 
-    @access_restricted
     def update(self, request, system_id):
         """Update a specific Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -228,7 +238,6 @@ class NodeHandler(BaseHandler):
         node.save()
         return node
 
-    @access_restricted
     def delete(self, request, system_id):
         """Delete a specific Node."""
         node = Node.objects.get_visible_node_or_404(
@@ -249,7 +258,6 @@ class NodeHandler(BaseHandler):
         return ('node_handler', (node_system_id, ))
 
     @api_exported('stop', 'POST')
-    @access_restricted
     def stop(self, request, system_id):
         """Shut down a node."""
         nodes = Node.objects.stop_nodes([system_id], request.user)
@@ -259,7 +267,6 @@ class NodeHandler(BaseHandler):
         return nodes[0]
 
     @api_exported('start', 'POST')
-    @access_restricted
     def start(self, request, system_id):
         """Power up a node."""
         nodes = Node.objects.start_nodes([system_id], request.user)
@@ -275,7 +282,6 @@ class NodesHandler(BaseHandler):
     allowed_methods = ('GET', 'POST',)
 
     @api_exported('list', 'GET')
-    @access_restricted
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by id."""
         match_ids = request.GET.getlist('id')
@@ -285,7 +291,6 @@ class NodesHandler(BaseHandler):
         return nodes.order_by('id')
 
     @api_exported('new', 'POST')
-    @access_restricted
     def new(self, request):
         """Create a new Node."""
         form = NodeWithMACAddressesForm(request.data)
@@ -297,7 +302,6 @@ class NodesHandler(BaseHandler):
                 form.errors, content_type='application/json')
 
     @api_exported('acquire', 'POST')
-    @access_restricted
     def acquire(self, request):
         """Acquire an available node for deployment."""
         node = Node.objects.get_available_node_for_acquisition(request.user)
