@@ -96,7 +96,7 @@ class VersionIndexHandler(MetadataViewHandler):
 
     def read(self, request, version):
         check_version(version)
-        if NodeUserData.has_user_data(get_node_for_request(request)):
+        if NodeUserData.objects.has_user_data(get_node_for_request(request)):
             shown_fields = self.fields
         else:
             shown_fields = list(self.fields)
@@ -135,7 +135,7 @@ class MetaDataHandler(VersionIndexHandler):
         if item is None or len(item) == 0:
             # Requesting the list of attributes, not any particular
             # attribute.
-            return super(MetaDataHandler, self).read(request, version)
+            return make_list_response(sorted(self.fields))
 
         check_version(version)
         node = get_node_for_request(request)
