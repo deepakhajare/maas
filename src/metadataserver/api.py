@@ -22,7 +22,10 @@ from maasserver.exceptions import (
     PermissionDenied,
     Unauthorized,
     )
-from metadataserver.models import NodeKey
+from metadataserver.models import (
+    NodeKey,
+    NodeUserData,
+    )
 from piston.handler import BaseHandler
 
 
@@ -148,5 +151,6 @@ class UserDataHandler(MetadataViewHandler):
 
     def read(self, request, version):
         check_version(version)
-        data = b"User data here."
-        return HttpResponse(data, mimetype='application/octet-stream')
+        node = get_node_for_request(request)
+        user_data = NodeUserData.objects.get_user_data(node)
+        return HttpResponse(user_data, mimetype='application/octet-stream')
