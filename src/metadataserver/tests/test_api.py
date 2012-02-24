@@ -148,10 +148,21 @@ class TestViews(TestCase):
         # The test is that we get here without exception.
         pass
 
-    def test_version_index_shows_meta_data_and_user_data(self):
+    def test_version_index_shows_meta_data(self):
         client = self.make_node_client()
         items = self.get('/latest/', client).content.splitlines()
         self.assertIn('meta-data', items)
+
+    def test_version_index_does_not_show_user_data_if_not_available(self):
+        client = self.make_node_client()
+        items = self.get('/latest/', client).content.splitlines()
+        self.assertNotIn('user-data', items)
+
+    def test_version_index_shows_user_data_if_available(self):
+        node = factory.make_node()
+        NodeUserData.objects.set_user_data(node, b"User data for node")
+        client = self.make_node_client(node)
+        items = self.get('/latest/', client).content.splitlines()
         self.assertIn('user-data', items)
 
     def test_meta_data_view_lists_fields(self):
