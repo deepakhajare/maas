@@ -665,3 +665,8 @@ class MaaSAuthorizationBackend(ModelBackend):
                 'Invalid permission check (invalid permission name).')
 
         return obj.owner in (None, user)
+
+
+from maasserver import provisioning
+# We mentioned provisioning here to silence lint warnings.
+provisioning

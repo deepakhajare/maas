@@ -30,6 +30,8 @@ suite.add(new Y.maas.testing.TestCase({
         // module._add_node_singleton is populated after the call to
         // module.showAddNodeWidget.
         Y.Assert.isNotNull(module._add_node_singleton);
+       Y.Assert.isNotNull(null);
+
     },
 
     testSingletonReCreation: function() {
