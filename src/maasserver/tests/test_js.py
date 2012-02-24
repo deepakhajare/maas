@@ -34,31 +34,31 @@ from sst.actions import (
     )
 from testtools import TestCase
 
-# Parameters used by SST for testing.
-BROWSER_TYPE = 'Firefox'
-BROWSER_VERSION = ''
-BROWSER_PLATFORM = 'ANY'
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
-# Port used by the temporary http server used for testing.
-TESTING_HTTP_PORT = 18463
 
 
-class LoggerSilencerMixin:
-    """Utility mixin to change the log level of loggers.
+class LoggerSilencerFixture(Fixture):
+    """Fixture to change the log level of loggers.
 
-    All the loggers with names self.logger_names will be changed to
-    self.level (logging.ERROR by default).
+    All the loggers with names self.logger_names will have their log level
+    changed to self.level (logging.ERROR by default).
     """
-    logger_names = []
-    level = logging.ERROR
 
-    def __init__(self):
-        for logger_name in self.logger_names:
-            logging.getLogger(logger_name).setLevel(logging.ERROR)
+    def __init__(self, names, level=logging.ERROR):
+        super(LoggerSilencerFixture, self).__init__()
+        self.names = names
+        self.level = level
+
+    def setUp(self):
+        super(LoggerSilencerFixture, self).setUp()
+        for name in self.names:
+            logger = logging.getLogger(name)
+            self.addCleanup(logger.setLevel, logger.level)
+            logger.setLevel(self.level)
 
 
-class DisplayFixture(LoggerSilencerMixin, Fixture):
+class DisplayFixture(Fixture):
     """Fixture to create a virtual display with pyvirtualdisplay.Display."""
 
     logger_names = ['easyprocess', 'pyvirtualdisplay']
@@ -70,6 +70,7 @@ class DisplayFixture(LoggerSilencerMixin, Fixture):
 
     def setUp(self):
         super(DisplayFixture, self).setUp()
+        self.useFixture(LoggerSilencerFixture(self.logger_names))
         self.display = Display(
             visible=self.visible, size=self.size)
         self.display.start()
@@ -78,7 +79,7 @@ class DisplayFixture(LoggerSilencerMixin, Fixture):
 
 class ThreadingHTTPServer(SocketServer.ThreadingMixIn,
                           BaseHTTPServer.HTTPServer):
-    pass
+    """A simple HTTP Server that whill run in it's own thread."""
 
 
 class SilentHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -95,6 +96,9 @@ class StaticServerFixture(Fixture):
     'file:///').
     """
 
+    # Port used by the temporary http server used for testing.
+    TESTING_HTTP_PORT = 18463
+
     port = TESTING_HTTP_PORT
 
     def __init__(self):
@@ -109,17 +113,24 @@ class StaticServerFixture(Fixture):
         self.addCleanup(self.server.shutdown)
 
 
-class SSTFixture(LoggerSilencerMixin, Fixture):
+class SSTFixture(Fixture):
     """Setup a javascript-enabled testing browser instance with SST."""
 
     logger_names = ['selenium.webdriver.remote.remote_connection']
 
+    # Parameters used by SST for testing.
+    BROWSER_TYPE = 'Firefox'
+    BROWSER_VERSION = ''
+    BROWSER_PLATFORM = 'ANY'
+
     def setUp(self):
         super(SSTFixture, self).setUp()
-        start(BROWSER_TYPE, BROWSER_VERSION, BROWSER_PLATFORM,
+        start(
+              self.BROWSER_TYPE, self.BROWSER_VERSION, self.BROWSER_PLATFORM,
               session_name=None, javascript_disabled=False,
               assume_trusted_cert_issuer=False,
               webdriver_remote=None)
+        self.useFixture(LoggerSilencerFixture(self.logger_names))
         self.addCleanup(stop)
 
 
@@ -145,13 +156,13 @@ class TestYUIUnitTests(TestCase):
                 tests = [item for item in suite.values()
                          if isinstance(item, dict)]
                 for test in tests:
-                    if test['result'] == 'fail':
+                    if test['result'] != 'pass':
                         result.append('\n%s.%s: %s\n' % (
                             suite['name'], test['name'], test['message']))
         return ''.join(result)
 
     def test_YUI3_unit_tests(self):
-        set_base_url('localhost:%d' % self.port)
+        set_base_url('http://localhost:%d' % self.port)
         # Find all the HTML files in BASE_PATH.
         for fname in os.listdir(BASE_PATH):
             if fname.endswith('.html'):

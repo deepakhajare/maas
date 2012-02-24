@@ -672,6 +672,8 @@ class MaaSAuthorizationBackend(ModelBackend):
         return obj.owner in (None, user)
 
 
+# 'provisioning' is imported so that it can register its signal handlers early
+# on, before it misses anything.
 from maasserver import provisioning
-# We mentioned provisioning here to silence lint warnings.
+# We mention 'provisioning' here to silence lint warnings.
 provisioning
