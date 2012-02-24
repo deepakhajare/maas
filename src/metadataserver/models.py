@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'NodeKey',
+    'NodeUserData',
     ]
 
 from django.db.models import (
