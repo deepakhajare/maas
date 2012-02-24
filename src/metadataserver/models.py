@@ -108,5 +108,5 @@ class NodeUserData(Model):
 
     objects = NodeUserDataManager()
 
-    node = ForeignKey(Node, null=False, editable=False)
+    node = ForeignKey(Node, null=False, editable=False, unique=True)
     data = BinaryField(null=False)
