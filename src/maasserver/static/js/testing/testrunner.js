@@ -31,7 +31,7 @@ YUI().use("event", function(Y) {
                     var result_node = Y.Node.create('<div />')
                         .set('id', 'test_results')
                         .set('text', results);
-                    Y.one('body').append(status_node);
+                    Y.one('body').append(result_node);
                     // Set the suite_node content to 'done'.
                     suite_node.set('text', 'done');
                 };
