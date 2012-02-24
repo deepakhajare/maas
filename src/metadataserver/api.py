@@ -96,7 +96,12 @@ class VersionIndexHandler(MetadataViewHandler):
 
     def read(self, request, version):
         check_version(version)
-        return super(VersionIndexHandler, self).read(request)
+        if NodeUserData.has_user_data(get_node_for_request(request)):
+            shown_fields = self.fields
+        else:
+            shown_fields = list(self.fields)
+            shown_fields.remove('user-data')
+        return make_list_response(sorted(shown_fields))
 
 
 class MetaDataHandler(VersionIndexHandler):
