@@ -56,8 +56,22 @@ setup(
         ),
     package_dir={'': b'src'},
 
-    install_requires=['setuptools'],
-
+    install_requires=[
+        'setuptools',
+        'Django' = 1.3.1,
+        'psycopg2',
+        'amqplib',
+        'django-piston',
+        'FormEncode',
+        'oauth',
+        'oops',
+        'oops-datedir-repo',
+        'oops-twisted',
+        'PyYAML',
+        'South',
+        'Twisted',
+        'txAMQP',
+        ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Framework :: Django',
@@ -67,5 +81,23 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
-        ]
+        ],
+    extra_requires=dict(
+        doc=[
+            'collective.recipe.sphinxbuilder',
+            'Sphinx',
+            ],
+        tests=[
+            'coverage',
+            'django-nose',
+            'lxml',
+            'sst',
+            'fixtures',
+            'nose',
+            'nose-subunit',
+            'python-subunit',
+            'rabbitfixture',
+            'testresources',
+            'testtools',
+            ],
     )
