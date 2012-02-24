@@ -129,6 +129,12 @@ possible. You'll need to add the dependency to the
 don't forget to add the version to ``versions.cfg`` as we run with
 ``allowed-picked-version`` set to false.)
 
+If it is a development-only depency (i.e. only needed for the test suite, or
+for developers' convenience), simply running ``buildout`` like this will make
+the necessary updates to ``versions.cfg``::
+
+    $ ./bin/buildout -v buildout:allow-picked-versions=true
+
 
 Adding new source files
 =======================
