@@ -29,7 +29,10 @@ from metadataserver.api import (
     MetaDataHandler,
     UnknownMetadataVersion,
     )
-from metadataserver.models import NodeKey
+from metadataserver.models import (
+    NodeKey,
+    NodeUserData,
+    )
 from metadataserver.nodeinituser import get_node_init_user
 
 
@@ -192,8 +195,13 @@ class TestViews(TestCase):
             (response.status_code, response.content.decode('ascii')))
         self.assertIn('text/plain', response['Content-Type'])
 
-    def test_user_data_view_returns_binary_blob(self):
-        client = self.make_node_client()
+    def test_user_data_view_returns_binary_data(self):
+        data = b"\x00\xff\xff\xfe\xff"
+        node = factory.make_node()
+        NodeUserData.objects.set_user_data(node, data)
+        client = self.make_node_client(node)
         response = self.get('/latest/user-data', client)
         self.assertEqual('application/octet-stream', response['Content-Type'])
         self.assertIsInstance(response.content, str)
+        self.assertEqual(
+            (httplib.OK, data), (response.status_code, response.content))
