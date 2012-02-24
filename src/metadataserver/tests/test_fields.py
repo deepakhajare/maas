@@ -33,8 +33,16 @@ class TestBinaryField(TestModelTestCase):
         self.assertEqual(
             b'', BinaryFieldModel.objects.get(id=binary_item.id).data)
 
-    def test_stores_and_retrieves_data(self):
-        data = b"\x01\x00\x99"
+    def test_does_not_truncate_at_zero_bytes(self):
+        data = b"BEFORE THE ZERO\x00AFTER THE ZERO"
+        binary_item = BinaryFieldModel(data=data)
+        self.assertEqual(data, binary_item.data)
+        binary_item.save()
+        self.assertEqual(
+            data, BinaryFieldModel.objects.get(id=binary_item.id).data)
+
+    def test_stores_and_retrieves_binary_data(self):
+        data = b"\x01\x02\xff\xff\xfe\xff\xff\xfe"
         binary_item = BinaryFieldModel(data=data)
         self.assertEqual(data, binary_item.data)
         binary_item.save()
