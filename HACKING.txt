@@ -46,6 +46,10 @@ for development convenience::
 
     $ sudo apt-get install python-sphinx python-lxml
 
+If you intend to run the test suite, you also need xvfb and firefox::
+
+    $ sudo apt-get install xvfb firefox
+
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
 
