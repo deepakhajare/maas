@@ -19,11 +19,11 @@ from django.db.models import (
     Manager,
     Model,
     )
-from maasserver.fields import BinaryField
 from maasserver.models import (
     create_auth_token,
     Node,
     )
+from metadataserver.fields import BinaryField
 from metadataserver.nodeinituser import get_node_init_user
 from piston.models import KEY_SIZE
 

@@ -11,15 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from django.db.models import Model
 from maasserver.testing import TestModelTestCase
-from metadataserver.fields import BinaryField
-
-
-class BinaryFieldModel(Model):
-    """Test model for BinaryField."""
-
-    data = BinaryField(null=True)
+from metadataserver.tests.models import BinaryFieldModel
 
 
 class TestBinaryField(TestModelTestCase):
