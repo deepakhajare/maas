@@ -152,5 +152,9 @@ class UserDataHandler(MetadataViewHandler):
     def read(self, request, version):
         check_version(version)
         node = get_node_for_request(request)
-        user_data = NodeUserData.objects.get_user_data(node)
-        return HttpResponse(user_data, mimetype='application/octet-stream')
+        try:
+            return HttpResponse(
+                NodeUserData.objects.get_user_data(node),
+                mimetype='application/octet-stream')
+        except NodeUserData.DoesNotExist:
+            raise MaasAPINotFound("No user data available for this node.")
