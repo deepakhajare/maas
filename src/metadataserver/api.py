@@ -18,7 +18,7 @@ __all__ = [
 
 from django.http import HttpResponse
 from maasserver.exceptions import (
-    MaasAPINotFound,
+    MaaSAPINotFound,
     PermissionDenied,
     Unauthorized,
     )
@@ -26,11 +26,11 @@ from metadataserver.models import NodeKey
 from piston.handler import BaseHandler
 
 
-class UnknownMetadataVersion(MaasAPINotFound):
+class UnknownMetadataVersion(MaaSAPINotFound):
     """Not a known metadata version."""
 
 
-class UnknownNode(MaasAPINotFound):
+class UnknownNode(MaaSAPINotFound):
     """Not a known node."""
 
 
@@ -114,7 +114,7 @@ class MetaDataHandler(VersionIndexHandler):
         """
         field = item.split('/')[0]
         if field not in self.fields:
-            raise MaasAPINotFound("Unknown metadata attribute: %s" % field)
+            raise MaaSAPINotFound("Unknown metadata attribute: %s" % field)
 
         producers = {
             'local-hostname': self.local_hostname,
