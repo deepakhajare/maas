@@ -23,7 +23,10 @@ from maasserver.models import (
     create_auth_token,
     Node,
     )
-from metadataserver.fields import BinaryField
+from metadataserver.fields import (
+    Bin,
+    BinaryField,
+    )
 from metadataserver.nodeinituser import get_node_init_user
 from piston.models import KEY_SIZE
 
@@ -80,10 +83,10 @@ class NodeUserDataManager(Manager):
         existing_entries = self.filter(node=node)
         if len(existing_entries) == 1:
             [entry] = existing_entries
-            entry.data = data
+            entry.data = Bin(data)
             entry.save()
         elif len(existing_entries) == 0:
-            self.create(node=node, data=data)
+            self.create(node=node, data=Bin(data))
         else:
             raise AssertionError("More than one user-data entry matches.")
 
