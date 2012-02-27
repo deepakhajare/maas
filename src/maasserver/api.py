@@ -194,8 +194,8 @@ def api_operations(cls):
 
 
 NODE_FIELDS = (
-        'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
-        'architecture')
+    'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
+    'architecture')
 
 
 @api_operations
