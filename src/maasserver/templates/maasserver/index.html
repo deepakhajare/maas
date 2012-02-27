@@ -34,6 +34,7 @@
 
 {% block page-title-block %}
   {% if user.is_superuser %}
+    {% comment %}TODO: wire this up so that it changes the MaaS title{% endcomment %}
     <form action="" method="" class="page-title-form">
       <input type="text" value="{{ global_options.site_name }}" title="Edit the name of this MaaS" />
     </form>

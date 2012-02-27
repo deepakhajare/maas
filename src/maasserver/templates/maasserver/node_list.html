@@ -41,7 +41,7 @@
     <label for="list-search">Search nodes</label> <input type="text" name="query" id="list-search" value="" /><input type="submit" value="Search" />
   </form>
   {% if node_list|length %}
-    <form action="" method="post">
+    <form action="{% url 'node-list' %}" method="post">
       <table class="list">
         <thead>
           <tr>

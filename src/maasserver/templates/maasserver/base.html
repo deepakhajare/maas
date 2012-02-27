@@ -48,7 +48,7 @@
               <ul id="right-nav" class="nav">
                 <li class="search">
                   {% block header-search %}
-                    <form action="" method="get" id="header-search">
+                    <form action="{% url 'node-list' %}" method="get" id="header-search">
                       <input type="text" name="query" value="Search nodes" /><input type="submit" value="" />
                     </form>
                   {% endblock %}

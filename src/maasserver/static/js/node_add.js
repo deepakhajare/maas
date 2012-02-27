@@ -183,7 +183,8 @@ Y.extend(AddNodeWidget, Y.Panel, {
      */
     initializeNodes: function() {
         // Prepare spinnerNode.
-        this.spinnerNode = Y.Node.create('<img class="spinner" />')
+        this.spinnerNode = Y.Node.create('<img />')
+            .addClass('spinner')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
         // Prepare logged-off error message.
         this.loggedOffNode = Y.Node.create('<span />')
