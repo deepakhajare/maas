@@ -38,6 +38,31 @@ class TestNodeKeyManager(TestCase):
         self.assertRaises(
             NodeKey.DoesNotExist, NodeKey.objects.get_node_for_key, non_key)
 
+    def test_get_token_for_node_creates_token(self):
+        node = factory.make_node()
+        token = NodeKey.objects.get_token_for_node(node)
+        self.assertEqual(node, NodeKey.objects.get_node_for_key(token.key))
+
+    def test_get_token_for_node_returns_existing_token(self):
+        node = factory.make_node()
+        original_token = NodeKey.objects.get_token_for_node(node)
+        repeated_token = NodeKey.objects.get_token_for_node(node)
+        self.assertEqual(original_token, repeated_token)
+
+    def test_get_token_for_node_inverts_get_node_for_key(self):
+        node = factory.make_node()
+        self.assertEqual(
+            node,
+            NodeKey.objects.get_node_for_key(
+                NodeKey.objects.get_token_for_node(node).key))
+
+    def test_get_node_for_key_inverts_get_token_for_node(self):
+        key = NodeKey.objects.get_token_for_node(factory.make_node()).key
+        self.assertEqual(
+            key,
+            NodeKey.objects.get_token_for_node(
+                NodeKey.objects.get_node_for_key(key)).key)
+
 
 class TestNodeUserDataManager(TestCase):
     """Test NodeUserDataManager."""
@@ -79,3 +104,12 @@ class TestNodeUserDataManager(TestCase):
         NodeUserData.objects.set_user_data(node, data)
         NodeUserData.objects.set_user_data(factory.make_node(), b'unrelated')
         self.assertEqual(data, NodeUserData.objects.get_user_data(node))
+
+    def test_has_user_data_returns_False_if_node_has_no_user_data(self):
+        self.assertFalse(
+            NodeUserData.objects.has_user_data(factory.make_node()))
+
+    def test_has_user_data_returns_True_if_node_has_user_data(self):
+        node = factory.make_node()
+        NodeUserData.objects.set_user_data(node, b"This node has user data.")
+        self.assertTrue(NodeUserData.objects.has_user_data(node))
