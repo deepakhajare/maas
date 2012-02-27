@@ -40,7 +40,7 @@ setup(
     name="maas",
     version=__version__,
     url="https://launchpad.net/maas",
-    license="GPL",
+    license="AGPLv3",
     description="Metal as as Service",
     long_description=read('README.txt'),
 
@@ -58,7 +58,7 @@ setup(
 
     install_requires=[
         'setuptools',
-        'Django' = 1.3.1,
+        'Django == 1.3.1',
         'psycopg2',
         'amqplib',
         'django-piston',
@@ -82,7 +82,7 @@ setup(
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
         ],
-    extra_requires=dict(
+    extras_require=dict(
         doc=[
             'collective.recipe.sphinxbuilder',
             'Sphinx',
@@ -101,3 +101,4 @@ setup(
             'testtools',
             ],
     )
+)
