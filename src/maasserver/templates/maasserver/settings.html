@@ -4,35 +4,16 @@
 
 {% block title %}Settings{% endblock %}
 {% block page-title %}Settings{% endblock %}
+{% block layout-modifiers %}sidebar{% endblock %}
 
 {% block head %}
-  <script type="text/javascript">
-  <!--
-  YUI().use('tabview', 'maas.utils', 'io-form', function (Y) {
-    var tabview = new Y.TabView({
-      srcNode: '#settings'
-    });
-    tabview.render();
-    // Select the tab with index {{ tab }}.
-    var valid_tab_index = Y.maas.utils.getTabIndex('{{ tab }}', tabview);
-    if (Y.Lang.isValue(valid_tab_index)) {
-        tabview.selectChild(valid_tab_index);
-    }
-
-  });
-  // -->
-  </script>
 {% endblock %}
 
 {% block content %}
   <div id="settings">
-    <ul>
-      <li><a href="#users">Users</a></li>
-      <li><a href="#maas">MaaS</a></li>
-    </ul>
     <div>
       <div id="users">
-        <h2>Users and keys</h2>
+        <h2>Users and Keys</h2>
         <table class="list">
           <thead>
             <tr>
@@ -81,10 +62,9 @@
           {% endfor %}
           </tbody>
         </table>
-        <a href="{% url 'accounts-add' %}">Add user</a>
-      </div>
-      <div id="maas">
-        #TODO MaaS prefs
+        <br />
+        <a class="button" href="{% url 'accounts-add' %}">
+          <button class="button right">Add user</button></a>
       </div>
     </div>
   </div>
