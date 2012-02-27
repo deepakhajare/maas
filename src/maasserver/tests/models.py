@@ -14,9 +14,16 @@ __all__ = [
     ]
 
 from django.db import models
-from maasserver.fields import JSONObjectField
+from maasserver.fields import (
+    ArchitectureChoiceField,
+    JSONObjectField,
+    )
 
 
 class JSONFieldModel(models.Model):
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
+
+
+class ArchitectureChoiceFieldModel(models.Model):
+    architecture = ArchitectureChoiceField()
