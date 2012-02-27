@@ -32,7 +32,7 @@ from metadataserver.models import NodeKey
 from metadataserver.nodeinituser import get_node_init_user
 
 
-class APIV1TestMixin:
+class APIv10TestMixin:
 
     def get_uri(self, path):
         """GET an API V1 uri.
@@ -43,7 +43,7 @@ class APIV1TestMixin:
         return api_root + path
 
 
-class AnonymousEnlistmentAPITest(APIV1TestMixin, TestCase):
+class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
     # Nodes can be enlisted anonymously.
 
     def test_POST_new_creates_node(self):
@@ -143,7 +143,7 @@ class AnonymousEnlistmentAPITest(APIV1TestMixin, TestCase):
             parsed_result['mac_addresses'])
 
 
-class NodeAnonAPITest(APIV1TestMixin, TestCase):
+class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
     def test_anon_nodes_GET(self):
         # Anonymous requests to the API are denied.
@@ -164,7 +164,7 @@ class NodeAnonAPITest(APIV1TestMixin, TestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
-class APITestCase(APIV1TestMixin, TestCase):
+class APITestCase(APIv10TestMixin, TestCase):
     """Extension to `TestCase`: log in first.
 
     :ivar logged_in_user: A user who is currently logged in and can access
@@ -190,7 +190,7 @@ def extract_system_ids(parsed_result):
     return [node.get('system_id') for node in parsed_result]
 
 
-class NodeAPILoggedInTest(APIV1TestMixin, LoggedInTestCase):
+class NodeAPILoggedInTest(APIv10TestMixin, LoggedInTestCase):
 
     def test_nodes_GET_logged_in(self):
         # A (Django) logged-in user can access the API.
