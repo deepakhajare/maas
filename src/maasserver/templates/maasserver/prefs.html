@@ -8,7 +8,7 @@
 {% block head %}
   <script type="text/javascript">
   <!--
-  YUI().use('maas.prefs', 'maas.utils', function (Y) {
+  YUI().use('maas.prefs', function (Y) {
     var profile_widget = new Y.maas.prefs.TokenWidget(
         {'srcNode': Y.one('#api')});
     profile_widget.render();
