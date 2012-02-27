@@ -40,18 +40,18 @@ class NodeKeyManager(Manager):
 
     Each Node that needs to access the metadata service will have its own
     OAuth token, tied to the dedicated "node-init" user.  Each node will see
-    just its own meta-data when it accesses the serviec.
+    just its own meta-data when it accesses the service.
 
     NodeKeyManager is what connects those nodes to their respective tokens.
 
     There's two parts to using NodeKey and NodeKeyManager:
 
-    1. get_token_for_node(node) gives you a token that the node can then
+    1.  get_token_for_node(node) gives you a token that the node can then
         access the metadata service with.  From the "token" that this
-        returns, the node will need to know node.key, node.secret, and
-        node.consumer.key for its credentials.
+        returns, the node will need to know token.key, token.secret, and
+        token.consumer.key for its credentials.
 
-    2. get_node_for_key(key) takes the token.key (which will be in the
+    2.  get_node_for_key(key) takes the token.key (which will be in the
         http Authorization header of a metadata request as "oauth_token")
         and looks up the associated Node.
     """
@@ -72,8 +72,8 @@ class NodeKeyManager(Manager):
     def get_token_for_node(self, node):
         """Find node's OAuth token, or if it doesn't have one, create it.
 
-        This implicitly grants cloud-init on the node access to the metadata
-        service.
+        This implicitly grants cloud-init (running on the node) access to the
+        metadata service.
 
         Barring exceptions, this will always hold:
 
