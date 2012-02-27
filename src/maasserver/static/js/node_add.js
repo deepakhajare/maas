@@ -190,7 +190,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
             .set('text', "You have been logged out, please ")
             .append(Y.Node.create('<a />')
                 .set('text', 'log in')
-                .set('href', MAAS_config.uris.login))
+                .set('href', MaaS_config.uris.login))
             .append(Y.Node.create('<span />')
                 .set('text', ' again.'));
     },
@@ -252,7 +252,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
             }
         };
         var request = module._io.send(
-            MAAS_config.uris.nodes_handler, cfg);
+            MaaS_config.uris.nodes_handler, cfg);
     }
 
 });

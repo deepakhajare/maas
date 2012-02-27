@@ -10,25 +10,30 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'metadata_index',
-    'meta_data',
-    'version_index',
-    'user_data',
+    'IndexHandler',
+    'MetaDataHandler',
+    'UserDataHandler',
+    'VersionIndexHandler',
     ]
 
 from django.http import HttpResponse
 from maasserver.exceptions import (
-    MaasAPINotFound,
+    MaaSAPINotFound,
+    PermissionDenied,
     Unauthorized,
     )
-from metadataserver.models import NodeKey
+from metadataserver.models import (
+    NodeKey,
+    NodeUserData,
+    )
+from piston.handler import BaseHandler
 
 
-class UnknownMetadataVersion(MaasAPINotFound):
+class UnknownMetadataVersion(MaaSAPINotFound):
     """Not a known metadata version."""
 
 
-class UnknownNode(MaasAPINotFound):
+class UnknownNode(MaaSAPINotFound):
     """Not a known node."""
 
 
@@ -39,7 +44,7 @@ def extract_oauth_key(auth_data):
         if len(key_value) == 2:
             key, value = key_value
             if key == 'oauth_token':
-                return value
+                return value.rstrip(',').strip('"')
     raise Unauthorized("No oauth token found for metadata request.")
 
 
@@ -49,7 +54,10 @@ def get_node_for_request(request):
     if auth_header is None:
         raise Unauthorized("No authorization header received.")
     key = extract_oauth_key(auth_header)
-    return NodeKey.objects.get_node_for_key(key)
+    try:
+        return NodeKey.objects.get_node_for_key(key)
+    except NodeKey.DoesNotExist:
+        raise PermissionDenied("Not authenticated as a known node.")
 
 
 def make_text_response(contents):
@@ -68,47 +76,90 @@ def check_version(version):
         raise UnknownMetadataVersion("Unknown metadata version: %s" % version)
 
 
-def metadata_index(request):
-    """View: top-level metadata listing."""
-    return make_list_response(['latest'])
+class MetadataViewHandler(BaseHandler):
+    allowed_methods = ('GET',)
+
+    def read(self, request):
+        return make_list_response(sorted(self.fields))
 
 
-def version_index(request, version):
-    """View: listing for a given metadata version."""
-    check_version(version)
-    return make_list_response(['meta-data', 'user-data'])
+class IndexHandler(MetadataViewHandler):
+    """Top-level metadata listing."""
+
+    fields = ('latest',)
 
 
-def retrieve_unknown_item(node, item_path):
-    """Retrieve meta-data: unknown sub-item."""
-    raise MaasAPINotFound("No such metadata item: %s" % '/'.join(item_path))
+class VersionIndexHandler(MetadataViewHandler):
+    """Listing for a given metadata version."""
+
+    fields = ('meta-data', 'user-data')
+
+    def read(self, request, version):
+        check_version(version)
+        if NodeUserData.objects.has_user_data(get_node_for_request(request)):
+            shown_fields = self.fields
+        else:
+            shown_fields = list(self.fields)
+            shown_fields.remove('user-data')
+        return make_list_response(sorted(shown_fields))
 
 
-def retrieve_local_hostname(node, item_path):
-    """Retrieve meta-data: local-hostname."""
-    return make_text_response(node.hostname)
+class MetaDataHandler(VersionIndexHandler):
+    """Meta-data listing for a given version."""
 
+    fields = ('instance-id', 'local-hostname',)
 
-def meta_data(request, version, item=None):
-    """View: meta-data listing for a given version, or meta-data item."""
-    check_version(version)
-    node = get_node_for_request(request)
+    def get_attribute_producer(self, item):
+        """Return a callable to deliver a given metadata item.
 
-    # Functions to retrieve meta-data items.
-    retrievers = {
-        'local-hostname': retrieve_local_hostname,
+        :param item: Sub-path for the attribute, e.g. "local-hostname" to
+            get a handler that returns the logged-in node's hostname.
+        :type item: basestring
+        :return: A callable that accepts as arguments the logged-in node;
+            the requested metadata version (e.g. "latest"); and `item`.  It
+            returns an HttpResponse.
+        :rtype: Callable
+        """
+        field = item.split('/')[0]
+        if field not in self.fields:
+            raise MaaSAPINotFound("Unknown metadata attribute: %s" % field)
+
+        producers = {
+            'local-hostname': self.local_hostname,
+            'instance-id': self.instance_id,
         }
 
-    if not item:
-        return make_list_response(sorted(retrievers.keys()))
+        return producers[field]
 
-    item_path = item.split('/')
-    retriever = retrievers.get(item_path[0], retrieve_unknown_item)
-    return retriever(node, item_path[1:])
+    def read(self, request, version, item=None):
+        if item is None or len(item) == 0:
+            # Requesting the list of attributes, not any particular
+            # attribute.
+            return make_list_response(sorted(self.fields))
+
+        check_version(version)
+        node = get_node_for_request(request)
+        producer = self.get_attribute_producer(item)
+        return producer(node, version, item)
+
+    def local_hostname(self, node, version, item):
+        """Produce local-hostname attribute."""
+        return make_text_response(node.hostname)
+
+    def instance_id(self, node, version, item):
+        """Produce instance-id attribute."""
+        return make_text_response(node.system_id)
 
 
-def user_data(request, version):
-    """View: user-data blob for a given version."""
-    check_version(version)
-    data = b"User data here."
-    return HttpResponse(data, mimetype='application/octet-stream')
+class UserDataHandler(MetadataViewHandler):
+    """User-data blob for a given version."""
+
+    def read(self, request, version):
+        check_version(version)
+        node = get_node_for_request(request)
+        try:
+            return HttpResponse(
+                NodeUserData.objects.get_user_data(node),
+                mimetype='application/octet-stream')
+        except NodeUserData.DoesNotExist:
+            raise MaasAPINotFound("No user data available for this node.")

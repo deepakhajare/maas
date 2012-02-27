@@ -398,7 +398,7 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
-GENERIC_CONSUMER = 'Maas consumer'
+GENERIC_CONSUMER = 'MaaS consumer'
 
 
 def create_auth_token(user):
@@ -459,7 +459,7 @@ class UserProfileManager(models.Manager):
 
 
 class UserProfile(models.Model):
-    """A User profile to store Maas specific methods and fields.
+    """A User profile to store MaaS specific methods and fields.
 
     :ivar user: The related User_.
 
@@ -567,6 +567,11 @@ class FileStorage(models.Model):
         self.data.save(filename, content)
 
 
+# Default values for config options.
+DEFAULT_CONFIG = {
+    }
+
+
 class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
@@ -588,7 +593,7 @@ class ConfigManager(models.Manager):
         try:
             return self.get(name=name).value
         except Config.DoesNotExist:
-            return default
+            return DEFAULT_CONFIG.get(name, default)
 
     def get_config_list(self, name):
         """Return the config value list corresponding to the given config
@@ -648,6 +653,11 @@ class MaaSAuthorizationBackend(ModelBackend):
     supports_object_permissions = True
 
     def has_perm(self, user, perm, obj=None):
+        if not user.is_active:
+            # Deactivated users, and in particular the node-init user,
+            # are prohibited from accessing maasserver services.
+            return False
+
         # Only Nodes can be checked. We also don't support perm checking
         # when obj = None.
         if not isinstance(obj, Node):
@@ -660,3 +670,10 @@ class MaaSAuthorizationBackend(ModelBackend):
                 'Invalid permission check (invalid permission name).')
 
         return obj.owner in (None, user)
+
+
+# 'provisioning' is imported so that it can register its signal handlers early
+# on, before it misses anything.
+from maasserver import provisioning
+# We mention 'provisioning' here to silence lint warnings.
+provisioning
