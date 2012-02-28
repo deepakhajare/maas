@@ -23,6 +23,7 @@ __all__ = [
 
 import datetime
 import re
+from socket import gethostname
 from uuid import uuid1
 
 from django.contrib import admin
@@ -569,9 +570,9 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
-    # The address by which this server can be accessed.  The nodes need
-    # this information to access the metadata service.
-    "server_address": None,
+    # The host name or address where the nodes can access the metadata
+    # service.
+    "metadata-host": gethostname(),
     }
 
 

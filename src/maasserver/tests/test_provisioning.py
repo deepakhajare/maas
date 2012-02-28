@@ -11,18 +11,16 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import subprocess
 from urlparse import parse_qs
 
 from maasserver import provisioning
 from maasserver.models import (
-    DEFAULT_CONFIG,
+    Config,
     Node,
     )
 from maasserver.provisioning import (
     compose_metadata,
     get_metadata_server_url,
-    get_server_name,
     )
 from maasserver.testing import TestCase
 from maasserver.testing.factory import factory
@@ -106,20 +104,10 @@ class ProvisioningTests:
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
         self.assertEqual([], node["mac_addresses"])
 
-    def test_get_server_name_reads_name_from_config(self):
-        DEFAULT_CONFIG['server_address'] = factory.getRandomString()
-        self.assertEqual(DEFAULT_CONFIG['server_address'], get_server_name())
-
-    def test_get_server_name_defaults_to_hostname(self):
-        DEFAULT_CONFIG['server_address'] = None
-        server_name = get_server_name()
-        self.assertIsInstance(server_name, basestring)
-        self.assertEqual(
-            subprocess.check_output('/bin/hostname').strip(), server_name)
-
     def test_metadata_server_url_refers_to_own_metadata_service(self):
         self.assertEqual(
-            "http://%s/metadata/" % get_server_name(),
+            "http://%s/metadata/"
+            % Config.objects.get_config('metadata-host'),
             get_metadata_server_url())
 
     def test_compose_metadata_includes_metadata_url(self):

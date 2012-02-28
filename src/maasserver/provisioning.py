@@ -13,7 +13,6 @@ __all__ = [
     'get_provisioning_api_proxy',
     ]
 
-import subprocess
 from urllib import urlencode
 import warnings
 import xmlrpclib
@@ -56,17 +55,9 @@ def get_provisioning_api_proxy():
             url, allow_none=True, use_datetime=True)
 
 
-def get_server_name():
-    """Hostname under which the metadata service can be reached."""
-    setting = Config.objects.get_config('server_address')
-    if setting is not None:
-        return setting
-    return subprocess.check_output('/bin/hostname').strip()
-
-
 def get_metadata_server_url():
     """Return the URL where nodes can reach the metadata service."""
-    return "http://%s/metadata/" % get_server_name()
+    return "http://%s/metadata/" % Config.objects.get_config('metadata-host')
 
 
 def compose_metadata(node):
