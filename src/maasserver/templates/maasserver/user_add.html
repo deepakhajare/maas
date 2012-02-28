@@ -6,9 +6,11 @@
 
 {% block content %}
   <form action="." method="post">
+    <ul>
     {% for field in form %}
       {% include "maasserver/form_field.html" %}
     {% endfor %}
+    </ul>
     <input type="submit" value="Add user" />
       &nbsp;&nbsp;<a class="link-button" href="{% url 'settings' %}">Cancel</a>
   </form>
