@@ -421,10 +421,9 @@ class ProvisioningAPITestScenario:
         yield papi.add_node(node_name, profile, self.fake_metadata())
         nodes = yield papi.get_nodes()
         self.assertItemsEqual([node_name], nodes.keys())
-        attrs = nodes[node_name]
-        self.assertEqual(
-            (node_name, profile, []),
-            (attrs['name'], attrs['profile'], attrs['mac_addresses']))
+        self.assertIn('name', nodes[node_name])
+        self.assertIn('profile', nodes[node_name])
+        self.assertIn('mac_addresses', nodes[node_name])
 
     @inlineCallbacks
     def test_get_nodes_by_name(self):
