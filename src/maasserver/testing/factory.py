@@ -34,7 +34,12 @@ class Factory():
             for x in xrange(size))
 
     def getRandomBoolean(self):
-        random.choice((True, False))
+        return random.choice((True, False))
+
+    def getRandomEnum(self, enum):
+        return random.choice(
+            [value for key, value in vars(NODE_STATUS).items()
+            if not key.startswith('__')])
 
     def make_node(self, hostname='', set_hostname=False, status=None,
                   **kwargs):

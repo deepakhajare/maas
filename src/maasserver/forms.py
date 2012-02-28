@@ -163,3 +163,12 @@ class MaaSAndNetworkForm(ConfigForm):
     maas_name = forms.CharField(label="MaaS name")
     provide_dhcp = forms.BooleanField(
         label="Provide DHCP on this subnet", required=False)
+
+
+class CommissioningForm(ConfigForm):
+    after_commissioning = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+        label="After commissioning")
+    check_compatibility = forms.BooleanField(
+        label="Check component compatibility and certification",
+        required=False)
