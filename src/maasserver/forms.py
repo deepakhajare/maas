@@ -10,8 +10,10 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "CommissioningForm",
     "NodeForm",
     "MACAddressForm",
+    "MaaSAndNetworkForm",
     ]
 
 from django import forms
