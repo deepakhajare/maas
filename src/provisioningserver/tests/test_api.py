@@ -14,6 +14,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from abc import (
+    ABCMeta,
+    abstractmethod,
+    )
+
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -22,6 +27,7 @@ from provisioningserver.api import (
     postprocess_mapping,
     ProvisioningAPI,
     )
+from provisioningserver.cobblerclient import CobblerSystem
 from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
@@ -185,14 +191,25 @@ class TestInterfaceDeltas(TestCase):
         self.assertEqual(expected, observed)
 
 
-class TestProvisioningAPI(TestCase):
-    """Tests for `provisioningserver.api.ProvisioningAPI`."""
+class ProvisioningAPITestScenario:
+    """Tests for `provisioningserver.api.ProvisioningAPI`.
+
+    Abstract base class.  To exercise these tests, derive a test case from
+    this class as well as from TestCase.  Provide it with a
+    get_provisioning_api method that returns a ProvisioningAPI implementation
+    that you want to test against.
+    """
+
+    __metaclass__ = ABCMeta
 
     run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
+    @abstractmethod
     def get_provisioning_api(self):
-        session = make_fake_cobbler_session()
-        return ProvisioningAPI(session)
+        """Create a real, or faked, ProvisoningAPI to run tests against.
+
+        Override this in the test case that exercises this scenario.
+        """
 
     def fake_metadata(self):
         """Produce fake metadata parameters for adding a node."""
@@ -230,18 +247,6 @@ class TestProvisioningAPI(TestCase):
         profile = yield papi.add_profile("profile", distro)
         node = yield papi.add_node("node", profile, self.fake_metadata())
         self.assertEqual("node", node)
-
-    @inlineCallbacks
-    def test_add_node_preseeds_metadata(self):
-        papi = self.get_provisioning_api()
-        distro = yield papi.add_distro("distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
-        metadata = self.fake_metadata()
-        yield papi.add_node("node", profile, metadata)
-        nodes = yield papi.get_nodes()
-        preseed = nodes["node"]["ks_meta"]["MAAS_PRESEED"]
-        self.assertIn(metadata['maas-metadata-url'], preseed)
-        self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
     @inlineCallbacks
     def test_modify_distros(self):
@@ -478,8 +483,37 @@ class TestProvisioningAPI(TestCase):
         pass
 
 
-class TestFakeProvisioningAPI(TestProvisioningAPI):
-    """Test :class:`FakeAsynchronousProvisioningAPI`."""
+class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
+    """Test :class:`ProvisioningAPI`.
+
+    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    """
 
     def get_provisioning_api(self):
+        """Return a real ProvisioningAPI, but using a fake Cobbler session."""
+        return ProvisioningAPI(make_fake_cobbler_session())
+
+    @inlineCallbacks
+    def test_add_node_preseeds_metadata(self):
+        papi = self.get_provisioning_api()
+        distro = yield papi.add_distro("distro", "an_initrd", "a_kernel")
+        profile = yield papi.add_profile("profile", distro)
+        metadata = self.fake_metadata()
+        node_name = self.getUniqueString("node")
+        yield papi.add_node(node_name, profile, metadata)
+
+        attrs = yield CobblerSystem(papi.session, node_name).get_values()
+        preseed = attrs['ks_meta']['MAAS_PRESEED']
+        self.assertIn(metadata['maas-metadata-url'], preseed)
+        self.assertIn(metadata['maas-metadata-credentials'], preseed)
+
+
+class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
+    """Test :class:`FakeAsynchronousProvisioningAPI`.
+
+    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    """
+
+    def get_provisioning_api(self):
+        """Return a fake ProvisioningAPI."""
         return FakeAsynchronousProvisioningAPI()

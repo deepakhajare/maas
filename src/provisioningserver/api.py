@@ -190,6 +190,7 @@ class ProvisioningAPI:
     def add_node(self, name, profile, metadata):
         assert isinstance(name, basestring)
         assert isinstance(profile, basestring)
+        assert isinstance(metadata, dict)
         attributes = {
             "profile": profile,
             "ks_meta": {"MAAS_PRESEED": metadata_preseed % metadata},
