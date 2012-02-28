@@ -569,6 +569,9 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
+    # The address by which this server can be accessed.  The nodes need
+    # this information to access the metadata service.
+    "server_address": None,
     }
 
 
