@@ -153,9 +153,9 @@ metadata_preseed_items = [
     ('maas-metadata-url', 'string', '%(maas-metadata-url)s'),
     ('maas-metadata-credentials', 'string', '%(maas-metadata-credentials)s'),
     ]
-metadata_preseed = '\n'.join([
+metadata_preseed = '\n'.join(
     "cloud-init   cloud-init/%s  %s %s" % (item_name, item_type, item_value)
-    for item_name, item_type, item_value in metadata_preseed_items])
+    for item_name, item_type, item_value in metadata_preseed_items)
 
 
 class ProvisioningAPI:
