@@ -511,14 +511,14 @@ class FakeCobbler:
             token, read, self.preseed_templates, path, contents)
 
     def get_kickstart_templates(self, token=None):
-        return self.preseed_templates.keys()
+        return list(self.preseed_templates)
 
     def read_or_write_snippet(self, path, read, contents, token):
         return self._api_access_preseed(
             token, read, self.preseed_snippets, path, contents)
 
     def get_snippets(self, token=None):
-        return self.preseed_snippets.keys()
+        return list(self.preseed_snippets)
 
     def sync(self, token):
         self._check_token(token)

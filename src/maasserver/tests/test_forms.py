@@ -55,7 +55,7 @@ class NodeWithMACAddressesFormTest(TestCase):
                 {'mac_addresses': ['invalid']}))
 
         self.assertFalse(form.is_valid())
-        self.assertEqual(['mac_addresses'], form.errors.keys())
+        self.assertEqual(['mac_addresses'], list(form.errors))
         self.assertEqual(
             ['Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF).'],
             form.errors['mac_addresses'])
@@ -69,7 +69,7 @@ class NodeWithMACAddressesFormTest(TestCase):
                 {'mac_addresses': ['invalid_1', 'invalid_2']}))
 
         self.assertFalse(form.is_valid())
-        self.assertEqual(['mac_addresses'], form.errors.keys())
+        self.assertEqual(['mac_addresses'], list(form.errors))
         self.assertEqual(
             ['One or more MAC Addresses is invalid.'],
             form.errors['mac_addresses'])
