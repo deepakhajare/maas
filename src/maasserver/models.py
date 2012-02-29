@@ -291,7 +291,7 @@ class NodeManager(models.Manager):
         self.provisioning_proxy.stop_nodes([node.system_id for node in nodes])
         return nodes
 
-    def start_nodes(self, ids, by_user):
+    def start_nodes(self, ids, by_user, user_data=None):
         """Request on given user's behalf that the given nodes be started up.
 
         Power-on is only requested for nodes that the user has ownership
@@ -301,6 +301,9 @@ class NodeManager(models.Manager):
         :type ids: Sequence
         :param by_user: Requesting user.
         :type by_user: User_
+        :param user_data: Blob of user-data to be made available to the node
+            through the metadata service.
+        :type user_data: str
         :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
