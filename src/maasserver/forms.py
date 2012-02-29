@@ -145,11 +145,11 @@ class ConfigForm(Form):
             self._load_initials()
 
     def _load_initials(self):
-            self.initial = {}
-            for name in list(self.fields):
-                conf = Config.objects.get_config(name)
-                if conf is not None:
-                    self.initial[name] = conf
+        self.initial = {}
+        for name in list(self.fields):
+            conf = Config.objects.get_config(name)
+            if conf is not None:
+                self.initial[name] = conf
 
     def save(self):
         """Save the content of the fields into the database.
