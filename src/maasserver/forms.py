@@ -11,9 +11,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "CommissioningForm",
+    "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
     "MaaSAndNetworkForm",
+    "UbuntuForm",
     ]
 
 from django import forms
@@ -22,7 +24,10 @@ from django.contrib.auth.forms import (
     UserCreationForm,
     )
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.forms import (
+    CharField,
     Form,
     ModelForm,
     )
@@ -180,3 +185,54 @@ class CommissioningForm(ConfigForm):
     check_compatibility = forms.BooleanField(
         label="Check component compatibility and certification",
         required=False)
+
+
+class UbuntuForm(ConfigForm):
+    fallback_master_archive = forms.BooleanField(
+        label="Fallback to Ubuntu master archive",
+        required=False)
+    keep_mirror_list_uptodate = forms.BooleanField(
+        label="Keep mirror list up to date",
+        required=False)
+    fetch_new_releases = forms.BooleanField(
+        label="Fetch new releases automatically",
+        required=False)
+
+    def __init__(self, *args, **kwargs):
+        super(UbuntuForm, self).__init__(*args, **kwargs)
+        # The field 'update_from' must be added dynamically because its
+        # 'choices' must be evaluated each time the form is instanciated.
+        self.fields['update_from'] = forms.ChoiceField(
+            label="Update from",
+            choices=Config.objects.get_config('update_from_choice'))
+        # The list of fields has changed: load initial values.
+        self._load_initials()
+
+
+hostname_error_msg = "Enter a valid hostname (e.g. my.hostname.com)."
+
+
+def validate_hostname(value):
+    try:
+        validator = URLValidator(verify_exists=False)
+        validator('http://%s' % value)
+    except ValidationError:
+        raise ValidationError(hostname_error_msg)
+
+
+class HostnameFormField(CharField):
+
+    def __init__(self, *args, **kwargs):
+        super(HostnameFormField, self).__init__(
+            validators=[validate_hostname], *args, **kwargs)
+
+
+class AddArchiveForm(ConfigForm):
+    archive_name = HostnameFormField(label="Archive name")
+
+    def save(self):
+        """Save the archive name in the Config table."""
+        archive_name = self.cleaned_data.get('archive_name')
+        archives = Config.objects.get_config('update_from_choice')
+        archives.append([archive_name, archive_name])
+        Config.objects.set_config('update_from_choice', archives)

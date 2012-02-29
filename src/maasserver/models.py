@@ -21,6 +21,7 @@ __all__ = [
     "UserProfile",
     ]
 
+import copy
 import datetime
 import re
 from uuid import uuid1
@@ -585,6 +586,9 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
+    'update_from': 'archive.ubuntu.com',
+    'update_from_choice': (
+        [['archive.ubuntu.com', 'archive.ubuntu.com']])
     }
 
 
@@ -609,7 +613,7 @@ class ConfigManager(models.Manager):
         try:
             return self.get(name=name).value
         except Config.DoesNotExist:
-            return DEFAULT_CONFIG.get(name, default)
+            return copy.deepcopy(DEFAULT_CONFIG.get(name, default))
 
     def get_config_list(self, name):
         """Return the config value list corresponding to the given config

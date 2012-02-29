@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""..."""
+"""Custom model fields."""
 
 from __future__ import (
     print_function,
@@ -33,7 +33,7 @@ import psycopg2.extensions
 mac_re = re.compile(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$')
 
 
-mac_error_msg = u"Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)."
+mac_error_msg = "Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)."
 
 
 validate_mac = RegexValidator(regex=mac_re, message=mac_error_msg)
