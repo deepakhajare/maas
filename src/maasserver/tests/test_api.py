@@ -307,6 +307,17 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
 
+    def test_POST_start_handles_binary_user_data(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        user_data = b'\xff\x00\xff\xfe\xff\xff\xfe'
+        response = self.client.post(
+            self.get_node_uri(node), {
+                'op': 'start',
+                'user_data': user_data,
+                })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
+
     def test_PUT_updates_node(self):
         # The api allows to update a Node.
         node = factory.make_node(hostname='diane')
