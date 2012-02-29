@@ -57,6 +57,21 @@ when buildout runs.
   http://pypi.python.org/
 
 
+First time using buildout?
+==========================
+
+Buildout is used to develop MaaS. Buildout, if configured so, can
+cache downloaded files and built eggs. If you've not already done
+something similar, the following snippet will massively improve build
+times::
+
+    [buildout]
+    download-cache = /home/<your-user-name>/.buildout/cache
+    eggs-directory = /home/<your-user-name>/.buildout/eggs
+
+Put this in ``~/.buildout/default.cfg``.
+
+
 Getting the latest version of the code
 ======================================
 
