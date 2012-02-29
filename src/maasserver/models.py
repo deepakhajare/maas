@@ -301,14 +301,19 @@ class NodeManager(models.Manager):
         :type ids: Sequence
         :param by_user: Requesting user.
         :type by_user: User_
-        :param user_data: Blob of user-data to be made available to the node
-            through the metadata service.
+        :param user_data: Optional blob of user-data to be made available to
+            the nodes through the metadata service.  If not given, any
+            previous user data is used.
         :type user_data: str
         :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
+        from metadataserver.models import NodeUserData
         self._set_provisioning_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
+        if user_data is not None:
+            for node in nodes:
+                NodeUserData.objects.set_user_data(node, user_data)
         self.provisioning_proxy.start_nodes(
             [node.system_id for node in nodes])
         return nodes

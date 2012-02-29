@@ -250,9 +250,11 @@ class NodeHandler(BaseHandler):
         return nodes[0]
 
     @api_exported('start', 'POST')
-    def start(self, request, system_id, user_data=None):
+    def start(self, request, system_id):
         """Power up a node."""
-        nodes = Node.objects.start_nodes([system_id], request.user, user_data)
+        user_data = request.POST.get('user_data', None)
+        nodes = Node.objects.start_nodes(
+            [system_id], request.user, user_data=user_data)
         if len(nodes) == 0:
             raise PermissionDenied(
                 "You are not allowed to start up this node.")
