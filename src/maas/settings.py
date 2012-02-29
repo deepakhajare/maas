@@ -19,8 +19,6 @@ import django.template
 
 django.template.add_to_builtins('django.templatetags.future')
 
-TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
-
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
 )
@@ -180,7 +178,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
-    'django_nose',
     'maasserver',
     'metadataserver',
     'piston',
@@ -214,3 +211,8 @@ LOGGING = {
 # The location of the Provisioning API XML-RPC endpoint. If PSERV_URL is None,
 # use the fake Provisioning API.
 PSERV_URL = None
+
+try:
+    from local_settings import * # NOQA
+except:
+    pass
