@@ -341,7 +341,7 @@ class NodeMacsHandler(BaseHandler):
                 user=request.user, system_id=system_id)
             mac = node.add_mac_address(request.data.get('mac_address', None))
             return mac
-        except ValidationError, e:
+        except ValidationError as e:
             return HttpResponseBadRequest(e.message_dict)
 
     @classmethod
