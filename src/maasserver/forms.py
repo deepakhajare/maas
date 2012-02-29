@@ -146,7 +146,7 @@ class ConfigForm(Form):
 
     def _load_initials(self):
         self.initial = {}
-        for name in list(self.fields):
+        for name in self.fields.keys():
             conf = Config.objects.get_config(name)
             if conf is not None:
                 self.initial[name] = conf
