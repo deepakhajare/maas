@@ -587,10 +587,21 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
-    # settings page config default values.
+    ## settings default values.
+    # Commissioning section configuration.
+    'after_commissioning': NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+    'check_compatibility': False,
+    # Ubuntu section configuration.
+    'fallback_master_archive': False,
+    'keep_mirror_list_uptodate': False,
+    'fetch_new_releases': False,
     'update_from': 'archive.ubuntu.com',
     'update_from_choice': (
-        [['archive.ubuntu.com', 'archive.ubuntu.com']])
+        [['archive.ubuntu.com', 'archive.ubuntu.com']]),
+    # Network section configuration.
+    'maas_name': '',
+    'provide_dhcp': False,
+    ## /settings
     # The host name or address where the nodes can access the metadata
     # service.
     'metadata-host': gethostname(),

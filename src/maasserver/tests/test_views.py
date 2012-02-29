@@ -231,7 +231,7 @@ class SettingsTest(AdminLoggedInTestCase):
     def test_settings_add_archive_POST(self):
         choices = Config.objects.get_config('update_from_choice')
         response = self.client.post(
-            '/settings/add_archive/',
+            '/settings/archives/add/',
             data={'archive_name': 'my.hostname.com'}
         )
         new_choices = Config.objects.get_config('update_from_choice')

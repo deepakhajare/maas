@@ -71,8 +71,8 @@ urlpatterns += patterns('maasserver.views',
 urlpatterns += patterns('maasserver.views',
     adminurl(r'^settings/$', settings, name='settings'),
     adminurl(
-        r'^settings/add_archive/$', settings_add_archive,
-        name='settings_add_archive'),
+        r'^settings/archives/add/$', settings_add_archive,
+        name='settings-add-archive'),
     adminurl(r'^accounts/add/$', AccountsAdd.as_view(), name='accounts-add'),
     adminurl(
         r'^accounts/(?P<username>\w+)/edit/$', AccountsEdit.as_view(),

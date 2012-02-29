@@ -173,12 +173,14 @@ class ConfigForm(Form):
 
 
 class MaaSAndNetworkForm(ConfigForm):
+    """Settings page, MaaS and Network section."""
     maas_name = forms.CharField(label="MaaS name")
     provide_dhcp = forms.BooleanField(
         label="Provide DHCP on this subnet", required=False)
 
 
 class CommissioningForm(ConfigForm):
+    """Settings page, CommissioningF section."""
     after_commissioning = forms.ChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         label="After commissioning")
@@ -188,6 +190,7 @@ class CommissioningForm(ConfigForm):
 
 
 class UbuntuForm(ConfigForm):
+    """Settings page, Ubuntu section."""
     fallback_master_archive = forms.BooleanField(
         label="Fallback to Ubuntu master archive",
         required=False)
@@ -201,7 +204,7 @@ class UbuntuForm(ConfigForm):
     def __init__(self, *args, **kwargs):
         super(UbuntuForm, self).__init__(*args, **kwargs)
         # The field 'update_from' must be added dynamically because its
-        # 'choices' must be evaluated each time the form is instanciated.
+        # 'choices' must be evaluated each time the form is instantiated.
         self.fields['update_from'] = forms.ChoiceField(
             label="Update from",
             choices=Config.objects.get_config('update_from_choice'))
@@ -209,7 +212,7 @@ class UbuntuForm(ConfigForm):
         self._load_initials()
 
 
-hostname_error_msg = "Enter a valid hostname (e.g. my.hostname.com)."
+hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
 
 
 def validate_hostname(value):

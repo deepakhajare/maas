@@ -84,11 +84,11 @@
       <h2>Ubuntu</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>
-        {% with field=ubuntu_form.update_form %}
+        {% with field=ubuntu_form.update_from %}
           {% include "maasserver/form_field.html" %}
         {% endwith %}
         <p>
-          <a href="{% url "settings_add_archive" %}">
+          <a href="{% url "settings-add-archive" %}">
             Add archive for newly provisioned machines
           </a>
         </p>
