@@ -13,6 +13,7 @@ __all__ = [
     "api_doc",
     "generate_api_doc",
     "AccountHandler",
+    "AnonNodesHandler",
     "FilesHandler",
     "NodeHandler",
     "NodesHandler",
@@ -36,8 +37,8 @@ from django.shortcuts import (
 from django.template import RequestContext
 from docutils import core
 from maasserver.exceptions import (
-    MaasAPIBadRequest,
-    MaasAPINotFound,
+    MaaSAPIBadRequest,
+    MaaSAPINotFound,
     NodesNotAvailable,
     PermissionDenied,
     )
@@ -50,9 +51,11 @@ from maasserver.models import (
     )
 from piston.doc import generate_doc
 from piston.handler import (
+    AnonymousBaseHandler,
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.resource import Resource
 from piston.utils import rc
 
 
@@ -62,6 +65,17 @@ dispatch_methods = {
     'PUT': 'update',
     'DELETE': 'delete',
     }
+
+
+class RestrictedResource(Resource):
+
+    def authenticate(self, request, rm):
+        actor, anonymous = super(
+            RestrictedResource, self).authenticate(request, rm)
+        if not anonymous and not request.user.is_active:
+            raise PermissionDenied("User is not allowed access to this API.")
+        else:
+            return actor, anonymous
 
 
 def api_exported(operation_name=True, method='POST'):
@@ -146,19 +160,20 @@ def api_operations(cls):
     # Compute the list of methods ('GET', 'POST', etc.) that need to be
     # overriden.
     overriden_methods = set()
-    for name, value in vars(cls).iteritems():
+    for name, value in vars(cls).items():
         overriden_methods.update(getattr(value, '_api_exported', {}))
     # Override the appropriate methods with a 'dispatcher' method.
     for method in overriden_methods:
         operations = {
-            name: value for name, value in vars(cls).iteritems()
+            name: value
+            for name, value in vars(cls).items()
             if is_api_exported(value, method)}
         cls._available_api_methods = getattr(
             cls, "_available_api_methods", {}).copy()
         cls._available_api_methods[method] = {
             (name if op._api_exported[method] is True
                 else op._api_exported[method]): op
-            for name, op in operations.iteritems()
+            for name, op in operations.items()
             if method in op._api_exported}
 
         def dispatcher(self, request, *args, **kwargs):
@@ -172,11 +187,16 @@ def api_operations(cls):
             "parameter:\n\n" % OP_PARAM)
         dispatcher.__doc__ += "\n".join(
             "- Operation '%s' (op=%s):\n\t%s" % (name, name, op.__doc__)
-            for name, op in cls._available_api_methods[method].iteritems())
+            for name, op in cls._available_api_methods[method].items())
 
         # Add {'create','read','update','delete'} method.
         setattr(cls, method_name, dispatcher)
     return cls
+
+
+NODE_FIELDS = (
+    'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
+    'architecture')
 
 
 @api_operations
@@ -184,7 +204,7 @@ class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
     allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
     model = Node
-    fields = ('system_id', 'hostname', ('macaddress_set', ('mac_address',)))
+    fields = NODE_FIELDS
 
     def read(self, request, system_id):
         """Read a specific Node."""
@@ -239,10 +259,42 @@ class NodeHandler(BaseHandler):
         return nodes[0]
 
 
+def create_node(request):
+    form = NodeWithMACAddressesForm(request.data)
+    if form.is_valid():
+        node = form.save()
+        return node
+    else:
+        return HttpResponseBadRequest(
+            form.errors, content_type='application/json')
+
+
+@api_operations
+class AnonNodesHandler(AnonymousBaseHandler):
+    """Create Nodes."""
+    allowed_methods = ('POST',)
+    fields = NODE_FIELDS
+
+    @api_exported('new', 'POST')
+    def new(self, request):
+        """Create a new Node."""
+        return create_node(request)
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('nodes_handler', [])
+
+
 @api_operations
 class NodesHandler(BaseHandler):
-    """Manage collection of Nodes / Create Nodes."""
+    """Manage collection of Nodes."""
     allowed_methods = ('GET', 'POST',)
+    anonymous = AnonNodesHandler
+
+    @api_exported('new', 'POST')
+    def new(self, request):
+        """Create a new Node."""
+        return create_node(request)
 
     @api_exported('list', 'GET')
     def list(self, request):
@@ -252,17 +304,6 @@ class NodesHandler(BaseHandler):
             match_ids = None
         nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
         return nodes.order_by('id')
-
-    @api_exported('new', 'POST')
-    def new(self, request):
-        """Create a new Node."""
-        form = NodeWithMACAddressesForm(request.data)
-        if form.is_valid():
-            node = form.save()
-            return node
-        else:
-            return HttpResponseBadRequest(
-                form.errors, content_type='application/json')
 
     @api_exported('acquire', 'POST')
     def acquire(self, request):
@@ -301,7 +342,7 @@ class NodeMacsHandler(BaseHandler):
                 user=request.user, system_id=system_id)
             mac = node.add_mac_address(request.data.get('mac_address', None))
             return mac
-        except ValidationError, e:
+        except ValidationError as e:
             return HttpResponseBadRequest(e.message_dict)
 
     @classmethod
@@ -359,11 +400,11 @@ class FilesHandler(BaseHandler):
         """
         filename = request.GET.get("filename", None)
         if not filename:
-            raise MaasAPIBadRequest("Filename not supplied")
+            raise MaaSAPIBadRequest("Filename not supplied")
         try:
             db_file = FileStorage.objects.get(filename=filename)
         except FileStorage.DoesNotExist:
-            raise MaasAPINotFound("File not found")
+            raise MaaSAPINotFound("File not found")
         return HttpResponse(db_file.data.read(), status=httplib.OK)
 
     @api_exported('add', 'POST')
@@ -377,12 +418,12 @@ class FilesHandler(BaseHandler):
         """
         filename = request.data.get("filename", None)
         if not filename:
-            raise MaasAPIBadRequest("Filename not supplied")
+            raise MaaSAPIBadRequest("Filename not supplied")
         files = request.FILES
         if not files:
-            raise MaasAPIBadRequest("File not supplied")
+            raise MaaSAPIBadRequest("File not supplied")
         if len(files) != 1:
-            raise MaasAPIBadRequest("Exactly one file must be supplied")
+            raise MaaSAPIBadRequest("Exactly one file must be supplied")
         uploaded_file = files['file']
 
         # As per the comment in FileStorage, this ought to deal in

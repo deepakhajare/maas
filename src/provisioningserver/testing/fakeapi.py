@@ -41,7 +41,7 @@ class FakeProvisioningDatabase(dict):
         keys = frozenset(keys)
         return {
             key: value
-            for key, value in self.iteritems()
+            for key, value in self.items()
             if key in keys
             }
 
@@ -59,7 +59,7 @@ class FakeProvisioningDatabase(dict):
         """
         return {
             key: value.copy()
-            for key, value in self.iteritems()
+            for key, value in self.items()
             }
 
 
@@ -88,23 +88,24 @@ class FakeSynchronousProvisioningAPI:
         self.profiles[name]["distro"] = distro
         return name
 
-    def add_node(self, name, profile):
+    def add_node(self, name, profile, metadata):
         self.nodes[name]["profile"] = profile
         self.nodes[name]["mac_addresses"] = []
+        self.nodes[name]["metadata"] = metadata
         return name
 
     def modify_distros(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             distro = self.distros[name]
             distro.update(delta)
 
     def modify_profiles(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             profile = self.profiles[name]
             profile.update(delta)
 
     def modify_nodes(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             node = self.nodes[name]
             node.update(delta)
 

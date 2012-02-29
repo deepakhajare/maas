@@ -25,6 +25,7 @@ from maasserver.exceptions import (
 from maasserver.models import (
     Config,
     create_auth_token,
+    DEFAULT_CONFIG,
     GENERIC_CONSUMER,
     get_auth_tokens,
     MACAddress,
@@ -203,7 +204,7 @@ class NodeManagerTest(TestCase):
         user = factory.make_user()
         available_status = NODE_STATUS.READY
         unavailable_statuses = (
-            set(NODE_STATUS_CHOICES_DICT.keys()) - set([available_status]))
+            set(NODE_STATUS_CHOICES_DICT) - set([available_status]))
         for status in unavailable_statuses:
             factory.make_node(status=status)
         self.assertEqual(
@@ -365,7 +366,7 @@ class UserProfileTest(TestCase):
         profile = factory.make_user().get_profile()
         token_ids = []
         consumer_ids = []
-        for i in xrange(3):
+        for i in range(3):
             token, consumer = profile.create_authorisation_token()
             token_ids.append(token.id)
             consumer_ids.append(consumer.id)
@@ -380,7 +381,7 @@ class UserProfileTest(TestCase):
         self.assertRaises(CannotDeleteUserException, profile.delete)
 
     def test_manager_all_users(self):
-        users = set(factory.make_user() for i in xrange(3))
+        users = set(factory.make_user() for i in range(3))
         all_users = set(UserProfile.objects.all_users())
         self.assertEqual(users, all_users)
 
@@ -448,6 +449,21 @@ class ConfigTest(TestCase):
     def test_manager_get_config_not_found_none(self):
         config = Config.objects.get_config('name')
         self.assertIsNone(config)
+
+    def test_manager_get_config_not_found_in_default_config(self):
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        DEFAULT_CONFIG[name] = value
+        config = Config.objects.get_config(name, None)
+        self.assertEqual(value, config)
+
+    def test_default_config_cannot_be_changed(self):
+        name = factory.getRandomString()
+        DEFAULT_CONFIG[name] = {'key': 'value'}
+        config = Config.objects.get_config(name)
+        config.update({'key2': 'value2'})
+
+        self.assertEqual({'key': 'value'}, Config.objects.get_config(name))
 
     def test_manager_get_config_list_returns_config_list(self):
         Config.objects.create(name='name', value='config1')

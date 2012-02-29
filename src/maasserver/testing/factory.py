@@ -31,7 +31,23 @@ class Factory():
     def getRandomString(self, size=10):
         return "".join(
             random.choice(string.letters + string.digits)
-            for x in xrange(size))
+            for x in range(size))
+
+    def getRandomBoolean(self):
+        return random.choice((True, False))
+
+    def getRandomEnum(self, enum):
+        enum_choices = [
+            value for key, value in vars(enum).items()
+            if not key.startswith('__')]
+        return random.choice(enum_choices)
+
+    def getRandomChoice(self, choices):
+        # Get a random choice from the passed-in 'choices'.  'choices'
+        # must use Django form choices format:
+        # [('choice_id_1': "Choice name 1"), ('choice_id_2', "Choice
+        # name 2")].  A random choice id will be returned.
+        return random.choice(choices)[0]
 
     def make_node(self, hostname='', set_hostname=False, status=None,
                   **kwargs):

@@ -35,9 +35,13 @@ from django.views.generic import (
     )
 from maasserver.exceptions import CannotDeleteUserException
 from maasserver.forms import (
+    AddArchiveForm,
+    CommissioningForm,
     EditUserForm,
+    MaaSAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
+    UbuntuForm,
     )
 from maasserver.models import (
     Node,
@@ -68,28 +72,25 @@ class NodesCreateView(CreateView):
 
 def userprefsview(request):
     user = request.user
-    tab = request.GET.get('tab', 0)
     # Process the profile update form.
     if 'profile_submit' in request.POST:
-        tab = 0
         profile_form = ProfileForm(
             request.POST, instance=user, prefix='profile')
         if profile_form.is_valid():
             messages.info(request, "Profile updated.")
             profile_form.save()
-            return HttpResponseRedirect('%s?tab=%d' % (reverse('prefs'), tab))
+            return HttpResponseRedirect(reverse('prefs'))
     else:
         profile_form = ProfileForm(instance=user, prefix='profile')
 
     # Process the password change form.
     if 'password_submit' in request.POST:
-        tab = 2
         password_form = PasswordForm(
             data=request.POST, user=user, prefix='password')
         if password_form.is_valid():
             messages.info(request, "Password updated.")
             password_form.save()
-            return HttpResponseRedirect('%s?tab=%d' % (reverse('prefs'), tab))
+            return HttpResponseRedirect(reverse('prefs'))
     else:
         password_form = PasswordForm(user=user, prefix='password')
 
@@ -98,7 +99,6 @@ def userprefsview(request):
         {
             'profile_form': profile_form,
             'password_form': password_form,
-            'tab': tab  # Tab index to display.
         },
         context_instance=RequestContext(request))
 
@@ -168,12 +168,63 @@ class AccountsEdit(UpdateView):
 
 
 def settings(request):
-    tab = request.GET.get('tab', 0)
     user_list = UserProfile.objects.all_users().order_by('username')
+    # Process the MaaS & network form.
+    if 'maas_and_network_submit' in request.POST:
+        maas_and_network_form = MaaSAndNetworkForm(
+            request.POST, prefix='maas_and_network')
+        if maas_and_network_form.is_valid():
+            messages.info(request, "Configuration updated.")
+            maas_and_network_form.save()
+            return HttpResponseRedirect(reverse('settings'))
+    else:
+        maas_and_network_form = MaaSAndNetworkForm(prefix='maas_and_network')
+
+    # Process the Commissioning form.
+    if 'commissioning_submit' in request.POST:
+        commissioning_form = CommissioningForm(
+            request.POST, prefix='commissioning')
+        if commissioning_form.is_valid():
+            messages.info(request, "Configuration updated.")
+            commissioning_form.save()
+            return HttpResponseRedirect(reverse('settings'))
+    else:
+        commissioning_form = CommissioningForm(prefix='commissioning')
+
+    # Process the Ubuntu form.
+    if 'ubuntu_submit' in request.POST:
+        ubuntu_form = UbuntuForm(
+            request.POST, prefix='ubuntu')
+        if ubuntu_form.is_valid():
+            messages.info(request, "Configuration updated.")
+            ubuntu_form.save()
+            return HttpResponseRedirect(reverse('settings'))
+    else:
+        ubuntu_form = UbuntuForm(
+            prefix='ubuntu')
+
     return render_to_response(
         'maasserver/settings.html',
         {
             'user_list': user_list,
-            'tab': tab  # Tab index to display.
+            'maas_and_network_form': maas_and_network_form,
+            'commissioning_form': commissioning_form,
+            'ubuntu_form': ubuntu_form,
         },
+        context_instance=RequestContext(request))
+
+
+def settings_add_archive(request):
+    if request.method == 'POST':
+        form = AddArchiveForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.info(request, "Archive added.")
+            return HttpResponseRedirect(reverse('settings'))
+    else:
+        form = AddArchiveForm()
+
+    return render_to_response(
+        'maasserver/settings_add_archive.html',
+        {'form': form},
         context_instance=RequestContext(request))

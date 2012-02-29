@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from django.conf.urls.defaults import (
+    include,
     patterns,
     url,
     )
@@ -20,16 +21,6 @@ from django.contrib.auth.views import login
 from django.views.generic.simple import (
     direct_to_template,
     redirect_to,
-    )
-from maas.api_auth import api_auth
-from maasserver.api import (
-    AccountHandler,
-    api_doc,
-    FilesHandler,
-    NodeHandler,
-    NodeMacHandler,
-    NodeMacsHandler,
-    NodesHandler,
     )
 from maasserver.models import Node
 from maasserver.views import (
@@ -41,9 +32,9 @@ from maasserver.views import (
     NodeListView,
     NodesCreateView,
     settings,
+    settings_add_archive,
     userprefsview,
     )
-from piston.resource import Resource
 
 
 def adminurl(regexp, view, *args, **kwargs):
@@ -79,6 +70,9 @@ urlpatterns += patterns('maasserver.views',
 # URLs for admin users.
 urlpatterns += patterns('maasserver.views',
     adminurl(r'^settings/$', settings, name='settings'),
+    adminurl(
+        r'^settings/archives/add/$', settings_add_archive,
+        name='settings-add-archive'),
     adminurl(r'^accounts/add/$', AccountsAdd.as_view(), name='accounts-add'),
     adminurl(
         r'^accounts/(?P<username>\w+)/edit/$', AccountsEdit.as_view(),
@@ -92,32 +86,7 @@ urlpatterns += patterns('maasserver.views',
 )
 
 
-# API.
-account_handler = Resource(AccountHandler, authentication=api_auth)
-files_handler = Resource(FilesHandler, authentication=api_auth)
-node_handler = Resource(NodeHandler, authentication=api_auth)
-nodes_handler = Resource(NodesHandler, authentication=api_auth)
-node_mac_handler = Resource(NodeMacHandler, authentication=api_auth)
-node_macs_handler = Resource(NodeMacsHandler, authentication=api_auth)
-
-# API URLs accessible to anonymous users.
+# API URLs.
 urlpatterns += patterns('',
-    url(r'^api/doc/$', api_doc, name='api-doc'),
-)
-
-# API URLs for logged-in users.
-urlpatterns += patterns('',
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/macs/(?P<mac_address>.+)/$',
-        node_mac_handler, name='node_mac_handler'),
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/macs/$', node_macs_handler,
-        name='node_macs_handler'),
-
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/$', node_handler,
-        name='node_handler'),
-    url(r'^api/nodes/$', nodes_handler, name='nodes_handler'),
-    url(r'^api/files/$', files_handler, name='files_handler'),
-    url(r'^api/account/$', account_handler, name='account_handler'),
-)
+    (r'^api/1\.0/', include('maasserver.urls_api'))
+    )

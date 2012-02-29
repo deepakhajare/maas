@@ -50,9 +50,16 @@ class IProvisioningAPI_Template:
         :return: The name of the new profile.
         """
 
-    def add_node(name, profile):
-        """Add a node with the given `name`, and `profile`.
+    def add_node(name, profile, metadata):
+        """Add a node with the given `name`.
 
+        :param profile: Name of profile to associate the node with.
+        :param metadata: Dict of ks_meta items to pre-seed into the node.
+            Should include maas-metadata-url (URL for the metadata service)
+            and maas-metadata-credentials (OAuth token for accessing the
+            metadata service).  The maas-metadata-credentials entry details
+            oauth_consumer_key, oauth_token_key, and oauth_token_secret
+            encoded as a URL query section suitable for urlparse.parse_qs.
         :return: The name of the new node.
         """
 
@@ -147,7 +154,7 @@ IProvisioningAPI = InterfaceClass(
 # over-the-wire.
 PAPI_XMLRPC_FUNCTIONS = {
     "xmlrpc_%s" % name: value
-    for name, value in PAPI_FUNCTIONS.iteritems()
+    for name, value in PAPI_FUNCTIONS.items()
     }
 
 # Construct an interface containing IProvisioningAPI_Template's functions but

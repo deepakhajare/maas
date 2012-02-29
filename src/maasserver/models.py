@@ -21,8 +21,10 @@ __all__ = [
     "UserProfile",
     ]
 
+import copy
 import datetime
 import re
+from socket import gethostname
 from uuid import uuid1
 
 from django.contrib import admin
@@ -156,6 +158,19 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
 
 NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+
+# List of supported architectures.
+class ARCHITECTURE:
+    i386 = 'i386'
+    amd64 = 'amd64'
+
+
+# Architecture names.
+ARCHITECTURE_CHOICES = (
+    (ARCHITECTURE.i386, "i386"),
+    (ARCHITECTURE.amd64, "amd64"),
+)
 
 
 class NodeManager(models.Manager):
@@ -330,11 +345,14 @@ class Node(CommonInfo):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
+    architecture = models.CharField(max_length=10,
+        choices=ARCHITECTURE_CHOICES, blank=True)
+
     objects = NodeManager()
 
     def __unicode__(self):
         if self.hostname:
-            return u"%s (%s)" % (self.system_id, self.hostname)
+            return "%s (%s)" % (self.system_id, self.hostname)
         else:
             return self.system_id
 
@@ -398,7 +416,7 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
-GENERIC_CONSUMER = 'Maas consumer'
+GENERIC_CONSUMER = 'MaaS consumer'
 
 
 def create_auth_token(user):
@@ -459,7 +477,7 @@ class UserProfileManager(models.Manager):
 
 
 class UserProfile(models.Model):
-    """A User profile to store Maas specific methods and fields.
+    """A User profile to store MaaS specific methods and fields.
 
     :ivar user: The related User_.
 
@@ -567,6 +585,29 @@ class FileStorage(models.Model):
         self.data.save(filename, content)
 
 
+# Default values for config options.
+DEFAULT_CONFIG = {
+    ## settings default values.
+    # Commissioning section configuration.
+    'after_commissioning': NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+    'check_compatibility': False,
+    # Ubuntu section configuration.
+    'fallback_master_archive': False,
+    'keep_mirror_list_uptodate': False,
+    'fetch_new_releases': False,
+    'update_from': 'archive.ubuntu.com',
+    'update_from_choice': (
+        [['archive.ubuntu.com', 'archive.ubuntu.com']]),
+    # Network section configuration.
+    'maas_name': '',
+    'provide_dhcp': False,
+    ## /settings
+    # The host name or address where the nodes can access the metadata
+    # service.
+    'metadata-host': gethostname(),
+    }
+
+
 class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
@@ -588,7 +629,7 @@ class ConfigManager(models.Manager):
         try:
             return self.get(name=name).value
         except Config.DoesNotExist:
-            return default
+            return copy.deepcopy(DEFAULT_CONFIG.get(name, default))
 
     def get_config_list(self, name):
         """Return the config value list corresponding to the given config
@@ -648,6 +689,11 @@ class MaaSAuthorizationBackend(ModelBackend):
     supports_object_permissions = True
 
     def has_perm(self, user, perm, obj=None):
+        if not user.is_active:
+            # Deactivated users, and in particular the node-init user,
+            # are prohibited from accessing maasserver services.
+            return False
+
         # Only Nodes can be checked. We also don't support perm checking
         # when obj = None.
         if not isinstance(obj, Node):
@@ -660,3 +706,10 @@ class MaaSAuthorizationBackend(ModelBackend):
                 'Invalid permission check (invalid permission name).')
 
         return obj.owner in (None, user)
+
+
+# 'provisioning' is imported so that it can register its signal handlers early
+# on, before it misses anything.
+from maasserver import provisioning
+# We mention 'provisioning' here to silence lint warnings.
+provisioning

@@ -36,11 +36,36 @@ code directly from Launchpad::
 
     $ sudo apt-get install bzr
 
+If you intend to run the test suite, you also need libxslt1-dev, libxml2-dev,
+xvfb and firefox::
+
+    $ sudo apt-get install libxslt1-dev libxml2-dev xvfb firefox
+
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
 
 .. _PyPI:
   http://pypi.python.org/
+
+
+First time using buildout?
+==========================
+
+Buildout is used to develop MaaS. Buildout, if configured so, can
+cache downloaded files and built eggs. If you've not already done
+something similar, the following snippet will massively improve build
+times::
+
+    [buildout]
+    download-cache = /home/<your-user-name>/.buildout/cache
+    eggs-directory = /home/<your-user-name>/.buildout/eggs
+
+Put this in ``~/.buildout/default.cfg`` and create the ``cache``
+directory::
+
+    $ mkdir /home/<your-user-name>/.buildout/cache
+
+The ``eggs`` directory will be created automatically.
 
 
 Getting the latest version of the code
@@ -76,14 +101,20 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler:
+Install Cobbler, and import at least one distro and profile::
 
-    $ sudo apt-get install cobbler
+    $ sudo apt-get install apache2 cobbler
+    $ sudo cobbler-ubuntu-import precise-i386  # For example.
 
 Add yourself as a user in Cobbler. For convenience, give yourself the
 password ``test``::
 
     $ sudo htdigest /etc/cobbler/users.digest Cobbler $USER
+
+Alternatively, if you're not interested in the Provisioning Server or
+Cobbler, set ``PSERV_URL`` to ``None`` in one of ``maas``'s settings
+files (typically ``src/maas/demo.py``), and a fake Provisioning Server
+will be used instead.
 
 Run the development webserver::
 
