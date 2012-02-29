@@ -387,7 +387,7 @@ class ProvisioningAPITestScenario:
         for num in range(3):
             name = self.getUniqueString()
             yield papi.add_profile(name, distro)
-            expected[name] = {u'distro': u'distro', u'name': name}
+            expected[name] = {'distro': 'distro', 'name': name}
         profiles = yield papi.get_profiles()
         self.assertEqual(expected, profiles)
 
