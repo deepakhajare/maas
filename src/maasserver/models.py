@@ -24,6 +24,7 @@ __all__ = [
 import copy
 import datetime
 import re
+from socket import gethostname
 from uuid import uuid1
 
 from django.contrib import admin
@@ -586,9 +587,13 @@ class FileStorage(models.Model):
 
 # Default values for config options.
 DEFAULT_CONFIG = {
+    # settings page config default values.
     'update_from': 'archive.ubuntu.com',
     'update_from_choice': (
         [['archive.ubuntu.com', 'archive.ubuntu.com']])
+    # The host name or address where the nodes can access the metadata
+    # service.
+    'metadata-host': gethostname(),
     }
 
 
