@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+# Exit immediately if a command exits with a non-zero status.
+set -o errexit
+# Treat unset variables as an error when substituting.
+set -o nounset
+
+# Move to the project root.
+cd ../..
+
+# Start logging, if requested.
+[ -z "${logdir:-}" ] || exec &> >(
+    exec multilog s1048576 n10 "${logdir}")
+
+monitor() {
+    inotifywait --quiet --monitor --recursive \
+        --exclude '/[.]' --exclude '/test(s|ing)/' \
+        --event close_write --event move --event delete \
+        --format '%e:%w%f' "$@"
+}
+
+process() {
+    while IFS=: read event filename
+    do
+        # echo "<-- ${event} ${filename}"
+        case "${filename}" in
+            src/maas*.py|src/meta*.py)
+                echo "<-- ${filename} changed; reloading api"
+                svc -d services/api
+                sleep 1
+                svc -u services/api
+                ;;
+            src/prov*.py)
+                echo "<-- ${filename} changed; reloading pserv"
+                svc -d services/pserv
+                sleep 1
+                svc -u services/pserv
+                ;;
+        esac
+    done
+}
+
+monitor "src" | process
