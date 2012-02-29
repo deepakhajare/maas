@@ -43,7 +43,7 @@ def fake_token(user=None, custom_id=None):
         for ease of debugging.
     """
     elements = ['token', '%s' % next(unique_ints), user, custom_id]
-    return '-'.join(element for element in elements if element)
+    return '-'.join(element for element in elements if bool(element))
 
 
 class FakeTwistedProxy:
