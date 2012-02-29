@@ -1,4 +1,5 @@
-#RELEASES="oneiric natty maverick lucid"
+#RELEASES="oneiric precise"
+RELEASES="precise"
 #ARCHES="amd64 i386"
 #PRIORITY="critical"
 #LOCALE="en_US"
