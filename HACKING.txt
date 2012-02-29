@@ -69,7 +69,12 @@ times::
     download-cache = /home/<your-user-name>/.buildout/cache
     eggs-directory = /home/<your-user-name>/.buildout/eggs
 
-Put this in ``~/.buildout/default.cfg``.
+Put this in ``~/.buildout/default.cfg`` and create the ``cache``
+directory::
+
+    $ mkdir /home/<your-user-name>/.buildout/cache
+
+The ``eggs`` directory will be created automatically.
 
 
 Getting the latest version of the code
