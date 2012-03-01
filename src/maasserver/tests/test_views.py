@@ -20,10 +20,12 @@ from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
     UserProfile,
+    SSHKeys,
     )
 from maasserver.testing import (
     factory,
     LoggedInTestCase,
+    TestCase,
     )
 
 
@@ -297,3 +299,25 @@ class UserManagementTest(AdminLoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(user.username, content_text)
         self.assertIn(user.email, content_text)
+
+
+class SSHKeyServerTest(TestCase):
+
+    def setUp(self):
+        super(SSHKeyServerTest, self).setUp()
+        self.user = factory.make_user()
+        self.sshkey = SSHKeys.objects.create(
+            user=self.user.get_profile(),
+            key=("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDmQLTto0BUB2+Ayj9rwuE",
+                 "iwd/IyY9YU7qUzqgJBqRp+3FDhZYQqI6aG9sLmPccP+gka1Ia5wlJODpXeu",
+                 "cQVqPsKW9Moj/XP1spIuYh6ZrhHElyPB7aPjqoTtpX1+lx6mJU=",
+                 "maas@example")
+            )
+
+    def test_get_user_sshkey(self):
+        response = self.client.get('/accounts/%s/sshkeys/' % self.user)
+        self.assertIn(str(self.sshkey.key), response.content)
+
+    def test_get_null_sshkey(self):
+        response = self.client.get('/accounts/null-user/sshkeys/')
+        self.assertEqual('', response.content)

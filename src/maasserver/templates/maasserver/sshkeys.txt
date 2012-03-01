@@ -1,2 +1,2 @@
-{% for key in keys %}{{ key }}
+{% for key in keys %}{{ key|safe }}
 {% endfor %}
