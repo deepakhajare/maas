@@ -38,18 +38,20 @@ Usage: ${0##*/} [ options ] output
    build a zimmer server from a cloud image, and put it in 'output'
 
    options:
-         | --zimg   Z    url or path to compressed cloud image
+     --zimg   Z          url or path to compressed cloud image
                          (will be uncompressed)
                          def: $DEF_ZIMG
-           --img    I    url or path to uncompressed cloud image
+     --img    I          url or path to uncompressed cloud image
                          expected to be uncompressed.
                          default: create from zimg
-           --log    L    log items to LOG
+     --log    L          log items to LOG
                          default: $LOG
-           --save   D    put pristine copies of things in D
+     --save   D          put pristine copies of things in D
                          default: $DEF_SAVE_D
-           --ud-file F   use user-data file F
+     --ud-file F         use user-data file F
                          default: $DEF_USER_DATA
+     --import-keys K     import ssh keys
+                          values are 'auto', 'lp:<id>', or path to file
 EOF
 }
 
@@ -93,6 +95,7 @@ img=""
 zimg=""
 save_d="$DEF_SAVE_D"
 ud_file="$DEF_UD_FILE"
+import_keys=""
 
 while [ $# -ne 0 ]; do
 	cur=${1}; next=${2};
@@ -104,6 +107,7 @@ while [ $# -ne 0 ]; do
 		   --ud-file) ud_file=${2}; shift;;
 		-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 		   --zimg) zimg=${2}; shift;;
+		   --import-keys) import_keys=${2}; shift;;
 		--) shift; break;;
 	esac
 	shift;
@@ -128,6 +132,19 @@ TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
 trap cleanup EXIT
 
 mkdir -p "$save_d" || fail "failed to mkdir $save_d"
+
+# if --import-keys was specified, get the keys into a local file
+keyf="$TEMP_D/keys"
+if [ "$import_keys" = "auto" ]; then
+	ssh-add -L > "${keyf}" 2>/dev/null ||
+		cat $HOME/.ssh/id*.pub > "$keyf" 2>/dev/null ||
+		error "Warning: unable to find 'auto' keys"
+elif [ -f "$import_keys" ]; then
+	cat "$import_keys" > "$keyf"
+elif [ "${import_keys#lp:}" != "${import_keys}" ]; then
+	ssh-import-id -o - ${import_keys#lp:} > "$keyf" 2>/dev/null ||
+		error "Warning: failed to ssh-import ${import_keys#lp:}"
+fi
 
 if [ -n "$img" ]; then
 	# if img was given, then we assume good, its the backing image
@@ -169,6 +186,17 @@ cat > "$seed_d/meta-data" <<EOF
 instance-id: i-zimmer-build
 local-hostname: zimmer-build
 EOF
+
+# if keys were specified, dump them into meta-data
+if [ -s "$keyf" ]; then
+	{
+	echo "public-keys:"
+	echo " zimmer-build:"
+	while read line; do
+		echo "  - \"$line\""
+	done < "$keyf"
+	} >> "$TEMP_D/meta-data"
+fi
 
 ( cd "$seed_d" &&
 	genisoimage -output "$TEMP_D/build.iso" \
