@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from base64 import b64encode
 import httplib
 import json
 import os
@@ -296,24 +297,15 @@ class TestNodeAPI(APITestCase):
         response = self.client.post(self.get_node_uri(node), {'op': 'start'})
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_POST_start_stores_user_data(self):
+    def test_POST_stores_user_data(self):
         node = factory.make_node(owner=self.logged_in_user)
-        user_data = factory.getRandomString().encode('ascii')
+        user_data = (
+            b'\xff\x00\xff\xfe\xff\xff\xfe' +
+            factory.getRandomString().encode('ascii'))
         response = self.client.post(
             self.get_node_uri(node), {
                 'op': 'start',
-                'user_data': user_data,
-                })
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
-
-    def test_POST_start_handles_binary_user_data(self):
-        node = factory.make_node(owner=self.logged_in_user)
-        user_data = b'\xff\x00\xff\xfe\xff\xff\xfe'
-        response = self.client.post(
-            self.get_node_uri(node), {
-                'op': 'start',
-                'user_data': user_data,
+                'user_data': b64encode(user_data),
                 })
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
