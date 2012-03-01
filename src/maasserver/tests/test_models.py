@@ -400,38 +400,68 @@ class FileStorageTest(TestCase):
 
     def setUp(self):
         super(FileStorageTest, self).setUp()
+        # The development settings say to write storage files in
+        # /var/tmp/maas.
         os.mkdir(self.FILEPATH)
         self.addCleanup(shutil.rmtree, self.FILEPATH)
 
+    def get_storage_path(self, filename):
+        """Get the full path to the storage file of the given name."""
+        # The storage field is hard-coded to write files to a
+        # subdirectory of FILEPATH called "storage".
+        return os.path.join(self.FILEPATH, "storage", filename)
+
+    def make_data(self, including_text='data'):
+        """Return arbitrary data."""
+        text = "%s %s" % (including_text, factory.getRandomString())
+        return text.encode('ascii')
+
     def test_creation(self):
-        storage = factory.make_file_storage(filename="myfile", data=b"mydata")
-        expected = ["myfile", "mydata"]
-        actual = [storage.filename, storage.data.read()]
-        self.assertEqual(expected, actual)
+        filename = factory.getRandomString()
+        data = self.make_data()
+        storage = factory.make_file_storage(filename=filename, data=data)
+        self.assertEqual(
+            (filename, data),
+            (storage.filename, storage.data.read()))
 
     def test_creation_writes_a_file(self):
-        # The development settings say to write a file starting at
-        # /var/tmp/maas, so check one is actually written there.  The field
-        # itself is hard-coded to make a directory called "storage".
-        factory.make_file_storage(filename="myfile", data=b"mydata")
-
-        expected_filename = os.path.join(
-            self.FILEPATH, "storage", "myfile")
-
-        with open(expected_filename) as f:
-            self.assertEqual("mydata", f.read())
+        # Check that the file is actually written to FILEPATH.
+        filename = factory.getRandomString()
+        data = self.make_data()
+        storage = factory.make_file_storage(filename=filename, data=data)
+        with open(self.get_storage_path(filename)) as f:
+            self.assertEqual(data, f.read())
 
     def test_stores_binary_data(self):
         # This horrible binary data could never, ever, under any
-        # encoding known to man be intepreted as text.  Switch the bytes
-        # of the byte-order mark around and by design you get an invalid
-        # codepoint; put a byte with the high bit set between bytes that
-        # have it cleared, and you have a guaranteed non-UTF-8 sequence.
+        # encoding known to man be interpreted as text(1).  Switch the
+        # bytes of the byte-order mark around and by design you get an
+        # invalid codepoint; put a byte with the high bit set between bytes
+        # that have it cleared, and you have a guaranteed non-UTF-8
+        # sequence.
+        #
+        # (1) Provided, of course, that man know only about ASCII,
+        # UTF-8, or UTF-16.
         binary_data = codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00'
+
         # And yet, because FileStorage supports binary data, it comes
         # out intact.
         storage = factory.make_file_storage(filename="x", data=binary_data)
         self.assertEqual(binary_data, storage.data.read())
+
+    def test_overwrites_file(self):
+        # If a file of the same name has already been stored, the old
+        # data gets overwritten.
+        filename = 'filename-%s' % factory.getRandomString()
+        old_data = self.make_data('old-data')
+        new_data = self.make_data('new-data')
+        old_storage = factory.make_file_storage(
+            filename=filename, data=old_data)
+        new_storage = factory.make_file_storage(
+            filename=filename, data=new_data)
+        self.assertEqual(old_storage.filename, new_storage.filename)
+        with open(self.get_storage_path(filename)) as f:
+            self.assertEqual(new_data, f.read())
 
 
 class ConfigTest(TestCase):
