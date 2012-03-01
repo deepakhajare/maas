@@ -55,6 +55,7 @@ urlpatterns = patterns('maasserver.views',
     url(
         r'^favicon\.ico$', redirect_to, {'url': '/static/img/favicon.ico'},
         name='favicon'),
+    url(r'^accounts/(?P<userid>\w+)/sshkeys/$', KeystoreView),
 )
 
 # URLs for logged-in users.
@@ -90,9 +91,4 @@ urlpatterns += patterns('maasserver.views',
 # API URLs.
 urlpatterns += patterns('',
     (r'^api/1\.0/', include('maasserver.urls_api'))
-    )
-
-# Key Store
-urlpatterns += patterns('',
-    (r'^keystore/user/(?P<userid>\w+)/$', KeystoreView)
     )

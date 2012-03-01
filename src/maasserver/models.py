@@ -540,6 +540,7 @@ class UserProfile(models.Model):
     def __unicode__(self):
         return self.user.username
 
+
 # When a user is created: create the related profile and the default
 # consumer/token.
 def create_user(sender, instance, created, **kwargs):

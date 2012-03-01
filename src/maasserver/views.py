@@ -73,9 +73,9 @@ class NodesCreateView(CreateView):
 
 def KeystoreView(request, userid):
     keys = SSHKeys.objects.filter(user__user__username=userid)
-    return render_to_response('maasserver/sshkeys.txt', {'keys': keys},
-                              mimetype="text/plain",
-                              context_instance=RequestContext(request))
+    return render_to_response(
+        'maasserver/sshkeys.txt', {'keys': keys}, mimetype="text/plain",
+        context_instance=RequestContext(request))
 
 
 def userprefsview(request):
