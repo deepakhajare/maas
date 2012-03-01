@@ -8,7 +8,7 @@
 
 ## Build a zimmer image in this branch.
 pushd zimmer-build
-./build zimmer-disk0.img
+./build zimmer-disk0.img --import-keys=auto
 popd
 
 ## Get zimmer and cobbler running.
