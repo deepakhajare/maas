@@ -195,7 +195,7 @@ if [ -s "$keyf" ]; then
 	while read line; do
 		echo "  - \"$line\""
 	done < "$keyf"
-	} >> "$TEMP_D/meta-data"
+	} >> "$seed_d/meta-data"
 fi
 
 ( cd "$seed_d" &&
