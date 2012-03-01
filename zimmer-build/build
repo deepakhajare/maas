@@ -11,7 +11,6 @@ esac
 
 DEF_ZIMG="http://cloud-images.ubuntu.com/server/precise/current/precise-server-cloudimg-${GUEST_ARCHITECTURE}-disk1.img"
 DEF_SAVE_D="pristine"
-DEF_CI_BZR="lp:cloud-init"
 DEF_UD_FILE="ud-build.txt"
 ZIMMER_SSH_FORWARD=""
 #ZIMMER_SSH_FORWARD=${ZIMMER_SSH_FORWARD:-"hostfwd=tcp::2222-:22"}
@@ -49,8 +48,6 @@ Usage: ${0##*/} [ options ] output
                          default: $LOG
            --save   D    put pristine copies of things in D
                          default: $DEF_SAVE_D
-           --ci-bzr B    use cloud-init bzr branch at B
-                         default: $DEF_CI_BZR
            --ud-file F   use user-data file F
                          default: $DEF_USER_DATA
 EOF
@@ -86,7 +83,7 @@ download() {
 }
 
 short_opts="ho:v"
-long_opts="help,ci-bzr:,img:,log:,ud-file:,verbose,zimg:"
+long_opts="help,img:,log:,ud-file:,verbose,zimg:"
 getopt_out=$(getopt --name "${0##*/}" \
 	--options "${short_opts}" --long "${long_opts}" -- "$@") &&
 	eval set -- "${getopt_out}" ||
@@ -95,14 +92,12 @@ getopt_out=$(getopt --name "${0##*/}" \
 img=""
 zimg=""
 save_d="$DEF_SAVE_D"
-ci_bzr="$DEF_CI_BZR"
 ud_file="$DEF_UD_FILE"
 
 while [ $# -ne 0 ]; do
 	cur=${1}; next=${2};
 	case "$cur" in
 		-h|--help) Usage ; exit 0;;
-		   --ci-bzr) ci_bzr=$2; shift;;
 		   --img) img=${2}; shift;;
 		   --log) LOG=${2}; shift;;
 		   --save) save_d=${2}; shift;;
@@ -127,8 +122,6 @@ command -v genisoimage >/dev/null ||
 
 [ -f "$ud_file" ] ||
 	fail "user data file $ud_file" is not a file
-ud_file_fp=$(readlink -f "$ud_file") ||
-	fail "failed to get full path to ud_file"
 
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
 	fail "failed to make tempdir"
@@ -159,7 +152,7 @@ else
 			[ -f "$zimg" ] || fail "$zimg is not a file"
 			;;
 		*)  [ -f "$zimg" ] || fail "$zimg is not a file"
-			debug 0 "using file $o_zimg as zimg"
+			debug 0 "using file $zimg as zimg"
 			;;
 	esac
 	img=${zimg%.zimg}.img
@@ -167,23 +160,20 @@ else
 	qemu-img convert -O qcow2 "$zimg" "$img"
 fi
 
-if [ -d "$ci_bzr" ]; then
-	debug 0 "using cloud-init local dir in $ci_bzr"
-elif [ -d "$save_d/cloud-init" ]; then
-	debug 0 "using cloud-init in $save_d/cloud-init"
-	ci_bzr="$save_d/cloud-init"
-else
-	debug 0 "branching remote $ci_bzr"
-	bzr branch "$ci_bzr" "$TEMP_D/cloud-init" ||
-		fail "failed to branch $ci_bzr"
-	mv "$TEMP_D/cloud-init" "$save_d/" ||
-		fail "failed to move $ci_bzr to $save_d"
-	ci_bzr="$save_d/cloud-init"
-fi
+debug 0 "making nocloud data source in iso"
+seed_d="$TEMP_D/seed"
+mkdir "$seed_d" || fail "failed to make 'seed' in tempdir"
 
-( cd "$ci_bzr/doc/ovf" &&
-	./make-iso ovf-env.xml.tmpl $ud_file_fp -o - ) > "$TEMP_D/build.iso" ||
-	fail "failed to create iso for user-data from $ud_file_fp"
+cp "$ud_file" "$seed_d/user-data" || fail "failed to copy $ud_file to $seed_d"
+cat > "$seed_d/meta-data" <<EOF
+instance-id: i-zimmer-build
+local-hostname: zimmer-build
+EOF
+
+( cd "$seed_d" &&
+	genisoimage -output "$TEMP_D/build.iso" \
+		-volid cidata -joliet -rock user-data meta-data ) ||
+	fail "failed to create iso for user-data from $ud_file"
 
 build0="$TEMP_D/build0.img"
 img_fp=$(readlink -f "$img") || fail "failed to get fullpath for $img"
