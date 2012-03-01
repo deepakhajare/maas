@@ -23,38 +23,47 @@ usually use the ``lowercase_with_underscores`` form.
 
 Prerequisites
 =============
-You will need to manually install Postgres 9.1 (postgresql-9.1),
-RabbitMQ (rabbitmq-server), python-dev and make::
 
-    $ sudo apt-get install postgresql-9.1 rabbitmq-server python-dev make
+You will need to manually install Postgres 9.1 (postgresql-9.1 and
+libpq-dev), RabbitMQ (rabbitmq-server), python-dev and make::
 
+    $ sudo apt-get install postgresql-9.1 libpq-dev rabbitmq-server python-dev make
 
 Also, you might want to install Bazaar (bzr) to grab the source code directly
 from Launchpad::
 
     $ sudo apt-get install bzr
 
-This is the list of runtime dependencies that you'll need to install::
+If you intend to run the test suite, you also need libxslt1-dev, libxml2-dev,
+xvfb and firefox::
 
-    $ sudo apt-get install python-django python-django-piston \
-        python-django-south python-twisted python-txamqp python-amqplib \
-        python-formencode python-oauth python-oops python-oops-datedir-repo \
-        python-twisted python-oops-wsgi python-psycopg2 python-yaml
-
-Additionally, you need to install the following python libraries
-for development convenience::
-
-    $ sudo apt-get install python-sphinx python-lxml
-
-If you intend to run the test suite, you also need xvfb and firefox::
-
-    $ sudo apt-get install xvfb firefox
+    $ sudo apt-get install libxslt1-dev libxml2-dev xvfb firefox
 
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
 
 .. _PyPI:
   http://pypi.python.org/
+
+
+First time using buildout?
+==========================
+
+Buildout is used to develop MaaS. Buildout, if configured so, can
+cache downloaded files and built eggs. If you've not already done
+something similar, the following snippet will massively improve build
+times::
+
+    [buildout]
+    download-cache = /home/<your-user-name>/.buildout/cache
+    eggs-directory = /home/<your-user-name>/.buildout/eggs
+
+Put this in ``~/.buildout/default.cfg`` and create the ``cache``
+directory::
+
+    $ mkdir /home/<your-user-name>/.buildout/cache
+
+The ``eggs`` directory will be created automatically.
 
 
 Getting the latest version of the code
@@ -65,6 +74,7 @@ the last version of the code. Go into the directory where you want the code
 to reside and run::
 
     $ bzr branch lp:maas maas && cd maas
+
 
 Development MaaS server setup
 =============================
@@ -119,22 +129,6 @@ your branch::
 
     $ make distclean
 
-Adding new dependencies
-=======================
-
-Since MaaS is distributed mainly as Ubuntu package, all runtime dependencies
-should be packaged and we should develop with the packaged version if
-possible. You'll need to add the dependency to the
-``allowed-eggs-from-site-packages`` option in the ``buildout.cfg`` file. You
-also need to add it to setup.py (And don't forget to add the version to
-``versions.cfg`` as we run with ``allowed-picked-version`` set to false.)
-
-If it is a development-only dependency (i.e. only needed for the test suite, or
-for developers' convenience), simply running ``buildout`` like this will make
-the necessary updates to ``versions.cfg``::
-
-    $ ./bin/buildout -v buildout:allow-picked-versions=true
-
 
 Adding new source files
 =======================
@@ -154,4 +148,3 @@ documentation`_.
 
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
-

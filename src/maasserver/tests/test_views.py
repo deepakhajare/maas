@@ -16,18 +16,28 @@ import httplib
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver.models import UserProfile
+from maasserver.models import (
+    Config,
+    NODE_AFTER_COMMISSIONING_ACTION,
+    UserProfile,
+    )
 from maasserver.testing import (
     factory,
     LoggedInTestCase,
     )
 
 
+def get_prefixed_form_data(prefix, data):
+    result = {'%s-%s' % (prefix, key): value for key, value in data.items()}
+    result.update({'%s_submit' % prefix: 1})
+    return result
+
+
 class UserPrefsViewTest(LoggedInTestCase):
 
     def test_prefs_GET_profile(self):
-        # The preferences page (profile tab) displays a form with the
-        # user's personal information.
+        # The preferences page displays a form with the user's personal
+        # information.
         user = self.logged_in_user
         user.first_name = 'Steve'
         user.last_name = 'Bam'
@@ -44,12 +54,12 @@ class UserPrefsViewTest(LoggedInTestCase):
                 doc.cssselect('input#id_profile-first_name')])
 
     def test_prefs_GET_api(self):
-        # The preferences page (api tab) displays the API access tokens.
+        # The preferences page displays the API access tokens.
         user = self.logged_in_user
         # Create a few tokens.
-        for i in xrange(3):
+        for i in range(3):
             user.get_profile().create_authorisation_token()
-        response = self.client.get('/account/prefs/?tab=1')
+        response = self.client.get('/account/prefs/')
         doc = fromstring(response.content)
         # The OAuth tokens are displayed.
         for token in user.get_profile().get_authorisation_tokens():
@@ -66,10 +76,13 @@ class UserPrefsViewTest(LoggedInTestCase):
         # information.
         response = self.client.post(
             '/account/prefs/',
-            {
-                'profile_submit': 1, 'profile-first_name': 'John',
-                'profile-last_name': 'Doe', 'profile-email': 'jon@example.com'
-            })
+            get_prefixed_form_data(
+                'profile',
+                {
+                    'first_name': 'John',
+                    'last_name': 'Doe',
+                    'email': 'jon@example.com',
+                }))
 
         self.assertEqual(httplib.FOUND, response.status_code)
         user = User.objects.get(id=self.logged_in_user.id)
@@ -83,12 +96,14 @@ class UserPrefsViewTest(LoggedInTestCase):
         old_pw = self.logged_in_user.password
         response = self.client.post(
             '/account/prefs/',
-            {
-                'password_submit': 1,
-                'password-old_password': 'test',
-                'password-new_password1': 'new',
-                'password-new_password2': 'new',
-            })
+            get_prefixed_form_data(
+                'password',
+                {
+                    'old_password': 'test',
+                    'new_password1': 'new',
+                    'new_password2': 'new',
+                }))
+
         self.assertEqual(httplib.FOUND, response.status_code)
         user = User.objects.get(id=self.logged_in_user.id)
         # The password is SHA1ized, we just make sure that it has changed.
@@ -107,9 +122,9 @@ class AdminLoggedInTestCase(LoggedInTestCase):
 class SettingsTest(AdminLoggedInTestCase):
 
     def test_settings_list_users(self):
-        # The settings page (users tab) displays a list of the users with
-        # links to view, delete or edit each user.
-        # Note that the link to delete the the logged-in user is not display.
+        # The settings page displays a list of the users with links to view,
+        # delete or edit each user. Note that the link to delete the the
+        # logged-in user is not display.
         [factory.make_user() for i in range(3)]
         users = UserProfile.objects.all_users()
         response = self.client.get('/settings/')
@@ -144,6 +159,87 @@ class SettingsTest(AdminLoggedInTestCase):
                 # logged-in user.
                 self.assertNotIn(
                     reverse('accounts-del', args=[user.username]), links)
+
+    def test_settings_maas_and_network_POST(self):
+        new_name = factory.getRandomString()
+        new_provide_dhcp = factory.getRandomBoolean()
+        response = self.client.post(
+            '/settings/',
+            get_prefixed_form_data(
+                prefix='maas_and_network',
+                data={
+                    'maas_name': new_name,
+                    'provide_dhcp': new_provide_dhcp,
+                }))
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(new_name, Config.objects.get_config('maas_name'))
+        self.assertEqual(
+            new_provide_dhcp, Config.objects.get_config('provide_dhcp'))
+
+    def test_settings_commissioning_POST(self):
+        new_after_commissioning = factory.getRandomEnum(
+            NODE_AFTER_COMMISSIONING_ACTION)
+        new_check_compatibility = factory.getRandomBoolean()
+        response = self.client.post(
+            '/settings/',
+            get_prefixed_form_data(
+                prefix='commissioning',
+                data={
+                    'after_commissioning': new_after_commissioning,
+                    'check_compatibility': new_check_compatibility,
+                }))
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            new_after_commissioning,
+            Config.objects.get_config('after_commissioning'))
+        self.assertEqual(
+            new_check_compatibility,
+            Config.objects.get_config('check_compatibility'))
+
+    def test_settings_ubuntu_POST(self):
+        new_fallback_master_archive = factory.getRandomBoolean()
+        new_keep_mirror_list_uptodate = factory.getRandomBoolean()
+        new_fetch_new_releases = factory.getRandomBoolean()
+        choices = Config.objects.get_config('update_from_choice')
+        new_update_from = factory.getRandomChoice(choices)
+        response = self.client.post(
+            '/settings/',
+            get_prefixed_form_data(
+                prefix='ubuntu',
+                data={
+                    'fallback_master_archive': new_fallback_master_archive,
+                    'keep_mirror_list_uptodate': new_keep_mirror_list_uptodate,
+                    'fetch_new_releases': new_fetch_new_releases,
+                    'update_from': new_update_from,
+                }))
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            new_fallback_master_archive,
+            Config.objects.get_config('fallback_master_archive'))
+        self.assertEqual(
+            new_keep_mirror_list_uptodate,
+            Config.objects.get_config('keep_mirror_list_uptodate'))
+        self.assertEqual(
+            new_fetch_new_releases,
+            Config.objects.get_config('fetch_new_releases'))
+        self.assertEqual(
+            new_update_from, Config.objects.get_config('update_from'))
+
+    def test_settings_add_archive_POST(self):
+        choices = Config.objects.get_config('update_from_choice')
+        response = self.client.post(
+            '/settings/archives/add/',
+            data={'archive_name': 'my.hostname.com'}
+        )
+        new_choices = Config.objects.get_config('update_from_choice')
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertItemsEqual(
+            choices + [['my.hostname.com', 'my.hostname.com']],
+            new_choices)
 
 
 class UserManagementTest(AdminLoggedInTestCase):

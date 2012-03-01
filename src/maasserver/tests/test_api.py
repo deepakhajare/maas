@@ -18,6 +18,7 @@ import shutil
 
 from django.conf import settings
 from maasserver.models import (
+    ARCHITECTURE,
     MACAddress,
     Node,
     NODE_STATUS,
@@ -53,6 +54,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             {
                 'op': 'new',
                 'hostname': 'diane',
+                'architecture': 'amd64',
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
@@ -64,6 +66,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(2, diane.after_commissioning_action)
+        self.assertEqual(ARCHITECTURE.amd64, diane.architecture)
 
     def test_POST_new_associates_mac_addresses(self):
         # The API allows a Node to be created and associated with MAC
@@ -92,7 +95,8 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             })
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(
-            ['hostname', 'system_id', 'macaddress_set'], parsed_result.keys())
+            ['hostname', 'system_id', 'macaddress_set', 'architecture'],
+            list(parsed_result))
 
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
@@ -142,6 +146,23 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
 
+    def test_POST_invalid_architecture_returns_bad_request(self):
+        # If the architecture name provided to create a node is not a valid
+        # architecture name, a 'Bad request' response is returned.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+                'architecture': 'invalid-architecture',
+            })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertItemsEqual(['architecture'], parsed_result)
+
 
 class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
@@ -158,7 +179,7 @@ class NodeAnonAPITest(APIv10TestMixin, TestCase):
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_node_init_user_cannot_access(self):
-        token = NodeKey.objects.create_token(factory.make_node())
+        token = NodeKey.objects.get_token_for_node(factory.make_node())
         client = OAuthAuthenticatedClient(get_node_init_user(), token)
         response = client.get(self.get_uri('nodes/'), {'op': 'list'})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
@@ -620,7 +641,7 @@ class AccountAPITest(APITestCase):
 
         self.assertEqual(
             ['consumer_key', 'token_key', 'token_secret'],
-            sorted(parsed_result.keys()))
+            sorted(parsed_result))
         self.assertIsInstance(parsed_result['consumer_key'], basestring)
         self.assertIsInstance(parsed_result['token_key'], basestring)
         self.assertIsInstance(parsed_result['token_secret'], basestring)

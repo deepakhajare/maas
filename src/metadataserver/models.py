@@ -56,7 +56,7 @@ class NodeKeyManager(Manager):
         and looks up the associated Node.
     """
 
-    def create_token(self, node):
+    def _create_token(self, node):
         """Create an OAuth token for a given node.
 
         :param node: The system that is to be allowed access to the metadata
@@ -66,7 +66,7 @@ class NodeKeyManager(Manager):
         :rtype: piston.models.Token
         """
         token = create_auth_token(get_node_init_user())
-        self.create(node=node, key=token.key)
+        self.create(node=node, token=token, key=token.key)
         return token
 
     def get_token_for_node(self, node):
@@ -91,10 +91,10 @@ class NodeKeyManager(Manager):
             "Found %d keys for node (expected at most one)."
             % len(existing_nodekey))
         if len(existing_nodekey) == 0:
-            return self.create_token(node)
+            return self._create_token(node)
         else:
             [nodekey] = existing_nodekey
-            return Token.objects.get(key=nodekey.key)
+            return nodekey.token
 
     def get_node_for_key(self, key):
         """Find the Node that `key` was created for.
@@ -121,8 +121,10 @@ class NodeKey(Model):
 
     objects = NodeKeyManager()
 
-    node = ForeignKey(Node, null=False, editable=False)
-    key = CharField(max_length=KEY_SIZE, null=False, editable=False)
+    node = ForeignKey(Node, null=False, editable=False, unique=True)
+    token = ForeignKey(Token, null=False, editable=False, unique=True)
+    key = CharField(
+        max_length=KEY_SIZE, null=False, editable=False, unique=True)
 
 
 class NodeUserDataManager(Manager):

@@ -34,7 +34,7 @@ def postprocess_mapping(mapping, function):
     """Apply `function` to each value in `mapping`, returned in a new dict."""
     return {
         key: function(value)
-        for key, value in mapping.iteritems()
+        for key, value in mapping.items()
         }
 
 
@@ -96,13 +96,13 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
     # or not that happens is undefined (for now).
     interfaces = {
         name: configuration
-        for name, configuration in interfaces.iteritems()
+        for name, configuration in interfaces.items()
         if configuration["mac_address"]
         }
 
     interface_names_by_mac_address = {
         interface["mac_address"]: interface_name
-        for interface_name, interface in interfaces.iteritems()
+        for interface_name, interface in interfaces.items()
         }
     mac_addresses_to_remove = set(
         interface_names_by_mac_address).difference(mac_addresses)
@@ -146,6 +146,18 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
             }
 
 
+# Preseed data to send to cloud-init.  We set this as MAAS_PRESEED in
+# ks_meta, and it gets fed straight into debconf.
+metadata_preseed_items = [
+    ('datasources', 'multiselect', 'MaaS'),
+    ('maas-metadata-url', 'string', '%(maas-metadata-url)s'),
+    ('maas-metadata-credentials', 'string', '%(maas-metadata-credentials)s'),
+    ]
+metadata_preseed = '\n'.join(
+    "cloud-init   cloud-init/%s  %s %s" % (item_name, item_type, item_value)
+    for item_name, item_type, item_value in metadata_preseed_items)
+
+
 class ProvisioningAPI:
 
     implements(IProvisioningAPI)
@@ -175,26 +187,30 @@ class ProvisioningAPI:
         returnValue(profile.name)
 
     @inlineCallbacks
-    def add_node(self, name, profile):
+    def add_node(self, name, profile, metadata):
         assert isinstance(name, basestring)
         assert isinstance(profile, basestring)
-        system = yield CobblerSystem.new(
-            self.session, name, {"profile": profile})
+        assert isinstance(metadata, dict)
+        attributes = {
+            "profile": profile,
+            "ks_meta": {"MAAS_PRESEED": metadata_preseed % metadata},
+            }
+        system = yield CobblerSystem.new(self.session, name, attributes)
         returnValue(system.name)
 
     @inlineCallbacks
     def modify_distros(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             yield CobblerDistro(self.session, name).modify(delta)
 
     @inlineCallbacks
     def modify_profiles(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             yield CobblerProfile(self.session, name).modify(delta)
 
     @inlineCallbacks
     def modify_nodes(self, deltas):
-        for name, delta in deltas.iteritems():
+        for name, delta in deltas.items():
             system = CobblerSystem(self.session, name)
             if "mac_addresses" in delta:
                 # This needs to be handled carefully.
