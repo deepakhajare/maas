@@ -85,7 +85,7 @@ download() {
 }
 
 short_opts="ho:v"
-long_opts="help,img:,log:,ud-file:,verbose,zimg:"
+long_opts="help,img:,import-keys:,log:,ud-file:,verbose,zimg:"
 getopt_out=$(getopt --name "${0##*/}" \
 	--options "${short_opts}" --long "${long_opts}" -- "$@") &&
 	eval set -- "${getopt_out}" ||
