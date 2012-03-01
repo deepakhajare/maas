@@ -8,6 +8,7 @@ pkgs="$pkgs genisoimage coreutils" # for cloud-init's 'make-iso'
 pkgs="$pkgs python-libvirt libvirt-bin" # for libvirt interaction
 pkgs="$pkgs socat" # for libvirt-> cobbler
 pkgs="$pkgs python-cheetah" # for setup.py
+pkgs="$pkgs qemu-utils" # needed generally
 
 sudo apt-get update -qq || /bin/true
 sudo apt-get install -y $pkgs </dev/null
