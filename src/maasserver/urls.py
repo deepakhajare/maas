@@ -34,6 +34,7 @@ from maasserver.views import (
     settings,
     settings_add_archive,
     userprefsview,
+    KeystoreView,
     )
 
 
@@ -89,4 +90,9 @@ urlpatterns += patterns('maasserver.views',
 # API URLs.
 urlpatterns += patterns('',
     (r'^api/1\.0/', include('maasserver.urls_api'))
+    )
+
+# Key Store
+urlpatterns += patterns('',
+    (r'^keystore/user/(?P<userid>\w+)/$', KeystoreView)
     )
