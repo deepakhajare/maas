@@ -10,19 +10,35 @@ pkgs="$pkgs socat" # for libvirt-> cobbler
 pkgs="$pkgs python-cheetah" # for setup.py
 pkgs="$pkgs qemu-utils qemu-kvm" # needed generally
 
-sudo apt-get update -qq || /bin/true
-sudo apt-get install -y $pkgs </dev/null
+new_pkgs=""
+for pkg in ${pkgs}; do
+	dpkg-query --show "$pkg" >/dev/null ||
+		new_pkgs="${new_pkgs:+${new_pkgs} }${pkg}"
+done
 
-## add your user to libvirtd group
-sudo adduser $USER libvirtd
-sudo adduser $USER kvm # this is really only necessary for zimmer-build
+if [ -n "$new_pkgs" ]; then
+	sudo apt-get update -qq || /bin/true
+	sudo apt-get install -y $pkgs </dev/null
+fi
 
-cat <<EOF
+new_groups=""
+for group in libvirtd kvm; do
+	groups $USER | grep -q $group && continue
+	sudo adduser $USER $group
+	new_groups="${new_groups:+${new_groups} }${group}"
+done
+
+if [ -n "$new_groups" ]; then
+	cat <<EOF
 Done.
 
-The script just added you to the system's libvirtd and kvm groups if you
-weren't already in them.
+The script just added you to the system group[s] $new_groups
 
-If you were not previously in the libvirtd and kvm groups, log out now and
+If you were not previously in these groups, you will need to log out and
 log back in again to make the changes take effect.
 EOF
+
+	# The user may need to log out at this point.
+	echo "Ctrl-C if you want to log out now.  Otherwise, press <enter>."
+	read
+fi

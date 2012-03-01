@@ -12,6 +12,15 @@
 
 sock="/var/run/libvirt/libvirt-sock"
 
+[ "${VIRSH_LISTENER_DEBUG:-0}" != "0" ] && cat <<EOF
+Starting virsh listener.
+
+You can verify this is working by powering a sytem on from the web-ui or
+the following on the cobbler server:
+
+zimmmer$ virsh -c qemu+tcp://192.168.123.1:65001/system
+EOF
+
 echo "Listening for libvirt requests on $sock."
 exec socat -d -d \
      TCP4-LISTEN:65001,bind=192.168.123.1,range=192.168.123.2/32,fork \

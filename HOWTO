@@ -6,10 +6,6 @@
 ## System-level setup.  This needs to be done only once.
 ./bin/system-setup
 
-# The user may need to log out at this point.
-echo "Ctrl-C if you want to log out now.  Otherwise, press <enter>."
-read
-
 ## Build a zimmer image in this branch.
 pushd zimmer-build
 ./build zimmer-disk0.img
@@ -35,17 +31,8 @@ read keyowner
 ## populate the nodes into the cobbler server
 ./setup.py cobbler-setup
 
-cat <<EOF
-Starting virsh listener.
-
-You can verify this is working by powering a sytem on from the web-ui or
-the following on the cobbler server:
-
-zimmmer$ virsh -c qemu+tcp://192.168.123.1:65001/system
-EOF
-
 ## Listen for libvirt requests from the Cobbler server.
-./bin/virsh-listener
+VIRSH_LISTENER_DEBUG=1 ./bin/virsh-listener &
 
 
 ## at this point you may want to modify zimmer to provide a proxy
