@@ -14,19 +14,19 @@ table.list td {
     border-style: solid;
     border-color: transparent;
     }
-table.list td:first-child {
+table.list.clickable td:first-child {
     border-left-width: 1px;
     -moz-border-radius: 4px 0 0 4px;
     -webkit-border-radius: 4px 0 0 4px;
     border-radius: 4px 0 0 4px;
     }
-table.list td:last-child {
+table.list.clickable td:last-child {
     border-right-width: 1px;
     -moz-border-radius: 0 4px 4px 0;
     -webkit-border-radius: 0 4px 4px 0;
     border-radius: 0 4px 4px 0;
     }
-table.list tr:hover td {
+table.list.clickable tr:hover td {
     border-color: #dd4814;
     cursor: pointer;
     }
