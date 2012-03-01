@@ -412,7 +412,16 @@ class FileStorageTest(TestCase):
         return os.path.join(self.FILEPATH, "storage", filename)
 
     def make_data(self, including_text='data'):
-        """Return arbitrary data."""
+        """Return arbitrary data.
+
+        :param including_text: Text to include in the data.  Leave something
+            here to make failure messages more recognizable.
+        :type including_text: basestring
+        :return: A string of bytes, including `including_text`.
+        :rtype: bytes
+        """
+        # Note that this won't automatically insert any non-ASCII bytes.
+        # Proper handling of real binary data is tested separately.
         text = "%s %s" % (including_text, factory.getRandomString())
         return text.encode('ascii')
 
@@ -428,7 +437,7 @@ class FileStorageTest(TestCase):
         # Check that the file is actually written to FILEPATH.
         filename = factory.getRandomString()
         data = self.make_data()
-        storage = factory.make_file_storage(filename=filename, data=data)
+        factory.make_file_storage(filename=filename, data=data)
         with open(self.get_storage_path(filename)) as f:
             self.assertEqual(data, f.read())
 
