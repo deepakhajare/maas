@@ -40,6 +40,13 @@ METADATA_URL_REGEXP = '^/metadata/'
 PISTON_DISPLAY_ERRORS = False
 
 DEBUG = False
+
+# Allow the user to override DEBUG in local_settings.
+try:
+    from local_settings import DEBUG
+except:
+    pass
+
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
 YUI_VERSION = '3.4.1'
