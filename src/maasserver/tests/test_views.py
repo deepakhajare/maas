@@ -319,5 +319,6 @@ class SSHKeyServerTest(TestCase):
         self.assertIn(str(self.sshkey.key), response.content)
 
     def test_get_null_sshkey(self):
-        response = self.client.get('/accounts/null-user/sshkeys/')
-        self.assertEqual('', response.content)
+        response = self.client.get('/accounts/nulluser/sshkeys/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual('\n'.encode('utf-8'), response.content)
