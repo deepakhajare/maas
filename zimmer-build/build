@@ -200,7 +200,7 @@ fi
 
 ( cd "$seed_d" &&
 	genisoimage -output "$TEMP_D/build.iso" \
-		-volid cidata -joliet -rock user-data meta-data ) ||
+		-volid cidata -joliet -rock user-data meta-data 2>/dev/null ) ||
 	fail "failed to create iso for user-data from $ud_file"
 
 build0="$TEMP_D/build0.img"
