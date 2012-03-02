@@ -19,7 +19,17 @@ import django.template
 
 django.template.add_to_builtins('django.templatetags.future')
 
-TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+DEBUG = False
+
+# Used to set a prefix in front of every URL.
+FORCE_SCRIPT_NAME = None
+
+# Allow the user to override DEBUG and FORCE_SCRIPT_NAME in
+# maas_local_settings.
+try:
+    from maas_local_settings import DEBUG, FORCE_SCRIPT_NAME
+except ImportError:
+    pass
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -32,6 +42,15 @@ OOPS_REPOSITORY = 'logs'
 
 LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
+LOGIN_URL = '/accounts/login/'
+
+if FORCE_SCRIPT_NAME is not None:
+    LOGOUT_URL = FORCE_SCRIPT_NAME + LOGOUT_URL
+    LOGIN_REDIRECT_URL = FORCE_SCRIPT_NAME + LOGIN_REDIRECT_URL
+    LOGIN_URL = FORCE_SCRIPT_NAME + LOGIN_URL
+    # ADMIN_MEDIA_PREFIX will be deprecated in Django 1.4.
+    # Admin's media will be served using staticfiles instead.
+    ADMIN_MEDIA_PREFIX = FORCE_SCRIPT_NAME
 
 API_URL_REGEXP = '^/api/1[.]0/'
 METADATA_URL_REGEXP = '^/metadata/'
@@ -41,7 +60,6 @@ METADATA_URL_REGEXP = '^/metadata/'
 # maasserver.middleware.APIErrorsMiddleware)
 PISTON_DISPLAY_ERRORS = False
 
-DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
 YUI_VERSION = '3.4.1'
@@ -108,11 +126,15 @@ STATIC_ROOT = ''
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
 STATIC_URL = '/static/'
+if FORCE_SCRIPT_NAME is not None:
+    STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL
 
 # URL prefix for admin static files -- CSS, JavaScript and images.
 # Make sure to use a trailing slash.
 # Examples: "http://foo.com/static/admin/", "/static/admin/".
 ADMIN_MEDIA_PREFIX = '/static/admin/'
+if FORCE_SCRIPT_NAME is not None:
+    ADMIN_MEDIA_PREFIX = FORCE_SCRIPT_NAME + ADMIN_MEDIA_PREFIX
 
 # Additional locations of static files
 STATICFILES_DIRS = (
@@ -143,6 +165,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.contrib.auth.context_processors.auth",
     "django.core.context_processors.debug",
     "django.core.context_processors.i18n",
+    "django.core.context_processors.request",
     "django.core.context_processors.media",
     "django.core.context_processors.static",
     #"django.core.context_processors.tz",
@@ -155,6 +178,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfResponseMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
@@ -179,8 +203,6 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.admin',
-    'django_nose',
     'maasserver',
     'metadataserver',
     'piston',
@@ -188,6 +210,11 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
 )
 
+if DEBUG:
+    INSTALLED_APPS += (
+        'django.contrib.admin',
+        'django.contrib.admindocs',
+    )
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
 # the site admins on every HTTP 500 error.
@@ -214,3 +241,8 @@ LOGGING = {
 # The location of the Provisioning API XML-RPC endpoint. If PSERV_URL is None,
 # use the fake Provisioning API.
 PSERV_URL = None
+
+try:
+    from maas_local_settings import * # NOQA
+except ImportError:
+    pass
