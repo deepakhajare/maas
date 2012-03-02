@@ -24,10 +24,11 @@ DEBUG = False
 # Used to set a prefix in front of every URL.
 FORCE_SCRIPT_NAME = None
 
-# Allow the user to override DEBUG and FORCE_SCRIPT_NAME in local_settings.
+# Allow the user to override DEBUG and FORCE_SCRIPT_NAME in
+# maas_local_settings.
 try:
-    from local_settings import DEBUG, FORCE_SCRIPT_NAME
-except:
+    from maas_local_settings import DEBUG, FORCE_SCRIPT_NAME
+except ImportError:
     pass
 
 ADMINS = (
@@ -241,6 +242,6 @@ LOGGING = {
 PSERV_URL = None
 
 try:
-    from local_settings import * # NOQA
-except:
+    from maas_local_settings import * # NOQA
+except ImportError:
     pass
