@@ -17,6 +17,9 @@
     padding-bottom: 10px;
     border-bottom-width: 1px;
     }
+.block.auto-width {
+    display: inline-block;
+    }
 .size1,
 .size2,
 .size3,

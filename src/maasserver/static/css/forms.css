@@ -22,6 +22,10 @@ label {
 label .required {
     color: #aea79f;
     }
+form .help {
+    display: block;
+    color: #aea79f;
+    }
 textarea,
 input[type="password"],
 input[type="text"] {
@@ -43,6 +47,12 @@ li.error textarea,
 li.error input[type="password"],
 li.error input[type="text"] {
     background-color: #F2CFCE;
+    }
+input[type="text"].disabled {
+    background-color: #f2f2f2;
+    }
+input[type="text"]:focus {
+    border: 1px solid #999;
     }
 a.button:hover {
     text-decoration: none;
@@ -108,6 +118,10 @@ input[type="submit"].secondary:hover {
     background-image: -moz-linear-gradient(bottom, rgb(51,51,51) 0%, rgb(90,90,90) 100%);
     background-image: -webkit-linear-gradient(bottom, rgb(51,51,51) 0%, rgb(90,90,90) 100%);
     background-image: -ms-linear-gradient(bottom, rgb(51,51,51) 0%, rgb(90,90,90) 100%);
+    }
+.spinner {
+    float: right;
+    margin: 8px 10px 0 0;
     }
 
 
