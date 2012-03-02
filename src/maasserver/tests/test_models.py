@@ -562,6 +562,18 @@ class FileStorageTest(TestCase):
             self.get_path_in_storage(filename),
             FileStorage.objects.list_referenced_files())
 
+    def test_list_referenced_files_uses_file_name_not_FileStorage_name(self):
+        filename = factory.getRandomString()
+        # The filename we're going to use is already taken.  The file
+        # we'll be looking at will have to have a different name.
+        factory.make_file_storage(filename=filename)
+        storage = factory.make_file_storage(filename=filename)
+        # It's the name of the file, not the FileStorage.filename, that
+        # is in list_referenced_files.
+        self.assertIn(
+            self.get_path_in_storage(storage.data.name),
+            FileStorage.objects.list_referenced_files())
+
     def test_is_garbage_returns_False_for_referenced_file(self):
         storage = factory.make_file_storage()
         self.age_file(storage.data.path)

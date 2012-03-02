@@ -23,6 +23,7 @@ __all__ = [
 
 import copy
 import datetime
+import os
 import re
 from socket import gethostname
 from uuid import uuid1
@@ -619,6 +620,9 @@ class FileStorageManager(models.Manager):
 
     def list_referenced_files(self):
         """Find the names of files that are referenced from `FileStorage`."""
+        return set(
+            os.path.join(FileStorage.upload_dir, file_storage.data.name)
+            for file_storage in self.all())
 
     def is_garbage(self, storage_filename, referenced_files):
         """Is the named file in the filesystem storage dead?
