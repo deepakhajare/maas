@@ -131,7 +131,9 @@ def reconcile():
     missing_local = set(nodes_remote).difference(nodes_local)
     for name in missing_local:
         remote_node = nodes_remote[name]
-        local_node = Node(system_id=remote_node["name"])
+        local_node = Node(
+            system_id=remote_node["name"],
+            hostname=remote_node["name"])
         local_node.save()
         for mac_address in remote_node["mac_addresses"]:
             local_node.add_mac_address(mac_address)
