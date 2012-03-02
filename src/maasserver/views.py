@@ -71,7 +71,7 @@ class NodesCreateView(CreateView):
 
 
 def process_form(request, form_class, redirect_url, prefix,
-                 success_message=None, form_kwargs={}):
+                 success_message=None, form_kwargs=None):
     """Utility method to process subforms (i.e. forms with a prefix).
 
     :param request: The request which contains the data to be validated.
@@ -88,12 +88,14 @@ def process_form(request, form_class, redirect_url, prefix,
     :type success_message: basestring
     :param form_kwargs: An optional dict that will passed to the form creation
         method.
-    :type form_kwargs: dict
+    :type form_kwargs: dict or None
     :return: A tuple of the validated form and a response (the response will
         not be None only if the form has been validated correctly).
     :rtype: tuple
 
     """
+    if form_kwargs is None:
+        form_kwargs = {}
     if '%s_submit' % prefix in request.POST:
         form = form_class(
             data=request.POST, prefix=prefix, **form_kwargs)
