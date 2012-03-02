@@ -442,14 +442,18 @@ class FileStorageTest(TestCase):
         # The development settings say to write storage files in
         # /var/tmp/maas.
         os.mkdir(self.FILEPATH)
-        os.mkdir(os.path.join(self.FILEPATH, "storage"))
+        os.mkdir(os.path.join(self.FILEPATH, FileStorage.upload_dir))
         self.addCleanup(shutil.rmtree, self.FILEPATH)
 
     def get_storage_path(self, filename):
         """Get the full path to the storage file of the given name."""
         # The storage field is hard-coded to write files to a
         # subdirectory of FILEPATH called "storage".
-        return os.path.join(self.FILEPATH, "storage", filename)
+        return os.path.join(self.FILEPATH, FileStorage.upload_dir, filename)
+
+    def get_path_in_storage(self, filename):
+        """Get the path of `filename` relative to the storage location."""
+        return os.path.join(FileStorage.upload_dir, filename)
 
     def make_data(self, including_text='data'):
         """Return arbitrary data.
@@ -531,14 +535,16 @@ class FileStorageTest(TestCase):
     def test_is_garbage_returns_False_for_referenced_file(self):
         storage = factory.make_file_storage()
         self.age_file(storage.data.path)
-        self.assertFalse(FileStorage.objects.is_garbage(storage.data.name))
+        path_in_storage = self.get_path_in_storage(storage.data.name)
+        self.assertFalse(FileStorage.objects.is_garbage(path_in_storage))
 
     def test_is_garbage_returns_False_for_recent_file(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
-        self.assertFalse(FileStorage.objects.is_garbage(filename))
+        path_in_storage = self.get_path_in_storage(filename)
+        self.assertFalse(FileStorage.objects.is_garbage(path_in_storage))
 
     def test_is_garbage_returns_True_for_dead_file(self):
         filename = factory.getRandomString()
@@ -546,7 +552,8 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.age_file(path)
-        self.assertTrue(FileStorage.objects.is_garbage(filename))
+        path_in_storage = self.get_path_in_storage(filename)
+        self.assertTrue(FileStorage.objects.is_garbage(path_in_storage))
 
     def test_collect_garbage_deletes_garbage(self):
         filename = factory.getRandomString()
@@ -554,14 +561,18 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.age_file(path)
-        self.assertFalse(FileStorage.data.storage.exists(filename))
+        FileStorage.objects.collect_garbage()
+        path_in_storage = self.get_path_in_storage(filename)
+        self.assertFalse(FileStorage.storage.exists(path_in_storage))
 
     def test_collect_garbage_leaves_live_files_alone(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
-        self.assertTrue(FileStorage.data.storage.exists(filename))
+        FileStorage.objects.collect_garbage()
+        path_in_storage = self.get_path_in_storage(filename)
+        self.assertTrue(FileStorage.storage.exists(path_in_storage))
 
 
 class ConfigTest(TestCase):

@@ -31,6 +31,7 @@ from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
+from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
@@ -632,10 +633,15 @@ class FileStorage(models.Model):
     :ivar data: The file's actual data.
     """
 
+    storage = FileSystemStorage()
+
+    upload_dir = "storage"
+
     # Unix filenames can be longer than this (e.g. 255 bytes), but leave
     # some extra room for the full path, as well as a versioning suffix.
     filename = models.CharField(max_length=100, unique=True, editable=False)
-    data = models.FileField(upload_to="storage", max_length=255)
+    data = models.FileField(
+        upload_to=upload_dir, storage=storage, max_length=255)
 
     objects = FileStorageManager()
 
