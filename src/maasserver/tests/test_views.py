@@ -33,6 +33,21 @@ def get_prefixed_form_data(prefix, data):
     return result
 
 
+class NotFound404Test(LoggedInTestCase):
+
+    def test_404(self):
+        response = self.client.get('/no-found-page/')
+        doc = fromstring(response.content)
+        self.assertIn(
+            "Error: Page not found",
+            doc.cssselect('title')[0].text)
+        self.assertSequenceEqual(
+            ['The requested URL /no-found-page/ was not found on this '
+             'server.'],
+            [elem.text.strip() for elem in
+                doc.cssselect('h2')])
+
+
 class UserPrefsViewTest(LoggedInTestCase):
 
     def test_prefs_GET_profile(self):
