@@ -614,12 +614,20 @@ class FileStorageManager(models.Manager):
         storage.data.save(filename, content)
         return storage
 
-    def is_garbage(self, storage_filename):
+    def list_stored_files(self):
+        """Find the files stored in the filesystem."""
+
+    def list_referenced_files(self):
+        """Find the names of files that are referenced from `FileStorage`."""
+
+    def is_garbage(self, storage_filename, referenced_files):
         """Is the named file in the filesystem storage dead?
 
         :param storage_filename: The name under which the file is stored in
             the filesystem.  This need not be the same name as its filename
             as stored in the `FileStorage` object.
+        :param referenced_files: The names of all files that are currently
+            referenced by a `FileStorage`.
         """
 
     def collect_garbage(self):

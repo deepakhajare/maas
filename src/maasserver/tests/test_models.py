@@ -532,19 +532,53 @@ class FileStorageTest(TestCase):
         self.assertEqual(
             new_data, FileStorage.objects.get(filename=filename).data.read())
 
+    def test_list_stored_files_lists_files(self):
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.assertIn(
+            self.get_path_in_storage(filename),
+            FileStorage.objects.list_stored_files())
+
+    def test_list_stored_files_includes_referenced_files(self):
+        storage = factory.make_file_storage()
+        self.assertIn(
+            self.get_path_in_storage(storage.data.name),
+            FileStorage.objects.list_stored_files())
+
+    def test_list_referenced_files_lists_FileStorage_files(self):
+        storage = factory.make_file_storage()
+        self.assertIn(
+            self.get_path_in_storage(storage.data.name),
+            FileStorage.objects.list_referenced_files())
+
+    def test_list_referenced_files_excludes_unreferenced_files(self):
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.assertNotIn(
+            self.get_path_in_storage(filename),
+            FileStorage.objects.list_referenced_files())
+
     def test_is_garbage_returns_False_for_referenced_file(self):
         storage = factory.make_file_storage()
         self.age_file(storage.data.path)
+        referenced_files = FileStorage.objects.list_referenced_files()
         path_in_storage = self.get_path_in_storage(storage.data.name)
-        self.assertFalse(FileStorage.objects.is_garbage(path_in_storage))
+        self.assertFalse(
+            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
 
     def test_is_garbage_returns_False_for_recent_file(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
+        referenced_files = FileStorage.objects.list_referenced_files()
         path_in_storage = self.get_path_in_storage(filename)
-        self.assertFalse(FileStorage.objects.is_garbage(path_in_storage))
+        self.assertFalse(
+            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
 
     def test_is_garbage_returns_True_for_dead_file(self):
         filename = factory.getRandomString()
@@ -552,8 +586,10 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.age_file(path)
+        referenced_files = FileStorage.objects.list_referenced_files()
         path_in_storage = self.get_path_in_storage(filename)
-        self.assertTrue(FileStorage.objects.is_garbage(path_in_storage))
+        self.assertTrue(
+            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
 
     def test_collect_garbage_deletes_garbage(self):
         filename = factory.getRandomString()
