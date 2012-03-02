@@ -575,7 +575,6 @@ class FileStorageManager(models.Manager):
     original file will not be affected.  Also, any ongoing reads from the
     old file will continue without iterruption.
     """
-    # TODO: Garbage-collect obsolete stored files.
 
     def get_existing_storage(self, filename):
         """Return an existing `FileStorage` of this name, or None."""
@@ -613,6 +612,12 @@ class FileStorageManager(models.Manager):
             storage = FileStorage(filename=filename)
         storage.data.save(filename, content)
         return storage
+
+    def is_garbage(self, storage_filename):
+        """Is the named file in the filesystem storage dead?"""
+
+    def collect_garbage(self):
+        """Clean up stored files that are no longer accessible."""
 
 
 class FileStorage(models.Model):

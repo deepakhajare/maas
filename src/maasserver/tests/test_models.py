@@ -523,6 +523,22 @@ class FileStorageTest(TestCase):
         self.assertEqual(
             new_data, FileStorage.objects.get(filename=filename).data.read())
 
+    def test_is_garbage_returns_False_for_referenced_file(self):
+        storage = factory.make_file_storage()
+        self.fail("TEST THIS")
+
+    def test_is_garbage_returns_False_for_recent_file(self):
+        self.fail("TEST THIS")
+
+    def test_is_garbage_returns_True_for_dead_file(self):
+        self.fail("TEST THIS")
+
+    def test_collect_garbage_deletes_garbage(self):
+        self.fail("TEST THIS")
+
+    def test_collect_garbage_leaves_live_files_alone(self):
+        self.fail("TEST THIS")
+
 
 class ConfigTest(TestCase):
     """Testing of the :class:`Config` model."""
