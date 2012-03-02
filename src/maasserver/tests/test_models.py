@@ -442,6 +442,7 @@ class FileStorageTest(TestCase):
         # The development settings say to write storage files in
         # /var/tmp/maas.
         os.mkdir(self.FILEPATH)
+        os.mkdir(os.path.join(self.FILEPATH, "storage"))
         self.addCleanup(shutil.rmtree, self.FILEPATH)
 
     def get_storage_path(self, filename):
@@ -463,6 +464,10 @@ class FileStorageTest(TestCase):
         # Proper handling of real binary data is tested separately.
         text = "%s %s" % (including_text, factory.getRandomString())
         return text.encode('ascii')
+
+    def age_file(self, path):
+        """Make the file at `path` look very old."""
+        os.utime(path, (0, 0))
 
     def test_get_existing_storage_returns_None_if_none_found(self):
         nonexistent_file = factory.getRandomString()
@@ -525,19 +530,38 @@ class FileStorageTest(TestCase):
 
     def test_is_garbage_returns_False_for_referenced_file(self):
         storage = factory.make_file_storage()
-        self.fail("TEST THIS")
+        self.age_file(storage.data.path)
+        self.assertFalse(FileStorage.objects.is_garbage(storage.data.name))
 
     def test_is_garbage_returns_False_for_recent_file(self):
-        self.fail("TEST THIS")
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.assertFalse(FileStorage.objects.is_garbage(filename))
 
     def test_is_garbage_returns_True_for_dead_file(self):
-        self.fail("TEST THIS")
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.age_file(path)
+        self.assertTrue(FileStorage.objects.is_garbage(filename))
 
     def test_collect_garbage_deletes_garbage(self):
-        self.fail("TEST THIS")
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.age_file(path)
+        self.assertFalse(FileStorage.data.storage.exists(filename))
 
     def test_collect_garbage_leaves_live_files_alone(self):
-        self.fail("TEST THIS")
+        filename = factory.getRandomString()
+        path = self.get_storage_path(filename)
+        with open(path, 'w') as f:
+            f.write(self.make_data())
+        self.assertTrue(FileStorage.data.storage.exists(filename))
 
 
 class ConfigTest(TestCase):

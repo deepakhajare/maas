@@ -614,7 +614,12 @@ class FileStorageManager(models.Manager):
         return storage
 
     def is_garbage(self, storage_filename):
-        """Is the named file in the filesystem storage dead?"""
+        """Is the named file in the filesystem storage dead?
+
+        :param storage_filename: The name under which the file is stored in
+            the filesystem.  This need not be the same name as its filename
+            as stored in the `FileStorage` object.
+        """
 
     def collect_garbage(self):
         """Clean up stored files that are no longer accessible."""
