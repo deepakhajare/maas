@@ -44,7 +44,7 @@ def get_relative_path(path):
     elif path.startswith(prefix):
         return path[len(prefix):]
     else:
-        raise Exception("Prefix '%s' not in path '%s'" % (prefix, path))
+        assert False, "Prefix '%s' not in path '%s'" % (prefix, path)
 
 
 class AccessMiddleware:
