@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 import codecs
+from io import BytesIO
 import os
 import shutil
 
@@ -26,6 +27,7 @@ from maasserver.models import (
     Config,
     create_auth_token,
     DEFAULT_CONFIG,
+    FileStorage,
     GENERIC_CONSUMER,
     get_auth_tokens,
     MACAddress,
@@ -425,21 +427,33 @@ class FileStorageTest(TestCase):
         text = "%s %s" % (including_text, factory.getRandomString())
         return text.encode('ascii')
 
-    def test_creation(self):
+    def test_get_existing_storage_returns_None_if_none_found(self):
+        nonexistent_file = factory.getRandomString()
+        self.assertIsNone(
+            FileStorage.objects.get_existing_storage(nonexistent_file))
+
+    def test_get_existing_storage_finds_FileStorage(self):
+        storage = factory.make_file_storage()
+        self.assertEqual(
+            storage,
+            FileStorage.objects.get_existing_storage(storage.filename))
+
+    def test_save_file_creates_storage(self):
         filename = factory.getRandomString()
         data = self.make_data()
-        storage = factory.make_file_storage(filename=filename, data=data)
+        storage = FileStorage.objects.save_file(filename, BytesIO(data))
         self.assertEqual(
             (filename, data),
             (storage.filename, storage.data.read()))
 
-    def test_creation_writes_a_file(self):
-        # Check that the file is actually written to FILEPATH.
+    def test_storage_can_be_retrieved(self):
         filename = factory.getRandomString()
         data = self.make_data()
         factory.make_file_storage(filename=filename, data=data)
-        with open(self.get_storage_path(filename)) as f:
-            self.assertEqual(data, f.read())
+        storage = FileStorage.objects.get(filename=filename)
+        self.assertEqual(
+            (filename, data),
+            (storage.filename, storage.data.read()))
 
     def test_stores_binary_data(self):
         # This horrible binary data could never, ever, under any
@@ -462,15 +476,12 @@ class FileStorageTest(TestCase):
         # If a file of the same name has already been stored, the old
         # data gets overwritten.
         filename = 'filename-%s' % factory.getRandomString()
-        old_data = self.make_data('old-data')
+        factory.make_file_storage(
+            filename=filename, data=self.make_data('old data'))
         new_data = self.make_data('new-data')
-        old_storage = factory.make_file_storage(
-            filename=filename, data=old_data)
-        new_storage = factory.make_file_storage(
-            filename=filename, data=new_data)
-        self.assertEqual(old_storage.filename, new_storage.filename)
-        with open(self.get_storage_path(filename)) as f:
-            self.assertEqual(new_data, f.read())
+        factory.make_file_storage(filename=filename, data=new_data)
+        self.assertEqual(
+            new_data, FileStorage.objects.get(filename=filename).data.read())
 
 
 class ConfigTest(TestCase):
