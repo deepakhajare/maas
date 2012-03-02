@@ -26,8 +26,10 @@ import datetime
 import os
 import re
 from socket import gethostname
+import time
 from uuid import uuid1
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
@@ -624,15 +626,22 @@ class FileStorageManager(models.Manager):
             os.path.join(FileStorage.upload_dir, file_storage.data.name)
             for file_storage in self.all())
 
-    def is_garbage(self, storage_filename, referenced_files):
-        """Is the named file in the filesystem storage dead?
+    def is_old(self, storage_filename):
+        """Is the named file in the filesystem storage old enough to be dead?
 
         :param storage_filename: The name under which the file is stored in
-            the filesystem.  This need not be the same name as its filename
-            as stored in the `FileStorage` object.
-        :param referenced_files: The names of all files that are currently
-            referenced by a `FileStorage`.
+            the filesystem, relative to MEDIA_ROOT.  This need not be the
+            same name as its filename as stored in the `FileStorage` object.
+            It includes the name of the upload directory.
         """
+        # The time, in seconds, that an unreferenced file is allowed to
+        # persist in order to satisfy ongoing requests.
+        grace_time = 24 * 60 * 60
+
+        file_path = os.path.join(settings.MEDIA_ROOT, storage_filename)
+        mtime = os.stat(file_path).st_mtime
+        expiry = mtime + grace_time
+        return expiry <= time.time()
 
     def collect_garbage(self):
         """Clean up stored files that are no longer accessible."""

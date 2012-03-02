@@ -470,8 +470,14 @@ class FileStorageTest(TestCase):
         return text.encode('ascii')
 
     def age_file(self, path):
-        """Make the file at `path` look very old."""
-        os.utime(path, (0, 0))
+        """Make the file at `path` look like it hasn't been touched recently.
+
+        Decrements the file's mtime by a bit over a day.
+        """
+        stat_result = os.stat(path)
+        atime = stat_result.st_atime
+        mtime = stat_result.st_mtime
+        os.utime(path, (atime, mtime - (24 * 60 * 60 + 1)))
 
     def test_get_existing_storage_returns_None_if_none_found(self):
         nonexistent_file = factory.getRandomString()
@@ -574,34 +580,24 @@ class FileStorageTest(TestCase):
             self.get_path_in_storage(storage.data.name),
             FileStorage.objects.list_referenced_files())
 
-    def test_is_garbage_returns_False_for_referenced_file(self):
-        storage = factory.make_file_storage()
-        self.age_file(storage.data.path)
-        referenced_files = FileStorage.objects.list_referenced_files()
-        path_in_storage = self.get_path_in_storage(storage.data.name)
-        self.assertFalse(
-            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
-
-    def test_is_garbage_returns_False_for_recent_file(self):
+    def test_is_old_returns_False_for_recent_file(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
-        referenced_files = FileStorage.objects.list_referenced_files()
         path_in_storage = self.get_path_in_storage(filename)
         self.assertFalse(
-            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
+            FileStorage.objects.is_old(path_in_storage))
 
-    def test_is_garbage_returns_True_for_dead_file(self):
+    def test_is_old_returns_True_for_old_file(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.age_file(path)
-        referenced_files = FileStorage.objects.list_referenced_files()
         path_in_storage = self.get_path_in_storage(filename)
         self.assertTrue(
-            FileStorage.objects.is_garbage(path_in_storage, referenced_files))
+            FileStorage.objects.is_old(path_in_storage))
 
     def test_collect_garbage_deletes_garbage(self):
         filename = factory.getRandomString()
@@ -613,13 +609,20 @@ class FileStorageTest(TestCase):
         path_in_storage = self.get_path_in_storage(filename)
         self.assertFalse(FileStorage.storage.exists(path_in_storage))
 
-    def test_collect_garbage_leaves_live_files_alone(self):
+    def test_collect_garbage_leaves_recent_files_alone(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
         FileStorage.objects.collect_garbage()
         path_in_storage = self.get_path_in_storage(filename)
+        self.assertTrue(FileStorage.storage.exists(path_in_storage))
+
+    def test_collect_garbage_leaves_referenced_files_alone(self):
+        storage = factory.make_file_storage()
+        path_in_storage = self.get_storage_path(storage.data.name)
+        self.age_file(storage.data.path)
+        FileStorage.objects.collect_garbage()
         self.assertTrue(FileStorage.storage.exists(path_in_storage))
 
 
