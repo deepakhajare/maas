@@ -31,10 +31,6 @@ from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.core.files.storage import (
-    FileSystemStorage,
-    Storage,
-    )
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
@@ -565,22 +561,6 @@ def create_user(sender, instance, created, **kwargs):
 post_save.connect(create_user, sender=User)
 
 
-class VersionedFileSystemStorage(FileSystemStorage):
-    """File-system storage engine, but with versioned file names.
-
-    This uses the file naming scheme implemented in Django's `Storage` base
-    class, but is otherwise identical to Django's `FileSystemStorage`.
-    """
-
-    # FileSystemStorage.get_available_name won't store files with names
-    # that are already in use.  The parent class has an implementation
-    # that adds a unique suffix.
-    get_available_name = Storage.get_available_name
-
-
-versioned_file_storage = VersionedFileSystemStorage()
-
-
 class FileStorageManager(models.Manager):
     """Manager for `FileStorage` objects.
 
@@ -598,7 +578,7 @@ class FileStorageManager(models.Manager):
     # TODO: Garbage-collect obsolete stored files.
 
     def get_existing_storage(self, filename):
-        """Get an existing `FileStorage` of this name, or None."""
+        """Return an existing `FileStorage` of this name, or None."""
         existing_storage = self.filter(filename=filename)
         if len(existing_storage) == 0:
             return None

@@ -500,8 +500,8 @@ class FileStorageTest(TestCase):
         # that have it cleared, and you have a guaranteed non-UTF-8
         # sequence.
         #
-        # (1) Provided, of course, that man know only about ASCII,
-        # UTF-8, or UTF-16.
+        # (1) Provided, of course, that man know only about ASCII and
+        # UTF.
         binary_data = codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00'
 
         # And yet, because FileStorage supports binary data, it comes
@@ -510,13 +510,16 @@ class FileStorageTest(TestCase):
         self.assertEqual(binary_data, storage.data.read())
 
     def test_overwrites_file(self):
-        # If a file of the same name has already been stored, the old
-        # data gets overwritten.
+        # If a file of the same name has already been stored, the
+        # reference to the old data gets overwritten with one to the new
+        # data.  They are actually different files on the filesystem.
         filename = 'filename-%s' % factory.getRandomString()
-        factory.make_file_storage(
+        old_storage = factory.make_file_storage(
             filename=filename, data=self.make_data('old data'))
         new_data = self.make_data('new-data')
-        factory.make_file_storage(filename=filename, data=new_data)
+        new_storage = factory.make_file_storage(
+            filename=filename, data=new_data)
+        self.assertNotEqual(old_storage.data.name, new_storage.data.name)
         self.assertEqual(
             new_data, FileStorage.objects.get(filename=filename).data.read())
 
