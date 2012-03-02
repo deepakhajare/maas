@@ -155,6 +155,10 @@ class AccountsAdd(CreateView):
     def get_success_url(self):
         return reverse('settings')
 
+    def form_valid(self, form):
+        messages.info(self.request, "User added.")
+        return super(AccountsAdd, self).form_valid(form)
+
 
 class AccountsDelete(DeleteView):
 
