@@ -619,11 +619,20 @@ class FileStorageManager(models.Manager):
 
     def list_stored_files(self):
         """Find the files stored in the filesystem."""
+        dirs, files = FileStorage.storage.listdir(FileStorage.upload_dir)
+        return [
+            os.path.join(FileStorage.upload_dir, filename)
+            for filename in files]
 
     def list_referenced_files(self):
-        """Find the names of files that are referenced from `FileStorage`."""
-        return set(
-            os.path.join(FileStorage.upload_dir, file_storage.data.name)
+        """Find the names of files that are referenced from `FileStorage`.
+
+        :return: All file paths within MEDIA ROOT (relative to MEDIA_ROOT)
+            that have `FileStorage` entries referencing them.
+        :rtype: frozenset
+        """
+        return frozenset(
+            file_storage.data.name
             for file_storage in self.all())
 
     def is_old(self, storage_filename):
@@ -645,6 +654,10 @@ class FileStorageManager(models.Manager):
 
     def collect_garbage(self):
         """Clean up stored files that are no longer accessible."""
+        referenced_files = self.list_referenced_files()
+        for path in self.list_stored_files():
+            if path not in referenced_files and self.is_old(path):
+                FileStorage.storage.delete(path)
 
 
 class FileStorage(models.Model):

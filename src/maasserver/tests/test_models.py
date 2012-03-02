@@ -451,8 +451,8 @@ class FileStorageTest(TestCase):
         # subdirectory of FILEPATH called "storage".
         return os.path.join(self.FILEPATH, FileStorage.upload_dir, filename)
 
-    def get_path_in_storage(self, filename):
-        """Get the path of `filename` relative to the storage location."""
+    def get_media_path(self, filename):
+        """Get the path to a given stored file, relative to MEDIA_ROOT."""
         return os.path.join(FileStorage.upload_dir, filename)
 
     def make_data(self, including_text='data'):
@@ -544,20 +544,18 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.assertIn(
-            self.get_path_in_storage(filename),
+            self.get_media_path(filename),
             FileStorage.objects.list_stored_files())
 
     def test_list_stored_files_includes_referenced_files(self):
         storage = factory.make_file_storage()
         self.assertIn(
-            self.get_path_in_storage(storage.data.name),
-            FileStorage.objects.list_stored_files())
+            storage.data.name, FileStorage.objects.list_stored_files())
 
     def test_list_referenced_files_lists_FileStorage_files(self):
         storage = factory.make_file_storage()
         self.assertIn(
-            self.get_path_in_storage(storage.data.name),
-            FileStorage.objects.list_referenced_files())
+            storage.data.name, FileStorage.objects.list_referenced_files())
 
     def test_list_referenced_files_excludes_unreferenced_files(self):
         filename = factory.getRandomString()
@@ -565,7 +563,7 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.assertNotIn(
-            self.get_path_in_storage(filename),
+            self.get_media_path(filename),
             FileStorage.objects.list_referenced_files())
 
     def test_list_referenced_files_uses_file_name_not_FileStorage_name(self):
@@ -577,17 +575,15 @@ class FileStorageTest(TestCase):
         # It's the name of the file, not the FileStorage.filename, that
         # is in list_referenced_files.
         self.assertIn(
-            self.get_path_in_storage(storage.data.name),
-            FileStorage.objects.list_referenced_files())
+            storage.data.name, FileStorage.objects.list_referenced_files())
 
     def test_is_old_returns_False_for_recent_file(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
         with open(path, 'w') as f:
             f.write(self.make_data())
-        path_in_storage = self.get_path_in_storage(filename)
         self.assertFalse(
-            FileStorage.objects.is_old(path_in_storage))
+            FileStorage.objects.is_old(self.get_media_path(filename)))
 
     def test_is_old_returns_True_for_old_file(self):
         filename = factory.getRandomString()
@@ -595,9 +591,8 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         self.age_file(path)
-        path_in_storage = self.get_path_in_storage(filename)
         self.assertTrue(
-            FileStorage.objects.is_old(path_in_storage))
+            FileStorage.objects.is_old(self.get_media_path(filename)))
 
     def test_collect_garbage_deletes_garbage(self):
         filename = factory.getRandomString()
@@ -606,8 +601,8 @@ class FileStorageTest(TestCase):
             f.write(self.make_data())
         self.age_file(path)
         FileStorage.objects.collect_garbage()
-        path_in_storage = self.get_path_in_storage(filename)
-        self.assertFalse(FileStorage.storage.exists(path_in_storage))
+        self.assertFalse(
+            FileStorage.storage.exists(self.get_media_path(filename)))
 
     def test_collect_garbage_leaves_recent_files_alone(self):
         filename = factory.getRandomString()
@@ -615,15 +610,14 @@ class FileStorageTest(TestCase):
         with open(path, 'w') as f:
             f.write(self.make_data())
         FileStorage.objects.collect_garbage()
-        path_in_storage = self.get_path_in_storage(filename)
-        self.assertTrue(FileStorage.storage.exists(path_in_storage))
+        self.assertTrue(
+            FileStorage.storage.exists(self.get_media_path(filename)))
 
     def test_collect_garbage_leaves_referenced_files_alone(self):
         storage = factory.make_file_storage()
-        path_in_storage = self.get_storage_path(storage.data.name)
         self.age_file(storage.data.path)
         FileStorage.objects.collect_garbage()
-        self.assertTrue(FileStorage.storage.exists(path_in_storage))
+        self.assertTrue(FileStorage.storage.exists(storage.data.name))
 
 
 class ConfigTest(TestCase):
