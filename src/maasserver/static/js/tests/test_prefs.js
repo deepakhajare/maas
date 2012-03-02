@@ -17,10 +17,19 @@ suite.add(new Y.maas.testing.TestCase({
 
     setUp: function() {
         Y.one("body").append(Y.Node.create(api_template));
-     },
+    },
+
+    createWidget: function() {
+        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        // Monkey patch widget.confirm.
+        widget.confirm = function(message) {
+            return true;
+        };
+        return widget;
+    },
 
     testInitializer: function() {
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         // The "create a new API token" has been created.
@@ -37,7 +46,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     test_nb_tokens: function() {
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         Y.Assert.areEqual(2, widget.get('nb_tokens'));
@@ -55,7 +64,7 @@ suite.add(new Y.maas.testing.TestCase({
                 cfg.data);
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var link = widget.get('srcNode').one('.delete-link');
@@ -72,7 +81,7 @@ suite.add(new Y.maas.testing.TestCase({
             cfg.on.failure(3);
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var link = widget.get('srcNode').one('.delete-link');
@@ -93,7 +102,7 @@ suite.add(new Y.maas.testing.TestCase({
             cfg.on.success(3);
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var link = widget.get('srcNode').one('.delete-link');
@@ -106,7 +115,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     test_createTokenFromKeys: function() {
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         var token = widget.createTokenFromKeys(
             'consumer_key', 'token_key', 'token_secret');
@@ -126,7 +135,7 @@ suite.add(new Y.maas.testing.TestCase({
                 cfg.data);
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var create_link = widget.get('srcNode').one('#create_token');
@@ -143,7 +152,7 @@ suite.add(new Y.maas.testing.TestCase({
             cfg.on.failure(3);
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var create_link = widget.get('srcNode').one('#create_token');
@@ -169,7 +178,7 @@ suite.add(new Y.maas.testing.TestCase({
             cfg.on.success(3, {response: Y.JSON.stringify(response)});
         };
         this.mockIO(mockXhr, module);
-        var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        var widget = this.createWidget();
         this.addCleanup(function() { widget.destroy(); });
         widget.render();
         var create_link = widget.get('srcNode').one('#create_token');
