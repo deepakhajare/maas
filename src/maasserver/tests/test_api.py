@@ -979,7 +979,6 @@ class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
         name = factory.getRandomString()
         value = factory.getRandomString()
         Config.objects.set_config(name, value)
-
         response = self.client.get(
             self.get_uri('maas/'),
             {
@@ -1018,7 +1017,6 @@ class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
         self.become_admin()
         name = factory.getRandomString()
         value = factory.getRandomString()
-
         response = self.client.post(
             self.get_uri('maas/'),
             {
