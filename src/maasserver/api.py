@@ -41,6 +41,7 @@ from maasserver.exceptions import (
     MaaSAPIBadRequest,
     MaaSAPINotFound,
     NodesNotAvailable,
+    NodeStateViolation,
     PermissionDenied,
     )
 from maasserver.fields import validate_mac
@@ -49,6 +50,7 @@ from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
+    NODE_STATUS,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -275,6 +277,19 @@ class NodeHandler(BaseHandler):
     @api_exported('release', 'POST')
     def release(self, request, system_id):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
+        node = Node.objects.get_visible_node_or_404(
+            system_id=system_id, user=request.user)
+        if node.status == NODE_STATUS.READY:
+            # Nothing to do.  This may be a redundant retry, and the
+            # postcondition is achieved, so call this success.
+            pass
+        elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
+            node.release()
+            node.save()
+        else:
+            raise NodeStateViolation(
+                "Node cannot be released in its current state.")
+        return node
 
 
 def create_node(request):
