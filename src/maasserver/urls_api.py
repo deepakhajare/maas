@@ -39,7 +39,7 @@ node_macs_handler = RestrictedResource(
     NodeMacsHandler, authentication=api_auth)
 
 
-# Admin's handlers.
+# Admin handlers.
 maas_handler = AdminRestrictedResource(MaaSHandler, authentication=api_auth)
 
 
@@ -67,7 +67,7 @@ urlpatterns += patterns('',
 )
 
 
-# API URLs for logged-in users.
+# API URLs for admin users.
 urlpatterns += patterns('',
     url(r'maas/$', maas_handler, name='maas_handler'),
 )
