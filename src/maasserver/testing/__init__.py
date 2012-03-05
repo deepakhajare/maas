@@ -78,7 +78,7 @@ def reload_object(model_object):
     try:
         return model_class.objects.get(id=model_object.id)
     except model_class.DoesNotExist:
-        return None 
+        return None
 
 
 def reload_objects(model_class, model_objects):
