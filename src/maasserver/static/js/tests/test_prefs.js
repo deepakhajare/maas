@@ -21,11 +21,15 @@ suite.add(new Y.maas.testing.TestCase({
 
     createWidget: function() {
         var widget = new module.TokenWidget({srcNode: '#placeholder'});
+        this.patchWidgetConfirm(widget, true);
+        return widget;
+    },
+
+    patchWidgetConfirm: function(widget, result) {
         // Monkey patch widget.confirm.
         widget.confirm = function(message) {
-            return true;
+            return result;
         };
-        return widget;
     },
 
     testInitializer: function() {
@@ -112,6 +116,19 @@ suite.add(new Y.maas.testing.TestCase({
         Y.Assert.isNull(Y.one('#tokenkey1'));
         Y.Assert.isNotNull(Y.one('#tokenkey2'));
         Y.Assert.areEqual(1, widget.get('nb_tokens'));
+    },
+
+    testDontDeleteIfConfirmReturnsFalse: function() {
+        var mockXhr = new Y.Base();
+        var widget = this.createWidget();
+        this.patchWidgetConfirm(widget, false);
+        this.addCleanup(function() { widget.destroy(); });
+        widget.render();
+        var link = widget.get('srcNode').one('.delete-link');
+        Y.Assert.isNotNull(Y.one('#tokenkey1'));
+        link.simulate('click');
+        Y.Assert.isNotNull(Y.one('#tokenkey1'));
+        Y.Assert.areEqual(2, widget.get('nb_tokens'));
     },
 
     test_createTokenFromKeys: function() {
