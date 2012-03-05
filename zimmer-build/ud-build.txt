@@ -41,7 +41,7 @@ bucket:
         --option "Dpkg::Options::=--force-confold" --assume-yes "$@"
    }
    apt_get update
-   apt_get install ubuntu-orchestra-provisioning-server libvirt-bin
+   apt_get install ubuntu-orchestra-provisioning-server libvirt-bin cobbler-web
    
    case $(uname -m) in
       i?86) arches="i386";;
