@@ -272,6 +272,10 @@ class NodeHandler(BaseHandler):
                 "You are not allowed to start up this node.")
         return nodes[0]
 
+    @api_exported('release', 'POST')
+    def release(self, request, system_id):
+        """Release a node.  Opposite of `NodesHandler.acquire`."""
+
 
 def create_node(request):
     form = NodeWithMACAddressesForm(request.data)
