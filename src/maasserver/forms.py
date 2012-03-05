@@ -119,7 +119,7 @@ class ProfileForm(ModelForm):
 class NewUserCreationForm(UserCreationForm):
     # Add is_superuser field.
     is_superuser = forms.BooleanField(
-        label="Administrator status", required=False)
+        label="MaaS administrator", required=False)
 
     def save(self, commit=True):
         user = super(NewUserCreationForm, self).save(commit=False)
@@ -132,7 +132,7 @@ class NewUserCreationForm(UserCreationForm):
 class EditUserForm(UserChangeForm):
     # Override the default label.
     is_superuser = forms.BooleanField(
-        label="Administrator status", required=False)
+        label="MaaS administrator", required=False)
 
     class Meta:
         model = User
@@ -182,12 +182,12 @@ class MaaSAndNetworkForm(ConfigForm):
 
 class CommissioningForm(ConfigForm):
     """Settings page, CommissioningF section."""
-    after_commissioning = forms.ChoiceField(
-        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
-        label="After commissioning")
     check_compatibility = forms.BooleanField(
         label="Check component compatibility and certification",
         required=False)
+    after_commissioning = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+        label="After commissioning")
 
 
 class UbuntuForm(ConfigForm):
