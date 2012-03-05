@@ -351,7 +351,7 @@ class TestNodeAPI(APITestCase):
             self.client.post(self.get_node_uri(node), {'op': 'release'})
             for node in nodes]
         self.assertEqual(
-            [httplib.OK] * len(unreleasable_statuses),
+            [httplib.CONFLICT] * len(unreleasable_statuses),
             [response.status_code for response in responses])
         self.assertEqual(
             unreleasable_statuses, [node.status for node in nodes])
