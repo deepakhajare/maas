@@ -212,12 +212,11 @@ def api_operations(cls):
 
 
 def get_mandatory_param(data, key):
-    """Get the parameter from the request 'data or raise a ValidationError
-    if this parameter is not present in the request's data.
+    """Get the parameter from the provided data dict or raise a ValidationError
+    if this parameter is not present.
 
-    :param data: The request's data that contains the data (usually
-        request.data or request.GET where request is a
-        django.http.HttpRequest).
+    :param data: The data dict (usually request.data or request.GET where
+        request is a django.http.HttpRequest).
     :param data: dict
     :param key: The parameter's key.
     :type key: basestring
