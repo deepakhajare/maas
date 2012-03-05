@@ -439,8 +439,8 @@ class FileStorageTest(TestCase):
 
     def setUp(self):
         super(FileStorageTest, self).setUp()
-        # The development settings say to write storage files in
-        # /var/tmp/maas.
+        # The development settings say to write storage files in a
+        # local subdirectory "tmp".
         os.mkdir(self.FILEPATH)
         self.addCleanup(shutil.rmtree, self.FILEPATH)
 
