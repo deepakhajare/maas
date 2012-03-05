@@ -545,6 +545,9 @@ class UserProfile(models.Model):
         token.consumer.delete()
         token.delete()
 
+    def __unicode__(self):
+        return self.user.username
+
 
 # When a user is created: create the related profile and the default
 # consumer/token.
@@ -561,6 +564,20 @@ def create_user(sender, instance, created, **kwargs):
 post_save.connect(create_user, sender=User)
 
 
+class SSHKeys(models.Model):
+    """A simple SSH public keystore that can be retrieved, a user
+       can have multiple keys.
+
+    :ivar user: The user which owns the key.
+    :ivar key: The ssh public key.
+    """
+    user = models.ForeignKey(UserProfile)
+    key = models.TextField()
+
+    def __unicode__(self):
+        return self.key
+
+
 class FileStorageManager(models.Manager):
     """Manager for `FileStorage` objects.
 
@@ -575,7 +592,6 @@ class FileStorageManager(models.Manager):
     original file will not be affected.  Also, any ongoing reads from the
     old file will continue without iterruption.
     """
-    # TODO: Garbage-collect obsolete stored files.
 
     def get_existing_storage(self, filename):
         """Return an existing `FileStorage` of this name, or None."""
@@ -730,6 +746,7 @@ admin.site.register(Config)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
+admin.site.register(SSHKeys)
 
 
 class MaaSAuthorizationBackend(ModelBackend):
