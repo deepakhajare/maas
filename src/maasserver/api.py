@@ -51,6 +51,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -288,7 +289,8 @@ class NodeHandler(BaseHandler):
             node.save()
         else:
             raise NodeStateViolation(
-                "Node cannot be released in its current state.")
+                "Node cannot be released in its current state ('%s')."
+                % NODE_STATUS_CHOICES_DICT.get(node.status, "UNKNOWN"))
         return node
 
 

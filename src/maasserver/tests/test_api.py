@@ -397,6 +397,18 @@ class TestNodeAPI(APITestCase):
             unreleasable_statuses,
             [node.status for node in reload_objects(Node, nodes)])
 
+    def test_POST_release_in_wrong_state_reports_current_state(self):
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=self.logged_in_user)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node cannot be released in its current state ('Retired').",
+            ),
+            (response.status_code, response.content))
+
     def test_POST_release_rejects_request_from_unauthorized_user(self):
         node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
@@ -418,6 +430,7 @@ class TestNodeAPI(APITestCase):
         node = factory.make_node(status=NODE_STATUS.READY)
         response = self.client.post(
             self.get_uri('nodes/'), {'op': 'acquire'})
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
         node_uri = json.loads(response.content)['resource_uri']
         response = self.client.post(node_uri, {'op': 'release'})
         self.assertEqual(httplib.OK, response.status_code)
