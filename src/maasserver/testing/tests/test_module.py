@@ -12,7 +12,13 @@ __metaclass__ = type
 __all__ = []
 
 from maasserver import provisioning
-from maasserver.testing import TestCase
+from maasserver.testing import (
+    reload_object,
+    reload_objects,
+    TestCase,
+    TestModelTestCase,
+    )
+from maasserver.testing.models import TestModel
 from provisioningserver.testing import fakeapi
 
 
@@ -50,3 +56,39 @@ class TestTestCase(TestCase):
         self.assertEqual(expected_profiles, papi_fake.profiles)
         # There are no nodes.
         self.assertEqual({}, papi_fake.nodes)
+
+
+class TestHelpers(TestModelTestCase):
+    """Test helper functions."""
+
+    app = 'maasserver.testing'
+
+    def test_reload_object_reloads_object(self):
+        test_obj = TestModel(text="old text")
+        test_obj.save()
+        TestModel.objects.filter(id=test_obj.id).update(text="new text")
+        self.assertEqual("new text", reload_object(test_obj).text)
+
+    def test_reload_object_returns_None_for_deleted_object(self):
+        test_obj = TestModel()
+        test_obj.save()
+        TestModel.objects.filter(id=test_obj.id).delete()
+        self.assertIsNone(reload_object(test_obj))
+
+    def test_reload_objects_reloads_objects(self):
+        texts = list(map(repr, range(3)))
+        objs = [TestModel(text=text) for text in texts]
+        for obj in objs:
+            obj.save()
+        texts[0] = "different text"
+        TestModel.objects.filter(id=objs[0].id).update(text=texts[0])
+        self.assertItemsEqual(
+            texts, [obj.text for obj in reload_objects(TestModel, objs)])
+
+    def test_reload_objects_omits_deleted_objects(self):
+        objs = [TestModel() for counter in range(3)]
+        for obj in objs:
+            obj.save()
+        dead_obj = objs.pop(0)
+        TestModel.objects.filter(id=dead_obj.id).delete()
+        self.assertItemsEqual(objs, reload_objects(TestModel, objs))
