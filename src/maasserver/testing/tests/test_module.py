@@ -21,6 +21,15 @@ from maasserver.testing import (
 from maasserver.testing.models import TestModel
 from provisioningserver.testing import fakeapi
 
+# Horrible kludge.  Works around a bug where delete() does not work on
+# test models when using nose.  Without this, running the tests in this
+# module fails at the delete() calls, saying a table node_c does not
+# exist.  (Running just the test case passes, but running the entire
+# module's tests fails even if the failing test case is the only one).
+#
+# https://github.com/jbalogh/django-nose/issues/15
+TestModel._meta.get_all_related_objects()
+
 
 class TestTestCase(TestCase):
     """Tests for `TestCase`."""
