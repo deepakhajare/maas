@@ -606,6 +606,9 @@ class FileStorageManager(models.Manager):
     original file will not be affected.  Also, any ongoing reads from the
     old file will continue without iterruption.
     """
+    # The time, in seconds, that an unreferenced file is allowed to
+    # persist in order to satisfy ongoing requests.
+    grace_time = 12 * 60 * 60
 
     def get_existing_storage(self, filename):
         """Return an existing `FileStorage` of this name, or None."""
@@ -670,13 +673,9 @@ class FileStorageManager(models.Manager):
             same name as its filename as stored in the `FileStorage` object.
             It includes the name of the upload directory.
         """
-        # The time, in seconds, that an unreferenced file is allowed to
-        # persist in order to satisfy ongoing requests.
-        grace_time = 24 * 60 * 60
-
         file_path = os.path.join(settings.MEDIA_ROOT, storage_filename)
         mtime = os.stat(file_path).st_mtime
-        expiry = mtime + grace_time
+        expiry = mtime + self.grace_time
         return expiry <= time.time()
 
     def collect_garbage(self):
