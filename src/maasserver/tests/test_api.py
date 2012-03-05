@@ -28,6 +28,7 @@ from maasserver.testing import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from metadataserver.models import (
@@ -297,7 +298,7 @@ class TestNodeAPI(APITestCase):
         response = self.client.post(self.get_node_uri(node), {'op': 'start'})
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_POST_stores_user_data(self):
+    def test_POST_start_stores_user_data(self):
         node = factory.make_node(owner=self.logged_in_user)
         user_data = (
             b'\xff\x00\xff\xfe\xff\xff\xfe' +
@@ -309,6 +310,77 @@ class TestNodeAPI(APITestCase):
                 })
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
+
+    def test_POST_release_releases_owned_node(self):
+        owned_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            ]
+        owned_nodes = [
+            factory.make_node(owner=self.logged_in_user, status=status)
+            for status in owned_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in owned_nodes]
+        self.assertEqual(
+            [httplib.OK] * len(owned_nodes),
+            [response.status_code for response in responses])
+        self.assertEqual(
+            [NODE_STATUS.READY] * len(owned_nodes),
+            [node.status for node in owned_nodes])
+
+    def test_POST_release_does_nothing_for_unowned_node(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, node.status)
+
+    def test_POST_release_fails_for_other_node_states(self):
+        releasable_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.READY,
+            ]
+        unreleasable_statuses = (
+            set(map_enum(NODE_STATUS).values()) - set(releasable_statuses))
+        nodes = [
+            factory.make_node(status=status, owner=self.logged_in_user)
+            for status in unreleasable_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in nodes]
+        self.assertEqual(
+            [httplib.OK] * len(unreleasable_statuses),
+            [response.status_code for response in responses])
+        self.assertEqual(
+            unreleasable_statuses, [node.status for node in nodes])
+
+    def test_POST_release_rejects_request_from_unauthorized_user(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
+
+    def test_POST_release_allows_admin_to_release_anyones_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        self.become_admin()
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, node.status)
+
+    def test_POST_release_combines_with_acquire(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'acquire'})
+        node_uri = json.loads(response.content)['resource_uri']
+        response = self.client.post(node_uri, {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, node.status)
 
     def test_PUT_updates_node(self):
         # The api allows to update a Node.
