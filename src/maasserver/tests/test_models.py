@@ -607,6 +607,13 @@ class FileStorageTest(TestCase):
         self.assertTrue(
             FileStorage.objects.is_old(self.get_media_path(filename)))
 
+    def test_collect_garbage_does_not_break_without_media_root(self):
+        os.rmdir(os.path.join(self.FILEPATH, FileStorage.upload_dir))
+        os.rmdir(self.FILEPATH)
+        FileStorage.objects.collect_garbage()
+        # The test is that we get here without errors.
+        pass
+
     def test_collect_garbage_deletes_garbage(self):
         filename = factory.getRandomString()
         path = self.get_storage_path(filename)
