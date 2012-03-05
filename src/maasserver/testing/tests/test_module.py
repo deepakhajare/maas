@@ -85,7 +85,7 @@ class TestHelpers(TestModelTestCase):
         self.assertIsNone(reload_object(test_obj))
 
     def test_reload_objects_reloads_objects(self):
-        texts = list(map(repr, range(3)))
+        texts = ['1 text', '2 text', '3 text']
         objs = [TestModel(text=text) for text in texts]
         for obj in objs:
             obj.save()
