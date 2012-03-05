@@ -136,7 +136,9 @@ Y.extend(TokenWidget, Y.Widget, {
         var row = Y.Node.create('<li />')
             .addClass('bundle')
             .append(Y.Node.create('<a />')
-                .set('href', '#').addClass('delete-link right')
+                .set('href', '#')
+                .addClass('delete-link')
+                .addClass('right')
                 .append(Y.Node.create('<img />')
                     .set('title', 'Delete token')
                     .set(

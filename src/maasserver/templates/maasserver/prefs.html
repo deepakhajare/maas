@@ -23,16 +23,16 @@
       <h3>MaaS keys</h3>
       <ul class="list">
         {% for token in user.get_profile.get_authorisation_tokens %}
-        <li class="bundle">
-          <a href="#" class="delete-link icon right">
-            <img title="Delete MaaS key"
-                 src="{{ STATIC_URL }}img/delete.png" />
-          </a>
-          <input type="text" 
-                 value="{{ token.consumer.key }}:{{ token.key }}:{{ token.secret }}" 
-                 id="{{ token.key }}"
-                 class="disabled" />
-        </li>
+          <li class="bundle">
+            <a href="#" class="delete-link icon right">
+              <img title="Delete MaaS key"
+                   src="{{ STATIC_URL }}img/delete.png" />
+            </a>
+            <input type="text" 
+                   value="{{ token.consumer.key }}:{{ token.key }}:{{ token.secret }}" 
+                   id="{{ token.key }}"
+                   class="disabled" />
+          </li>
         {% endfor %}
       </ul>
       <p id="token_creation_placeholder" />
