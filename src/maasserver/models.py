@@ -23,6 +23,7 @@ __all__ = [
 
 import copy
 import datetime
+import getpass
 import re
 from socket import gethostname
 from uuid import uuid1
@@ -673,7 +674,7 @@ DEFAULT_CONFIG = {
     'update_from_choice': (
         [['archive.ubuntu.com', 'archive.ubuntu.com']]),
     # Network section configuration.
-    'maas_name': '',
+    'maas_name': "%s's" % getpass.getuser().capitalize(),
     'provide_dhcp': False,
     ## /settings
     # The host name or address where the nodes can access the metadata
