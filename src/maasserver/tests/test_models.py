@@ -87,6 +87,12 @@ class NodeTest(TestCase):
         self.assertEqual(user, node.owner)
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
 
+    def test_release(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        node.release()
+        self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
+
 
 class NodeManagerTest(TestCase):
 
@@ -439,8 +445,8 @@ class FileStorageTest(TestCase):
 
     def setUp(self):
         super(FileStorageTest, self).setUp()
-        # The development settings say to write storage files in
-        # /var/tmp/maas.
+        # The development settings say to write storage files in a
+        # local subdirectory "tmp".
         os.mkdir(self.FILEPATH)
         os.mkdir(os.path.join(self.FILEPATH, FileStorage.upload_dir))
         self.addCleanup(shutil.rmtree, self.FILEPATH)

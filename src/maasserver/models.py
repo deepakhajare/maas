@@ -406,6 +406,16 @@ class Node(CommonInfo):
         self.status = NODE_STATUS.ALLOCATED
         self.owner = by_user
 
+    def release(self):
+        """Mark allocated or reserved node as available again."""
+        assert self.status in [
+            NODE_STATUS.READY,
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.RESERVED,
+            ]
+        self.status = NODE_STATUS.READY
+        self.owner = None
+
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
@@ -549,6 +559,9 @@ class UserProfile(models.Model):
         token.consumer.delete()
         token.delete()
 
+    def __unicode__(self):
+        return self.user.username
+
 
 # When a user is created: create the related profile and the default
 # consumer/token.
@@ -563,6 +576,20 @@ def create_user(sender, instance, created, **kwargs):
 
 # Connect the 'create_user' method to the post save signal of User.
 post_save.connect(create_user, sender=User)
+
+
+class SSHKeys(models.Model):
+    """A simple SSH public keystore that can be retrieved, a user
+       can have multiple keys.
+
+    :ivar user: The user which owns the key.
+    :ivar key: The ssh public key.
+    """
+    user = models.ForeignKey(UserProfile)
+    key = models.TextField()
+
+    def __unicode__(self):
+        return self.key
 
 
 class FileStorageManager(models.Manager):
@@ -780,6 +807,7 @@ admin.site.register(Config)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
+admin.site.register(SSHKeys)
 
 
 class MaaSAuthorizationBackend(ModelBackend):
