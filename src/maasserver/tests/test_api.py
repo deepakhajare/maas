@@ -912,7 +912,7 @@ class MaaSAPIAnonTest(APIv10TestMixin, TestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
-class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
+class MaaSAPITest(APITestCase):
 
     def test_simple_user_get_config_forbidden(self):
         response = self.client.get(
@@ -937,6 +937,7 @@ class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
             })
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
 
     def test_get_config_returns_config(self):
         self.become_admin()
@@ -965,6 +966,22 @@ class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
             })
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
+
+    def test_set_config_requires_string_name_param(self):
+        self.become_admin()
+        value = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': '',  # Invalid empty name.
+                'value': value,
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(
+           "Invalid name: Please enter a value", response.content)
 
     def test_set_config_requires_value_param(self):
         self.become_admin()
@@ -976,6 +993,7 @@ class MaaSAPITest(APITestCase, MaaSAPIAnonTest):
             })
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided value!", response.content)
 
     def test_admin_set_config(self):
         self.become_admin()

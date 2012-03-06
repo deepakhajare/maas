@@ -38,6 +38,8 @@ from django.shortcuts import (
     )
 from django.template import RequestContext
 from docutils import core
+from formencode import validators
+from formencode.validators import Invalid
 from maasserver.exceptions import (
     MaaSAPIBadRequest,
     MaaSAPINotFound,
@@ -211,7 +213,7 @@ def api_operations(cls):
     return cls
 
 
-def get_mandatory_param(data, key):
+def get_mandatory_param(data, key, validator=None):
     """Get the parameter from the provided data dict or raise a ValidationError
     if this parameter is not present.
 
@@ -220,13 +222,22 @@ def get_mandatory_param(data, key):
     :param data: dict
     :param key: The parameter's key.
     :type key: basestring
+    :param validator: An optional validator that will be used to validate the
+         retrieved value.
+    :type validator: formencode.validators.Validator
     :return: The value of the parameter.
     :raises: ValidationError
     """
     value = data.get(key, None)
     if value is None:
         raise ValidationError("No provided %s!" % key)
-    return value
+    if validator is not None:
+        try:
+            return validator.to_python(value)
+        except Invalid, e:
+            raise ValidationError("Invalid %s: %s" % (key, e.msg))
+    else:
+        return value
 
 
 NODE_FIELDS = (
@@ -557,7 +568,8 @@ class MaaSHandler(BaseHandler):
         :param name: The value of the config item to be set.
         :type value: json object
         """
-        name = get_mandatory_param(request.data, 'name')
+        name = get_mandatory_param(
+            request.data, 'name', validators.String(min=1))
         value = get_mandatory_param(request.data, 'value')
         Config.objects.set_config(name, value)
         return rc.ALL_OK
