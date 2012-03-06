@@ -23,6 +23,8 @@ __all__ = [
 
 import copy
 import datetime
+from errno import ENOENT
+from logging import getLogger
 import os
 import re
 from socket import gethostname
@@ -57,6 +59,9 @@ SYSTEM_USERS = [
     # For nodes' access to the metadata API:
     nodeinituser.user_name,
     ]
+
+
+logger = getLogger(__name__)
 
 
 class CommonInfo(models.Model):
@@ -680,8 +685,17 @@ class FileStorageManager(models.Manager):
 
     def collect_garbage(self):
         """Clean up stored files that are no longer accessible."""
+        try:
+            stored_files = self.list_stored_files()
+        except OSError as e:
+            if e.errno != ENOENT:
+                raise
+            logger.info(
+                "Upload directory does not exist yet.  "
+                "Skipping garbage collection.")
+            return
         referenced_files = self.list_referenced_files()
-        for path in self.list_stored_files():
+        for path in stored_files:
             if path not in referenced_files and self.is_old(path):
                 FileStorage.storage.delete(path)
 
