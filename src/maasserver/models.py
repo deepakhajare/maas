@@ -61,7 +61,7 @@ SYSTEM_USERS = [
     ]
 
 
-logger = getLogger(__name__)
+logger = getLogger('maasserver')
 
 
 class CommonInfo(models.Model):
