@@ -43,20 +43,35 @@ module.TestCase = Y.Base.create('ioMockableTestCase', Y.Test.Case, [], {
 
    /**
     * Mock the '_io' field of the provided module with a silent method that
-    * simply records the call to 'send'.  Whether or not 'send' was called
-    * will be stored in 'self.fired'.
+    * simply records the call to 'send'.  Returns an array where calls will
+    * be recorded.
     * This assumes that the module has a internal reference to its io module
     * named '_io' and that all its io is done via module._io.send(...).
     *
-    * @method mockIO
+    * @method logIO
     * @param module the module to monkey patch
     */
-    mockIOFired: function(module) {
-        this.fired = false;
+    logIO: function(module) {
+        var log = [];
         var mockXhr = new Y.Base();
-        var self = this;
         mockXhr.send = function(url, cfg) {
-            self.fired = true;
+            log.push([url, cfg]);
+        };
+        this.mockIO(mockXhr, module);
+        return log;
+    },
+
+   /**
+    * Mock the '_io' field to silence io.
+    * This assumes that the module has a internal reference to its io module
+    * named '_io' and that all its io is done via module._io.send(...).
+    *
+    * @method silentIO
+    * @param module the module to monkey patch
+    */
+    silentIO: function(module) {
+        var mockXhr = new Y.Base();
+        mockXhr.send = function(url, cfg) {
         };
         this.mockIO(mockXhr, module);
     },

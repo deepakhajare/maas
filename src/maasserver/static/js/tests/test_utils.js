@@ -115,7 +115,7 @@ suite.add(new Y.maas.testing.TestCase({
             "Sample Title", widget.get('title'));
     },
 
-    test_removeSuffix_doesnothing_if_suffix_not_present: function() {
+    test_removeSuffix_does_nothing_if_suffix_not_present: function() {
         var widget = this.createWidget();
         widget.set('title', "Sample Title");
         widget.removeSuffix();
@@ -176,18 +176,18 @@ suite.add(new Y.maas.testing.TestCase({
         var widget = this.createWidget();
         widget._editing = false;
         widget.set('title', "Sample Title");
-        this.mockIOFired(module);
+        var log = this.logIO(module);
         widget.titleEditEnd();
-        Y.Assert.isFalse(this.fired);
+        Y.Assert.areEqual(0, log.length);
         Y.Assert.isFalse(widget._editing);
         Y.Assert.areEqual(
             "Sample Title", widget.get('title'));
     },
 
-    test_input_click_starts_edition: function() {
+    test_input_click_starts_editing: function() {
         var widget = this.createWidget();
         widget._editing = false;
-        this.mockIOFired(module); // Silent io.
+        this.silentIO(module);
         var input = widget.get('srcNode').one('input');
         input.simulate('click');
         Y.Assert.isTrue(widget._editing);
@@ -196,7 +196,7 @@ suite.add(new Y.maas.testing.TestCase({
     test_input_onchange_stops_editing: function() {
         var widget = this.createWidget();
         widget._editing = true;
-        this.mockIOFired(module); // Silent io.
+        this.silentIO(module);
         var input = widget.get('srcNode').one('input');
         input.simulate('change');
         Y.Assert.isFalse(widget._editing);
@@ -205,33 +205,12 @@ suite.add(new Y.maas.testing.TestCase({
     test_input_enter_pressed_stops_editing: function() {
         var widget = this.createWidget();
         widget._editing = true;
-        this.mockIOFired(module); // Silent io.
+        this.silentIO(module);
         var input = widget.get('srcNode').one('input');
         // Simulate 'Enter' being pressed.
         input.simulate("keypress", { keyCode: 13 });
         Y.Assert.isFalse(widget._editing);
-    },
-
-    xtestDeleteTokenCall: function() {
-        // A click on the delete link calls the API to delete a token.
-        var mockXhr = new Y.Base();
-        var fired = false;
-        mockXhr.send = function(url, cfg) {
-            fired = true;
-            Y.Assert.areEqual(MaaS_config.uris.account_handler, url);
-            Y.Assert.areEqual(
-                "op=delete_authorisation_token&token_key=tokenkey1",
-                cfg.data);
-        };
-        this.mockIO(mockXhr, module);
-        var widget = this.createWidget();
-        this.addCleanup(function() { widget.destroy(); });
-        widget.render();
-        var link = widget.get('srcNode').one('.delete-link');
-        link.simulate('click');
-        Y.Assert.isTrue(fired);
     }
-
 
 }));
 

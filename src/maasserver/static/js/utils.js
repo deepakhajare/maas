@@ -18,7 +18,7 @@ var FLASH_DURATION = 1;
 
 module.FLASH_DURATION = FLASH_DURATION;
 
-base_flash = function(obj, from_color) {
+var base_flash = function(obj, from_color) {
     old_bg_color = Y.one(obj).getStyle('backgroundColor');
 
     return new Y.Anim({
@@ -36,9 +36,8 @@ module.base_flash = base_flash;
  * @description A green flash and fade.
  * @return Y.Anim instance
  */
-var green_flash;
 
-green_flash = function(obj) {
+var green_flash = function(obj) {
     return base_flash(obj, '#00FF00');
 };
 
@@ -50,8 +49,7 @@ module.green_flash = green_flash;
  * @description A red flash and fade, used to indicate errors.
  * @return Y.Anim instance
  */
-
-red_flash = function(obj) {
+var red_flash = function(obj) {
     return base_flash(obj, '#FF0000');
 };
 
@@ -64,7 +62,7 @@ var TitleEditWidget = function() {
 
 TitleEditWidget.NAME = 'title-edit-widget';
 
-TITLE_SUFFIX = ' MaaS';
+TitleEditWidget.TITLE_SUFFIX = ' MaaS';
 
 TitleEditWidget.ATTRS = {
 
@@ -114,8 +112,8 @@ Y.extend(TitleEditWidget, Y.Widget, {
     hasSuffix: function() {
         var title = this.get('title');
         var suffix = title.substring(
-            title.length - TITLE_SUFFIX.length, title.length);
-        return (suffix === TITLE_SUFFIX);
+            title.length - TitleEditWidget.TITLE_SUFFIX.length, title.length);
+        return (suffix === TitleEditWidget.TITLE_SUFFIX);
     },
 
    /**
@@ -124,7 +122,7 @@ Y.extend(TitleEditWidget, Y.Widget, {
     * @method addSuffix
     */
     addSuffix: function() {
-        this.set('title', this.get('title') + TITLE_SUFFIX);
+        this.set('title', this.get('title') + TitleEditWidget.TITLE_SUFFIX);
     },
 
    /**
@@ -136,7 +134,7 @@ Y.extend(TitleEditWidget, Y.Widget, {
         if (this.hasSuffix()) {
             var title = this.get('title');
             var new_title = title.substring(
-                0, title.length - TITLE_SUFFIX.length);
+                0, title.length - TitleEditWidget.TITLE_SUFFIX.length);
             this.set('title', new_title);
         }
         else {
