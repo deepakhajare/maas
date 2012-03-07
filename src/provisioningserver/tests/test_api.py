@@ -237,6 +237,10 @@ class ProvisioningAPITestScenario:
 
     @inlineCallbacks
     def add_distro(self, papi):
+        """Creates a new distro object via `papi`.
+
+        Arranges for it to be deleted during test clean-up.
+        """
         tempdir = self.useFixture(TempDir()).path
         initrd = path.join(tempdir, "initrd")
         touch(initrd, b"An example initrd for the benefit of Cobbler.")
@@ -254,6 +258,11 @@ class ProvisioningAPITestScenario:
 
     @inlineCallbacks
     def add_profile(self, papi, distro_name=None):
+        """Creates a new profile object via `papi`.
+
+        Arranges for it to be deleted during test clean-up. If `distro_name`
+        is not specified, one will be obtained by calling `add_distro`.
+        """
         if distro_name is None:
             distro_name = yield self.add_distro(papi)
         profile_name = yield papi.add_profile(next(self.names), distro_name)
