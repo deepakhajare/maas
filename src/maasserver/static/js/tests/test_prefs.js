@@ -96,7 +96,7 @@ suite.add(new Y.maas.testing.TestCase({
         var link = widget.get('srcNode').one('.delete-link');
         link.simulate('click');
         Y.Assert.areEqual(
-            "The key has been deleted already.",
+            "The key has already been deleted.",
             widget.get('srcNode').one('#create_error').get('text'));
     },
 

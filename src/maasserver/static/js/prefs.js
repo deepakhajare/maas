@@ -104,7 +104,7 @@ Y.extend(TokenWidget, Y.Widget, {
                 failure: function(id, out) {
                     Y.log(out);
                     if (out.status === 404) {
-                        self.displayError("The key has been deleted already.");
+                        self.displayError("The key has already been deleted.");
                     }
                     else {
                         self.displayError("Unable to delete the key.");
