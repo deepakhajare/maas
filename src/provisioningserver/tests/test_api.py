@@ -578,30 +578,29 @@ class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
         return FakeAsynchronousProvisioningAPI()
 
 
-TEST_COBBLER_URL = environ.get("TEST_COBBLER_URL")
+class TestProvisioningAPIRealCobbler(ProvisioningAPITestScenario, TestCase):
+    """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
-
-class TestProvisioningAPILocal(ProvisioningAPITestScenario, TestCase):
-    """Test :class:`ProvisioningAPI` with a local Cobbler instance.
+    The URL for the Cobbler instance must be provided in the
+    `TEST_COBBLER_URL` environment variable.
 
     Includes by inheritance all the tests in ProvisioningAPITestScenario.
     """
 
-    def setUp(self):
-        super(TestProvisioningAPILocal, self).setUp()
+    url = environ.get("TEST_COBBLER_URL")
 
     @skipIf(
-        TEST_COBBLER_URL is None,
+        url is None,
         "Set TEST_COBBLER_URL to the URL for a Cobbler "
         "instance to test against, e.g. http://username"
-        ":test@localhost/cobbler_api. Warning: this "
+        ":password@localhost/cobbler_api. Warning: this "
         "will modify your Cobbler database.")
     def get_provisioning_api(self):
-        """Return a real ProvisioningAPI connected to the local Cobbler.
+        """Return a real ProvisioningAPI connected to a real Cobbler.
 
         It assumes that the user/pass is `$LOGNAME/test`.
         """
-        urlparts = urlparse(TEST_COBBLER_URL)
+        urlparts = urlparse(self.url)
         cobbler_session = CobblerSession(
-            urlparts.geturl(), urlparts.username, urlparts.password)
+            self.url, urlparts.username, urlparts.password)
         return ProvisioningAPI(cobbler_session)
