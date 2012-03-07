@@ -275,6 +275,30 @@ class ProvisioningAPITestScenario:
         self.addCleanup(cleanup)
         returnValue(profile_name)
 
+    @inlineCallbacks
+    def add_node(self, papi, profile_name=None, metadata=None):
+        """Creates a new node object via `papi`.
+
+        Arranges for it to be deleted during test clean-up. If `profile_name`
+        is not specified, one will be obtained by calling `add_profile`. If
+        `metadata` is not specified, it will be obtained by calling
+        `fake_metadata`.
+        """
+        if profile_name is None:
+            profile_name = yield self.add_profile(papi)
+        if metadata is None:
+            metadata = self.fake_metadata()
+        node_name = yield papi.add_node(
+            next(self.names), profile_name, metadata)
+
+        def cleanup():
+            d = papi.delete_nodes_by_name([node_name])
+            d.addErrback(lambda failure: failure.trap(Fault))
+            return d
+
+        self.addCleanup(cleanup)
+        returnValue(node_name)
+
     def test_ProvisioningAPI_interfaces(self):
         papi = self.get_provisioning_api()
         verifyObject(IProvisioningAPI, papi)
@@ -299,10 +323,9 @@ class ProvisioningAPITestScenario:
     def test_add_node(self):
         # Create a system/node via the Provisioning API.
         papi = self.get_provisioning_api()
-        profile_name = yield self.add_profile(papi)
-        node = yield papi.add_node(
-            "node", profile_name, self.fake_metadata())
-        self.assertEqual("node", node)
+        node_name = yield self.add_node(papi)
+        nodes = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual([node_name], sorted(nodes))
 
     @inlineCallbacks
     def test_modify_distros(self):
@@ -336,8 +359,7 @@ class ProvisioningAPITestScenario:
         distro_name = yield self.add_distro(papi)
         profile1_name = yield self.add_profile(papi, distro_name)
         profile2_name = yield self.add_profile(papi, distro_name)
-        node_name = yield papi.add_node(
-            "node", profile1_name, self.fake_metadata())
+        node_name = yield self.add_node(papi, profile1_name)
         yield papi.modify_nodes({node_name: {"profile": profile2_name}})
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(profile2_name, values[node_name]["profile"])
@@ -345,9 +367,7 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_modify_nodes_set_mac_addresses(self):
         papi = self.get_provisioning_api()
-        profile_name = yield self.add_profile(papi)
-        node_name = yield papi.add_node(
-            "node", profile_name, self.fake_metadata())
+        node_name = yield self.add_node(papi)
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": ["55:55:55:55:55:55"]}})
         values = yield papi.get_nodes_by_name([node_name])
@@ -357,9 +377,7 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_modify_nodes_remove_mac_addresses(self):
         papi = self.get_provisioning_api()
-        profile_name = yield self.add_profile(papi)
-        node_name = yield papi.add_node(
-            "node", profile_name, self.fake_metadata())
+        node_name = yield self.add_node(papi)
         mac_addresses_from = ["55:55:55:55:55:55", "66:66:66:66:66:66"]
         mac_addresses_to = ["66:66:66:66:66:66"]
         yield papi.modify_nodes(
@@ -396,8 +414,7 @@ class ProvisioningAPITestScenario:
     def test_delete_nodes_by_name(self):
         # Create a node via the Provisioning API.
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
-        node = yield papi.add_node("node", profile, self.fake_metadata())
+        node = yield self.add_node(papi)
         # Delete it again via the Provisioning API.
         yield papi.delete_nodes_by_name([node])
         # It has gone, checked via the Cobbler session.
@@ -443,19 +460,18 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_get_nodes_returns_all_nodes(self):
         papi = self.get_provisioning_api()
-        node_names = [self.getUniqueString() for counter in range(3)]
-        profile = yield self.add_profile(papi)
-        for name in node_names:
-            yield papi.add_node(name, profile, self.fake_metadata())
+        profile_name = yield self.add_profile(papi)
+        node_names = []
+        for num in range(3):
+            node_name = yield self.add_node(papi, profile_name)
+            node_names.append(node_name)
         nodes = yield papi.get_nodes()
         self.assertItemsEqual(node_names, nodes)
 
     @inlineCallbacks
     def test_get_nodes_includes_node_attributes(self):
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
-        node_name = self.getUniqueString()
-        yield papi.add_node(node_name, profile, self.fake_metadata())
+        node_name = yield self.add_node(papi)
         nodes = yield papi.get_nodes()
         self.assertItemsEqual([node_name], nodes)
         self.assertIn('name', nodes[node_name])
@@ -468,11 +484,10 @@ class ProvisioningAPITestScenario:
         nodes = yield papi.get_nodes_by_name([])
         self.assertEqual({}, nodes)
         # Create a node via the Provisioning API.
-        profile = yield self.add_profile(papi)
-        yield papi.add_node("alice", profile, self.fake_metadata())
-        nodes = yield papi.get_nodes_by_name(["alice", "bob"])
+        node_name = yield self.add_node(papi)
+        nodes = yield papi.get_nodes_by_name([node_name])
         # The response contains keys for all systems found.
-        self.assertSequenceEqual(["alice"], sorted(nodes))
+        self.assertSequenceEqual([node_name], sorted(nodes))
 
     @inlineCallbacks
     def test_get_distros_by_name(self):
@@ -499,18 +514,16 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_stop_nodes(self):
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
-        yield papi.add_node("alice", profile, self.fake_metadata())
-        yield papi.stop_nodes(["alice"])
+        node_name = yield self.add_node(papi)
+        yield papi.stop_nodes([node_name])
         # The test is that we get here without error.
         pass
 
     @inlineCallbacks
     def test_start_nodes(self):
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
-        yield papi.add_node("alice", profile, self.fake_metadata())
-        yield papi.start_nodes(["alice"])
+        node_name = yield self.add_node(papi)
+        yield papi.start_nodes([node_name])
         # The test is that we get here without error.
         pass
 
@@ -528,10 +541,8 @@ class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
     @inlineCallbacks
     def test_add_node_preseeds_metadata(self):
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
         metadata = self.fake_metadata()
-        node_name = self.getUniqueString("node")
-        yield papi.add_node(node_name, profile, metadata)
+        node_name = yield self.add_node(papi, metadata=metadata)
 
         attrs = yield CobblerSystem(papi.session, node_name).get_values()
         preseed = attrs['ks_meta']['MAAS_PRESEED']
