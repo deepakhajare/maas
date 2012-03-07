@@ -68,6 +68,14 @@ random_octet = lambda: randint(0, 255)
 random_octets = iter(random_octet, None)
 
 
+def fake_node_metadata():
+    """Produce fake metadata parameters for adding a node."""
+    return {
+        'maas-metadata-url': 'http://localhost:8000/metadata/',
+        'maas-metadata-credentials': 'Fake metadata credentials',
+        }
+
+
 def fake_mac_address():
     """Return a random MAC address."""
     octets = islice(random_octets, 6)
@@ -248,14 +256,6 @@ class ProvisioningAPITestScenario:
         Override this in the test case that exercises this scenario.
         """
 
-    # TODO: Move this to module scope.
-    def fake_metadata(self):
-        """Produce fake metadata parameters for adding a node."""
-        return {
-            'maas-metadata-url': 'http://localhost:8000/metadata/',
-            'maas-metadata-credentials': 'Fake metadata credentials',
-        }
-
     names = ("test-%d" % num for num in count(int(time())))
 
     @inlineCallbacks
@@ -305,12 +305,12 @@ class ProvisioningAPITestScenario:
         Arranges for it to be deleted during test clean-up. If `profile_name`
         is not specified, one will be obtained by calling `add_profile`. If
         `metadata` is not specified, it will be obtained by calling
-        `fake_metadata`.
+        `fake_node_metadata`.
         """
         if profile_name is None:
             profile_name = yield self.add_profile(papi)
         if metadata is None:
-            metadata = self.fake_metadata()
+            metadata = fake_node_metadata()
         node_name = yield papi.add_node(
             next(self.names), profile_name, metadata)
 
@@ -558,9 +558,8 @@ class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
     @inlineCallbacks
     def test_add_node_preseeds_metadata(self):
         papi = self.get_provisioning_api()
-        metadata = self.fake_metadata()
+        metadata = fake_node_metadata()
         node_name = yield self.add_node(papi, metadata=metadata)
-
         attrs = yield CobblerSystem(papi.session, node_name).get_values()
         preseed = attrs['ks_meta']['MAAS_PRESEED']
         self.assertIn(metadata['maas-metadata-url'], preseed)
