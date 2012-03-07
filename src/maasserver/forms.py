@@ -111,20 +111,36 @@ class NodeWithMACAddressesForm(NodeForm):
 
 
 class ProfileForm(ModelForm):
+    # We use the field 'last_name' to store the user's full name (and
+    # don't display Django's 'first_name' field).
+    last_name = forms.CharField(
+        label="Full name", max_length=30, required=False)
+
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email')
+        fields = ('last_name', 'email')
 
 
 class NewUserCreationForm(UserCreationForm):
     # Add is_superuser field.
     is_superuser = forms.BooleanField(
-        label="Administrator status", required=False)
+        label="MaaS administrator", required=False)
+
+    def __init__(self, *args, **kwargs):
+        super(NewUserCreationForm, self).__init__(*args, **kwargs)
+        # Insert 'last_name' field at the right place (right after
+        # the 'username' field).
+        self.fields.insert(
+            1, 'last_name',
+            forms.CharField(label="Full name", max_length=30, required=False))
 
     def save(self, commit=True):
         user = super(NewUserCreationForm, self).save(commit=False)
         if self.cleaned_data.get('is_superuser', False):
             user.is_superuser = True
+        new_last_name = self.cleaned_data.get('last_name', None)
+        if new_last_name is not None:
+            user.last_name = new_last_name
         user.save()
         return user
 
@@ -132,12 +148,14 @@ class NewUserCreationForm(UserCreationForm):
 class EditUserForm(UserChangeForm):
     # Override the default label.
     is_superuser = forms.BooleanField(
-        label="Administrator status", required=False)
+        label="MaaS administrator", required=False)
+    last_name = forms.CharField(
+        label="Full name", max_length=30, required=False)
 
     class Meta:
         model = User
         fields = (
-            'username', 'first_name', 'last_name', 'email', 'is_superuser')
+            'username', 'last_name', 'email', 'is_superuser')
 
 
 class ConfigForm(Form):
@@ -182,12 +200,12 @@ class MaaSAndNetworkForm(ConfigForm):
 
 class CommissioningForm(ConfigForm):
     """Settings page, CommissioningF section."""
-    after_commissioning = forms.ChoiceField(
-        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
-        label="After commissioning")
     check_compatibility = forms.BooleanField(
         label="Check component compatibility and certification",
         required=False)
+    after_commissioning = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+        label="After commissioning")
 
 
 class UbuntuForm(ConfigForm):

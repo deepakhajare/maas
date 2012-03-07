@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""WSGI Application"""
+"""Field type template tag."""
 
 from __future__ import (
     print_function,
@@ -9,12 +9,14 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+        "field_type"
+    ]
 
-import os
+from django import template
 
-import django.core.handlers.wsgi
+register = template.Library()
 
-
-os.environ['DJANGO_SETTINGS_MODULE'] = 'maas.settings'
-application = django.core.handlers.wsgi.WSGIHandler()
+@register.filter('field_type')
+def field_type(field):
+    return field.field.widget.__class__.__name__
