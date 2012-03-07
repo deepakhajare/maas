@@ -18,8 +18,13 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-from itertools import count
+from getpass import getuser
+from itertools import (
+    count,
+    islice,
+    )
 from os import path
+from random import randint
 from time import time
 
 from fixtures import TempDir
@@ -31,7 +36,10 @@ from provisioningserver.api import (
     postprocess_mapping,
     ProvisioningAPI,
     )
-from provisioningserver.cobblerclient import CobblerSystem
+from provisioningserver.cobblerclient import (
+    CobblerSession,
+    CobblerSystem,
+    )
 from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
@@ -45,11 +53,21 @@ from twisted.web.xmlrpc import Fault
 from zope.interface.verify import verifyObject
 
 
-def touch(filename, content=""):
+def touch(filename, content=b""):
     """Create `filename` with `content`."""
     with open(filename, "ab") as stream:
         stream.write(content)
     return filename
+
+
+random_octet = lambda: randint(0, 255)
+random_octets = iter(random_octet, None)
+
+
+def fake_mac_address():
+    """Return a random MAC address."""
+    octets = islice(random_octets, 6)
+    return ":".join(format(octet, "02x") for octet in octets)
 
 
 class TestFunctions(TestCase):
@@ -226,6 +244,7 @@ class ProvisioningAPITestScenario:
         Override this in the test case that exercises this scenario.
         """
 
+    # TODO: Move this to module scope.
     def fake_metadata(self):
         """Produce fake metadata parameters for adding a node."""
         return {
@@ -368,25 +387,28 @@ class ProvisioningAPITestScenario:
     def test_modify_nodes_set_mac_addresses(self):
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
+        mac_address = fake_mac_address()
         yield papi.modify_nodes(
-            {node_name: {"mac_addresses": ["55:55:55:55:55:55"]}})
+            {node_name: {"mac_addresses": [mac_address]}})
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(
-            ["55:55:55:55:55:55"], values[node_name]["mac_addresses"])
+            [mac_address], values[node_name]["mac_addresses"])
 
     @inlineCallbacks
     def test_modify_nodes_remove_mac_addresses(self):
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
-        mac_addresses_from = ["55:55:55:55:55:55", "66:66:66:66:66:66"]
-        mac_addresses_to = ["66:66:66:66:66:66"]
+        mac_address1 = fake_mac_address()
+        mac_address2 = fake_mac_address()
+        mac_addresses_from = [mac_address1, mac_address2]
+        mac_addresses_to = [mac_address2]
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": mac_addresses_from}})
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": mac_addresses_to}})
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(
-            ["66:66:66:66:66:66"], values[node_name]["mac_addresses"])
+            [mac_address2], values[node_name]["mac_addresses"])
 
     @inlineCallbacks
     def test_delete_distros_by_name(self):
@@ -438,42 +460,33 @@ class ProvisioningAPITestScenario:
     def test_get_profiles(self):
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
-        profiles = yield papi.get_profiles()
-        self.assertEqual({}, profiles)
+        profiles_before = yield papi.get_profiles()
         # Create some profiles via the Provisioning API.
-        expected = {}
+        profiles_expected = set()
         for num in range(3):
             profile_name = yield self.add_profile(papi, distro_name)
-            expected[profile_name] = {
-                'distro': distro_name,
-                'name': profile_name,
-                }
-        profiles = yield papi.get_profiles()
-        self.assertEqual(expected, profiles)
-
-    @inlineCallbacks
-    def test_get_nodes_returns_empty_dict_when_no_nodes_exist(self):
-        papi = self.get_provisioning_api()
-        nodes = yield papi.get_nodes()
-        self.assertEqual({}, nodes)
+            profiles_expected.add(profile_name)
+        profiles_after = yield papi.get_profiles()
+        profiles_created = set(profiles_after) - set(profiles_before)
+        self.assertSetEqual(profiles_expected, profiles_created)
 
     @inlineCallbacks
     def test_get_nodes_returns_all_nodes(self):
         papi = self.get_provisioning_api()
         profile_name = yield self.add_profile(papi)
-        node_names = []
+        node_names = set()
         for num in range(3):
             node_name = yield self.add_node(papi, profile_name)
-            node_names.append(node_name)
+            node_names.add(node_name)
         nodes = yield papi.get_nodes()
-        self.assertItemsEqual(node_names, nodes)
+        self.assertSetEqual(node_names, node_names.intersection(nodes))
 
     @inlineCallbacks
     def test_get_nodes_includes_node_attributes(self):
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
         nodes = yield papi.get_nodes()
-        self.assertItemsEqual([node_name], nodes)
+        self.assertIn(node_name, nodes)
         self.assertIn('name', nodes[node_name])
         self.assertIn('profile', nodes[node_name])
         self.assertIn('mac_addresses', nodes[node_name])
@@ -559,3 +572,19 @@ class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
     def get_provisioning_api(self):
         """Return a fake ProvisioningAPI."""
         return FakeAsynchronousProvisioningAPI()
+
+
+class TestProvisioningAPILocal(ProvisioningAPITestScenario, TestCase):
+    """Test :class:`ProvisioningAPI` with a local Cobbler instance.
+
+    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    """
+
+    def get_provisioning_api(self):
+        """Return a real ProvisioningAPI connected to the local Cobbler.
+
+        It assumes that the user/pass is `$LOGNAME/test`.
+        """
+        cobbler_session = CobblerSession(
+            "http://localhost/cobbler_api", getuser(), "test")
+        return ProvisioningAPI(cobbler_session)
