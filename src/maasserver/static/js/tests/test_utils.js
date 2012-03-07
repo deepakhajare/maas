@@ -13,6 +13,40 @@ var suite = new Y.Test.Suite("maas.utils Tests");
 var title_form = Y.one('#title-form').getContent();
 
 suite.add(new Y.maas.testing.TestCase({
+    name: 'test-utils-getBackgroundColor',
+
+    createNodeWithBgColor: function(bg_color) {
+        var node = Y.Node.create('<span />')
+            .set('text', "sample text");
+        node.setStyle('backgroundColor', bg_color);
+        return node;
+     },
+
+    test_getBackgroundColor_fetches_background_color: function() {
+        var base_color = 'rgb(12, 11, 12)';
+        var node = this.createNodeWithBgColor(base_color);
+        Y.one('#placeholder').empty().append(node);
+        Y.Assert.areEqual(base_color, module.getBackgroundColor(node));
+    },
+
+    test_getBackgroundColor_fetches_parent_background_color: function() {
+        var base_color = 'rgb(12, 11, 12)';
+        var parent_node = this.createNodeWithBgColor('transparent');
+        var node = this.createNodeWithBgColor(base_color);
+        Y.one('#placeholder').empty().append(parent_node).append(node);
+        Y.Assert.areEqual(base_color, module.getBackgroundColor(node));
+    },
+
+    test_getBackgroundColor_return_transparent: function() {
+        var parent_node = this.createNodeWithBgColor('transparent');
+        var node = this.createNodeWithBgColor('transparent');
+        Y.one('#placeholder').empty().append(parent_node).append(node);
+        Y.Assert.areEqual('transparent', module.getBackgroundColor(node));
+    }
+
+}));
+
+suite.add(new Y.maas.testing.TestCase({
     name: 'test-utils-flash',
 
     createNodeWithBaseColor: function(base_color) {
@@ -37,12 +71,30 @@ suite.add(new Y.maas.testing.TestCase({
         this.wait(module.FLASH_DURATION*1000*1.5);
     },
 
-    test_base_flash_restores_background_color: function() {
+    test_base_flash_restores_colored_background_color: function() {
         var base_color = 'rgb(12, 11, 12)';
         var from_color = 'rgb(122, 211, 142)';
         var node = this.createNodeWithBaseColor(base_color);
         var anim = module.base_flash(node, from_color);
         this.assertAnimRestoresBackground(anim, node, base_color);
+    },
+
+    test_base_flash_real_animation_color_if_background_color: function() {
+        var base_color = 'rgb(12, 11, 12)';
+        var from_color = 'rgb(122, 211, 142)';
+        var node = this.createNodeWithBaseColor(base_color);
+        var anim = module.base_flash(node, from_color);
+        Y.Assert.isNotUndefined(anim.get('from'));
+        Y.Assert.isNotUndefined(anim.get('to'));
+    },
+
+    test_base_flash_returns_void_animation_if_no_background_color: function() {
+        var base_color = 'transparent';
+        var from_color = 'rgb(122, 211, 142)';
+        var node = this.createNodeWithBaseColor(base_color);
+        var anim = module.base_flash(node, from_color);
+        Y.Assert.isUndefined(anim.get('from'));
+        Y.Assert.isUndefined(anim.get('to'));
     },
 
     test_red_flash_restores_background_color: function() {
@@ -199,6 +251,15 @@ suite.add(new Y.maas.testing.TestCase({
         this.silentIO(module);
         var input = widget.get('srcNode').one('input');
         input.simulate('change');
+        Y.Assert.isFalse(widget._editing);
+    },
+
+    test_input_blur_stops_editing: function() {
+        var widget = this.createWidget();
+        widget._editing = true;
+        this.silentIO(module);
+        var input = widget.get('srcNode').one('input');
+        input.simulate('blur');
         Y.Assert.isFalse(widget._editing);
     },
 

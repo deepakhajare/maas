@@ -18,15 +18,59 @@ var FLASH_DURATION = 1;
 
 module.FLASH_DURATION = FLASH_DURATION;
 
-var base_flash = function(obj, from_color) {
-    old_bg_color = Y.one(obj).getStyle('backgroundColor');
+/**
+ * @function getBackgroundColor
+ * @description Return the node's real background color by recursively
+    exploring its parents until a non-transparent node is found.  If no such
+    node can be found, return 'transparent'.
+ * @return string (color)
+ */
+var getBackgroundColor = function(obj) {
+    var node = Y.one(obj);
+    var bg_color = 'transparent';
+    while (Y.Lang.isValue(node) && bg_color === 'transparent') {
+        bg_color = node.getStyle('backgroundColor');
+        node = node.get('parentNode');
+    }
+    // The html element returns has his backgroundColor = ''.
+    if (bg_color === '') {
+        return 'transparent';
+    }
+    else {
+        return bg_color;
+    }
+};
 
-    return new Y.Anim({
+module.getBackgroundColor = getBackgroundColor;
+
+
+/**
+ * @function base_flash
+ * @description A colored flash and fade.
+ * @return Y.Anim instance
+ */
+var base_flash = function(obj, from_color) {
+    // Color anim does not work well if the 'from' color is 'transparent:
+    // if this is the case, we compute the displayed color by exploring the
+    // parents and we restore the transparency at the end of the animation.
+    var real_bg_color = Y.one(obj).getStyle('backgroundColor');
+    var displayed_bg_color = getBackgroundColor(obj);
+    if (displayed_bg_color === 'transparent') {
+        Y.log('Error: could not find a suitable background color!');
+        return new Y.Anim({node: obj, duration: FLASH_DURATION});
+    }
+    var anim = new Y.Anim({
         node: obj,
         duration: FLASH_DURATION,
         from: { backgroundColor: from_color},
-        to: { backgroundColor: old_bg_color}
+        to: { backgroundColor: displayed_bg_color}
     });
+    if (real_bg_color === 'transparent') {
+        anim.on('end', function() {
+            Y.one(obj).setStyle('backgroundColor', 'transparent');
+        });
+    }
+    return anim;
 };
 
 module.base_flash = base_flash;
@@ -36,7 +80,6 @@ module.base_flash = base_flash;
  * @description A green flash and fade.
  * @return Y.Anim instance
  */
-
 var green_flash = function(obj) {
     return base_flash(obj, '#00FF00');
 };
@@ -150,17 +193,18 @@ Y.extend(TitleEditWidget, Y.Widget, {
             e.preventDefault();
             self.titleEditStart(e.rangeOffset);
         });
+        var done_editing = function(e) {
+            e.preventDefault();
+            self.titleEditEnd();
+            self.blur(); // Ensure we're not in the field.
+        };
+        // Blur is fired when the user clicks away.
+        input.on('blur', done_editing);
         // Change is fired when the input text as changed and the focus is now
         // set another element.
-        input.on('change', function(e) {
-            e.preventDefault();
-            self.titleEditEnd();
-        });
+        input.on('change', done_editing);
         // Form submitted (Enter pressed in the input Node).
-        this.get('srcNode').on('submit', function(e) {
-            e.preventDefault();
-            self.titleEditEnd();
-        });
+        this.get('srcNode').on('submit', done_editing);
     },
 
    /**
