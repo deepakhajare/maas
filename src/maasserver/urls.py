@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.conf import settings as django_settings
 from django.conf.urls.defaults import (
     include,
     patterns,
@@ -28,13 +29,14 @@ from maasserver.views import (
     AccountsDelete,
     AccountsEdit,
     AccountsView,
+    combo_view,
+    KeystoreView,
     logout,
     NodeListView,
     NodesCreateView,
     settings,
     settings_add_archive,
     userprefsview,
-    KeystoreView,
     )
 
 
@@ -45,6 +47,7 @@ def adminurl(regexp, view, *args, **kwargs):
 
 # URLs accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
+    url(r'^%s' % django_settings.YUI_COMBO_URL, combo_view, name='yui-combo'),
     url(r'^accounts/login/$', login, name='login'),
     url(
         r'^robots\.txt$', direct_to_template,
