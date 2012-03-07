@@ -75,17 +75,12 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testDeleteTokenCallsAPI: function() {
-        var mockXhr = new Y.Base();
-        var fired = false;
-        mockXhr.send = function(url, cfg) {
-            fired = true;
-        };
-        this.mockIO(mockXhr, module);
+        var log = this.logIO(module);
         var widget = this.createWidget();
         widget.render();
         var link = widget.get('srcNode').one('.delete-link');
         link.simulate('click');
-        Y.Assert.isTrue(fired);
+        Y.Assert.areEqual(1, log.length);
     },
 
     testDeleteTokenFail404DisplaysErrorMessage: function() {
