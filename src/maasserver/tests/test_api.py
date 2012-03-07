@@ -20,14 +20,18 @@ import shutil
 from django.conf import settings
 from maasserver.models import (
     ARCHITECTURE,
+    Config,
     MACAddress,
     Node,
     NODE_STATUS,
     )
 from maasserver.testing import (
     LoggedInTestCase,
+    reload_object,
+    reload_objects,
     TestCase,
     )
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from metadataserver.models import (
@@ -297,7 +301,7 @@ class TestNodeAPI(APITestCase):
         response = self.client.post(self.get_node_uri(node), {'op': 'start'})
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_POST_stores_user_data(self):
+    def test_POST_start_stores_user_data(self):
         node = factory.make_node(owner=self.logged_in_user)
         user_data = (
             b'\xff\x00\xff\xfe\xff\xff\xfe' +
@@ -309,6 +313,93 @@ class TestNodeAPI(APITestCase):
                 })
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
+
+    def test_POST_release_releases_owned_node(self):
+        owned_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            ]
+        owned_nodes = [
+            factory.make_node(owner=self.logged_in_user, status=status)
+            for status in owned_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in owned_nodes]
+        self.assertEqual(
+            [httplib.OK] * len(owned_nodes),
+            [response.status_code for response in responses])
+        self.assertItemsEqual(
+            [NODE_STATUS.READY] * len(owned_nodes),
+            [node.status for node in reload_objects(Node, owned_nodes)])
+
+    def test_POST_release_does_nothing_for_unowned_node(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_POST_release_fails_for_other_node_states(self):
+        releasable_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.READY,
+            ]
+        unreleasable_statuses = [
+            status
+            for status in map_enum(NODE_STATUS).values()
+                if status not in releasable_statuses]
+        nodes = [
+            factory.make_node(status=status, owner=self.logged_in_user)
+            for status in unreleasable_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in nodes]
+        self.assertEqual(
+            [httplib.CONFLICT] * len(unreleasable_statuses),
+            [response.status_code for response in responses])
+        self.assertEqual(
+            unreleasable_statuses,
+            [node.status for node in reload_objects(Node, nodes)])
+
+    def test_POST_release_in_wrong_state_reports_current_state(self):
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=self.logged_in_user)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node cannot be released in its current state ('Retired').",
+            ),
+            (response.status_code, response.content))
+
+    def test_POST_release_rejects_request_from_unauthorized_user(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
+
+    def test_POST_release_allows_admin_to_release_anyones_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        self.become_admin()
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_POST_release_combines_with_acquire(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'acquire'})
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
+        node_uri = json.loads(response.content)['resource_uri']
+        response = self.client.post(node_uri, {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
 
     def test_PUT_updates_node(self):
         # The api allows to update a Node.
@@ -801,3 +892,121 @@ class FileStorageAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("File not found", response.content)
+
+
+class MaaSAPIAnonTest(APIv10TestMixin, TestCase):
+    # The MaaS' handler is not accessible to anon users.
+
+    def test_anon_get_config_forbidden(self):
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {'op': 'get_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_anon_set_config_forbidden(self):
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {'op': 'set_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+
+class MaaSAPITest(APITestCase):
+
+    def test_simple_user_get_config_forbidden(self):
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {'op': 'get_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_simple_user_set_config_forbidden(self):
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {'op': 'set_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_get_config_requires_name_param(self):
+        self.become_admin()
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {
+                'op': 'get_config',
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
+
+    def test_get_config_returns_config(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.set_config(name, value)
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {
+                'op': 'get_config',
+                'name': name,
+            })
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual(value, parsed_result)
+
+    def test_set_config_requires_name_param(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'value': factory.getRandomString(),
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
+
+    def test_set_config_requires_string_name_param(self):
+        self.become_admin()
+        value = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': '',  # Invalid empty name.
+                'value': value,
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(
+           "Invalid name: Please enter a value", response.content)
+
+    def test_set_config_requires_value_param(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': factory.getRandomString(),
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided value!", response.content)
+
+    def test_admin_set_config(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': name,
+                'value': value,
+            })
+
+        self.assertEqual(httplib.OK, response.status_code)
+        stored_value = Config.objects.get_config(name)
+        self.assertEqual(stored_value, value)
