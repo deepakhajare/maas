@@ -18,7 +18,11 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
+from itertools import count
+from os import path
+from time import time
 
+from fixtures import TempDir
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -33,8 +37,19 @@ from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import (
+    inlineCallbacks,
+    returnValue,
+    )
+from twisted.web.xmlrpc import Fault
 from zope.interface.verify import verifyObject
+
+
+def touch(filename, content=""):
+    """Create `filename` with `content`."""
+    with open(filename, "ab") as stream:
+        stream.write(content)
+    return filename
 
 
 class TestFunctions(TestCase):
@@ -218,6 +233,25 @@ class ProvisioningAPITestScenario:
             'maas-metadata-credentials': 'Fake metadata credentials',
         }
 
+    names = ("test-%d" % num for num in count(int(time())))
+
+    @inlineCallbacks
+    def add_distro(self, papi):
+        tempdir = self.useFixture(TempDir()).path
+        initrd = path.join(tempdir, "initrd")
+        touch(initrd, b"An example initrd for the benefit of Cobbler.")
+        kernel = path.join(tempdir, "kernel")
+        touch(kernel, b"An example kernel for the benefit of Cobbler.")
+        distro_name = yield papi.add_distro(next(self.names), initrd, kernel)
+
+        def cleanup():
+            d = papi.delete_distros_by_name([distro_name])
+            d.addErrback(lambda failure: failure.trap(Fault))
+            return d
+
+        self.addCleanup(cleanup)
+        returnValue(distro_name)
+
     def test_ProvisioningAPI_interfaces(self):
         papi = self.get_provisioning_api()
         verifyObject(IProvisioningAPI, papi)
@@ -226,46 +260,48 @@ class ProvisioningAPITestScenario:
     def test_add_distro(self):
         # Create a distro via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
-        self.assertEqual("distro", distro)
+        distro_name = yield self.add_distro(papi)
+        distros = yield papi.get_distros_by_name([distro_name])
+        self.assertEqual([distro_name], sorted(distros))
 
     @inlineCallbacks
     def test_add_profile(self):
         # Create a profile via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         self.assertEqual("profile", profile)
 
     @inlineCallbacks
     def test_add_node(self):
         # Create a system/node via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro("distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         node = yield papi.add_node("node", profile, self.fake_metadata())
         self.assertEqual("node", node)
 
     @inlineCallbacks
     def test_modify_distros(self):
         papi = self.get_provisioning_api()
-        distro_name = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
+        tempdir = self.useFixture(TempDir()).path
+        initrd_new = path.join(tempdir, "initrd")
+        kernel_new = path.join(tempdir, "initrd")
         yield papi.modify_distros(
-            {distro_name: {"initrd": "zig", "kernel": "zag"}})
+            {distro_name: {
+                    "initrd": touch(initrd_new),
+                    "kernel": touch(kernel_new),
+                    }})
         values = yield papi.get_distros_by_name([distro_name])
-        self.assertEqual("zig", values[distro_name]["initrd"])
-        self.assertEqual("zag", values[distro_name]["kernel"])
+        self.assertEqual(initrd_new, values[distro_name]["initrd"])
+        self.assertEqual(kernel_new, values[distro_name]["kernel"])
 
     @inlineCallbacks
     def test_modify_profiles(self):
         papi = self.get_provisioning_api()
-        distro1_name = yield papi.add_distro(
-            "distro1", "an_initrd", "a_kernel")
-        distro2_name = yield papi.add_distro(
-            "distro2", "an_initrd", "a_kernel")
+        distro1_name = yield self.add_distro(papi)
+        distro2_name = yield self.add_distro(papi)
         profile_name = yield papi.add_profile("profile", distro1_name)
         yield papi.modify_profiles({profile_name: {"distro": distro2_name}})
         values = yield papi.get_profiles_by_name([profile_name])
@@ -274,8 +310,7 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_modify_nodes(self):
         papi = self.get_provisioning_api()
-        distro_name = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
         profile1_name = yield papi.add_profile("profile1", distro_name)
         profile2_name = yield papi.add_profile("profile2", distro_name)
         node_name = yield papi.add_node(
@@ -287,8 +322,7 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_modify_nodes_set_mac_addresses(self):
         papi = self.get_provisioning_api()
-        distro_name = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
         profile_name = yield papi.add_profile("profile1", distro_name)
         node_name = yield papi.add_node(
             "node", profile_name, self.fake_metadata())
@@ -301,8 +335,7 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_modify_nodes_remove_mac_addresses(self):
         papi = self.get_provisioning_api()
-        distro_name = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
         profile_name = yield papi.add_profile("profile1", distro_name)
         node_name = yield papi.add_node(
             "node", profile_name, self.fake_metadata())
@@ -320,21 +353,19 @@ class ProvisioningAPITestScenario:
     def test_delete_distros_by_name(self):
         # Create a distro via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
         # Delete it again via the Provisioning API.
-        yield papi.delete_distros_by_name([distro])
+        yield papi.delete_distros_by_name([distro_name])
         # It has gone, checked via the Cobbler session.
-        distros = yield papi.get_distros_by_name([distro])
+        distros = yield papi.get_distros_by_name([distro_name])
         self.assertEqual({}, distros)
 
     @inlineCallbacks
     def test_delete_profiles_by_name(self):
         # Create a profile via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         # Delete it again via the Provisioning API.
         yield papi.delete_profiles_by_name([profile])
         # It has gone, checked via the Cobbler session.
@@ -345,9 +376,8 @@ class ProvisioningAPITestScenario:
     def test_delete_nodes_by_name(self):
         # Create a node via the Provisioning API.
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         node = yield papi.add_node("node", profile, self.fake_metadata())
         # Delete it again via the Provisioning API.
         yield papi.delete_nodes_by_name([node])
@@ -358,36 +388,28 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_get_distros(self):
         papi = self.get_provisioning_api()
-        distros = yield papi.get_distros()
-        self.assertEqual({}, distros)
+        distros_before = yield papi.get_distros()
         # Create some distros via the Provisioning API.
-        expected = {}
+        distros_expected = set()
         for num in range(3):
-            initrd = self.getUniqueString()
-            kernel = self.getUniqueString()
-            name = self.getUniqueString()
-            yield papi.add_distro(name, initrd, kernel)
-            expected[name] = {
-                "initrd": initrd,
-                "kernel": kernel,
-                "name": name,
-                }
-        distros = yield papi.get_distros()
-        self.assertEqual(expected, distros)
+            distro_name = yield self.add_distro(papi)
+            distros_expected.add(distro_name)
+        distros_after = yield papi.get_distros()
+        distros_created = set(distros_after) - set(distros_before)
+        self.assertSetEqual(distros_expected, distros_created)
 
     @inlineCallbacks
     def test_get_profiles(self):
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
+        distro_name = yield self.add_distro(papi)
         profiles = yield papi.get_profiles()
         self.assertEqual({}, profiles)
         # Create some profiles via the Provisioning API.
         expected = {}
         for num in range(3):
             name = self.getUniqueString()
-            yield papi.add_profile(name, distro)
-            expected[name] = {'distro': 'distro', 'name': name}
+            yield papi.add_profile(name, distro_name)
+            expected[name] = {'distro': distro_name, 'name': name}
         profiles = yield papi.get_profiles()
         self.assertEqual(expected, profiles)
 
@@ -401,9 +423,8 @@ class ProvisioningAPITestScenario:
     def test_get_nodes_returns_all_nodes(self):
         papi = self.get_provisioning_api()
         node_names = [self.getUniqueString() for counter in range(3)]
-        distro = yield papi.add_distro(
-            "distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         for name in node_names:
             yield papi.add_node(name, profile, self.fake_metadata())
         nodes = yield papi.get_nodes()
@@ -412,11 +433,8 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_get_nodes_includes_node_attributes(self):
         papi = self.get_provisioning_api()
-        distro = self.getUniqueString('distro')
-        initrd = self.getUniqueString('initrd')
-        kernel = self.getUniqueString('kernel')
-        distro = yield papi.add_distro(distro, initrd, kernel)
-        profile = yield papi.add_profile(self.getUniqueString(), distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile(self.getUniqueString(), distro_name)
         node_name = self.getUniqueString()
         yield papi.add_node(node_name, profile, self.fake_metadata())
         nodes = yield papi.get_nodes()
@@ -431,8 +449,8 @@ class ProvisioningAPITestScenario:
         nodes = yield papi.get_nodes_by_name([])
         self.assertEqual({}, nodes)
         # Create a node via the Provisioning API.
-        distro = yield papi.add_distro("distro", "initrd", "kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         yield papi.add_node("alice", profile, self.fake_metadata())
         nodes = yield papi.get_nodes_by_name(["alice", "bob"])
         # The response contains keys for all systems found.
@@ -444,10 +462,10 @@ class ProvisioningAPITestScenario:
         distros = yield papi.get_distros_by_name([])
         self.assertEqual({}, distros)
         # Create a distro via the Provisioning API.
-        yield papi.add_distro("alice", "initrd", "kernel")
-        distros = yield papi.get_distros_by_name(["alice", "bob"])
+        distro_name = yield self.add_distro(papi)
+        distros = yield papi.get_distros_by_name([distro_name])
         # The response contains keys for all distributions found.
-        self.assertSequenceEqual(["alice"], sorted(distros))
+        self.assertSequenceEqual([distro_name], sorted(distros))
 
     @inlineCallbacks
     def test_get_profiles_by_name(self):
@@ -455,8 +473,8 @@ class ProvisioningAPITestScenario:
         profiles = yield papi.get_profiles_by_name([])
         self.assertEqual({}, profiles)
         # Create a profile via the Provisioning API.
-        distro = yield papi.add_distro("distro", "initrd", "kernel")
-        yield papi.add_profile("alice", distro)
+        distro_name = yield self.add_distro(papi)
+        yield papi.add_profile("alice", distro_name)
         profiles = yield papi.get_profiles_by_name(["alice", "bob"])
         # The response contains keys for all profiles found.
         self.assertSequenceEqual(["alice"], sorted(profiles))
@@ -464,8 +482,8 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_stop_nodes(self):
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro("distro", "initrd", "kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         yield papi.add_node("alice", profile, self.fake_metadata())
         yield papi.stop_nodes(["alice"])
         # The test is that we get here without error.
@@ -474,8 +492,8 @@ class ProvisioningAPITestScenario:
     @inlineCallbacks
     def test_start_nodes(self):
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro("distro", "initrd", "kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         yield papi.add_node("alice", profile, self.fake_metadata())
         yield papi.start_nodes(["alice"])
         # The test is that we get here without error.
@@ -495,8 +513,8 @@ class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
     @inlineCallbacks
     def test_add_node_preseeds_metadata(self):
         papi = self.get_provisioning_api()
-        distro = yield papi.add_distro("distro", "an_initrd", "a_kernel")
-        profile = yield papi.add_profile("profile", distro)
+        distro_name = yield self.add_distro(papi)
+        profile = yield papi.add_profile("profile", distro_name)
         metadata = self.fake_metadata()
         node_name = self.getUniqueString("node")
         yield papi.add_node(node_name, profile, metadata)
