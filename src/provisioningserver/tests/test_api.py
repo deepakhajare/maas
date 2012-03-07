@@ -18,14 +18,18 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-from getpass import getuser
 from itertools import (
     count,
     islice,
     )
-from os import path
+from os import (
+    environ,
+    path,
+    )
 from random import randint
 from time import time
+from unittest import skipIf
+from urlparse import urlparse
 
 from fixtures import TempDir
 from provisioningserver.api import (
@@ -574,17 +578,30 @@ class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
         return FakeAsynchronousProvisioningAPI()
 
 
+TEST_COBBLER_URL = environ.get("TEST_COBBLER_URL")
+
+
 class TestProvisioningAPILocal(ProvisioningAPITestScenario, TestCase):
     """Test :class:`ProvisioningAPI` with a local Cobbler instance.
 
     Includes by inheritance all the tests in ProvisioningAPITestScenario.
     """
 
+    def setUp(self):
+        super(TestProvisioningAPILocal, self).setUp()
+
+    @skipIf(
+        TEST_COBBLER_URL is None,
+        "Set TEST_COBBLER_URL to the URL for a Cobbler "
+        "instance to test against, e.g. http://username"
+        ":test@localhost/cobbler_api. Warning: this "
+        "will modify your Cobbler database.")
     def get_provisioning_api(self):
         """Return a real ProvisioningAPI connected to the local Cobbler.
 
         It assumes that the user/pass is `$LOGNAME/test`.
         """
+        urlparts = urlparse(TEST_COBBLER_URL)
         cobbler_session = CobblerSession(
-            "http://localhost/cobbler_api", getuser(), "test")
+            urlparts.geturl(), urlparts.username, urlparts.password)
         return ProvisioningAPI(cobbler_session)
