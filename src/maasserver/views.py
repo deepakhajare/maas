@@ -287,7 +287,7 @@ def combo_view(request):
         else:
             return HttpResponseBadRequest("Invalid file type requested.")
         content = b"".join(
-            line for line in combine_files(
+            combine_files(
                fnames, YUI_LOCATION, resource_prefix='/',
                rewrite_urls=True))
 
