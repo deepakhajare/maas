@@ -53,22 +53,29 @@ from twisted.web.xmlrpc import Fault
 from zope.interface.verify import verifyObject
 
 
+names = ("test%d" % num for num in count(int(time())))
+
 random_octet = lambda: randint(0, 255)
 random_octets = iter(random_octet, None)
-
-
-def fake_node_metadata():
-    """Produce fake metadata parameters for adding a node."""
-    return {
-        'maas-metadata-url': 'http://localhost:8000/metadata/',
-        'maas-metadata-credentials': 'Fake metadata credentials',
-        }
 
 
 def fake_mac_address():
     """Return a random MAC address."""
     octets = islice(random_octets, 6)
     return ":".join(format(octet, "02x") for octet in octets)
+
+
+def fake_name():
+    """Return a fake name. Each call returns a different name."""
+    return next(names)
+
+
+def fake_node_metadata():
+    """Produce fake metadata parameters for adding a node."""
+    return {
+        'maas-metadata-url': 'http://%s:8000/metadata/' % fake_name(),
+        'maas-metadata-credentials': 'fake/%s' % fake_name(),
+        }
 
 
 class TestFunctions(TestCase):
@@ -245,8 +252,6 @@ class ProvisioningAPITests:
         Override this in the test case that exercises this scenario.
         """
 
-    names = ("test-%d" % num for num in count(int(time())))
-
     @inlineCallbacks
     def add_distro(self, papi):
         """Creates a new distro object via `papi`.
@@ -258,7 +263,7 @@ class ProvisioningAPITests:
         # against remote instances, like one in odev.
         initrd = "/etc/cobbler/settings"
         kernel = "/etc/cobbler/version"
-        distro_name = yield papi.add_distro(next(self.names), initrd, kernel)
+        distro_name = yield papi.add_distro(fake_name(), initrd, kernel)
 
         def cleanup():
             d = papi.delete_distros_by_name([distro_name])
@@ -277,7 +282,7 @@ class ProvisioningAPITests:
         """
         if distro_name is None:
             distro_name = yield self.add_distro(papi)
-        profile_name = yield papi.add_profile(next(self.names), distro_name)
+        profile_name = yield papi.add_profile(fake_name(), distro_name)
 
         def cleanup():
             d = papi.delete_profiles_by_name([profile_name])
@@ -301,7 +306,7 @@ class ProvisioningAPITests:
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            next(self.names), profile_name, metadata)
+            fake_name(), profile_name, metadata)
 
         def cleanup():
             d = papi.delete_nodes_by_name([node_name])
