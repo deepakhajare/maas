@@ -61,6 +61,7 @@ setup(
         'Django == 1.3.1',
         'psycopg2',
         'amqplib',
+        'convoy',
         'django-piston',
         'FormEncode',
         'oauth',
