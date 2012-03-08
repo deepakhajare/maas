@@ -22,16 +22,12 @@ from itertools import (
     count,
     islice,
     )
-from os import (
-    environ,
-    path,
-    )
+from os import environ
 from random import randint
 from time import time
 from unittest import skipIf
 from urlparse import urlparse
 
-from fixtures import TempDir
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -55,13 +51,6 @@ from twisted.internet.defer import (
     )
 from twisted.web.xmlrpc import Fault
 from zope.interface.verify import verifyObject
-
-
-def touch(filename, content=b""):
-    """Create `filename` with `content`."""
-    with open(filename, "ab") as stream:
-        stream.write(content)
-    return filename
 
 
 random_octet = lambda: randint(0, 255)
@@ -264,11 +253,11 @@ class ProvisioningAPITests:
 
         Arranges for it to be deleted during test clean-up.
         """
-        tempdir = self.useFixture(TempDir()).path
-        initrd = path.join(tempdir, "initrd")
-        touch(initrd, b"An example initrd for the benefit of Cobbler.")
-        kernel = path.join(tempdir, "kernel")
-        touch(kernel, b"An example kernel for the benefit of Cobbler.")
+        # For the initrd and kernel, use a file that we know will exist for a
+        # running Cobbler instance (at least, on Ubuntu) so that we can test
+        # against remote instances, like one in odev.
+        initrd = "/etc/cobbler/settings"
+        kernel = "/etc/cobbler/version"
         distro_name = yield papi.add_distro(next(self.names), initrd, kernel)
 
         def cleanup():
@@ -354,14 +343,12 @@ class ProvisioningAPITests:
     def test_modify_distros(self):
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
-        tempdir = self.useFixture(TempDir()).path
-        initrd_new = path.join(tempdir, "initrd")
-        kernel_new = path.join(tempdir, "initrd")
+        values = yield papi.get_distros_by_name([distro_name])
+        # Reverse the initrd and kernel settings.
+        initrd_new = values[distro_name]["kernel"]
+        kernel_new = values[distro_name]["initrd"]
         yield papi.modify_distros(
-            {distro_name: {
-                    "initrd": touch(initrd_new),
-                    "kernel": touch(kernel_new),
-                    }})
+            {distro_name: {"initrd": initrd_new, "kernel": kernel_new}})
         values = yield papi.get_distros_by_name([distro_name])
         self.assertEqual(initrd_new, values[distro_name]["initrd"])
         self.assertEqual(kernel_new, values[distro_name]["kernel"])
