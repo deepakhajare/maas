@@ -11,8 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from io import BytesIO
 import os
-from StringIO import StringIO
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -38,7 +38,7 @@ class TestCommands(TestCase):
         pass
 
     def test_createadmin_requires_username(self):
-        stderr = StringIO()
+        stderr = BytesIO()
         self.assertRaises(
             SystemExit, call_command, 'createadmin', stderr=stderr)
         command_output = stderr.getvalue().strip()
@@ -49,7 +49,7 @@ class TestCommands(TestCase):
 
     def test_createadmin_requires_password(self):
         username = factory.getRandomString()
-        stderr = StringIO()
+        stderr = BytesIO()
         self.assertRaises(
             SystemExit, call_command, 'createadmin', username=username,
             stderr=stderr)
@@ -60,8 +60,8 @@ class TestCommands(TestCase):
              command_output)
 
     def test_createadmin_creates_admin(self):
-        stderr = StringIO()
-        stdout = StringIO()
+        stderr = BytesIO()
+        stdout = BytesIO()
         username = factory.getRandomString()
         password = factory.getRandomString()
         call_command(
