@@ -421,22 +421,22 @@ class ProvisioningAPITests:
     def test_delete_profiles_by_name(self):
         # Create a profile via the Provisioning API.
         papi = self.get_provisioning_api()
-        profile = yield self.add_profile(papi)
+        profile_name = yield self.add_profile(papi)
         # Delete it again via the Provisioning API.
-        yield papi.delete_profiles_by_name([profile])
+        yield papi.delete_profiles_by_name([profile_name])
         # It has gone, checked via the Cobbler session.
-        profiles = yield papi.get_profiles_by_name([profile])
+        profiles = yield papi.get_profiles_by_name([profile_name])
         self.assertEqual({}, profiles)
 
     @inlineCallbacks
     def test_delete_nodes_by_name(self):
         # Create a node via the Provisioning API.
         papi = self.get_provisioning_api()
-        node = yield self.add_node(papi)
+        node_name = yield self.add_node(papi)
         # Delete it again via the Provisioning API.
-        yield papi.delete_nodes_by_name([node])
+        yield papi.delete_nodes_by_name([node_name])
         # It has gone, checked via the Cobbler session.
-        nodes = yield papi.get_nodes_by_name([node])
+        nodes = yield papi.get_nodes_by_name([node_name])
         self.assertEqual({}, nodes)
 
     @inlineCallbacks
