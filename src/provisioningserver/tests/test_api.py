@@ -236,13 +236,13 @@ class TestInterfaceDeltas(TestCase):
         self.assertEqual(expected, observed)
 
 
-class ProvisioningAPITestScenario:
+class ProvisioningAPITests:
     """Tests for `provisioningserver.api.ProvisioningAPI`.
 
     Abstract base class.  To exercise these tests, derive a test case from
     this class as well as from TestCase.  Provide it with a
-    get_provisioning_api method that returns a ProvisioningAPI implementation
-    that you want to test against.
+    ``get_provisioning_api`` method that returns an :class:`IProvisioningAPI`
+    implementation that you want to test against.
     """
 
     __metaclass__ = ABCMeta
@@ -545,10 +545,10 @@ class ProvisioningAPITestScenario:
         pass
 
 
-class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
+class TestProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`ProvisioningAPI`.
 
-    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
     """
 
     def get_provisioning_api(self):
@@ -566,10 +566,10 @@ class TestProvisioningAPI(ProvisioningAPITestScenario, TestCase):
         self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
-class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
+class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
 
-    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
     """
 
     def get_provisioning_api(self):
@@ -577,13 +577,13 @@ class TestFakeProvisioningAPI(ProvisioningAPITestScenario, TestCase):
         return FakeAsynchronousProvisioningAPI()
 
 
-class TestProvisioningAPIRealCobbler(ProvisioningAPITestScenario, TestCase):
+class TestProvisioningAPIRealCobbler(ProvisioningAPITests, TestCase):
     """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
     The URL for the Cobbler instance must be provided in the
     `TEST_COBBLER_URL` environment variable.
 
-    Includes by inheritance all the tests in ProvisioningAPITestScenario.
+    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
     """
 
     url = environ.get("TEST_COBBLER_URL")
