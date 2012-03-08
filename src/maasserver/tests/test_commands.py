@@ -73,4 +73,5 @@ class TestCommands(TestCase):
         self.assertEquals('', stdout.getvalue().strip())
         self.assertEqual(1, len(users))  # One user with that name.
         self.assertTrue(users[0].check_password(password))
+        self.assertTrue(users[0].is_superuser)
         self.assertEqual('', users[0].email)  # His email is empty.
