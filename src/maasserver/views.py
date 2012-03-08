@@ -286,8 +286,8 @@ def combo_view(request):
             content_type = 'text/css'
         else:
             return HttpResponseBadRequest("Invalid file type requested.")
-        content = "".join(
-            line.decode('utf8') for line in combine_files(
+        content = b"".join(
+            line for line in combine_files(
                fnames, YUI_LOCATION, resource_prefix='/',
                rewrite_urls=True))
 
