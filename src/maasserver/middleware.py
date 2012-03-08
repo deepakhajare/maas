@@ -62,7 +62,7 @@ class AccessMiddleware:
             # Login page: must be visible to anonymous users.
             reverse('login'),
             # The combo loader is publicly accessible.
-            '^/' + settings.YUI_COMBO_URL,
+            '^/' + re.escape(settings.YUI_COMBO_URL),
             # Static resources are publicly visible.
             settings.STATIC_URL,
             reverse('favicon'),
