@@ -595,10 +595,7 @@ class TestProvisioningAPIRealCobbler(ProvisioningAPITestScenario, TestCase):
         ":password@localhost/cobbler_api. Warning: this "
         "will modify your Cobbler database.")
     def get_provisioning_api(self):
-        """Return a real ProvisioningAPI connected to a real Cobbler.
-
-        It assumes that the user/pass is `$LOGNAME/test`.
-        """
+        """Return a connected :class:`ProvisioningAPI`."""
         urlparts = urlparse(self.url)
         cobbler_session = CobblerSession(
             self.url, urlparts.username, urlparts.password)
