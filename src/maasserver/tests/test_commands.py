@@ -12,10 +12,13 @@ __metaclass__ = type
 __all__ = []
 
 import os
+from StringIO import StringIO
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.management import call_command
 from maasserver.models import FileStorage
+from maasserver.testing.factory import factory
 from maastesting import TestCase
 
 
@@ -33,3 +36,41 @@ class TestCommands(TestCase):
         call_command('gc')
         # The test is that we get here without errors.
         pass
+
+    def test_createadmin_requires_username(self):
+        stderr = StringIO()
+        self.assertRaises(
+            SystemExit, call_command, 'createadmin', stderr=stderr)
+        command_output = stderr.getvalue().strip()
+
+        self.assertIn(
+            "Error: You must provide a username with --username.",
+             command_output)
+
+    def test_createadmin_requires_password(self):
+        username = factory.getRandomString()
+        stderr = StringIO()
+        self.assertRaises(
+            SystemExit, call_command, 'createadmin', username=username,
+            stderr=stderr)
+        command_output = stderr.getvalue().strip()
+
+        self.assertIn(
+            "Error: You must provide a password with --password.",
+             command_output)
+
+    def test_createadmin_creates_admin(self):
+        stderr = StringIO()
+        stdout = StringIO()
+        username = factory.getRandomString()
+        password = factory.getRandomString()
+        call_command(
+            'createadmin', username=username, password=password,
+            stderr=stderr, stdout=stdout)
+        users = list(User.objects.filter(username=username))
+
+        self.assertEquals('', stderr.getvalue().strip())
+        self.assertEquals('', stdout.getvalue().strip())
+        self.assertEqual(1, len(users))  # One user with that name.
+        self.assertTrue(users[0].check_password(password))
+        self.assertEqual('', users[0].email)  # His email is empty.
