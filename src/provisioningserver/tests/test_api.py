@@ -581,19 +581,19 @@ class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests, TestCase):
     """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
     The URL for the Cobbler instance must be provided in the
-    `TEST_COBBLER_URL` environment variable.
+    `PSERV_TEST_COBBLER_URL` environment variable.
 
     Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
     """
 
-    url = environ.get("TEST_COBBLER_URL")
+    url = environ.get("PSERV_TEST_COBBLER_URL")
 
     @skipIf(
         url is None,
-        "Set TEST_COBBLER_URL to the URL for a Cobbler "
-        "instance to test against, e.g. http://username"
-        ":password@localhost/cobbler_api. Warning: this "
-        "will modify your Cobbler database.")
+        "Set PSERV_TEST_COBBLER_URL to the URL for a Cobbler "
+        "instance to test against, e.g. http://username:password"
+        "@localhost/cobbler_api. Warning: this will modify your "
+        "Cobbler database.")
     def get_provisioning_api(self):
         """Return a connected :class:`ProvisioningAPI`."""
         urlparts = urlparse(self.url)
