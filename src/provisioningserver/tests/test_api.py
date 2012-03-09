@@ -44,8 +44,8 @@ from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from testtools import TestCase
-from testtools.testcase import ExpectedException
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from testtools.testcase import ExpectedException
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
