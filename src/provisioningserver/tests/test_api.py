@@ -44,6 +44,7 @@ from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from testtools import TestCase
+from testtools.testcase import ExpectedException
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import (
     inlineCallbacks,
@@ -300,20 +301,23 @@ class ProvisioningAPITests:
         returnValue(profile_name)
 
     @inlineCallbacks
-    def add_node(self, papi, profile_name=None, metadata=None):
+    def add_node(self, papi, name=None, profile_name=None, metadata=None):
         """Creates a new node object via `papi`.
 
-        Arranges for it to be deleted during test clean-up. If `profile_name`
+        Arranges for it to be deleted during test clean-up. If `name` is not
+        specified, `fake_name` will be called to obtain one. If `profile_name`
         is not specified, one will be obtained by calling `add_profile`. If
         `metadata` is not specified, it will be obtained by calling
         `fake_node_metadata`.
         """
+        if name is None:
+            name = fake_name()
         if profile_name is None:
             profile_name = yield self.add_profile(papi)
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            fake_name(), profile_name, metadata)
+            name, profile_name, metadata)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_nodes_by_name,
@@ -349,6 +353,16 @@ class ProvisioningAPITests:
         self.assertItemsEqual([node_name], nodes)
 
     @inlineCallbacks
+    def test_add_node_twice(self):
+        # Calling add_node twice for the same named node elicits an error.
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        expected = ExpectedException(
+            Fault, ".* seems unwise to overwrite this object")
+        with expected:
+            yield self.add_node(papi, node_name)
+
+    @inlineCallbacks
     def test_modify_distros(self):
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
@@ -382,7 +396,7 @@ class ProvisioningAPITests:
         distro_name = yield self.add_distro(papi)
         profile1_name = yield self.add_profile(papi, distro_name)
         profile2_name = yield self.add_profile(papi, distro_name)
-        node_name = yield self.add_node(papi, profile1_name)
+        node_name = yield self.add_node(papi, None, profile1_name)
         yield papi.modify_nodes({node_name: {"profile": profile2_name}})
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(profile2_name, values[node_name]["profile"])
@@ -480,7 +494,7 @@ class ProvisioningAPITests:
         profile_name = yield self.add_profile(papi)
         node_names = set()
         for num in range(3):
-            node_name = yield self.add_node(papi, profile_name)
+            node_name = yield self.add_node(papi, None, profile_name)
             node_names.add(node_name)
         nodes = yield papi.get_nodes()
         self.assertSetEqual(node_names, node_names.intersection(nodes))
