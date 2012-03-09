@@ -1,7 +1,14 @@
-#! /bin/bash -e
+#!/usr/bin/env bash
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
 #
 # This file documents how to get odev running on your system.  But it's also
 # a script; you may find that you can just run it and get a working setup.
+
+# Exit immediately if a command exits with a non-zero status.
+set -o errexit
+# Treat unset variables as an error when substituting.
+set -o nounset
 
 ## System-level setup.  This needs to be done only once.
 ./bin/system-setup
