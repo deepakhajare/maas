@@ -252,6 +252,19 @@ class ProvisioningAPITests:
         Override this in the test case that exercises this scenario.
         """
 
+    @staticmethod
+    def cleanup_objects(delete_func, *object_names):
+        """Remove named objects from the PAPI.
+
+        `delete_func` is expected to be one of the ``delete_*_by_name``
+        methods of the Provisioning API. XML-RPC errors are ignored; this
+        function does its best to remove the object but a failure to do so is
+        not an error.
+        """
+        d = delete_func(object_names)
+        d.addErrback(lambda failure: failure.trap(Fault))
+        return d
+
     @inlineCallbacks
     def add_distro(self, papi):
         """Creates a new distro object via `papi`.
@@ -264,13 +277,10 @@ class ProvisioningAPITests:
         initrd = "/etc/cobbler/settings"
         kernel = "/etc/cobbler/version"
         distro_name = yield papi.add_distro(fake_name(), initrd, kernel)
-
-        def cleanup():
-            d = papi.delete_distros_by_name([distro_name])
-            d.addErrback(lambda failure: failure.trap(Fault))
-            return d
-
-        self.addCleanup(cleanup)
+        self.addCleanup(
+            self.cleanup_objects,
+            papi.delete_distros_by_name,
+            distro_name)
         returnValue(distro_name)
 
     @inlineCallbacks
@@ -283,13 +293,10 @@ class ProvisioningAPITests:
         if distro_name is None:
             distro_name = yield self.add_distro(papi)
         profile_name = yield papi.add_profile(fake_name(), distro_name)
-
-        def cleanup():
-            d = papi.delete_profiles_by_name([profile_name])
-            d.addErrback(lambda failure: failure.trap(Fault))
-            return d
-
-        self.addCleanup(cleanup)
+        self.addCleanup(
+            self.cleanup_objects,
+            papi.delete_profiles_by_name,
+            profile_name)
         returnValue(profile_name)
 
     @inlineCallbacks
@@ -307,13 +314,10 @@ class ProvisioningAPITests:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
             fake_name(), profile_name, metadata)
-
-        def cleanup():
-            d = papi.delete_nodes_by_name([node_name])
-            d.addErrback(lambda failure: failure.trap(Fault))
-            return d
-
-        self.addCleanup(cleanup)
+        self.addCleanup(
+            self.cleanup_objects,
+            papi.delete_nodes_by_name,
+            node_name)
         returnValue(node_name)
 
     def test_ProvisioningAPI_interfaces(self):
