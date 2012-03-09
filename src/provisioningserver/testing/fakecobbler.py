@@ -38,7 +38,7 @@ unique_ints = count(randint(0, 99999))
 
 def fake_auth_failure_string(token):
     """Fake a Cobbler authentication failure fault string for `token`."""
-    return "<class 'cobbler.exceptions.CX'>: 'invalid token: %s'" % token
+    return "<class 'cobbler.exceptions.CX'>:'invalid token: %s'" % token
 
 
 def fake_token(user=None, custom_id=None):
