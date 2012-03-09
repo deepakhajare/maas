@@ -13,6 +13,7 @@ __all__ = []
 
 from urlparse import parse_qs
 
+from django.conf import settings
 from maasserver import provisioning
 from maasserver.models import (
     Config,
@@ -32,6 +33,12 @@ class ProvisioningTests:
 
     # Must be defined in concrete subclasses.
     papi = None
+
+    def test_transactionmiddleware(self):
+        # The TransactionMiddleware is enabled.
+        self.assertIn(
+            'django.middleware.transaction.TransactionMiddleware',
+            settings.MIDDLEWARE_CLASSES)
 
     def test_provision_post_save_Node_create(self):
         # Creating and saving a node automatically creates a dummy distro and
