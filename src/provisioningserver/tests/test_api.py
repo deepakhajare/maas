@@ -330,7 +330,7 @@ class ProvisioningAPITests:
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
         distros = yield papi.get_distros_by_name([distro_name])
-        self.assertEqual([distro_name], sorted(distros))
+        self.assertItemsEqual([distro_name], distros)
 
     @inlineCallbacks
     def test_add_profile(self):
@@ -338,7 +338,7 @@ class ProvisioningAPITests:
         papi = self.get_provisioning_api()
         profile_name = yield self.add_profile(papi)
         profiles = yield papi.get_profiles_by_name([profile_name])
-        self.assertEqual([profile_name], sorted(profiles))
+        self.assertItemsEqual([profile_name], profiles)
 
     @inlineCallbacks
     def test_add_node(self):
@@ -346,7 +346,7 @@ class ProvisioningAPITests:
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
         nodes = yield papi.get_nodes_by_name([node_name])
-        self.assertEqual([node_name], sorted(nodes))
+        self.assertItemsEqual([node_name], nodes)
 
     @inlineCallbacks
     def test_modify_distros(self):
@@ -500,7 +500,7 @@ class ProvisioningAPITests:
         node_name = yield self.add_node(papi)
         nodes = yield papi.get_nodes_by_name([node_name])
         # The response contains keys for all systems found.
-        self.assertSequenceEqual([node_name], sorted(nodes))
+        self.assertItemsEqual([node_name], nodes)
 
     @inlineCallbacks
     def test_get_distros_by_name(self):
@@ -511,7 +511,7 @@ class ProvisioningAPITests:
         distro_name = yield self.add_distro(papi)
         distros = yield papi.get_distros_by_name([distro_name])
         # The response contains keys for all distributions found.
-        self.assertSequenceEqual([distro_name], sorted(distros))
+        self.assertItemsEqual([distro_name], distros)
 
     @inlineCallbacks
     def test_get_profiles_by_name(self):
@@ -522,7 +522,7 @@ class ProvisioningAPITests:
         profile_name = yield self.add_profile(papi)
         profiles = yield papi.get_profiles_by_name([profile_name])
         # The response contains keys for all profiles found.
-        self.assertSequenceEqual([profile_name], sorted(profiles))
+        self.assertItemsEqual([profile_name], profiles)
 
     @inlineCallbacks
     def test_stop_nodes(self):
