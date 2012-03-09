@@ -58,10 +58,14 @@ class Messenger:
         self.producer.publish(message)
 
     def register(self):
+        update_obj = partial(self.update_obj)
+        update_obj.__name__ = self.update_obj.__name__
         post_save.connect(
-            receiver=partial(self.update_obj), weak=False, sender=self.klass)
+            receiver=update_obj, weak=False, sender=self.klass)
+        delete_obj = partial(self.delete_obj)
+        delete_obj.__name__ = self.delete_obj.__name__
         post_delete.connect(
-            partial(self.delete_obj), weak=False, sender=self.klass)
+            receiver = delete_obj, weak=False, sender=self.klass)
 
 
 class MaaSMessenger(Messenger):
