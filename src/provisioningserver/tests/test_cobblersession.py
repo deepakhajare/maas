@@ -16,7 +16,10 @@ from xmlrpclib import Fault
 
 import fixtures
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import fake_token
+from provisioningserver.testing.fakecobbler import (
+    fake_auth_failure_string,
+    fake_token,
+    )
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -49,7 +52,8 @@ class FakeAuthFailure(Fault):
     """Imitated Cobbler authentication failure."""
 
     def __init__(self, token):
-        super(FakeAuthFailure, self).__init__(1, "invalid token: %s" % token)
+        super(FakeAuthFailure, self).__init__(
+            1, fake_auth_failure_string(token))
 
 
 def make_auth_failure(broken_token=None):
