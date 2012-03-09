@@ -241,6 +241,19 @@ class TestCobblerSession(TestCase):
         self.assertEqual(return_value, actual_return_value)
         self.assertEqual([(method, arg)], session.proxy.calls)
 
+    def test_looks_like_auth_expiry_returns_False_for_regular_exception(self):
+        self.assertFalse(
+            cobblerclient.looks_like_auth_expiry(RuntimeError("Error")))
+
+    def test_looks_like_auth_expiry_returns_False_for_other_Fault(self):
+        self.assertFalse(
+            cobblerclient.looks_like_auth_expiry(
+                Fault(1, "Missing sprocket")))
+
+    def test_looks_like_auth_expiry_recognizes_auth_expiry(self):
+        self.assertTrue(
+            cobblerclient.looks_like_auth_expiry(make_auth_failure()))
+
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
         # If a call triggers an authentication error, call()
