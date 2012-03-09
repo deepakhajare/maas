@@ -447,7 +447,6 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distro
         # just created.
         values_stored = {
-            "clobber": True,
             "initrd": "an_initrd",
             "kernel": "a_kernel",
             "likes": "cabbage",
@@ -472,8 +471,7 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distros
         # just created.
         values_stored = [
-            {"clobber": True,
-             "initrd": "an_initrd",
+            {"initrd": "an_initrd",
              "kernel": "a_kernel",
              "likes": "cabbage",
              "name": "alice"},

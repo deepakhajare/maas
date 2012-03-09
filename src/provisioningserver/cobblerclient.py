@@ -486,10 +486,9 @@ class CobblerObject:
             (cls._normalize_attribute(key), value)
             for key, value in attributes.items())
 
-        # Overwrite any existing object of the same name.  Unfortunately
-        # this parameter goes into the "attributes," and seems to be
-        # stored along with them.  Its value doesn't matter.
-        args.setdefault('clobber', True)
+        # Do not clobber under any circumstances.
+        if "clobber" in args:
+            del args["clobber"]
 
         success = yield session.call(
             'xapi_object_edit', cls.object_type, name, 'add', args,

@@ -350,24 +350,35 @@ class FakeCobbler:
         self._api_modify_object(
             token, 'system', handle, "interfaces", interfaces)
 
+    def _xapi_edit(self, handle, object_type, name, attrs, token):
+        """Perform an edit operation."""
+        if object_type == "system" and "interface" in attrs:
+            self._xapi_edit_system_interfaces(token, handle, name, attrs)
+        for key, value in attrs.items():
+            self._api_modify_object(token, object_type, handle, key, value)
+        return self._api_save_object(token, object_type, handle)
+
     def xapi_object_edit(self, object_type, name, operation, attrs, token):
         """Swiss-Army-Knife API: create/rename/copy/edit object."""
         if operation == 'remove':
             self._api_remove_object(token, object_type, name)
             return True
         elif operation == 'add':
-            handle = self._api_new_object(token, object_type)
-            obj_dict = self.store[token][object_type][handle]
-            obj_dict.update(attrs)
-            obj_dict['name'] = name
-            return self._api_save_object(token, object_type, handle)
+            try:
+                handle = self._api_get_handle(token, object_type, name)
+            except Fault:
+                handle = self._api_new_object(token, object_type)
+                obj_dict = self.store[token][object_type][handle]
+                obj_dict.update(attrs)
+                obj_dict['name'] = name
+                return self._api_save_object(token, object_type, handle)
+            else:
+                if "clobber" not in attrs:
+                    raise Fault(1, "It seems unwise to overwrite this object")
+                return self._xapi_edit(handle, object_type, name, attrs, token)
         elif operation == 'edit':
             handle = self._api_get_handle(token, object_type, name)
-            if object_type == "system" and "interface" in attrs:
-                self._xapi_edit_system_interfaces(token, handle, name, attrs)
-            for key, value in attrs.items():
-                self._api_modify_object(token, object_type, handle, key, value)
-            return self._api_save_object(token, object_type, handle)
+            return self._xapi_edit(handle, object_type, name, attrs, token)
         else:
             raise NotImplemented(
                 "xapi_object_edit(%s, ..., %s, ...)"
