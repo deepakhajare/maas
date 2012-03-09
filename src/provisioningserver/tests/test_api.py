@@ -545,8 +545,19 @@ class ProvisioningAPITests:
         pass
 
 
-class TestProvisioningAPI(ProvisioningAPITests, TestCase):
-    """Test :class:`ProvisioningAPI`.
+class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
+    """Test :class:`FakeAsynchronousProvisioningAPI`.
+
+    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
+    """
+
+    def get_provisioning_api(self):
+        """Return a fake ProvisioningAPI."""
+        return FakeAsynchronousProvisioningAPI()
+
+
+class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests, TestCase):
+    """Test :class:`ProvisioningAPI` with a fake Cobbler instance.
 
     Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
     """
@@ -566,18 +577,7 @@ class TestProvisioningAPI(ProvisioningAPITests, TestCase):
         self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
-class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
-    """Test :class:`FakeAsynchronousProvisioningAPI`.
-
-    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
-    """
-
-    def get_provisioning_api(self):
-        """Return a fake ProvisioningAPI."""
-        return FakeAsynchronousProvisioningAPI()
-
-
-class TestProvisioningAPIRealCobbler(ProvisioningAPITests, TestCase):
+class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests, TestCase):
     """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
     The URL for the Cobbler instance must be provided in the
