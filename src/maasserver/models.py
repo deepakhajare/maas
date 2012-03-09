@@ -857,3 +857,6 @@ class MaaSAuthorizationBackend(ModelBackend):
 from maasserver import provisioning
 # We mention 'provisioning' here to silence lint warnings.
 provisioning
+
+from maasserver import messages
+messages
