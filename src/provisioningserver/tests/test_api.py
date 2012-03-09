@@ -353,7 +353,11 @@ class ProvisioningAPITests:
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
         values = yield papi.get_distros_by_name([distro_name])
-        # Reverse the initrd and kernel settings.
+        # The kernel and initrd settings differ.
+        self.assertNotEqual(
+            values[distro_name]["kernel"],
+            values[distro_name]["initrd"])
+        # Swap the initrd and kernel settings.
         initrd_new = values[distro_name]["kernel"]
         kernel_new = values[distro_name]["initrd"]
         yield papi.modify_distros(
