@@ -20,3 +20,4 @@
 ./tags
 ./twistd.log
 ./twisted/plugins/dropin.cache
+./txlongpoll.log
