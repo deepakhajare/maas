@@ -93,6 +93,9 @@ harness: bin/maas dev-db
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 
+checkbox:
+	checkbox-gtk --config='checkbox/plugins/jobs_info/directories=$(PWD)/checkbox-tests/' --whitelist-file=
+
 .PHONY: \
     build check clean dev-db distclean doc \
     harness lint pserv-start pserv-stop run \
