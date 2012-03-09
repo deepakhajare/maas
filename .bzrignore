@@ -13,6 +13,7 @@
 ./download-cache
 ./eggs
 ./logs
+./longpoll.pid
 ./parts
 ./pserv.log
 ./pserv.pid
