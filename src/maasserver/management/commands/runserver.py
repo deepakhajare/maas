@@ -16,10 +16,7 @@ from SocketServer import ThreadingMixIn
 from django.conf import settings
 from django.core.management.commands.runserver import BaseRunserverCommand
 from django.core.servers import basehttp
-from django.core.servers.basehttp import (
-    WSGIRequestHandler,
-    WSGIServer,
-    )
+from django.core.servers.basehttp import WSGIServer
 import oops
 from oops_datedir_repo import DateDirRepo
 from oops_wsgi import (
@@ -50,22 +47,13 @@ def render_error(report):
     return (error_template % report).encode('ascii')
 
 
-# Backport django.core.servers.basehttp.run from Django's future
+# This is a simple backport from Django's future
 # version to support threading.
-def run_threaded(addr, port, wsgi_handler, ipv6=False):
-    server_address = (addr, port)
-    threading = True
-    if threading:
-        httpd_cls = type('WSGIServer', (ThreadingMixIn, WSGIServer), {})
-    else:
-        httpd_cls = WSGIServer
-    httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
-    httpd.set_app(wsgi_handler)
-    httpd.serve_forever()
+class ThreadedWSGIServer(ThreadingMixIn, WSGIServer):
+    pass
 
-
-# Monkey patch basehttp.run.
-basehttp.run = run_threaded
+# Monkey patch basehttp.WSGIServer.
+setattr(basehttp, 'WSGIServer', ThreadedWSGIServer)
 
 
 class Command(BaseRunserverCommand):
