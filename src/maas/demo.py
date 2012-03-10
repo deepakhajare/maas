@@ -19,5 +19,7 @@ MIDDLEWARE_CLASSES += (
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
+LONGPOLL_SERVER_URL = "http://localhost:4545/"
+
 # This should match the setting in Makefile:pserv.pid.
 PSERV_URL = "http://localhost:8001/api"

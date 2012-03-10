@@ -15,12 +15,19 @@ __all__ = [
     "NodesCreateView",
     ]
 
+import mimetypes
+import urllib2
+
+from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm as PasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import logout as dj_logout
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect
+from django.http import (
+    HttpResponse,
+    HttpResponseRedirect,
+    )
 from django.shortcuts import (
     get_object_or_404,
     render_to_response,
@@ -45,8 +52,8 @@ from maasserver.forms import (
     )
 from maasserver.models import (
     Node,
-    UserProfile,
     SSHKeys,
+    UserProfile,
     )
 
 
@@ -208,6 +215,17 @@ class AccountsEdit(UpdateView):
 
     def get_success_url(self):
         return reverse('settings')
+
+
+def proxy_to(request):
+    url = django_settings.LONGPOLL_SERVER_URL
+    if request.META.has_key('QUERY_STRING'):
+        url += '?' + request.META['QUERY_STRING']
+    proxied_request = urllib2.urlopen(url)
+    status_code = proxied_request.code
+    mimetype = proxied_request.headers.typeheader or mimetypes.guess_type(url)
+    content = proxied_request.read()
+    return HttpResponse(content, status=status_code, mimetype=mimetype)
 
 
 def settings(request):

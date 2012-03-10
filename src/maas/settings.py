@@ -44,17 +44,23 @@ LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
+# The location of the Longpoll server. If LONGPOLL_SERVER_URL is
+# None, the web app won't act as a proxy to the Longpoll server.
+LONGPOLL_SERVER_URL = None
+
+LONGPOLL_URL = 'longpoll/'
+
 if FORCE_SCRIPT_NAME is not None:
     LOGOUT_URL = FORCE_SCRIPT_NAME + LOGOUT_URL
     LOGIN_REDIRECT_URL = FORCE_SCRIPT_NAME + LOGIN_REDIRECT_URL
     LOGIN_URL = FORCE_SCRIPT_NAME + LOGIN_URL
+    LONGPOLL_URL = FORCE_SCRIPT_NAME + LONGPOLL_URL
     # ADMIN_MEDIA_PREFIX will be deprecated in Django 1.4.
     # Admin's media will be served using staticfiles instead.
     ADMIN_MEDIA_PREFIX = FORCE_SCRIPT_NAME
 
 API_URL_REGEXP = '^/api/1[.]0/'
 METADATA_URL_REGEXP = '^/metadata/'
-
 
 # We handle exceptions ourselves (in
 # maasserver.middleware.APIErrorsMiddleware)

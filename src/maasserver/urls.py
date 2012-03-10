@@ -11,6 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import re
+
+from django.conf import settings as django_settings
 from django.conf.urls.defaults import (
     include,
     patterns,
@@ -28,13 +31,14 @@ from maasserver.views import (
     AccountsDelete,
     AccountsEdit,
     AccountsView,
+    KeystoreView,
     logout,
     NodeListView,
     NodesCreateView,
+    proxy_to,
     settings,
     settings_add_archive,
     userprefsview,
-    KeystoreView,
     )
 
 
@@ -68,6 +72,11 @@ urlpatterns += patterns('maasserver.views',
     url(
         r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
 )
+
+if django_settings.LONGPOLL_SERVER_URL is not None:
+    urlpatterns += patterns('maasserver.views',
+        url(r'^%s$' % re.escape(django_settings.LONGPOLL_URL), proxy_to, name='proxy'),
+        )
 
 # URLs for admin users.
 urlpatterns += patterns('maasserver.views',
