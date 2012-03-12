@@ -15,6 +15,7 @@ __all__ = []
 from amqplib import client_0_8 as amqp
 from maasserver import rabbit
 from maasserver.rabbit import (
+    RabbitBase,
     RabbitExchange,
     RabbitMessaging,
     RabbitQueue,
@@ -59,50 +60,52 @@ class TestRabbitSession(RabbitTestCase):
         session.disconnect()
         self.assertIsNone(session._connection)
 
-    def test_session_getExchange(self):
-        session = RabbitSession()
-        exchange_name = factory.getRandomString()
-        exchange = session.getExchange(exchange_name)
-        self.assertTrue(isinstance(exchange, RabbitExchange))
-        self.assertEqual(session, exchange._session)
-        self.assertEqual(exchange_name, exchange.exchange_name)
-
-    def test_session_getQueue(self):
-        session = RabbitSession()
-        exchange_name = factory.getRandomString()
-        queue = session.getQueue(exchange_name)
-        self.assertTrue(isinstance(queue, RabbitQueue))
-        self.assertEqual(session, queue._session)
-        self.assertEqual(exchange_name, queue.exchange_name)
-
 
 class TestRabbitMessaging(RabbitTestCase):
 
-    def test_messaging_contains_session(self):
+    def test_messaging_getExchange(self):
         exchange_name = factory.getRandomString()
-        messaging = RabbitMessaging(RabbitSession(), exchange_name)
-        self.assertTrue(isinstance(messaging._session, RabbitSession))
+        messaging = RabbitMessaging(exchange_name)
+        exchange = messaging.getExchange()
+        self.assertTrue(isinstance(exchange, RabbitExchange))
+        self.assertEqual(messaging._session, exchange._session)
+        self.assertEqual(exchange_name, exchange.exchange_name)
 
-    def test_messaging_has_exchange_name(self):
+    def test_messaging_getQueue(self):
         exchange_name = factory.getRandomString()
-        messaging = RabbitMessaging(RabbitSession(), exchange_name)
-        self.assertEqual(exchange_name, messaging.exchange_name)
+        messaging = RabbitMessaging(exchange_name)
+        queue = messaging.getQueue()
+        self.assertTrue(isinstance(queue, RabbitQueue))
+        self.assertEqual(messaging._session, queue._session)
+        self.assertEqual(exchange_name, queue.exchange_name)
 
-    def test_messaging_channel(self):
-        messaging = RabbitMessaging(
-            RabbitSession(), factory.getRandomString())
+
+class TestRabbitBase(RabbitTestCase):
+
+    def test_rabbitbase_contains_session(self):
+        exchange_name = factory.getRandomString()
+        rabbitbase = RabbitBase(RabbitSession(), exchange_name)
+        self.assertTrue(isinstance(rabbitbase._session, RabbitSession))
+
+    def test_base_has_exchange_name(self):
+        exchange_name = factory.getRandomString()
+        rabbitbase = RabbitBase(RabbitSession(), exchange_name)
+        self.assertEqual(exchange_name, rabbitbase.exchange_name)
+
+    def test_base_channel(self):
+        rabbitbase = RabbitBase(RabbitSession(), factory.getRandomString())
         # Referencing the channel property causes an open channel to be
         # created.
-        channel = messaging.channel
+        channel = rabbitbase.channel
         self.assertTrue(channel.is_open)
-        self.assertIsNotNone(messaging._session._connection)
+        self.assertIsNotNone(rabbitbase._session._connection)
         # The same channel is returned every time.
-        self.assertIs(channel, messaging.channel)
+        self.assertIs(channel, rabbitbase.channel)
 
-    def test_messaging_channel_creates_exchange(self):
+    def test_base_channel_creates_exchange(self):
         exchange_name = factory.getRandomString()
-        messaging = RabbitMessaging(RabbitSession(), exchange_name)
-        messaging.channel
+        rabbitbase = RabbitBase(RabbitSession(), exchange_name)
+        rabbitbase.channel
         self.assertIn(
             exchange_name,
             self.get_command_output('list_exchanges'))
@@ -115,7 +118,7 @@ class TestRabbitExchange(RabbitTestCase):
         message_content = factory.getRandomString()
         exchange = RabbitExchange(RabbitSession(), exchange_name)
 
-        channel = RabbitMessaging(RabbitSession(), exchange_name).channel
+        channel = RabbitBase(RabbitSession(), exchange_name).channel
         queue_name = channel.queue_declare(auto_delete=True)[0]
         channel.queue_bind(exchange=exchange_name, queue=queue_name)
         exchange.publish(message_content)
@@ -131,8 +134,8 @@ class TestRabbitQueue(RabbitTestCase):
         queue = RabbitQueue(RabbitSession(), exchange_name)
 
         # Publish to queue.name.
-        messaging = RabbitMessaging(RabbitSession(), exchange_name)
-        channel = messaging.channel
+        base = RabbitBase(RabbitSession(), exchange_name)
+        channel = base.channel
         msg = amqp.Message(message_content)
         channel.basic_publish(
             exchange=exchange_name, routing_key='', msg=msg)
