@@ -71,6 +71,7 @@ doc: bin/sphinx docs/api.rst
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
+	$(RM) -r media/demo/* media/development
 
 distclean: clean pserv-stop longpoll-stop
 	utilities/maasdb delete-cluster ./db/
@@ -106,8 +107,13 @@ harness: bin/maas dev-db
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 
+
+checkbox: config=checkbox/plugins/jobs_info/directories=$(PWD)/qa/checkbox
+checkbox:
+	checkbox-gtk --config=$(config) --whitelist-file=
+
 .PHONY: \
-    build check clean dev-db distclean doc \
+    build check checkbox clean dev-db distclean doc \
     harness lint pserv-start pserv-stop run \
     longpoll-start longpoll-stop \
     syncdb test sampledata

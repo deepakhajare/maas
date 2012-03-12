@@ -24,10 +24,9 @@ DEBUG = False
 # Used to set a prefix in front of every URL.
 FORCE_SCRIPT_NAME = None
 
-# Allow the user to override DEBUG and FORCE_SCRIPT_NAME in
-# maas_local_settings.
+# Allow the user to override settings in maas_local_settings.
 try:
-    from maas_local_settings import DEBUG, FORCE_SCRIPT_NAME
+    from maas_local_settings import * # NOQA
 except ImportError:
     pass
 
@@ -55,6 +54,7 @@ if FORCE_SCRIPT_NAME is not None:
 API_URL_REGEXP = '^/api/1[.]0/'
 METADATA_URL_REGEXP = '^/metadata/'
 
+YUI_COMBO_URL = "combo/"
 
 # We handle exceptions ourselves (in
 # maasserver.middleware.APIErrorsMiddleware)
@@ -177,8 +177,10 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.transaction.TransactionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.csrf.CsrfResponseMiddleware',
+    'maasserver.middleware.ExceptionLoggerMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
@@ -206,36 +208,17 @@ INSTALLED_APPS = (
     'maasserver',
     'metadataserver',
     'piston',
-    # Uncomment the next line to enable admin documentation:
-    # 'django.contrib.admindocs',
 )
 
 if DEBUG:
     INSTALLED_APPS += (
         'django.contrib.admin',
-        'django.contrib.admindocs',
     )
-# A sample logging configuration. The only tangible logging
-# performed by this configuration is to send an email to
-# the site admins on every HTTP 500 error.
+
 # See http://docs.djangoproject.com/en/dev/topics/logging for
-# more details on how to customize your logging configuration.
+# more details on how to customize the logging configuration.
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'mail_admins': {
-            'level': 'ERROR',
-            'class': 'django.utils.log.AdminEmailHandler'
-        }
-    },
-    'loggers': {
-        'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
-    }
 }
 
 # The location of the Provisioning API XML-RPC endpoint. If PSERV_URL is None,

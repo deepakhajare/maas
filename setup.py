@@ -55,12 +55,14 @@ setup(
             ]
         ),
     package_dir={'': b'src'},
+    include_package_data=True,
 
     install_requires=[
         'setuptools',
         'Django == 1.3.1',
         'psycopg2',
         'amqplib',
+        'convoy',
         'django-piston',
         'FormEncode',
         'oauth',

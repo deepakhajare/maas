@@ -39,7 +39,7 @@ This is the list of runtime dependencies that you'll need to install::
         python-django-south python-twisted python-txamqp python-amqplib \
         python-formencode python-oauth python-oops python-oops-datedir-repo \
         python-twisted python-oops-wsgi python-oops-twisted \
-        python-psycopg2 python-yaml
+        python-psycopg2 python-yaml python-convoy
 
 Additionally, you need to install the following python libraries
 for development convenience::
@@ -85,6 +85,39 @@ the last version of the code. Go into the directory where you want the code
 to reside and run::
 
     $ bzr branch lp:maas maas && cd maas
+
+
+Running tests
+=============
+
+To run the whole suite::
+
+    $ make test
+
+To run tests at a lower level of granularity::
+
+    $ bin/test.maas maasserver.tests.test_api -v
+    $ bin/test.pserv provisioningserver.tests.test_api -v
+
+The test runner is `nose`_, so you can pass in options like
+``--with-coverage`` and ``--nocapture`` (short option: ``-s``). The
+latter is essential when using ``pdb`` so that stdout is not
+adulterated.
+
+.. _nose: http://readthedocs.org/docs/nose/en/latest/
+
+
+Running tests with a real Cobbler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once you have a Cobbler instance running somewhere there are some
+tests that can be run against it::
+
+    $ PSERV_TEST_COBBLER_URL=http://user:pass@localhost/cobbler_api \
+        bin/test.pserv provisioningserver.tests.test_api
+
+Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
+tests will modify your Cobbler database.
 
 
 Development MaaS server setup
@@ -140,6 +173,7 @@ your branch::
 
     $ make distclean
 
+
 Adding new dependencies
 =======================
 
@@ -176,3 +210,22 @@ documentation`_.
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
 
+Acceptance tests
+================
+
+MaaS uses checkbox manual testing infrastructure to verify features
+are implemented according to the spec. They can be found in
+the qa/checkbox/ directory.
+
+You need to install checkbox to use those tests::
+
+    $ sudo apt-get install checkbox
+
+To run them::
+
+    $ checkbox-gtk --config='checkbox/plugins/jobs_info/directories=\
+    /path/to/local/checkbox/jobs/dir' --whitelist-file=
+
+or run from the root of the MaaS tree::
+
+    $ make checkbox
