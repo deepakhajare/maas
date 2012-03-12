@@ -7,7 +7,7 @@ description:
      1. Boot Ubuntu from the CD
      2. Find the option to enlist the machine to a cloud
  VERIFICATION:
-     Did the installer offered an option to enlist the machine to a cloud?
+     Did the installer offer an option to enlist the machine to a cloud?
 
 plugin: manual
 name: installer/server
@@ -18,5 +18,5 @@ description:
      1. Boot Ubuntu from the CD
      2. Find the option to install a new MaaS server.
  VERIFICATION:
-     Did the installer offered an option to install a MaaS server?
+     Did the installer offer an option to install a MaaS server?
 
