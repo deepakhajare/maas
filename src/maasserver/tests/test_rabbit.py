@@ -12,57 +12,112 @@ __metaclass__ = type
 __all__ = []
 
 
+from amqplib import client_0_8 as amqp
+from maasserver import rabbit
+from maasserver.rabbit import (
+    RabbitExchange,
+    RabbitMessaging,
+    RabbitQueue,
+    RabbitSession,
+    )
+from maasserver.testing.factory import factory
 from maastesting import TestCase
 from rabbitfixture.server import RabbitServer
-from maasserver.rabbit import RabbitProducer
-from django.conf import settings
-from maasserver.testing.factory import factory
-from maasserver import rabbit
 
 
-class TestRabbitProducer(TestCase):
+class RabbitTestCase(TestCase):
 
     def setUp(self):
-        super(TestRabbitProducer, self).setUp()
+        super(RabbitTestCase, self).setUp()
         self.rabbit_server = self.useFixture(RabbitServer())
         self.rabbit_env = self.rabbit_server.runner.environment
         self.old_connect = rabbit.connect
         rabbit.connect = self.rabbit_env.get_connection
 
     def tearDown(self):
-        super(TestRabbitProducer, self).tearDown()
+        super(RabbitTestCase, self).tearDown()
         rabbit.connect = self.old_connect
-
-    def create_producer(self):
-        producer = RabbitProducer()
-        producer._connection = self.rabbit_env.get_connection()
-        return producer
 
     def get_command_output(self, command):
         # Returns the output of the given rabbit command.
         return self.rabbit_env.rabbitctl(str(command))[0]
 
-    def test_get_connection(self):
-        producer = RabbitProducer()
-        connection = producer.get_connection()
-        self.assertEqual(producer._connection, connection)
 
-    def test_get_channel(self):
-        producer = RabbitProducer()
-        channel = producer.get_channel()
-        self.assertEqual(producer._channel, channel)
+class TestRabbitSession(RabbitTestCase):
+
+    def test_session_connection(self):
+        session = RabbitSession()
+        # Referencing the connection property causes a connection to be
+        # created.
+        connection = session.connection
+        self.assertIsNotNone(session._connection)
+        # The same connection is returned every time.
+        self.assertIs(connection, session.connection)
+
+    def test_session_disconnect(self):
+        session = RabbitSession()
+        session.disconnect()
+        self.assertIsNone(session._connection)
+
+
+class TestRabbitMessaging(RabbitTestCase):
+
+    def test_messaging_contains_session(self):
+        exchange_name = factory.getRandomString()
+        messaging = RabbitMessaging(exchange_name)
+        self.assertTrue(isinstance(messaging.session, RabbitSession))
+
+    def test_messaging_has_exchange_name(self):
+        exchange_name = factory.getRandomString()
+        messaging = RabbitMessaging(exchange_name)
+        self.assertEqual(exchange_name, messaging.exchange_name)
+
+    def test_messaging_channel(self):
+        messaging = RabbitMessaging(factory.getRandomString())
+        # Referencing the channel property causes an open channel to be
+        # created.
+        channel = messaging.channel
         self.assertTrue(channel.is_open)
+        self.assertIsNotNone(messaging.session._connection)
+        # The same channel is returned every time.
+        self.assertIs(channel, messaging.channel)
+
+    def test_messaging_channel_creates_exchange(self):
+        exchange_name = factory.getRandomString()
+        messaging = RabbitMessaging(exchange_name)
+        messaging.channel
         self.assertIn(
-            settings.RABBITMQ_QUEUE_NAME,
-            self.get_command_output('list_queues'))
-        self.assertIn(
-            settings.RABBITMQ_EXCHANGE_NAME,
+            exchange_name,
             self.get_command_output('list_exchanges'))
 
-    def test_publish(self):
+
+class TestRabbitExchange(RabbitTestCase):
+
+    def test_exchange_publish(self):
+        exchange_name = factory.getRandomString()
         message_content = factory.getRandomString()
-        producer = RabbitProducer()
-        producer.publish(message_content)
-        channel = producer.get_channel()
-        message = channel.basic_get(settings.RABBITMQ_QUEUE_NAME)
+        exchange = RabbitExchange(exchange_name)
+
+        channel = RabbitMessaging(exchange_name).channel
+        queue_name = channel.queue_declare(auto_delete=True)[0]
+        channel.queue_bind(exchange=exchange_name, queue=queue_name)
+        exchange.publish(message_content)
+        message = channel.basic_get(queue_name)
+        self.assertEqual(message_content, message.body)
+
+
+class TestRabbitQueue(RabbitTestCase):
+
+    def test_rabbit_queue_binds_queue(self):
+        exchange_name = factory.getRandomString()
+        message_content = factory.getRandomString()
+        queue = RabbitQueue(exchange_name)
+
+        # Publish to queue.name.
+        messaging = RabbitMessaging(exchange_name)
+        channel = messaging.channel
+        msg = amqp.Message(message_content)
+        channel.basic_publish(
+            exchange=exchange_name, routing_key='', msg=msg)
+        message = channel.basic_get(queue.name)
         self.assertEqual(message_content, message.body)

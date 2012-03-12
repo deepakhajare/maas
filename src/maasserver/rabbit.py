@@ -9,7 +9,12 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "RabbitExchange",
+    "RabbitQueue",
+    "RabbitMessaging",
+    "RabbitSession",
+    ]
 
 
 from amqplib import client_0_8 as amqp
@@ -26,36 +31,59 @@ def connect():
         insist=False)
 
 
-class RabbitProducer:
+class RabbitSession:
 
     def __init__(self):
         self._connection = None
-        self._channel = None
 
-    def get_connection(self):
-        if self._connection is None:
+    @property
+    def connection(self):
+        if self._connection is None or self._connection.transport is None:
             self._connection = connect()
         return self._connection
 
-    def get_channel(self):
-        if self._channel is None:
-            self._channel = self.get_connection().channel()
+    def disconnect(self):
+        if self._connection is not None:
+            try:
+                self._connection.close()
+            finally:
+                self._connection = None
+
+
+class RabbitMessaging:
+    def __init__(self, exchange_name):
+        self.exchange_name = exchange_name
+        self._channel = None
+        self.session = RabbitSession()
+
+    @property
+    def channel(self):
+        if self._channel is None or not self._channel.is_open:
+            self._channel = self.session.connection.channel()
             self._channel.exchange_declare(
-                exchange=settings.RABBITMQ_EXCHANGE_NAME,
-                type='direct', durable=True,
-                auto_delete=False)
-            self._channel.queue_declare(
-                queue=settings.RABBITMQ_QUEUE_NAME, durable=True,
-                exclusive=False, auto_delete=False)
-            self._channel.queue_bind(
-                 queue=settings.RABBITMQ_QUEUE_NAME,
-                exchange=settings.RABBITMQ_EXCHANGE_NAME,
-                routing_key=settings.RABBITMQ_ROUTING_KEY)
+                self.exchange_name, type='fanout')
         return self._channel
+
+
+class RabbitExchange(RabbitMessaging):
 
     def publish(self, message):
         msg = amqp.Message(message)
-        channel = self.get_channel()
-        channel.basic_publish(
-            exchange=settings.RABBITMQ_EXCHANGE_NAME,
-            routing_key=settings.RABBITMQ_ROUTING_KEY, msg=msg)
+        # Publish to a 'fanout' exchange: routing_key is ''.
+        self.channel.basic_publish(
+            exchange=self.exchange_name, routing_key='', msg=msg)
+
+
+class RabbitQueue(RabbitMessaging):
+
+    def __init__(self, exchange_name):
+        super(RabbitQueue, self).__init__(exchange_name)
+        self.queue_name = self.channel.queue_declare(
+            nowait=False, auto_delete=False,
+            arguments={"x-expires": 300000})[0]
+        self.channel.queue_bind(
+            exchange=self.exchange_name, queue=self.queue_name)
+
+    @property
+    def name(self):
+        return self.queue_name
