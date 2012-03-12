@@ -136,17 +136,23 @@ class APIErrorsMiddlewareTest(TestCase):
 
 class ExceptionLoggerMiddlewareTest(TestCase):
 
-    def set_up_logger(self, filename):
-        tempfile = NamedTemporaryFile()
+    def setUp(self):
+        super(ExceptionLoggerMiddlewareTest, self).setUp()
+        tempfile = NamedTemporaryFile(delete=True)
         logger = logging.getLogger('maas')
-        logger.addHandler(logging.handlers.RotatingFileHandler(filename))
-        return tempfile
+        self.new_handler = logging.handlers.RotatingFileHandler(tempfile.name)
+        logger.addHandler(self.new_handler)
+        self.log_file = tempfile
+
+    def tearDown(self):
+        super(ExceptionLoggerMiddlewareTest, self).tearDown()
+        logger = logging.getLogger('maas')
+        logger.removeHandler(self.new_handler)
+        self.log_file.close()
 
     def test_exception_logger_logs_error(self):
         error_text = factory.getRandomString()
-        with NamedTemporaryFile() as logfile:
-            self.set_up_logger(logfile.name)
-            ExceptionLoggerMiddleware().process_exception(
-                fake_request('/middleware/api/hello'),
-                ValueError(error_text))
-            self.assertIn(error_text, open(logfile.name).read())
+        ExceptionLoggerMiddleware().process_exception(
+            fake_request('/middleware/api/hello'),
+            ValueError(error_text))
+        self.assertIn(error_text, open(self.log_file.name).read())
