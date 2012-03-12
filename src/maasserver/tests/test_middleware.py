@@ -137,7 +137,6 @@ class APIErrorsMiddlewareTest(TestCase):
 class ExceptionLoggerMiddlewareTest(TestCase):
 
     def set_up_logger(self, filename):
-        super(ExceptionLoggerMiddlewareTest, self).setUp()
         logger = logging.getLogger('maas')
         handler = logging.handlers.RotatingFileHandler(filename)
         logger.addHandler(handler)
