@@ -45,7 +45,6 @@ from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
-from testtools.testcase import ExpectedException
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -359,23 +358,21 @@ class ProvisioningAPITests:
         self.assertItemsEqual([node_name], nodes)
 
     @inlineCallbacks
-    def _test_add_object_twice_fails(self, method):
-        # Trying to create the same object twice elicits an error.
+    def _test_add_object_twice(self, method):
+        # Adding an object twice is allowed.
         papi = self.get_provisioning_api()
-        object_name = yield method(papi)
-        expected = ExpectedException(
-            Fault, ".* seems unwise to overwrite this object")
-        with expected:
-            yield method(papi, object_name)
+        object_name1 = yield method(papi)
+        object_name2 = yield method(papi, object_name1)
+        self.assertEqual(object_name1, object_name2)
 
-    def test_add_distro_twice_fails(self):
-        return self._test_add_object_twice_fails(self.add_distro)
+    def test_add_distro_twice(self):
+        return self._test_add_object_twice(self.add_distro)
 
-    def test_add_profile_twice_fails(self):
-        return self._test_add_object_twice_fails(self.add_profile)
+    def test_add_profile_twice(self):
+        return self._test_add_object_twice(self.add_profile)
 
-    def test_add_node_twice_fails(self):
-        return self._test_add_object_twice_fails(self.add_node)
+    def test_add_node_twice(self):
+        return self._test_add_object_twice(self.add_node)
 
     @inlineCallbacks
     def test_modify_distros(self):
