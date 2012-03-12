@@ -81,21 +81,15 @@ class FakeSynchronousProvisioningAPI:
         self.power_status = {}
 
     def add_distro(self, name, initrd, kernel):
-        if name in self.distros:
-            raise Fault(1, "It seems unwise to overwrite this object")
         self.distros[name]["initrd"] = initrd
         self.distros[name]["kernel"] = kernel
         return name
 
     def add_profile(self, name, distro):
-        if name in self.profiles:
-            raise Fault(1, "It seems unwise to overwrite this object")
         self.profiles[name]["distro"] = distro
         return name
 
     def add_node(self, name, profile, metadata):
-        if name in self.nodes:
-            raise Fault(1, "It seems unwise to overwrite this object")
         self.nodes[name]["profile"] = profile
         self.nodes[name]["mac_addresses"] = []
         self.nodes[name]["metadata"] = metadata
