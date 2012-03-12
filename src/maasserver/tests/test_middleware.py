@@ -136,16 +136,17 @@ class APIErrorsMiddlewareTest(TestCase):
 
 class ExceptionLoggerMiddlewareTest(TestCase):
 
-    def setup_logger(self):
+    def set_up_logger(self, filename):
         tempfile = NamedTemporaryFile()
         logger = logging.getLogger('maas')
-        logger.addHandler(logging.handlers.RotatingFileHandler(tempfile.name))
+        logger.addHandler(logging.handlers.RotatingFileHandler(filename))
         return tempfile
 
     def test_exception_logger_logs_error(self):
-        log_file = self.setup_logger()
-        middleware = ExceptionLoggerMiddleware()
-        request = fake_request("/middleware/api/hello")
-        middleware.process_exception(request, ValueError())
-        logger_content = open(log_file.name).read()
-        self.assertIn(" Exception ".center(79, "#"), logger_content)
+        error_text = factory.getRandomString()
+        with NamedTemporaryFile() as logfile:
+            self.set_up_logger(logfile.name)
+            ExceptionLoggerMiddleware().process_exception(
+                fake_request('/middleware/api/hello'),
+                ValueError(error_text))
+            self.assertIn(error_text, open(logfile.name).read())
