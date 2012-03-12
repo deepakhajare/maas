@@ -54,6 +54,7 @@ from piston.models import (
     Consumer,
     Token,
     )
+from provisioningserver.enum import POWER_TYPE_CHOICES
 
 # Special users internal to MaaS.
 SYSTEM_USERS = [
@@ -363,8 +364,11 @@ class Node(CommonInfo):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
-    architecture = models.CharField(max_length=10,
-        choices=ARCHITECTURE_CHOICES, blank=True)
+    architecture = models.CharField(
+        max_length=10, choices=ARCHITECTURE_CHOICES, blank=True)
+
+    power_type = models.CharField(
+        max_length=10, choices=POWER_TYPE_CHOICES, blank=True)
 
     objects = NodeManager()
 
