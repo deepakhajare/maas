@@ -10,12 +10,16 @@ from __future__ import (
 
 __metaclass__ = type
 
+import os
+
+from maas.development import *
 # SKIP, developement settings should override base settings.
 from maas.settings import *
-from maas.development import *
+
+
+MEDIA_ROOT = os.path.join(os.getcwd(), "media/demo")
 
 MIDDLEWARE_CLASSES += (
-    'maasserver.middleware.ConsoleExceptionMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
@@ -25,3 +29,34 @@ LONGPOLL_SERVER_URL = "http://localhost:4545/"
 PSERV_URL = "http://localhost:8001/api"
 
 RABBITMQ_PUBLISH = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(asctime)s %(name)s %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'maas': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+     }
+}

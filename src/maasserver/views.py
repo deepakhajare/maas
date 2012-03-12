@@ -19,6 +19,12 @@ import mimetypes
 import urllib2
 
 from django.conf import settings as django_settings
+import os
+
+from convoy.combo import (
+    combine_files,
+    parse_qs,
+    )
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm as PasswordForm
 from django.contrib.auth.models import User
@@ -26,6 +32,8 @@ from django.contrib.auth.views import logout as dj_logout
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotFound,
     HttpResponseRedirect,
     )
 from django.shortcuts import (
@@ -276,3 +284,29 @@ def settings_add_archive(request):
         'maasserver/settings_add_archive.html',
         {'form': form},
         context_instance=RequestContext(request))
+
+
+YUI_LOCATION = os.path.join(
+    os.path.dirname(__file__), 'static', 'jslibs', 'yui')
+
+
+def combo_view(request):
+    """Handle a request for combining a set of files."""
+    fnames = parse_qs(request.META.get("QUERY_STRING", ""))
+
+    if fnames:
+        if fnames[0].endswith('.js'):
+            content_type = 'text/javascript; charset=UTF-8'
+        elif fnames[0].endswith('.css'):
+            content_type = 'text/css'
+        else:
+            return HttpResponseBadRequest("Invalid file type requested.")
+        content = b"".join(
+            combine_files(
+               fnames, YUI_LOCATION, resource_prefix='/',
+               rewrite_urls=True))
+
+        return HttpResponse(
+            content_type=content_type, status=200, content=content)
+
+    return HttpResponseNotFound()

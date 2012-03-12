@@ -39,11 +39,10 @@ DATABASES = {
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
-MEDIA_ROOT = os.path.join(os.getcwd(), "tmp")
+MEDIA_ROOT = os.path.join(os.getcwd(), "media/development")
 
 INSTALLED_APPS += (
     'django.contrib.admin',
-    'django.contrib.admindocs',
     'maastesting',
     'debug_toolbar',
     'django_nose',
