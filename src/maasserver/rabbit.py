@@ -9,7 +9,12 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "RabbitExchange",
+    "RabbitQueue",
+    "RabbitMessaging",
+    "RabbitSession",
+    ]
 
 
 from amqplib import client_0_8 as amqp
