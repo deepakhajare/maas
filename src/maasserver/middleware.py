@@ -154,6 +154,7 @@ class APIErrorsMiddleware(ExceptionMiddleware):
 
 
 class ExceptionLoggerMiddleware:
+
     def process_exception(self, request, exception):
         import traceback
         import sys
