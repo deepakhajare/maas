@@ -49,17 +49,24 @@ class RabbitSession:
             finally:
                 self._connection = None
 
+    def getExchange(self, exchange_name):
+        return RabbitExchange(self, exchange_name)
+
+    def getQueue(self, exchange_name):
+        return RabbitQueue(self, exchange_name)
+
 
 class RabbitMessaging:
-    def __init__(self, exchange_name):
+
+    def __init__(self, session, exchange_name):
         self.exchange_name = exchange_name
+        self._session = session
         self._channel = None
-        self.session = RabbitSession()
 
     @property
     def channel(self):
         if self._channel is None or not self._channel.is_open:
-            self._channel = self.session.connection.channel()
+            self._channel = self._session.connection.channel()
             self._channel.exchange_declare(
                 self.exchange_name, type='fanout')
         return self._channel
@@ -76,8 +83,8 @@ class RabbitExchange(RabbitMessaging):
 
 class RabbitQueue(RabbitMessaging):
 
-    def __init__(self, exchange_name):
-        super(RabbitQueue, self).__init__(exchange_name)
+    def __init__(self, session, exchange_name):
+        super(RabbitQueue, self).__init__(session, exchange_name)
         self.queue_name = self.channel.queue_declare(
             nowait=False, auto_delete=False,
             arguments={"x-expires": 300000})[0]
