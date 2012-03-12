@@ -20,6 +20,7 @@ from abc import (
     abstractproperty,
     )
 import json
+import logging
 import re
 
 from django.conf import settings
@@ -59,8 +60,10 @@ class AccessMiddleware:
     def __init__(self):
         # URL prefixes that do not require authentication by Django.
         public_url_roots = [
-            # Login/logout pages: must be visible to anonymous users.
+            # Login page: must be visible to anonymous users.
             reverse('login'),
+            # The combo loader is publicly accessible.
+            '^/' + re.escape(settings.YUI_COMBO_URL),
             # Static resources are publicly visible.
             settings.STATIC_URL,
             reverse('favicon'),
@@ -150,11 +153,12 @@ class APIErrorsMiddleware(ExceptionMiddleware):
     path_regex = settings.API_URL_REGEXP
 
 
-class ConsoleExceptionMiddleware:
+class ExceptionLoggerMiddleware:
+
     def process_exception(self, request, exception):
         import traceback
         import sys
         exc_info = sys.exc_info()
-        print(" Exception ".center(79, "#"))
-        print(''.join(traceback.format_exception(*exc_info)))
-        print("#" * 79)
+        logger = logging.getLogger('maas.maasserver')
+        logger.error(" Exception: %s ".center(79, "#") % unicode(exception))
+        logger.error(''.join(traceback.format_exception(*exc_info)))
