@@ -28,7 +28,7 @@ from django.db.models.signals import (
     post_save,
     )
 from maasserver.models import Node
-from maasserver.rabbit import RabbitExchange
+from maasserver.rabbit import RabbitSession
 
 # This is the name of the exchange where changes to MaaS's model objects will
 # be published.
@@ -124,5 +124,7 @@ class MaaSMessenger(MessengerBase):
 
 
 if settings.RABBITMQ_PUBLISH:
-    exchange = RabbitExchange(MODEL_EXCHANGE_NAME)
-    MaaSMessenger(Node, exchange).register()
+    session = RabbitSession()
+    MaaSMessenger(Node, session.getExchange(MODEL_EXCHANGE_NAME)).register()
+else:
+    session = None
