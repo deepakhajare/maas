@@ -13,6 +13,8 @@ __all__ = []
 
 import httplib
 import json
+import logging
+from tempfile import NamedTemporaryFile
 
 from django.core.exceptions import ValidationError
 from django.test.client import RequestFactory
@@ -22,6 +24,7 @@ from maasserver.exceptions import (
     )
 from maasserver.middleware import (
     APIErrorsMiddleware,
+    ExceptionLoggerMiddleware,
     ExceptionMiddleware,
     )
 from maasserver.testing import (
@@ -129,3 +132,20 @@ class APIErrorsMiddlewareTest(TestCase):
         exception = MaaSAPINotFound("Have you looked under the couch?")
         self.assertIsNone(
             middleware.process_exception(non_api_request, exception))
+
+
+class ExceptionLoggerMiddlewareTest(TestCase):
+
+    def setup_logger(self):
+        tempfile = NamedTemporaryFile()
+        logger = logging.getLogger('maas')
+        logger.addHandler(logging.handlers.RotatingFileHandler(tempfile.name))
+        return tempfile
+
+    def test_exception_logger_logs_error(self):
+        log_file = self.setup_logger()
+        middleware = ExceptionLoggerMiddleware()
+        request = fake_request("/middleware/api/hello")
+        middleware.process_exception(request, ValueError())
+        logger_content = open(log_file.name).read()
+        self.assertIn(" Exception ".center(79, "#"), logger_content)
