@@ -83,16 +83,8 @@ def compose_metadata(node):
 
 def select_profile_for_node(node, papi):
     """Select which profile a node should be configured for."""
-    nodes = papi.get_nodes_by_name([node.system_id])
-    if node.system_id in nodes:
-        return nodes[node.system_id]["profile"]
-    else:
-        # TODO: Choose a sensible profile.
-        profiles = papi.get_profiles()
-        assert len(profiles) >= 1, (
-            "No profiles defined in Cobbler; has "
-            "cobbler-ubuntu-import been run?")
-        return sorted(profiles)[0]
+    assert node.architecture, "Node's architecture is not known."
+    return "%s-%s" % ("precise", node.architecture)
 
 
 @receiver(post_save, sender=Node)

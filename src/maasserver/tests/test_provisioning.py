@@ -15,6 +15,7 @@ from urlparse import parse_qs
 
 from maasserver import provisioning
 from maasserver.models import (
+    ARCHITECTURE,
     Config,
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -26,6 +27,7 @@ from maasserver.provisioning import (
     select_profile_for_node,
     )
 from maasserver.testing import TestCase
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from metadataserver.models import NodeKey
 
@@ -36,7 +38,7 @@ class ProvisioningTests:
     # Must be defined in concrete subclasses.
     papi = None
 
-    def make_node_without_saving(self, arch='i386'):
+    def make_node_without_saving(self, arch=ARCHITECTURE.i386):
         """Create a Node, but don't save it to the database."""
         system_id = "node-%s" % factory.getRandomString()
         return Node(
@@ -60,18 +62,17 @@ class ProvisioningTests:
         profile_name = 'profile-%s' % shared_name
         return self.papi.add_profile(profile_name, distro)
 
-    def test_select_profile_for_node_selects_previously_chosen_profile(self):
-        node = factory.make_node()
-        # Set a different profile for the node.
-        profile = self.make_papi_profile()
-        metadata = compose_metadata(node)
-        self.papi.add_node(node.system_id, profile, metadata)
-        self.assertEqual(profile, select_profile_for_node(node, self.papi))
+    def test_select_profile_for_node_ignores_previously_chosen_profile(self):
+        node = factory.make_node(architecture='i386')
+        self.papi.modify_nodes(
+            {node.system_id: {'profile': self.make_papi_profile()}})
+        self.assertEqual(
+            'precise-i386', select_profile_for_node(node, self.papi))
 
     def test_select_profile_for_node_selects_Precise_and_right_arch(self):
         nodes = {
             arch: self.make_node_without_saving(arch=arch)
-            for arch in ['i386', 'amd64']}
+            for arch in map_enum(ARCHITECTURE).values()}
         self.assertItemsEqual(
             ['precise-%s' % arch for arch in nodes.keys()],
             [
@@ -81,8 +82,7 @@ class ProvisioningTests:
     def test_provision_post_save_Node_create(self):
         # The handler for Node's post-save signal registers the node in
         # its current state with the provisioning server.
-        node = self.make_node_without_saving(arch='i386')
-        node.id = factory.make_node().id
+        node = factory.make_node(architecture=ARCHITECTURE.i386)
         provisioning.provision_post_save_Node(
             sender=Node, instance=node, created=True)
         system_id = node.system_id
