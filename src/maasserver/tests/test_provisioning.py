@@ -23,8 +23,10 @@ from maasserver.provisioning import (
     get_metadata_server_url,
     )
 from maasserver.testing import TestCase
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from metadataserver.models import NodeKey
+from provisioningserver.enum import POWER_TYPE
 
 
 class ProvisioningTests:
@@ -49,6 +51,21 @@ class ProvisioningTests:
         distro_name = profile["distro"]
         distros = self.papi.get_distros_by_name([distro_name])
         self.assertEqual([distro_name], sorted(distros))
+
+    def test_provision_post_save_Node_registers_effective_power_type(self):
+        power_types = list(map_enum(POWER_TYPE).values()) + [None]
+        nodes = {
+            power_type: factory.make_node(power_type=power_type)
+            for power_type in power_types}
+        effective_power_types = {
+            power_type: nodes[power_type].get_effective_power_type()
+            for power_type in power_types}
+        pserv_nodes = self.papi.get_nodes_by_name([
+            node.system_id for node in nodes.values()])
+        pserv_power_types = {
+            power_type: pserv_nodes[nodes[power_type].system_id]['power_type']
+            for power_type in power_types}
+        self.assertEqual(effective_power_types, pserv_power_types)
 
     def test_provision_post_save_MACAddress_create(self):
         # Creating and saving a MACAddress updates the Node with which it's
