@@ -43,8 +43,7 @@ class ProvisioningTests:
         system_id = "node-%s" % factory.getRandomString()
         return Node(
             system_id=system_id, hostname=factory.getRandomString(),
-            status=NODE_STATUS.DEFAULT_STATUS, owner=factory.make_user(),
-            after_commissioning_action=(
+            status=NODE_STATUS.DEFAULT_STATUS, after_commissioning_action=(
                 NODE_AFTER_COMMISSIONING_ACTION.DEFAULT),
             architecture=arch)
 

@@ -55,6 +55,7 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertEqual(
             ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
             form.cleaned_data['mac_addresses'])
+        self.assertEqual(ARCHITECTURE.i386, form.cleaned_data['architecture'])
 
     def test_NodeWithMACAddressesForm_simple_invalid(self):
         # If the form only has one (invalid) MAC Address field to validate,
