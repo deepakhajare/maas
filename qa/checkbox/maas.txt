@@ -2,7 +2,7 @@ plugin: manual
 name: maas/update-images
 description:
  PURPOSE:
-     This test will test that the MaaS server offers an option to periodically update cloud images.
+     This will test that the MaaS server offers an option to periodically update cloud images.
  STEPS:
      1. Open the main page to the MaaS server
      2. Find the option in the MaaS server preferences to periodically update cloud images.
@@ -15,7 +15,7 @@ plugin: manual
 name: maas/cache-archives-locally
 description:
  PURPOSE:
-     This test will test that the MaaS server offers an option to cache archives locally.
+     This will test that the MaaS server offers an option to cache archives locally.
  STEPS:
      1. Open the main page to the MaaS server
      2. Find the option in the MaaS server preferences to cache archives
