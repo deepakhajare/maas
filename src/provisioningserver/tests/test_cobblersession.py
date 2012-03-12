@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from collections import namedtuple
 from random import Random
 from xmlrpclib import Fault
 
@@ -127,6 +128,26 @@ class RecordingSession(cobblerclient.CobblerSession):
 
     def _make_twisted_proxy(self):
         return self.fake_proxy
+
+
+class StupidSession:
+    """This is a very stupid session that logs calls.
+
+    An unfired :class:`defer.Deferred` is returned from each call. The test is
+    responsible for firing these.
+    """
+
+    call_record = namedtuple("call_record", "d method args")
+    token_placeholder = "<TOKEN>"
+
+    def __init__(self):
+        self.calls = []
+
+    def call(self, method, *args):
+        d = defer.Deferred()
+        record = self.call_record(d, method, args)
+        self.calls.append(record)
+        return d
 
 
 def make_url_user_password():
@@ -429,6 +450,30 @@ class TestCobblerObject(TestCase):
         with ExpectedException(AssertionError):
             yield cobblerclient.CobblerSystem.new(
                 session, 'incomplete_system', {})
+
+    def test_new_attempts_edit_before_creating_new(self):
+        session = StupidSession()
+        cobblerclient.CobblerSystem.new(
+            session, "carcass", {"profile": "heartwork"})
+        # Initially xapi_object_edit is called...
+        self.assertEqual(
+            ["xapi_object_edit"],
+            [call.method for call in session.calls])
+        # ... requesting an "edit" operation.
+        call = session.calls[-1]
+        self.assertEqual(
+            ("system", "carcass", "edit"), call.args[:3])
+        # When Cobbler has not seen the object before it raises an error.
+        fault = Fault(1, fake_object_not_found_string("system", "carcass"))
+        call.d.errback(fault)
+        # Now xapi_object_edit has been called for a second time...
+        self.assertEqual(
+            ["xapi_object_edit", "xapi_object_edit"],
+            [call.method for call in session.calls])
+        # ... requesting an "add" operation.
+        call = session.calls[-1]
+        self.assertEqual(
+            ("system", "carcass", "add"), call.args[:3])
 
     @inlineCallbacks
     def test_modify(self):

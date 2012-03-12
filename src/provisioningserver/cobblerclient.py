@@ -499,9 +499,20 @@ class CobblerObject:
         if "clobber" in args:
             del args["clobber"]
 
-        success = yield session.call(
-            'xapi_object_edit', cls.object_type, name, 'add', args,
-            session.token_placeholder)
+        try:
+            # Attempt to edit an existing object.
+            success = yield session.call(
+                'xapi_object_edit', cls.object_type, name, 'edit', args,
+                session.token_placeholder)
+        except xmlrpclib.Fault as e:
+            # If it was not found, add the object.
+            if looks_like_object_not_found(e):
+                success = yield session.call(
+                    'xapi_object_edit', cls.object_type, name, 'add', args,
+                    session.token_placeholder)
+            else:
+                raise
+
         if not success:
             raise RuntimeError(
                 "Cobbler refused to create %s '%s'.  Attributes: %s"
