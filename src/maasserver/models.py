@@ -54,7 +54,10 @@ from piston.models import (
     Consumer,
     Token,
     )
-from provisioningserver.enum import POWER_TYPE_CHOICES
+from provisioningserver.enum import (
+    POWER_TYPE,
+    POWER_TYPE_CHOICES,
+    )
 
 # Special users internal to MaaS.
 SYSTEM_USERS = [
@@ -368,7 +371,7 @@ class Node(CommonInfo):
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=True)
 
     power_type = models.CharField(
-        max_length=10, choices=POWER_TYPE_CHOICES, blank=True)
+        max_length=10, choices=POWER_TYPE_CHOICES, null=True, blank=True)
 
     objects = NodeManager()
 
@@ -408,6 +411,17 @@ class Node(CommonInfo):
         mac = MACAddress.objects.get(mac_address=mac_address, node=self)
         if mac:
             mac.delete()
+
+    def get_effective_power_type(self):
+        """Get power-type to use for this node.
+
+        If no power type has been set for the node, get the configured
+        default.
+        """
+        if self.power_type:
+            return self.power_type
+        else:
+            return Config.objects.get_config('node_power_type')
 
     def acquire(self, by_user):
         """Mark commissioned node as acquired by the given user."""
@@ -734,6 +748,7 @@ def get_default_config():
         # Commissioning section configuration.
         'after_commissioning': NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
         'check_compatibility': False,
+        'node_power_type': POWER_TYPE.WAKE_ON_LAN,
         # Ubuntu section configuration.
         'fallback_master_archive': False,
         'keep_mirror_list_uptodate': False,
