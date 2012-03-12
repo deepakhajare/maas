@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = [
     "MaaSMessenger",
     "MessengerBase",
+    "messaging",
     ]
 
 
@@ -125,6 +126,6 @@ class MaaSMessenger(MessengerBase):
 
 if settings.RABBITMQ_PUBLISH:
     messaging = RabbitMessaging(MODEL_EXCHANGE_NAME)
-    MaaSMessenger(Node, messaging.getExchange().register())
+    MaaSMessenger(Node, messaging.getExchange()).register()
 else:
     session = None
