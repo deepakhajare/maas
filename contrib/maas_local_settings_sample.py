@@ -26,7 +26,7 @@ LOGGING = {
         'log': {
             'level': 'ERROR',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/var/log/maas.log',
+            'filename': '/var/log/maas/maas.log',
             'formatter': 'simple',
         },
     },
