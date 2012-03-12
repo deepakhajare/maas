@@ -96,6 +96,15 @@ def looks_like_auth_expiry(exception):
         return "invalid token: " in exception.faultString
 
 
+def looks_like_object_not_found(exception):
+    """Does `exception` look like an unknown object failure?"""
+    if not hasattr(exception, 'faultString'):
+        # An unknown object failure would come as an xmlrpclib.Fault.
+        return False
+    else:
+        return "internal error, unknown " in exception.faultString
+
+
 class CobblerSession:
     """A session on the Cobbler XMLRPC API.
 

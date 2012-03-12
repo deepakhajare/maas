@@ -23,7 +23,6 @@ __all__ = [
     ]
 
 from functools import wraps
-from xmlrpclib import Fault
 
 from provisioningserver.interfaces import IProvisioningAPI
 from twisted.internet import defer

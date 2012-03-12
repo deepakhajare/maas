@@ -18,6 +18,7 @@ import fixtures
 from provisioningserver import cobblerclient
 from provisioningserver.testing.fakecobbler import (
     fake_auth_failure_string,
+    fake_object_not_found_string,
     fake_token,
     )
 from testtools.content import text_content
@@ -253,6 +254,20 @@ class TestCobblerSession(TestCase):
     def test_looks_like_auth_expiry_recognizes_auth_expiry(self):
         self.assertTrue(
             cobblerclient.looks_like_auth_expiry(make_auth_failure()))
+
+    def test_looks_like_object_not_found_for_regular_exception(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(RuntimeError("Error")))
+
+    def test_looks_like_object_not_found_for_other_Fault(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(
+                Fault(1, "Missing sprocket")))
+
+    def test_looks_like_object_not_found_recognizes_object_not_found(self):
+        error = Fault(1, fake_object_not_found_string("distro", "bob"))
+        self.assertTrue(
+            cobblerclient.looks_like_object_not_found(error))
 
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
