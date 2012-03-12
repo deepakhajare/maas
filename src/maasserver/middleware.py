@@ -160,5 +160,5 @@ class ExceptionLoggerMiddleware:
         import sys
         exc_info = sys.exc_info()
         logger = logging.getLogger('maas.maasserver')
-        logger.error(" Exception: %s ".center(79, "#") % exception.message)
+        logger.error(" Exception: %s ".center(79, "#") % unicode(exception))
         logger.error(''.join(traceback.format_exception(*exc_info)))
