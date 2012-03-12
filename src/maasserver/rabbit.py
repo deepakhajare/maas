@@ -49,14 +49,21 @@ class RabbitSession:
             finally:
                 self._connection = None
 
-    def getExchange(self, exchange_name):
-        return RabbitExchange(self, exchange_name)
-
-    def getQueue(self, exchange_name):
-        return RabbitQueue(self, exchange_name)
-
 
 class RabbitMessaging:
+
+    def __init__(self, exchange_name):
+        self.exchange_name = exchange_name
+        self._session = RabbitSession()
+
+    def getExchange(self):
+        return RabbitExchange(self._session, self.exchange_name)
+
+    def getQueue(self):
+        return RabbitQueue(self._session, self.exchange_name)
+
+
+class RabbitBase:
 
     def __init__(self, session, exchange_name):
         self.exchange_name = exchange_name
@@ -72,7 +79,7 @@ class RabbitMessaging:
         return self._channel
 
 
-class RabbitExchange(RabbitMessaging):
+class RabbitExchange(RabbitBase):
 
     def publish(self, message):
         msg = amqp.Message(message)
@@ -81,7 +88,7 @@ class RabbitExchange(RabbitMessaging):
             exchange=self.exchange_name, routing_key='', msg=msg)
 
 
-class RabbitQueue(RabbitMessaging):
+class RabbitQueue(RabbitBase):
 
     def __init__(self, session, exchange_name):
         super(RabbitQueue, self).__init__(session, exchange_name)
