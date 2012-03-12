@@ -24,5 +24,3 @@ class JSONFieldModel(models.Model):
 
 class MessagesTestModel(models.Model):
     name = models.CharField(max_length=255, unique=False)
-
-    _test = 3
