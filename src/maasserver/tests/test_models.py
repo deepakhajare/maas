@@ -679,9 +679,10 @@ class ConfigDefaultTest(TestCase, TestWithFixtures):
             "%s's" % name.capitalize(), default_config['maas_name'])
 
 
-# A utility class which tracks the calls to its 'call' method and
-# stores the arguments given to 'call' in 'self.calls'.
 class Listener:
+    """A utility class which tracks the calls to its 'call' method and
+    stores the arguments given to 'call' in 'self.calls'.
+    """
 
     def __init__(self):
         self.calls = []
@@ -756,6 +757,18 @@ class ConfigTest(TestCase):
 
         self.assertEqual(1, len(listener.calls))
         self.assertEqual(1, len(listener2.calls))
+
+    def test_manager_config_changed_connect_connects_multiple_same(self):
+        # If the same method is connected twice, it will only get called
+        # once.
+        listener = Listener()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.set_config(name, value)
+
+        self.assertEqual(1, len(listener.calls))
 
     def test_manager_config_changed_connect_connects_by_config_name(self):
         listener = Listener()

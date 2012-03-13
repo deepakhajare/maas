@@ -21,6 +21,7 @@ __all__ = [
     "UserProfile",
     ]
 
+from collections import defaultdict
 import copy
 import datetime
 from errno import ENOENT
@@ -759,7 +760,7 @@ class ConfigManager(models.Manager):
 
     def __init__(self):
         super(ConfigManager, self).__init__()
-        self._config_changed_connections = {}
+        self._config_changed_connections = defaultdict(set)
 
     def get_config(self, name, default=None):
         """Return the config value corresponding to the given config name.
@@ -820,15 +821,11 @@ class ConfigManager(models.Manager):
         >>>
         >>> Config.objects.config_changed_connect('config_name', callable)
         """
-        connections = self._config_changed_connections.setdefault(
-            config_name, [])
-        connections.append(method)
-        self._config_changed_connections[config_name] = connections
+        self._config_changed_connections[config_name].add(method)
 
     def _config_changed(self, sender, instance, created, **kwargs):
-        if instance.name in self._config_changed_connections:
-            for connection in self._config_changed_connections[instance.name]:
-                connection(sender, instance, created, **kwargs)
+        for connection in self._config_changed_connections[instance.name]:
+            connection(sender, instance, created, **kwargs)
 
 
 config_manager = ConfigManager()
