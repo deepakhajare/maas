@@ -14,7 +14,6 @@ __all__ = []
 
 from amqplib import client_0_8 as amqp
 from fixtures import MonkeyPatch
-from maasserver import rabbit
 from maasserver.rabbit import (
     RabbitBase,
     RabbitExchange,
@@ -23,7 +22,7 @@ from maasserver.rabbit import (
     RabbitSession,
     )
 from maasserver.testing.factory import factory
-from maastesting import TestCase
+from maastesting.testcase import TestCase
 from rabbitfixture.server import RabbitServer
 
 

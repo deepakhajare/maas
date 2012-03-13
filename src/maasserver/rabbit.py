@@ -65,7 +65,7 @@ class RabbitMessaging:
         return RabbitQueue(self._session, self.exchange_name)
 
 
-class RabbitBase:
+class RabbitBase(threading.local):
 
     def __init__(self, session, exchange_name):
         self.exchange_name = exchange_name
