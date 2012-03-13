@@ -40,6 +40,7 @@ from provisioningserver.cobblerclient import (
     CobblerSession,
     CobblerSystem,
     )
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
@@ -300,7 +301,8 @@ class ProvisioningAPITests:
         returnValue(profile_name)
 
     @inlineCallbacks
-    def add_node(self, papi, profile_name=None, metadata=None):
+    def add_node(self, papi, profile_name=None, power_type=None,
+                 metadata=None):
         """Creates a new node object via `papi`.
 
         Arranges for it to be deleted during test clean-up. If `profile_name`
@@ -310,10 +312,12 @@ class ProvisioningAPITests:
         """
         if profile_name is None:
             profile_name = yield self.add_profile(papi)
+        if power_type is None:
+            power_type = POWER_TYPE.WAKE_ON_LAN
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            fake_name(), profile_name, metadata)
+            fake_name(), profile_name, power_type, metadata)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_nodes_by_name,

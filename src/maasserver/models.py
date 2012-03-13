@@ -368,7 +368,8 @@ class Node(CommonInfo):
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
     architecture = models.CharField(
-        max_length=10, choices=ARCHITECTURE_CHOICES, blank=True)
+        max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
+        default=ARCHITECTURE.i386)
 
     power_type = models.CharField(
         max_length=10, choices=POWER_TYPE_CHOICES, null=True, blank=True)
