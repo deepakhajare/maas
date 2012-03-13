@@ -588,13 +588,10 @@ class ProvisioningAPITestsWithCobbler:
         for power_type in power_types:
             nodes[power_type] = yield self.add_node(
                 papi, power_type=power_type)
-        node_ids = {
-            power_type: node.system_id
-            for power_type, node in nodes.items()}
         cobbler_power_types = {}
-        for power_type, node_id in node_ids.items():
-            cobbler_node = yield CobblerSystem(papi.session, node_id)
-            cobbler_power_types[power_type] = cobbler_node['power_type']
+        for power_type, node_id in nodes.items():
+            attrs = yield CobblerSystem(papi.session, node_id).get_values()
+            cobbler_power_types[power_type] = attrs['power_type']
         self.assertItemsEqual(
             dict(zip(power_types, power_types)), cobbler_power_types)
 
