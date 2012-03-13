@@ -12,7 +12,6 @@
   <!--
   YUI().use(
     'maas.node_add', 'maas.node','maas.node_views', 'maas.utils',
-    'maas.longpoll',
     function (Y) {
     Y.on('load', function() {
       // Create Dashboard view.
@@ -36,23 +35,6 @@
 	  {srcNode: '.page-title-form'});
       title_widget.render();
 
-      Y.on("Node.updated", function() {
-		  Y.log("node updated");
-       });
-
-      Y.on("Node.created", function() {
-		  Y.log("node created");
-       });
-
-      Y.on("Node.deleted", function() {
-		  Y.log("node deleted");
-       });
-
-      // Start longpoll
-      Y.later(0, Y.maas.longpoll, function() {
-          var longpollmanager = Y.maas.longpoll.setupLongPollManager(
-          'maas_queue', '/longpoll/');
-      });
     });
   });
   // -->
