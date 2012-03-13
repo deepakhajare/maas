@@ -19,8 +19,8 @@ from maasserver.messages import (
     MessengerBase,
     )
 from maasserver.models import Node
-from maasserver.testing import TestModelTestCase
 from maasserver.testing.factory import factory
+from maasserver.testing.testcase import TestModelTestCase
 from maasserver.tests.models import MessagesTestModel
 
 
