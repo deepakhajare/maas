@@ -49,8 +49,8 @@ dev-db:
 	utilities/maasdb start ./db/ disposable
 
 test: bin/test.maas bin/test.pserv
-	bin/test.maas
-	bin/test.pserv
+	bin/test.maas -- -v
+	bin/test.pserv -v
 
 lint: sources = setup.py src templates utilities
 lint: bin/flake8
@@ -99,7 +99,7 @@ longpoll-stop:
 	{ test -e longpoll.pid && cat longpoll.pid; } | xargs --no-run-if-empty kill
 
 run: bin/maas dev-db pserv.pid longpoll.pid
-	bin/maas runserver 8000 --settings=maas.demo
+	bin/maas runserver 0.0.0.0:8000 --settings=maas.demo
 
 harness: bin/maas dev-db
 	bin/maas shell
