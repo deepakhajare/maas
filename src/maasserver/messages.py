@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = [
     "MaaSMessenger",
     "MessengerBase",
-    "messaging",
+    "get_messaging",
     ]
 
 
@@ -120,8 +120,10 @@ class MaaSMessenger(MessengerBase):
             instance.__class__.__name__, event_name)
 
 
-if settings.RABBITMQ_PUBLISH:
-    messaging = RabbitMessaging(MODEL_EXCHANGE_NAME)
-    MaaSMessenger(Node, messaging.getExchange()).register()
-else:
-    messaging = None
+def get_messaging():
+    if settings.RABBITMQ_PUBLISH:
+        messaging = RabbitMessaging(MODEL_EXCHANGE_NAME)
+        MaaSMessenger(Node, messaging.getExchange()).register()
+        return messaging
+    else:
+        return None

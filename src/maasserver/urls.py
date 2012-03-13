@@ -79,7 +79,9 @@ urlpatterns += patterns('maasserver.views',
 
 if django_settings.LONGPOLL_SERVER_URL is not None:
     urlpatterns += patterns('maasserver.views',
-        url(r'^%s$' % re.escape(django_settings.LONGPOLL_URL), proxy_to, name='proxy'),
+        url(
+            r'^%s$' % re.escape(django_settings.LONGPOLL_URL), proxy_to,
+            name='proxy'),
         )
 
 # URLs for admin users.

@@ -47,6 +47,8 @@ LOGIN_URL = '/accounts/login/'
 # None, the web app won't act as a proxy to the Longpoll server.
 LONGPOLL_SERVER_URL = None
 
+# The relative path where a proxy to the Longpoll server can be
+# reached.  Longpolling will be disabled in the UI if this is None.
 LONGPOLL_URL = 'longpoll/'
 
 if FORCE_SCRIPT_NAME is not None:
