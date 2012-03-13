@@ -42,9 +42,9 @@ from maasserver.models import (
     SYSTEM_USERS,
     UserProfile,
     )
-from maasserver.testing import TestCase
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
+from maasserver.testing.testcase import TestCase
 from metadataserver.models import NodeUserData
 from piston.models import (
     Consumer,
