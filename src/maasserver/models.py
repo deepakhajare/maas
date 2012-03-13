@@ -757,6 +757,10 @@ class ConfigManager(models.Manager):
 
     """
 
+    def __init__(self):
+        super(ConfigManager, self).__init__()
+        self._config_changed_connections = {}
+
     def get_config(self, name, default=None):
         """Return the config value corresponding to the given config name.
         Return None or the provided default if the config value does not
@@ -801,6 +805,27 @@ class ConfigManager(models.Manager):
         except Config.DoesNotExist:
             self.create(name=name, value=value)
 
+    def config_changed_connect(self, config_name, method):
+        """Connect a method to Django's 'update' signal for given config name.
+
+        :param config_name: The name of the config item to track.
+        :type config_name: basestring
+        :param method: The method to be called.
+        :type method: callable
+        """
+        connections = self._config_changed_connections.setdefault(
+            config_name, [])
+        connections.append(method)
+        self._config_changed_connections[config_name] = connections
+
+    def _config_changed(self, sender, instance, created, **kwargs):
+        if instance.name in self._config_changed_connections:
+            for connection in self._config_changed_connections[instance.name]:
+                connection(sender, instance, created, **kwargs)
+
+
+config_manager = ConfigManager()
+
 
 class Config(models.Model):
     """Configuration settings.
@@ -814,10 +839,14 @@ class Config(models.Model):
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
 
-    objects = ConfigManager()
+    objects = config_manager
 
     def __unicode__(self):
         return "%s: %s" % (self.name, self.value)
+
+
+# Connect config_manager._config_changed the post save signal of Config.
+post_save.connect(config_manager._config_changed, sender=Config)
 
 
 # Register the models in the admin site.
