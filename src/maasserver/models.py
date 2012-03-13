@@ -812,6 +812,13 @@ class ConfigManager(models.Manager):
         :type config_name: basestring
         :param method: The method to be called.
         :type method: callable
+
+        The provided callabe should follow Django's convention.  E.g:
+
+        >>> def callable(sender, instance, created, **kwargs):
+        >>>     pass
+        >>>
+        >>> Config.objects.config_changed_connect('config_name', callable)
         """
         connections = self._config_changed_connections.setdefault(
             config_name, [])
