@@ -71,6 +71,16 @@ class MessengerBaseTest(TestModelTestCase):
     def test_register_registers_update_signal(self):
         producer = FakeProducer()
         messenger = TestMessenger(MessagesTestModel, producer)
+        obj = MessagesTestModel(name=factory.getRandomString())
+        obj.save()
+        messenger.register()
+        obj.save()
+        self.assertEqual(
+            [[MESSENGER_EVENT.UPDATED, obj]], producer.messages)
+
+    def test_register_registers_created_signal(self):
+        producer = FakeProducer()
+        messenger = TestMessenger(MessagesTestModel, producer)
         messenger.register()
         obj = MessagesTestModel(name=factory.getRandomString())
         obj.save()
@@ -113,5 +123,5 @@ class MaaSMessengerTest(TestModelTestCase):
         self.assertItemsEqual(['instance', 'event_key'], list(decoded_msg))
         self.assertItemsEqual(
             ['id', 'name'], list(decoded_msg['instance']))
-        self.assertItemsEqual(
+        self.assertEqual(
             obj_name, decoded_msg['instance']['name'])
