@@ -49,8 +49,8 @@ dev-db:
 	utilities/maasdb start ./db/ disposable
 
 test: bin/test.maas bin/test.pserv
-	bin/test.maas -- -v
-	bin/test.pserv -v
+	bin/test.maas
+	bin/test.pserv
 
 lint: sources = setup.py src templates utilities
 lint: bin/flake8
@@ -102,7 +102,7 @@ run: bin/maas dev-db pserv.pid longpoll.pid
 	bin/maas runserver 0.0.0.0:8000 --settings=maas.demo
 
 harness: bin/maas dev-db
-	bin/maas shell
+	bin/maas shell --settings=maas.demo
 
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
