@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 
 import os
+from socket import gethostname
 
 # Use new style url tag:
 # https://docs.djangoproject.com/en/dev/releases/1.3/#changes-to-url-and-ssi
@@ -42,6 +43,12 @@ OOPS_REPOSITORY = 'logs'
 LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
+
+
+# Default URL where this MaaS can be found.  Configuration can, and
+# probably should, override this.
+DEFAULT_MAAS_URL = "http://%s/" % gethostname()
+
 
 if FORCE_SCRIPT_NAME is not None:
     LOGOUT_URL = FORCE_SCRIPT_NAME + LOGOUT_URL

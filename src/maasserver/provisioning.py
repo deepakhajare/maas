@@ -56,7 +56,9 @@ def get_provisioning_api_proxy():
 
 def get_metadata_server_url():
     """Return the URL where nodes can reach the metadata service."""
-    return "http://%s/metadata/" % Config.objects.get_config('metadata-host')
+    return (
+        "%s/metadata/"
+        % Config.objects.get_config('maas_url').rstrip('/'))
 
 
 def compose_metadata(node):
