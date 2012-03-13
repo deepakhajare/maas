@@ -20,7 +20,6 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-from functools import partial
 
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
@@ -49,14 +48,14 @@ class MessengerBase:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, klass, producer):
+    def __init__(self, model_class, producer):
         """
-        :param klass: The model class to track.
-        :type klass: django.db.models.Model
+        :param model_class: The model class to track.
+        :type model_class: django.db.models.Model
         :param producer: The producer used to publish events.
         :type producer: maasserer.rabbit.db.models.RabbitExchange
         """
-        self.klass = klass
+        self.model_class = model_class
         self.producer = producer
 
     @abstractmethod
@@ -75,37 +74,34 @@ class MessengerBase:
         self.producer.publish(message)
 
     def register(self):
-        update_obj = partial(self.update_obj)
-        update_obj.__name__ = self.update_obj.__name__
         post_save.connect(
-            receiver=update_obj, weak=False, sender=self.klass)
-        delete_obj = partial(self.delete_obj)
-        delete_obj.__name__ = self.delete_obj.__name__
+            receiver=self.update_obj, weak=False, sender=self.model_class)
         post_delete.connect(
-            receiver=delete_obj, weak=False, sender=self.klass)
+            receiver=self.delete_obj, weak=False, sender=self.model_class)
 
 
 class MaaSMessenger(MessengerBase):
     """A messenger tailored to suit MaaS' UI (JavaScript) requirements.
 
-    The format of the event's payload will be:
-    {
-        "event_key": "$ModelClass.$MESSENGER_EVENT",
-        "instance": jsonified instance
-    }
+    The format of the event's payload will be::
+
+        {
+            "event_key": "$ModelClass.$MESSENGER_EVENT",
+            "instance": jsonified instance
+        }
 
     For instance, when a Node is created, the event's payload will look like
-    this:
-    {
-        "event_key": "Node.created",
-        "instance": {
-            "hostname": "sun",
-            "system_id": "node-17ca41c2-6c39-11e1-a961-00219bd0a2de",
-            "architecture": "i386",
-            [...]
-        }
-    }
+    this::
 
+        {
+            "event_key": "Node.created",
+            "instance": {
+                "hostname": "sun",
+                "system_id": "node-17ca41c2-6c39-11e1-a961-00219bd0a2de",
+                "architecture": "i386",
+                [...]
+            }
+        }
     """
 
     def create_msg(self, event_name, instance):
@@ -128,4 +124,4 @@ if settings.RABBITMQ_PUBLISH:
     messaging = RabbitMessaging(MODEL_EXCHANGE_NAME)
     MaaSMessenger(Node, messaging.getExchange()).register()
 else:
-    session = None
+    messaging = None

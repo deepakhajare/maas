@@ -17,6 +17,8 @@ __all__ = [
     ]
 
 
+import threading
+
 from amqplib import client_0_8 as amqp
 from django.conf import settings
 
@@ -31,7 +33,7 @@ def connect():
         insist=False)
 
 
-class RabbitSession:
+class RabbitSession(threading.local):
 
     def __init__(self):
         self._connection = None
