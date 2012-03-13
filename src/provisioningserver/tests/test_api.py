@@ -28,6 +28,7 @@ from time import time
 from unittest import skipIf
 from urlparse import urlparse
 
+from maasserver.testing.enum import map_enum
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -576,6 +577,28 @@ class ProvisioningAPITests:
         pass
 
 
+class ProvisioningAPITestsWithCobbler:
+    """Provisioning API tests that also access a real, or fake, Cobbler."""
+
+    @inlineCallbacks
+    def test_add_node_sets_power_type(self):
+        papi = self.get_provisioning_api()
+        power_types = list(map_enum(POWER_TYPE).values())
+        nodes = {}
+        for power_type in power_types:
+            nodes[power_type] = yield self.add_node(
+                papi, power_type=power_type)
+        node_ids = {
+            power_type: node.system_id
+            for power_type, node in nodes.items()}
+        cobbler_power_types = {}
+        for power_type, node_id in node_ids.items():
+            cobbler_node = yield CobblerSystem(papi.session, node_id)
+            cobbler_power_types[power_type] = cobbler_node['power_type']
+        self.assertItemsEqual(
+            dict(zip(power_types, power_types)), cobbler_power_types)
+
+
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
 
@@ -587,7 +610,9 @@ class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
         return FakeAsynchronousProvisioningAPI()
 
 
-class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests, TestCase):
+class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
+                                         ProvisioningAPITestsWithCobbler,
+                                         TestCase):
     """Test :class:`ProvisioningAPI` with a fake Cobbler instance.
 
     Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
@@ -608,7 +633,9 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests, TestCase):
         self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
-class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests, TestCase):
+class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
+                                         ProvisioningAPITestsWithCobbler,
+                                         TestCase):
     """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
     The URL for the Cobbler instance must be provided in the
