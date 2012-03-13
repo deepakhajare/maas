@@ -18,6 +18,13 @@ __all__ = [
 class POWER_TYPE:
     """Choice of mechanism to control a node's power."""
 
+    # The null value.  Set this to indicate that the value should be
+    # taken from the configured default.
+    # Django doesn't deal well with null strings, so we're forced to use
+    # the empty string instead.  Hopefully this will be replaced with
+    # None at some point.
+    DEFAULT = ''
+
     # Use virsh (for virtual machines).
     VIRSH = 'virsh'
 

@@ -584,6 +584,9 @@ class ProvisioningAPITestsWithCobbler:
     def test_add_node_sets_power_type(self):
         papi = self.get_provisioning_api()
         power_types = list(map_enum(POWER_TYPE).values())
+        # The DEFAULT value does not exist as far as the provisioning
+        # server is concerned.
+        power_types.remove(POWER_TYPE.DEFAULT)
         nodes = {}
         for power_type in power_types:
             nodes[power_type] = yield self.add_node(

@@ -55,7 +55,7 @@ class IProvisioningAPI_Template:
 
         :param profile: Name of profile to associate the node with.
         :param power_type: A choice of power-control method, as in
-            :class:POWER_TYPE.
+            :class:`POWER_TYPE`.
         :param metadata: Dict of ks_meta items to pre-seed into the node.
             Should include maas-metadata-url (URL for the metadata service)
             and maas-metadata-credentials (OAuth token for accessing the

@@ -90,7 +90,7 @@ class ProvisioningTests:
         self.assertEqual("precise-i386", pserv_node["profile"])
 
     def test_provision_post_save_Node_registers_effective_power_type(self):
-        power_types = list(map_enum(POWER_TYPE).values()) + [None]
+        power_types = list(map_enum(POWER_TYPE).values())
         nodes = {
             power_type: factory.make_node(power_type=power_type)
             for power_type in power_types}

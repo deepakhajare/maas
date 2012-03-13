@@ -93,7 +93,8 @@ class NodeTest(TestCase):
 
     def test_get_effective_power_type_defaults_to_config(self):
         power_types = list(map_enum(POWER_TYPE).values())
-        node = factory.make_node(power_type=None)
+        power_types.remove(POWER_TYPE.DEFAULT)
+        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
         effective_types = []
         for power_type in power_types:
             Config.objects.set_config('node_power_type', power_type)
@@ -102,11 +103,17 @@ class NodeTest(TestCase):
 
     def test_get_effective_power_type_reads_node_field(self):
         power_types = list(map_enum(POWER_TYPE).values())
+        power_types.remove(POWER_TYPE.DEFAULT)
         nodes = [
             factory.make_node(power_type=power_type)
             for power_type in power_types]
         self.assertEqual(
             power_types, [node.get_effective_power_type() for node in nodes])
+
+    def test_get_effective_power_type_rejects_default_as_config_value(self):
+        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
+        Config.objects.set_config('node_power_type', POWER_TYPE.DEFAULT)
+        self.assertRaises(ValueError, node.get_effective_power_type)
 
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
