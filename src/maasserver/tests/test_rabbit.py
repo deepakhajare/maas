@@ -13,6 +13,7 @@ __all__ = []
 
 
 from amqplib import client_0_8 as amqp
+from fixtures import MonkeyPatch
 from maasserver import rabbit
 from maasserver.rabbit import (
     RabbitBase,
@@ -32,12 +33,9 @@ class RabbitTestCase(TestCase):
         super(RabbitTestCase, self).setUp()
         self.rabbit_server = self.useFixture(RabbitServer())
         self.rabbit_env = self.rabbit_server.runner.environment
-        self.old_connect = rabbit.connect
-        rabbit.connect = self.rabbit_env.get_connection
-
-    def tearDown(self):
-        super(RabbitTestCase, self).tearDown()
-        rabbit.connect = self.old_connect
+        patch = MonkeyPatch(
+            "maasserver.rabbit.connect", self.rabbit_env.get_connection)
+        self.useFixture(patch)
 
     def get_command_output(self, command):
         # Returns the output of the given rabbit command.
@@ -67,7 +65,7 @@ class TestRabbitMessaging(RabbitTestCase):
         exchange_name = factory.getRandomString()
         messaging = RabbitMessaging(exchange_name)
         exchange = messaging.getExchange()
-        self.assertTrue(isinstance(exchange, RabbitExchange))
+        self.assertIsInstance(exchange, RabbitExchange)
         self.assertEqual(messaging._session, exchange._session)
         self.assertEqual(exchange_name, exchange.exchange_name)
 
@@ -75,7 +73,7 @@ class TestRabbitMessaging(RabbitTestCase):
         exchange_name = factory.getRandomString()
         messaging = RabbitMessaging(exchange_name)
         queue = messaging.getQueue()
-        self.assertTrue(isinstance(queue, RabbitQueue))
+        self.assertIsInstance(queue, RabbitQueue)
         self.assertEqual(messaging._session, queue._session)
         self.assertEqual(exchange_name, queue.exchange_name)
 
@@ -85,7 +83,7 @@ class TestRabbitBase(RabbitTestCase):
     def test_rabbitbase_contains_session(self):
         exchange_name = factory.getRandomString()
         rabbitbase = RabbitBase(RabbitSession(), exchange_name)
-        self.assertTrue(isinstance(rabbitbase._session, RabbitSession))
+        self.assertIsInstance(rabbitbase._session, RabbitSession)
 
     def test_base_has_exchange_name(self):
         exchange_name = factory.getRandomString()
