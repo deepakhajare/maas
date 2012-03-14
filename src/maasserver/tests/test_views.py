@@ -88,6 +88,12 @@ class TestSnippets(LoggedInTestCase):
         self.assertSnippetExistsAndContains(
             response.content, '#add-architecture', 'select#id_architecture')
 
+    def test_after_commissioning_action_snippet(self):
+        response = self.client.get('/')
+        self.assertSnippetExistsAndContains(
+            response.content, '#add-node',
+            'select#id_after_commissioning_action')
+
 
 class TestComboLoaderView(TestCase):
     """Test combo loader view."""
