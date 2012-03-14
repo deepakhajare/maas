@@ -76,29 +76,33 @@ clean:
 distclean: clean pserv-stop longpoll-stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build dist logs parts
+	$(RM) -r bin build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
-pserv.pid: bin/twistd.pserv
-	bin/twistd.pserv --pidfile=$@ maas-pserv --config-file=etc/pserv.yaml
+run/pserv.pid: | bin/twistd.pserv etc/pserv.yaml
+	bin/twistd.pserv --logfile=/dev/null --pidfile=$@ \
+	    maas-pserv --config-file=etc/pserv.yaml
 
-pserv-start: pserv.pid
+pserv-start: run/pserv.pid
 
+pserv-stop: pidfile=run/pserv.pid
 pserv-stop:
-	{ test -e pserv.pid && cat pserv.pid; } | xargs --no-run-if-empty kill
+	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-longpoll.pid: bin/twistd.longpoll
-	bin/twistd.longpoll --pidfile=$@ txlongpoll -u guest -a guest -f 4545
+run/longpoll.pid: | bin/twistd.longpoll etc/txlongpoll.yaml
+	bin/twistd.longpoll --logfile=/dev/null --pidfile=$@ \
+	    txlongpoll --config-file=etc/txlongpoll.yaml
 
-longpoll-start: longpoll.pid
+longpoll-start: run/longpoll.pid
 
+longpoll-stop: pidfile=run/longpoll.pid
 longpoll-stop:
-	{ test -e longpoll.pid && cat longpoll.pid; } | xargs --no-run-if-empty kill
+	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run: bin/maas dev-db pserv.pid longpoll.pid
+run: bin/maas dev-db run/pserv.pid run/longpoll.pid
 	bin/maas runserver 0.0.0.0:8000 --settings=maas.demo
 
 harness: bin/maas dev-db
@@ -106,7 +110,6 @@ harness: bin/maas dev-db
 
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
-
 
 checkbox: config=checkbox/plugins/jobs_info/directories=$(PWD)/qa/checkbox
 checkbox:

@@ -10,6 +10,7 @@
 ## running server.
 #
 # logfile: "pserv.log"
+logfile: "logs/pserv.log"
 
 ## OOPS configuration (optional).
 #

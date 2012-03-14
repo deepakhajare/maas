@@ -22,7 +22,7 @@ MIDDLEWARE_CLASSES += (
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
-# This should match the setting in Makefile:pserv.pid.
+# This should match the setting in /etc/pserv.yaml.
 PSERV_URL = "http://localhost:8001/api"
 
 RABBITMQ_PUBLISH = True
