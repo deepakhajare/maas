@@ -31,7 +31,7 @@ filter_installed_packages() {
 new_pkgs=$(filter_installed_packages $pkgs)
 if [ -n "$new_pkgs" ]; then
     echo "need to install: ${new_pkgs}"
-    sudo apt-get update -qq || /bin/true
+    sudo apt-get update -q || /bin/true
     sudo apt-get install -y $pkgs </dev/null
 fi
 
