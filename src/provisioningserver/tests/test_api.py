@@ -18,6 +18,7 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
+from base64 import b64decode
 from itertools import (
     count,
     islice,
@@ -102,12 +103,14 @@ class TestFunctions(TestCase):
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
                 },
+            "power_type": "virsh",
             "ju": "nk",
             }
         expected = {
             "name": "iced",
             "profile": "earth",
             "mac_addresses": ["12:34:56:78:9a:bc"],
+            "power_type": "virsh",
             }
         observed = cobbler_to_papi_node(data)
         self.assertEqual(expected, observed)
@@ -116,12 +119,14 @@ class TestFunctions(TestCase):
         data = {
             "name": "iced",
             "profile": "earth",
+            "power_type": "ether_wake",
             "ju": "nk",
             }
         expected = {
             "name": "iced",
             "profile": "earth",
             "mac_addresses": [],
+            "power_type": "ether_wake",
             }
         observed = cobbler_to_papi_node(data)
         self.assertEqual(expected, observed)
@@ -327,8 +332,7 @@ class ProvisioningAPITests:
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            name=name, profile=profile_name, power_type=power_type,
-            metadata=metadata)
+            name, profile_name, power_type, metadata)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_nodes_by_name,
@@ -629,6 +633,7 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
         node_name = yield self.add_node(papi, metadata=metadata)
         attrs = yield CobblerSystem(papi.session, node_name).get_values()
         preseed = attrs['ks_meta']['MAAS_PRESEED']
+        preseed = b64decode(preseed)
         self.assertIn(metadata['maas-metadata-url'], preseed)
         self.assertIn(metadata['maas-metadata-credentials'], preseed)
 

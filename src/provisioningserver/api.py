@@ -13,6 +13,7 @@ __all__ = [
     "ProvisioningAPI",
     ]
 
+from base64 import b64encode
 from functools import partial
 from itertools import count
 
@@ -53,6 +54,7 @@ def cobbler_to_papi_node(data):
             for mac_address in mac_addresses
             if not mac_address.isspace()
             ],
+        "power_type": data["power_type"],
         }
 
 cobbler_mapping_to_papi_nodes = partial(
@@ -193,9 +195,10 @@ class ProvisioningAPI:
         assert isinstance(profile, basestring)
         assert power_type in (POWER_TYPE.VIRSH, POWER_TYPE.WAKE_ON_LAN)
         assert isinstance(metadata, dict)
+        preseed = b64encode(metadata_preseed % metadata)
         attributes = {
             "profile": profile,
-            "ks_meta": {"MAAS_PRESEED": metadata_preseed % metadata},
+            "ks_meta": {"MAAS_PRESEED": preseed},
             "power_type": power_type,
             }
         system = yield CobblerSystem.new(self.session, name, attributes)
