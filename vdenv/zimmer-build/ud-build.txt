@@ -39,9 +39,8 @@ bucket:
    # if local apt is configured to use a proxy, modify
    # cobbler to tell nodes to use that proxy. (LP: #914202)
    if [ "${PROXY_COPY_SYS_TO_COBBLER:-1}" != "0" ] &&
-      _proxy=$(apt-config dump | awk '$1 == "Acquire::HTTP::Proxy" {
-            gsub(/\"/,"",$2); sub(/;$/,"",$2); print $2 }') &&
-      [ -n "$_proxy" ]; then
+      apt_proxy="" && out=$(apt-config shell apt_proxy Acquire::HTTP::Proxy) &&
+      eval $out && [ -n "$apt_proxy" ]; then
       fname=/var/lib/cobbler/snippets/orchestra_proxy
       [ "${fname}.dist" -ef "$fname" ] || cp "$fname" "$fname.dist"
       sed "s,\(.*mirror/http/proxy string \).*,\1${apt_proxy}," \
