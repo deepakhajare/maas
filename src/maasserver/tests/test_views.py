@@ -13,10 +13,13 @@ __all__ = []
 
 import httplib
 
+from django.conf import settings
 from django.conf.urls.defaults import patterns
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
+from maasserver import views
+from maasserver.messages import get_messaging
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -28,6 +31,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.views import get_longpoll_context
 
 
 def get_prefixed_form_data(prefix, data):
@@ -64,6 +68,39 @@ class Test404500(LoggedInTestCase):
             ['Internal server error.'],
             [elem.text.strip() for elem in
                 doc.cssselect('h2')])
+
+
+class TestSnippets(LoggedInTestCase):
+
+    def assertTemplateExistsAndContains(self, content, template_selector,
+                                        contains_selector):
+        """Assert that the provided html 'content' contains a snippet as
+        selected by 'template_selector' which in turn contains an element
+        selected by 'contains_selector'.
+        """
+        doc = fromstring(content)
+        snippets = doc.cssselect(template_selector)
+        # The snippet exists.
+        self.assertEqual(1, len(snippets))
+        # It contains the required element.
+        selects = fromstring(snippets[0].text).cssselect(contains_selector)
+        self.assertEqual(1, len(selects))
+
+    def test_architecture_snippet(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-architecture', 'select#id_architecture')
+
+    def test_hostname(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-node', 'input#id_hostname')
+
+    def test_after_commissioning_action_snippet(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-node',
+            'select#id_after_commissioning_action')
 
 
 class TestComboLoaderView(TestCase):
@@ -105,6 +142,34 @@ class TestComboLoaderView(TestCase):
         response = self.client.get('/combo/?file.wrongextension')
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual("Invalid file type requested.", response.content)
+
+
+class TestUtilities(TestCase):
+
+    def patch_settings(self, name, value):
+        old_value = getattr(settings, name)
+        setattr(settings, name, value)
+        self.addCleanup(setattr, settings, name, old_value)
+
+    def test_get_longpoll_context_empty_if_rabbitmq_publish_is_none(self):
+        self.patch(settings, 'RABBITMQ_PUBLISH', None)
+        self.patch(views, 'messaging', get_messaging())
+        self.assertEqual({}, get_longpoll_context())
+
+    def test_get_longpoll_context_empty_if_longpoll_url_is_None(self):
+        self.patch(settings, 'LONGPOLL_URL', None)
+        self.patch(views, 'messaging', get_messaging())
+        self.assertEqual({}, get_longpoll_context())
+
+    def test_get_longpoll_context(self):
+        longpoll = factory.getRandomString()
+        self.patch(settings, 'LONGPOLL_URL', longpoll)
+        self.patch(settings, 'RABBITMQ_PUBLISH', True)
+        self.patch(views, 'messaging', get_messaging())
+        context = get_longpoll_context()
+        self.assertItemsEqual(
+            ['LONGPOLL_URL', 'longpoll_queue'], list(context))
+        self.assertEqual(longpoll, context['LONGPOLL_URL'])
 
 
 class UserPrefsViewTest(LoggedInTestCase):
