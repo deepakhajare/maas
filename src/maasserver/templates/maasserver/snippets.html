@@ -9,11 +9,7 @@
 <script type="text/x-template" id="add-architecture">
   <p>
     <label for="id_architecture">Architecture</label>
-    <select id="id_architecture" name="architecture">
-      {% for arch, name in ARCHITECTURES_CHOICES %}
-          <option value="{{ arch }}">{{ name }}</option>
-      {% endfor %}
-    </select>
+    {{ node_form.architecture }}
   </p>
 </script>
 <script type="text/x-template" id="add-node">

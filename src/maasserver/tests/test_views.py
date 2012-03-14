@@ -66,6 +66,29 @@ class Test404500(LoggedInTestCase):
                 doc.cssselect('h2')])
 
 
+class TestSnippets(LoggedInTestCase):
+
+    def assertSnippetExistsAndContains(self, content, snippet_selector,
+                                       contains_selector):
+        """Assert that the provided html 'content' contains a snippet as
+        selected by 'snippet_selector' which in turn contains an element
+        selected by 'contains_selector'.
+        """
+        doc = fromstring(content)
+        arch_snippets = doc.cssselect(snippet_selector)
+        # The snippet exists.
+        self.assertEqual(1, len(arch_snippets))
+        # It contains the required element.
+        selects = fromstring(
+            arch_snippets[0].text).cssselect(contains_selector)
+        self.assertEqual(1, len(selects))
+
+    def test_architecture_snippet(self):
+        response = self.client.get('/')
+        self.assertSnippetExistsAndContains(
+            response.content, '#add-architecture', 'select#id_architecture')
+
+
 class TestComboLoaderView(TestCase):
     """Test combo loader view."""
 
