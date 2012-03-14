@@ -14,6 +14,7 @@ __all__ = [
     ]
 
 from urllib import urlencode
+from urlparse import urljoin
 import warnings
 import xmlrpclib
 
@@ -56,7 +57,7 @@ def get_provisioning_api_proxy():
 
 def get_metadata_server_url():
     """Return the URL where nodes can reach the metadata service."""
-    return "http://%s/metadata/" % Config.objects.get_config('metadata-host')
+    return urljoin(Config.objects.get_config('maas_url'), "metadata/")
 
 
 def compose_metadata(node):
@@ -94,9 +95,7 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
     profile = select_profile_for_node(instance, papi)
     power_type = instance.get_effective_power_type()
     metadata = compose_metadata(instance)
-    papi.add_node(
-        name=instance.system_id, profile=profile, power_type=power_type,
-        metadata=metadata)
+    papi.add_node(instance.system_id, profile, power_type, metadata)
 
 
 def set_node_mac_addresses(node):
