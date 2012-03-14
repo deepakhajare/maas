@@ -68,24 +68,23 @@ class Test404500(LoggedInTestCase):
 
 class TestSnippets(LoggedInTestCase):
 
-    def assertSnippetExistsAndContains(self, content, snippet_selector,
-                                       contains_selector):
+    def assertTemplateExistsAndContains(self, content, template_selector,
+                                        contains_selector):
         """Assert that the provided html 'content' contains a snippet as
-        selected by 'snippet_selector' which in turn contains an element
+        selected by 'template_selector' which in turn contains an element
         selected by 'contains_selector'.
         """
         doc = fromstring(content)
-        arch_snippets = doc.cssselect(snippet_selector)
+        snippets = doc.cssselect(template_selector)
         # The snippet exists.
-        self.assertEqual(1, len(arch_snippets))
+        self.assertEqual(1, len(snippets))
         # It contains the required element.
-        selects = fromstring(
-            arch_snippets[0].text).cssselect(contains_selector)
+        selects = fromstring(snippets[0].text).cssselect(contains_selector)
         self.assertEqual(1, len(selects))
 
     def test_architecture_snippet(self):
         response = self.client.get('/')
-        self.assertSnippetExistsAndContains(
+        self.assertTemplateExistsAndContains(
             response.content, '#add-architecture', 'select#id_architecture')
 
     def test_hostname(self):
