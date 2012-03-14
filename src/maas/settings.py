@@ -43,8 +43,10 @@ LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
-# The location of the Longpoll server. If LONGPOLL_SERVER_URL is
-# None, the web app won't act as a proxy to the Longpoll server.
+# The location of the Longpoll server.
+# Set LONGPOLL_SERVER_URL to have the web app proxy requests to
+# a txlongpoll (note that this should only be required in a dev
+# environment).
 LONGPOLL_SERVER_URL = None
 
 # The relative path where a proxy to the Longpoll server can be

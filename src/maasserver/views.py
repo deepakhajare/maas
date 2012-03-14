@@ -57,7 +57,7 @@ from maasserver.forms import (
     ProfileForm,
     UbuntuForm,
     )
-from maasserver.messages import get_messaging
+from maasserver.messages import messaging
 from maasserver.models import (
     Node,
     SSHKeys,
@@ -71,7 +71,6 @@ def logout(request):
 
 
 def get_longpoll_context():
-    messaging = get_messaging()
     if messaging is not None and django_settings.LONGPOLL_URL is not None:
         return {
             'longpoll_queue': messaging.getQueue().name,
@@ -241,10 +240,11 @@ class AccountsEdit(UpdateView):
         return reverse('settings')
 
 
-def proxy_to(request):
+def proxy_to_longpoll(request):
     url = django_settings.LONGPOLL_SERVER_URL
     assert url is not None, (
         "LONGPOLL_SERVER_URL should point to a Longpoll server.")
+
     if 'QUERY_STRING' in request.META:
         url += '?' + request.META['QUERY_STRING']
     proxied_request = urllib2.urlopen(url)

@@ -121,9 +121,14 @@ class MaaSMessenger(MessengerBase):
 
 
 def get_messaging():
+    """Create a RabbitMessaging object using MODEL_EXCHANGE_NAME as its
+    exchange name.
+    """
     if settings.RABBITMQ_PUBLISH:
         messaging = RabbitMessaging(MODEL_EXCHANGE_NAME)
         MaaSMessenger(Node, messaging.getExchange()).register()
         return messaging
     else:
         return None
+
+messaging = get_messaging()
