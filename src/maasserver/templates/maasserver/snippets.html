@@ -6,6 +6,16 @@
     <div class="field-help">e.g AA:BB:CC:DD:EE:FF</div>
   </p>
 </script>
+<script type="text/x-template" id="add-architecture">
+  <p>
+    <label for="id_architecture">Architecture</label>
+    <select id="id_architecture" name="architecture">
+      {% for arch, name in ARCHITECTURES_CHOICES %}
+          <option value="{{ arch }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+  </p>
+</script>
 <script type="text/x-template" id="add-node">
   <p>
     <label for="id_hostname">Hostname
