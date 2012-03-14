@@ -4,7 +4,7 @@ build: \
     bin/buildout \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
-    bin/twistd.longpoll \
+    bin/twistd.txlongpoll \
     bin/py bin/ipy
 
 all: build doc
@@ -29,8 +29,8 @@ bin/test.pserv: bin/buildout buildout.cfg setup.py
 	bin/buildout install pserv-test
 	@touch --no-create $@
 
-bin/twistd.longpoll: bin/buildout buildout.cfg setup.py
-	bin/buildout install longpoll
+bin/twistd.txlongpoll: bin/buildout buildout.cfg setup.py
+	bin/buildout install txlongpoll
 	@touch --no-create $@
 
 bin/flake8: bin/buildout buildout.cfg setup.py
@@ -73,7 +73,7 @@ clean:
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 
-distclean: clean pserv-stop longpoll-stop
+distclean: clean pserv-stop txlongpoll-stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs/* parts
@@ -92,17 +92,17 @@ pserv-stop: pidfile=run/pserv.pid
 pserv-stop:
 	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run/longpoll.pid: | bin/twistd.longpoll etc/txlongpoll.yaml
-	bin/twistd.longpoll --logfile=/dev/null --pidfile=$@ \
+run/txlongpoll.pid: | bin/twistd.txlongpoll etc/txlongpoll.yaml
+	bin/twistd.txlongpoll --logfile=/dev/null --pidfile=$@ \
 	    txlongpoll --config-file=etc/txlongpoll.yaml
 
-longpoll-start: run/longpoll.pid
+txlongpoll-start: run/txlongpoll.pid
 
-longpoll-stop: pidfile=run/longpoll.pid
-longpoll-stop:
+txlongpoll-stop: pidfile=run/txlongpoll.pid
+txlongpoll-stop:
 	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run: bin/maas dev-db run/pserv.pid run/longpoll.pid
+run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid
 	bin/maas runserver 0.0.0.0:8000 --settings=maas.demo
 
 harness: bin/maas dev-db
@@ -118,5 +118,5 @@ checkbox:
 .PHONY: \
     build check checkbox clean dev-db distclean doc \
     harness lint pserv-start pserv-stop run \
-    longpoll-start longpoll-stop \
+    txlongpoll-start txlongpoll-stop \
     syncdb test sampledata
