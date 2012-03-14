@@ -88,6 +88,11 @@ class TestSnippets(LoggedInTestCase):
         self.assertSnippetExistsAndContains(
             response.content, '#add-architecture', 'select#id_architecture')
 
+    def test_hostname(self):
+        response = self.client.get('/')
+        self.assertSnippetExistsAndContains(
+            response.content, '#add-node', 'input#id_hostname')
+
     def test_after_commissioning_action_snippet(self):
         response = self.client.get('/')
         self.assertSnippetExistsAndContains(
