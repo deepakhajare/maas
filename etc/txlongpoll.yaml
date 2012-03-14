@@ -15,8 +15,10 @@ frontend:
 oops:
   ## Directory in which to place OOPS reports.
   # directory: ""
+  directory: "logs"
   ## The reporter used when generating OOPS reports.
   # reporter: "LONGPOLL"
+  reporter: "maas-txlongpoll"
 
 ## Message broker configuration.
 #

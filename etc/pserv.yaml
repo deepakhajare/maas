@@ -16,7 +16,9 @@ logfile: "logs/pserv.log"
 #
 oops:
   # directory:
+  directory: "logs"
   # reporter:
+  reporter: "maas-pserv"
 
 ## Message broker configuration (optional, not currently used).
 #
