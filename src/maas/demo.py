@@ -12,9 +12,10 @@ __metaclass__ = type
 
 import os
 
-from maas.development import *
-# SKIP, developement settings should override base settings.
+# FIRST: developement settings should override base settings.
 from maas.settings import *
+
+from maas.development import *
 
 
 MEDIA_ROOT = os.path.join(os.getcwd(), "media/demo")

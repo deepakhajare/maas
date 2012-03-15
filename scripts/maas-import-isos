@@ -59,7 +59,7 @@ update_settings(){
 	# Updates the parent profiles with new settings. Only affects KOPTS
 	for r in $RELEASES; do
 		for a in $ARCHES; do
-			a=`name_arch_in_cobbler_style "$a"`
+			a=$(name_arch_in_cobbler_style "$a")
 			profile="$r-$a"
 			# If profile exists, update it.
 			if (cobbler profile list | grep -qs " $profile$"); then
@@ -74,7 +74,7 @@ import_isos(){
 	# Wget and import net install ISOs
 	for r in $RELEASES; do
 		for a in $ARCHES; do
-			a=`name_arch_in_cobbler_style "$a"`
+			a=$(name_arch_in_cobbler_style "$a")
 			profile="$r-$a"
 			# Skip if cobbler already has this distro/arch combo
 			if ! (cobbler distro list | grep -qs " $profile$"); then
