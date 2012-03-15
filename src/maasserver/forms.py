@@ -43,10 +43,25 @@ from maasserver.models import (
     )
 
 
-INVALID_ARCHITECTURE_MESSAGE = (
-    "%(value)s is not a valid architecture. " +
-    "It should be one of: %s." % ", ".join(
-        name for name, value in ARCHITECTURE_CHOICES))
+def compose_invalid_choice_text(choice_of_what, valid_choices):
+    """Compose an "invalid choice" string for form error messages.
+
+    :param choice_of_what: The name for what the selected item is supposed
+        to be, to be inserted into the error string.
+    :type choice_of_what: basestring
+    :param valid_choices: Valid choices, in Django choices format:
+        (name, value).
+    :type valid_choices: sequence
+    """
+    return "%s is not a valid %s.  It should be one of: %s." % (
+        "%(value)s",
+        choice_of_what,
+        ", ".join(name for name, value in valid_choices),
+        )
+
+
+INVALID_ARCHITECTURE_MESSAGE = compose_invalid_choice_text(
+    'architecture', ARCHITECTURE_CHOICES)
 
 
 class NodeForm(ModelForm):
@@ -56,20 +71,16 @@ class NodeForm(ModelForm):
     after_commissioning_action = forms.TypedChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
-    # The architecture field is not visible yet, but requires a choice.
-    # Faking it by setting 'i386' as the representation for "none
-    # selected."  Once this field becomes meaningful, it may simply have
-    # to become mandatory.
-    architecture = forms.TypedChoiceField(
-        choices=ARCHITECTURE_CHOICES, required=False,
-        empty_value=ARCHITECTURE.i386,
+    architecture = forms.ChoiceField(
+        choices=ARCHITECTURE_CHOICES, required=True,
+        initial=ARCHITECTURE.i386,
         error_messages={'invalid_choice': INVALID_ARCHITECTURE_MESSAGE})
 
     class Meta:
         model = Node
         fields = (
             'hostname', 'system_id', 'after_commissioning_action',
-            'architecture')
+            'architecture', 'power_type')
 
 
 class MACAddressForm(ModelForm):

@@ -4,6 +4,7 @@ build: \
     bin/buildout \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
+    bin/twistd.txlongpoll \
     bin/py bin/ipy
 
 all: build doc
@@ -26,6 +27,10 @@ bin/twistd.pserv: bin/buildout buildout.cfg setup.py
 
 bin/test.pserv: bin/buildout buildout.cfg setup.py
 	bin/buildout install pserv-test
+	@touch --no-create $@
+
+bin/twistd.txlongpoll: bin/buildout buildout.cfg setup.py
+	bin/buildout install txlongpoll
 	@touch --no-create $@
 
 bin/flake8: bin/buildout buildout.cfg setup.py
@@ -68,24 +73,36 @@ clean:
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 
-distclean: clean pserv-stop
+distclean: clean pserv-stop txlongpoll-stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build dist logs parts
+	$(RM) -r bin build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
 
-pserv.pid: bin/twistd.pserv
-	bin/twistd.pserv --pidfile=$@ maas-pserv --config-file=etc/pserv.yaml
+run/pserv.pid: | bin/twistd.pserv etc/pserv.yaml
+	bin/twistd.pserv --logfile=/dev/null --pidfile=$@ \
+	    maas-pserv --config-file=etc/pserv.yaml
 
-pserv-start: pserv.pid
+pserv-start: run/pserv.pid
 
+pserv-stop: pidfile=run/pserv.pid
 pserv-stop:
-	{ test -e pserv.pid && cat pserv.pid; } | xargs --no-run-if-empty kill
+	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run: bin/maas dev-db pserv.pid
+run/txlongpoll.pid: | bin/twistd.txlongpoll etc/txlongpoll.yaml
+	bin/twistd.txlongpoll --logfile=/dev/null --pidfile=$@ \
+	    txlongpoll --config-file=etc/txlongpoll.yaml
+
+txlongpoll-start: run/txlongpoll.pid
+
+txlongpoll-stop: pidfile=run/txlongpoll.pid
+txlongpoll-stop:
+	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
+
+run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid
 	bin/maas runserver 0.0.0.0:8000 --settings=maas.demo
 
 harness: bin/maas dev-db
@@ -94,7 +111,6 @@ harness: bin/maas dev-db
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 
-
 checkbox: config=checkbox/plugins/jobs_info/directories=$(PWD)/qa/checkbox
 checkbox:
 	checkbox-gtk --config=$(config) --whitelist-file=
@@ -102,4 +118,5 @@ checkbox:
 .PHONY: \
     build check checkbox clean dev-db distclean doc \
     harness lint pserv-start pserv-stop run \
+    txlongpoll-start txlongpoll-stop \
     syncdb test sampledata
