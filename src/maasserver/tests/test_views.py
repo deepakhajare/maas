@@ -107,17 +107,17 @@ class TestSnippets(LoggedInTestCase):
 class TestGetLongpollenabled(TestCase):
 
     def test_longpoll_not_included_if_LONGPOLL_SERVER_URL_None(self):
-        self.patch(settings, 'LONGPOLL_URL', factory.getRandomString())
+        self.patch(settings, 'LONGPOLL_PATH', factory.getRandomString())
         self.patch(settings, 'LONGPOLL_SERVER_URL', None)
         self.assertFalse(get_proxy_longpoll_enabled())
 
-    def test_longpoll_not_included_if_LONGPOLL_URL_None(self):
-        self.patch(settings, 'LONGPOLL_URL', None)
+    def test_longpoll_not_included_if_LONGPOLL_PATH_None(self):
+        self.patch(settings, 'LONGPOLL_PATH', None)
         self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
         self.assertFalse(get_proxy_longpoll_enabled())
 
-    def test_longpoll_included_if_LONGPOLL_URL_and_LONGPOLL_SERVER_URL(self):
-        self.patch(settings, 'LONGPOLL_URL', factory.getRandomString())
+    def test_longpoll_included_if_LONGPOLL_PATH_and_LONGPOLL_SERVER_URL(self):
+        self.patch(settings, 'LONGPOLL_PATH', factory.getRandomString())
         self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
         self.assertTrue(get_proxy_longpoll_enabled())
 
@@ -171,19 +171,19 @@ class TestUtilities(TestCase):
         self.assertEqual({}, get_longpoll_context())
 
     def test_get_longpoll_context_empty_if_longpoll_url_is_None(self):
-        self.patch(settings, 'LONGPOLL_URL', None)
+        self.patch(settings, 'LONGPOLL_PATH', None)
         self.patch(views, 'messaging', get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
     def test_get_longpoll_context(self):
         longpoll = factory.getRandomString()
-        self.patch(settings, 'LONGPOLL_URL', longpoll)
+        self.patch(settings, 'LONGPOLL_PATH', longpoll)
         self.patch(settings, 'RABBITMQ_PUBLISH', True)
         self.patch(views, 'messaging', get_messaging())
         context = get_longpoll_context()
         self.assertItemsEqual(
-            ['LONGPOLL_URL', 'longpoll_queue'], list(context))
-        self.assertEqual(longpoll, context['LONGPOLL_URL'])
+            ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
+        self.assertEqual(longpoll, context['LONGPOLL_PATH'])
 
 
 class UserPrefsViewTest(LoggedInTestCase):
