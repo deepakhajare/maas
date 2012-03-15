@@ -18,7 +18,8 @@ from maas import (
     settings,
     )
 
-# We expect the following settings to be overridden.
+# We expect the following settings to be overridden. They are mentioned here
+# to silence lint warnings.
 MIDDLEWARE_CLASSES = None
 
 # Extend base and development settings.
