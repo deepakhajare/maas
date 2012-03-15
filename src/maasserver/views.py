@@ -306,7 +306,7 @@ def settings_add_archive(request):
 
 
 YUI_LOCATION = os.path.join(
-    os.path.dirname(__file__), 'static', 'jslibs', 'yui')
+    django_settings.STATIC_ROOT, 'jslibs', 'yui')
 
 
 def combo_view(request):
