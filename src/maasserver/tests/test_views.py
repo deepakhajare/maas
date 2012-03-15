@@ -20,6 +20,7 @@ from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import views
 from maasserver.messages import get_messaging
+from maasserver.urls import get_proxy_longpoll_enabled
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -103,6 +104,24 @@ class TestSnippets(LoggedInTestCase):
             'select#id_after_commissioning_action')
 
 
+class TestGetLongpollenabled(TestCase):
+
+    def test_longpoll_not_included_if_LONGPOLL_SERVER_URL_None(self):
+        self.patch(settings, 'LONGPOLL_URL', factory.getRandomString())
+        self.patch(settings, 'LONGPOLL_SERVER_URL', None)
+        self.assertFalse(get_proxy_longpoll_enabled())
+
+    def test_longpoll_not_included_if_LONGPOLL_URL_None(self):
+        self.patch(settings, 'LONGPOLL_URL', None)
+        self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
+        self.assertFalse(get_proxy_longpoll_enabled())
+
+    def test_longpoll_included_if_LONGPOLL_URL_and_LONGPOLL_SERVER_URL(self):
+        self.patch(settings, 'LONGPOLL_URL', factory.getRandomString())
+        self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
+        self.assertTrue(get_proxy_longpoll_enabled())
+
+
 class TestComboLoaderView(TestCase):
     """Test combo loader view."""
 
@@ -145,11 +164,6 @@ class TestComboLoaderView(TestCase):
 
 
 class TestUtilities(TestCase):
-
-    def patch_settings(self, name, value):
-        old_value = getattr(settings, name)
-        setattr(settings, name, value)
-        self.addCleanup(setattr, settings, name, old_value)
 
     def test_get_longpoll_context_empty_if_rabbitmq_publish_is_none(self):
         self.patch(settings, 'RABBITMQ_PUBLISH', None)
