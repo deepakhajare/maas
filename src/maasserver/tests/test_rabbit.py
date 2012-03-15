@@ -118,7 +118,7 @@ class TestRabbitExchange(RabbitTestCase):
             message = channel.basic_get(queue_name)
             if message is None:
                 if time.time() > endtime:
-                    raise self.fail('Cannot get message.')
+                    self.fail('Cannot get message.')
                 time.sleep(0.1)
             else:
                 return message
