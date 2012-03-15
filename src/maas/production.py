@@ -9,9 +9,14 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
 
-from maas.settings import *
+from maas import (
+    import_settings,
+    settings,
+    )
+
+
+import_settings(settings)
 
 # Location where python-oops should store errors.
 OOPS_REPOSITORY = '/var/log/maas'
