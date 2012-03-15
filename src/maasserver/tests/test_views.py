@@ -20,7 +20,6 @@ from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import views
 from maasserver.messages import get_messaging
-from maasserver.urls import get_proxy_longpoll_enabled
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -32,6 +31,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.urls import get_proxy_longpoll_enabled
 from maasserver.views import get_longpoll_context
 
 
