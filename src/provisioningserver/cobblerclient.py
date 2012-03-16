@@ -30,6 +30,7 @@ __all__ = [
     'DEFAULT_TIMEOUT',
     ]
 
+from functools import partial
 import xmlrpclib
 
 from twisted.internet import reactor as default_reactor
@@ -38,6 +39,7 @@ from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
     )
+from twisted.python.log import msg
 from twisted.web.xmlrpc import Proxy
 
 # Default timeout in seconds for xmlrpc requests to cobbler.
@@ -64,7 +66,7 @@ def tilde_to_None(data):
     elif isinstance(data, list):
         return [tilde_to_None(value) for value in data]
     elif isinstance(data, dict):
-        return {key: tilde_to_None(value) for key, value in data.iteritems()}
+        return {key: tilde_to_None(value) for key, value in data.items()}
     else:
         return data
 
@@ -90,7 +92,17 @@ def looks_like_auth_expiry(exception):
     if not hasattr(exception, 'faultString'):
         # An auth failure would come as an xmlrpclib.Fault.
         return False
-    return exception.faultString.startswith("invalid token: ")
+    else:
+        return "invalid token: " in exception.faultString
+
+
+def looks_like_object_not_found(exception):
+    """Does `exception` look like an unknown object failure?"""
+    if not hasattr(exception, 'faultString'):
+        # An unknown object failure would come as an xmlrpclib.Fault.
+        return False
+    else:
+        return "internal error, unknown " in exception.faultString
 
 
 class CobblerSession:
@@ -206,6 +218,22 @@ class CobblerSession:
             return passthrough
         return d.addBoth(cancel_timeout)
 
+    def _log_call(self, method, args):
+        """Log the call.
+
+        If the authentication token placeholder is included in `args`, the
+        string ``<token>`` will be printed in its place; the token itself will
+        not be included.
+
+        :param method: The name of the method.
+        :param args: A sequence of arguments.
+        """
+        args_repr = ", ".join(
+            "<token>" if arg is self.token_placeholder else repr(arg)
+            for arg in args)
+        message = "%s(%s)" % (method, args_repr)
+        msg(message, system=__name__)
+
     def _issue_call(self, method, *args):
         """Initiate call to XMLRPC method.
 
@@ -219,6 +247,7 @@ class CobblerSession:
         # we give it in Unicode.  Encode it here; thankfully we're
         # dealing with ASCII only in method names.
         method = method.encode('ascii')
+        self._log_call(method, args)
         args = map(self._substitute_token, args)
         d = self._with_timeout(self.proxy.callRemote(method, *args))
         return d
@@ -280,6 +309,9 @@ class CobblerObjectType(type):
         if "required_attributes" in attributes:
             attributes["required_attributes"] = frozenset(
                 attributes["required_attributes"])
+        if "modification_attributes" in attributes:
+            attributes["modification_attributes"] = frozenset(
+                attributes["modification_attributes"])
         return super(CobblerObjectType, mtype).__new__(
             mtype, name, bases, attributes)
 
@@ -305,11 +337,16 @@ class CobblerObject:
     # keep an accurate record of which attributes we use for which types
     # of objects.
     # Some attributes in Cobbler uses dashes as separators, others use
-    # underscores.  In MaaS, use only underscores.
+    # underscores.  In MAAS, use only underscores.
     known_attributes = []
 
     # What attributes does Cobbler require for this type of object?
     required_attributes = []
+
+    # What attributes do we expect to support for modifications to this
+    # object? Cobbler's API accepts some pseudo-attributes, only valid for
+    # making modifications.
+    modification_attributes = []
 
     def __init__(self, session, name):
         """Reference an object in Cobbler.
@@ -341,30 +378,36 @@ class CobblerObject:
         return name_template % type_name
 
     @classmethod
-    def _normalize_attribute(cls, attribute_name):
+    def _normalize_attribute(cls, attribute_name, attributes=None):
         """Normalize an attribute name.
 
-        Cobbler mixes dashes and underscores in attribute names.  MaaS may
+        Cobbler mixes dashes and underscores in attribute names.  MAAS may
         pass attributes as keyword arguments internally, where dashes are not
         an option.  Hide the distinction by looking up the proper name in
-        `known_attributes`.
+        `known_attributes` by default, but `attributes` can be passed to
+        override that.
 
         :param attribute_name: An attribute name, possibly using underscores
             where Cobbler expects dashes.
+        :param attributes: None, or a set of attributes against which to
+            match.
         :return: A Cobbler-style attribute name, using either dashes or
             underscores as used by Cobbler.
         """
-        if attribute_name in cls.known_attributes:
+        if attributes is None:
+            attributes = cls.known_attributes
+
+        if attribute_name in attributes:
             # Already spelled the way Cobbler likes it.
             return attribute_name
 
         attribute_name = attribute_name.replace('_', '-')
-        if attribute_name in cls.known_attributes:
+        if attribute_name in attributes:
             # Cobbler wants this one with dashes.
             return attribute_name
 
         attribute_name = attribute_name.replace('-', '_')
-        assert attribute_name in cls.known_attributes, (
+        assert attribute_name in attributes, (
             "Unknown attribute for %s: %s."
             % (cls.object_type, attribute_name))
         return attribute_name
@@ -400,7 +443,7 @@ class CobblerObject:
         else:
             return {
                 name: value
-                for name, value in attributes.iteritems()
+                for name, value in attributes.items()
                 if name in cls.known_attributes
                 }
 
@@ -450,21 +493,53 @@ class CobblerObject:
 
         args = dict(
             (cls._normalize_attribute(key), value)
-            for key, value in attributes.iteritems())
+            for key, value in attributes.items())
 
-        # Overwrite any existing object of the same name.  Unfortunately
-        # this parameter goes into the "attributes," and seems to be
-        # stored along with them.  Its value doesn't matter.
-        args.setdefault('clobber', True)
+        # Do not clobber under any circumstances.
+        if "clobber" in args:
+            del args["clobber"]
 
-        success = yield session.call(
-            'xapi_object_edit', cls.object_type, name, 'add', args,
-            session.token_placeholder)
+        try:
+            # Attempt to edit an existing object.
+            success = yield session.call(
+                'xapi_object_edit', cls.object_type, name, 'edit', args,
+                session.token_placeholder)
+        except xmlrpclib.Fault as e:
+            # If it was not found, add the object.
+            if looks_like_object_not_found(e):
+                success = yield session.call(
+                    'xapi_object_edit', cls.object_type, name, 'add', args,
+                    session.token_placeholder)
+            else:
+                raise
+
         if not success:
             raise RuntimeError(
                 "Cobbler refused to create %s '%s'.  Attributes: %s"
                 % (cls.object_type, name, args))
         returnValue(cls(session, name))
+
+    @inlineCallbacks
+    def modify(self, delta):
+        """Modify an object in Cobbler.
+
+        :param name: Identifying name for the existing object.
+        :param attributes: Dict mapping attribute names to values.
+        """
+        normalize = partial(
+            self._normalize_attribute,
+            attributes=self.modification_attributes)
+        args = {
+            normalize(key): value
+            for key, value in delta.items()
+            }
+        success = yield self.session.call(
+            'xapi_object_edit', self.object_type, self.name, 'edit', args,
+            self.session.token_placeholder)
+        if not success:
+            raise RuntimeError(
+                "Cobbler refused to modify %s '%s'.  Attributes: %s"
+                % (self.object_type, self.name, args))
 
     @inlineCallbacks
     def delete(self, recurse=True):
@@ -509,6 +584,9 @@ class CobblerProfile(CobblerObject):
         ]
     required_attributes = [
         'name',
+        'distro',
+        ]
+    modification_attributes = [
         'distro',
         ]
 
@@ -567,6 +645,10 @@ class CobblerDistro(CobblerObject):
         'kernel',
         'name',
         ]
+    modification_attributes = [
+        'initrd',
+        'kernel',
+        ]
 
 
 class CobblerRepo(CobblerObject):
@@ -606,6 +688,7 @@ class CobblerSystem(CobblerObject):
         'gateway',
         # FQDN:
         'hostname',
+        'interfaces',
         # Space-separated key=value pairs:
         'kernel_options'
         'kickstart',
@@ -614,8 +697,6 @@ class CobblerSystem(CobblerObject):
         # Space-separated key=value pairs for preseed:
         'ks_meta',
         'mgmt_classes',
-        # A special dict; see below.
-        'modify_interface',
         # Unqualified host name:
         'name',
         'name_servers',
@@ -639,11 +720,12 @@ class CobblerSystem(CobblerObject):
         'name',
         'profile',
         ]
-
-    # The modify_interface dict can contain:
-    #  * "macaddress-eth0" etc.
-    #  * "ipaddress-eth0" etc.
-    #  * "dnsname-eth0" etc.
+    modification_attributes = [
+        'delete_interface',
+        'interface',  # Required for mac_address and delete_interface.
+        'mac_address',
+        'profile',
+        ]
 
     @classmethod
     def _callPowerMultiple(cls, session, operation, system_names):

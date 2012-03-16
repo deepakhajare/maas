@@ -2,7 +2,9 @@
 
 {% block nav-active-node-list %}active{% endblock %}
 {% block title %}Nodes{% endblock %}
-{% block page-title %}Nodes{% endblock %}
+{% block page-title %}{{ node_list|length }} node{{ node_list|length|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
+{% block site-switcher %}{% endblock %}
+{% block header-search %}{% endblock %}
 
 {% block html_includes %}{% include "maasserver/snippets.html" %}
 {% endblock %}
@@ -10,9 +12,9 @@
 {% block head %}
   <script type="text/javascript">
   <!--
-  YUI().use('maas.add_node', function (Y) {
+  YUI().use('maas.node_add', function (Y) {
     Y.on('load', function() {
-      Y.one('#addnode').on('click', Y.maas.add_node.showAddNodeWidget);
+      Y.one('#addnode').on('click', Y.maas.node_add.showAddNodeWidget);
     });
   });
   // -->
@@ -20,26 +22,34 @@
 {% endblock %}
 
 {% block content %}
-  <h2>{{ node_list|length }} node{{ node_list|length|pluralize }} in this cluster</h2>
+  {% comment %}
+    <!-- To be enabled when we have search functionality -->
+    <form action="" method="get" class="block full-width inline-form">
+      <input type="text" name="query" class="search-box" value="Search nodes" />
+    </form>
+  {% endcomment %}
   {% if node_list|length %}
-    <table>
-      <thead>
-        <tr>
-          <td>System ID</td>
-          <td>Hostname</td>
-          <td>MAC</td>
-          <td>Status</td>
-        </tr>
-      </thead>
-      {% for node in node_list %}
-        <tr class="node">
-        <td class="node-system_id">{{ node.system_id }}</td>
-        <td>{{ node.hostname }}</td>
-        <td>{{ node.mac_address_set }}</td>
-        <td>{{ node.display_status }}</td>
-        </tr>
-      {% endfor %}
-    </table>
+      <table class="list">
+        <thead>
+          <tr>
+            <th>Hostname</th>
+            <th>MAC</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        {% for node in node_list %}
+          <tr class="node {% cycle 'even' 'odd' %}">
+            <td>{{ node.hostname }}</td>
+            <td>
+              {{ node.macaddress_set.reverse|first }}
+              {% if node.macaddress_set.count > 1 %}
+                ({{ node.macaddress_set.count|add:"-1" }} more MAC Address{{ node.macaddress_set.count|add:"-1"|pluralize }})
+              {% endif %}
+            </td>
+            <td>{{ node.display_status }}</td>
+          </tr>
+        {% endfor %}
+      </table>
   {% endif%}
-  <a id="addnode" href="#">Add Node</a>
+  <a id="addnode" href="#" class="button right">Add node</a>
 {% endblock %}

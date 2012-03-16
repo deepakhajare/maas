@@ -39,22 +39,71 @@ class IProvisioningAPI_Template:
     """
 
     def add_distro(name, initrd, kernel):
-        """Add a distro with the given `name`, `initrd`, and `kernel`."""
+        """Add a distro with the given `name`, `initrd`, and `kernel`.
+
+        :return: The name of the new distro.
+        """
 
     def add_profile(name, distro):
-        """Add a profile with the given `name`, and `distro`."""
+        """Add a profile with the given `name`, and `distro`.
 
-    def add_node(name, profile):
-        """Add a node with the given `name`, and `profile`."""
+        :return: The name of the new profile.
+        """
+
+    def add_node(name, profile, power_type, metadata):
+        """Add a node with the given `name`.
+
+        :param profile: Name of profile to associate the node with.
+        :param power_type: A choice of power-control method, as in
+            :class:`POWER_TYPE`.
+        :param metadata: Dict of ks_meta items to pre-seed into the node.
+            Should include maas-metadata-url (URL for the metadata service)
+            and maas-metadata-credentials (OAuth token for accessing the
+            metadata service).  The maas-metadata-credentials entry details
+            oauth_consumer_key, oauth_token_key, and oauth_token_secret
+            encoded as a URL query section suitable for urlparse.parse_qs.
+        :return: The name of the new node.
+        """
+
+    def modify_distros(deltas):
+        """Apply deltas to existing distros.
+
+        :param deltas: A dict, with each key identifying an existing distro by
+            name, and each value being a dict of modifications to apply to it.
+        """
+
+    def modify_profiles(deltas):
+        """Apply deltas to existing profiles.
+
+        :param deltas: A dict, with each key identifying an existing profile
+            by name, and each value being a dict of modifications to apply to
+            it.
+        """
+
+    def modify_nodes(deltas):
+        """Apply deltas to existing nodes.
+
+        :param deltas: A dict, with each key identifying an existing node by
+            name, and each value being a dict of modifications to apply to it.
+        """
 
     def get_distros_by_name(names):
-        """List distros with the given `names`."""
+        """List distros with the given `names`.
+
+        :return: A dict of distro-names -> distro-values.
+        """
 
     def get_profiles_by_name(names):
-        """List profiles with the given `names`."""
+        """List profiles with the given `names`.
+
+        :return: A dict of profile-names -> profile-values.
+        """
 
     def get_nodes_by_name(names):
-        """List nodes with the given `names`."""
+        """List nodes with the given `names`.
+
+        :return: A dict of node-names -> node-values.
+        """
 
     def delete_distros_by_name(names):
         """Delete distros with the given `names`."""
@@ -66,13 +115,28 @@ class IProvisioningAPI_Template:
         """Delete nodes with the given `names`."""
 
     def get_distros():
-        """List all distros."""
+        """List all distros.
+
+        :return: A dict of distro-names -> distro-values.
+        """
 
     def get_profiles():
-        """List all profiles."""
+        """List all profiles.
+
+        :return: A dict of profile-names -> profile-values.
+        """
 
     def get_nodes():
-        """List all nodes."""
+        """List all nodes.
+
+        :return: A dict of node-names -> node-values.
+        """
+
+    def start_nodes(names):
+        """Start up nodes with the given `names`."""
+
+    def stop_nodes(names):
+        """Shut down nodes with the given `names`."""
 
 
 # All public methods defined in IProvisioningAPI_Template.
@@ -92,7 +156,7 @@ IProvisioningAPI = InterfaceClass(
 # over-the-wire.
 PAPI_XMLRPC_FUNCTIONS = {
     "xmlrpc_%s" % name: value
-    for name, value in PAPI_FUNCTIONS.iteritems()
+    for name, value in PAPI_FUNCTIONS.items()
     }
 
 # Construct an interface containing IProvisioningAPI_Template's functions but

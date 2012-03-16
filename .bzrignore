@@ -1,7 +1,8 @@
 *.egg
 *.egg-info
-./.installed.cfg
 ./.coverage
+./.installed.cfg
+./.noseids
 ./bin
 ./build
 ./db
@@ -11,8 +12,11 @@
 ./docs/api.rst
 ./download-cache
 ./eggs
-./logs
+./logs/*
+./media/demo/*
+./media/development
 ./parts
-./tags
+./run/*.pid
 ./TAGS
-./.noseids
+./tags
+./twisted/plugins/dropin.cache

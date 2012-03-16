@@ -16,7 +16,11 @@ from xmlrpclib import Fault
 
 import fixtures
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import fake_token
+from provisioningserver.testing.fakecobbler import (
+    fake_auth_failure_string,
+    fake_object_not_found_string,
+    fake_token,
+    )
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -49,7 +53,8 @@ class FakeAuthFailure(Fault):
     """Imitated Cobbler authentication failure."""
 
     def __init__(self, token):
-        super(FakeAuthFailure, self).__init__(1, "invalid token: %s" % token)
+        super(FakeAuthFailure, self).__init__(
+            1, fake_auth_failure_string(token))
 
 
 def make_auth_failure(broken_token=None):
@@ -237,6 +242,33 @@ class TestCobblerSession(TestCase):
         self.assertEqual(return_value, actual_return_value)
         self.assertEqual([(method, arg)], session.proxy.calls)
 
+    def test_looks_like_auth_expiry_returns_False_for_regular_exception(self):
+        self.assertFalse(
+            cobblerclient.looks_like_auth_expiry(RuntimeError("Error")))
+
+    def test_looks_like_auth_expiry_returns_False_for_other_Fault(self):
+        self.assertFalse(
+            cobblerclient.looks_like_auth_expiry(
+                Fault(1, "Missing sprocket")))
+
+    def test_looks_like_auth_expiry_recognizes_auth_expiry(self):
+        self.assertTrue(
+            cobblerclient.looks_like_auth_expiry(make_auth_failure()))
+
+    def test_looks_like_object_not_found_for_regular_exception(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(RuntimeError("Error")))
+
+    def test_looks_like_object_not_found_for_other_Fault(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(
+                Fault(1, "Missing sprocket")))
+
+    def test_looks_like_object_not_found_recognizes_object_not_found(self):
+        error = Fault(1, fake_object_not_found_string("distro", "bob"))
+        self.assertTrue(
+            cobblerclient.looks_like_object_not_found(error))
+
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
         # If a call triggers an authentication error, call()
@@ -399,6 +431,49 @@ class TestCobblerObject(TestCase):
                 session, 'incomplete_system', {})
 
     @inlineCallbacks
+    def test_new_attempts_edit_before_creating_new(self):
+        # CobblerObject.new always attempts an extended edit operation on the
+        # given object first, following by an add should the object not yet
+        # exist.
+        session = make_recording_session()
+        not_found_string = fake_object_not_found_string("system", "carcass")
+        not_found = Fault(1, not_found_string)
+        session.proxy.set_return_values([not_found, True])
+        yield cobblerclient.CobblerSystem.new(
+            session, "carcass", {"profile": "heartwork"})
+        expected_calls = [
+            # First an edit is attempted...
+            ("xapi_object_edit", "system", "carcass", "edit",
+             {"name": "carcass", "profile": "heartwork"},
+             session.token),
+            # Followed by an add.
+            ("xapi_object_edit", "system", "carcass", "add",
+             {"name": "carcass", "profile": "heartwork"},
+             session.token),
+            ]
+        self.assertEqual(expected_calls, session.proxy.calls)
+
+    @inlineCallbacks
+    def test_modify(self):
+        session = make_recording_session()
+        session.proxy.set_return_values([True])
+        distro = cobblerclient.CobblerDistro(session, "fred")
+        yield distro.modify({"kernel": "sanders"})
+        expected_call = (
+            "xapi_object_edit", "distro", distro.name, "edit",
+            {"kernel": "sanders"}, session.token)
+        self.assertEqual([expected_call], session.proxy.calls)
+
+    @inlineCallbacks
+    def test_modify_only_permits_certain_attributes(self):
+        session = make_recording_session()
+        distro = cobblerclient.CobblerDistro(session, "fred")
+        expected = ExpectedException(
+            AssertionError, "Unknown attribute for distro: machine")
+        with expected:
+            yield distro.modify({"machine": "head"})
+
+    @inlineCallbacks
     def test_get_values_returns_only_known_attributes(self):
         session = make_recording_session()
         # Create a new CobblerDistro. The True return value means the faked
@@ -410,11 +485,10 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distro
         # just created.
         values_stored = {
-            "clobber": True,
             "initrd": "an_initrd",
             "kernel": "a_kernel",
-            "likes": u"cabbage",
-            "name": u"fred",
+            "likes": "cabbage",
+            "name": "fred",
             }
         session.proxy.set_return_values([values_stored])
         # However, CobblerObject.get_values() only returns attributes that are
@@ -435,11 +509,10 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distros
         # just created.
         values_stored = [
-            {"clobber": True,
-             "initrd": "an_initrd",
+            {"initrd": "an_initrd",
              "kernel": "a_kernel",
-             "likes": u"cabbage",
-             "name": u"alice"},
+             "likes": "cabbage",
+             "name": "alice"},
             ]
         session.proxy.set_return_values([values_stored])
         # However, CobblerObject.get_all_values() only returns attributes that
@@ -466,4 +539,13 @@ class TestCobblerObject(TestCase):
             frozenset)
         self.assertIsInstance(
             cobblerclient.CobblerDistro.required_attributes,
+            frozenset)
+
+    def test_modification_attributes(self):
+        # modification_attributes, a class attribute, is always a frozenset.
+        self.assertIsInstance(
+            cobblerclient.CobblerObject.modification_attributes,
+            frozenset)
+        self.assertIsInstance(
+            cobblerclient.CobblerDistro.modification_attributes,
             frozenset)

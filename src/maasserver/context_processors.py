@@ -14,10 +14,23 @@ __all__ = [
     ]
 
 from django.conf import settings
+from maasserver.forms import NodeForm
+from maasserver.models import Config
 
 
 def yui(context):
     return {
         'YUI_DEBUG': settings.YUI_DEBUG,
         'YUI_VERSION': settings.YUI_VERSION,
+        'YUI_COMBO_URL': settings.YUI_COMBO_URL,
+        'FORCE_SCRIPT_NAME': settings.FORCE_SCRIPT_NAME,
+    }
+
+
+def global_options(context):
+    return {
+        'node_form': NodeForm(),
+        'global_options': {
+            'site_name': Config.objects.get_config('maas_name'),
+        }
     }

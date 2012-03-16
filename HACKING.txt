@@ -1,13 +1,13 @@
 ************
-Hacking MaaS
+Hacking MAAS
 ************
 
 
 Coding style
 ============
 
-MaaS follows the `Launchpad Python Style Guide`_, except where it gets
-Launchpad specific, and where it talks about `method naming`_. MaaS
+MAAS follows the `Launchpad Python Style Guide`_, except where it gets
+Launchpad specific, and where it talks about `method naming`_. MAAS
 instead adopts `PEP-8`_ naming in all cases, so method names should
 usually use the ``lowercase_with_underscores`` form.
 
@@ -23,8 +23,32 @@ usually use the ``lowercase_with_underscores`` form.
 
 Prerequisites
 =============
-You will need to manually install Postgres 9.1 (postgresql-9.1 and
-postgresql-dev), RabbitMQ (rabbitmq-server) and python-dev.
+
+You will need to manually install Postgres 9.1, RabbitMQ, python-dev and make::
+
+    $ sudo apt-get install postgresql-9.1 rabbitmq-server python-dev make
+
+Also, you might want to install Bazaar (bzr) to grab the source code directly
+from Launchpad::
+
+    $ sudo apt-get install bzr
+
+This is the list of runtime dependencies that you'll need to install::
+
+    $ sudo apt-get install python-django python-django-piston \
+        python-django-south python-twisted python-txamqp python-amqplib \
+        python-formencode python-oauth python-oops python-oops-datedir-repo \
+        python-twisted python-oops-wsgi python-oops-twisted \
+        python-psycopg2 python-yaml python-convoy
+
+Additionally, you need to install the following python libraries
+for development convenience::
+
+    $ sudo apt-get install python-sphinx python-lxml
+
+If you intend to run the test suite, you also need xvfb and firefox::
+
+    $ sudo apt-get install xvfb firefox
 
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
@@ -33,7 +57,70 @@ when buildout runs.
   http://pypi.python.org/
 
 
-Development MaaS server setup
+First time using buildout?
+==========================
+
+Buildout is used to develop MAAS. Buildout, if configured so, can
+cache downloaded files and built eggs. If you've not already done
+something similar, the following snippet will massively improve build
+times::
+
+    [buildout]
+    download-cache = /home/<your-user-name>/.buildout/cache
+    eggs-directory = /home/<your-user-name>/.buildout/eggs
+
+Put this in ``~/.buildout/default.cfg`` and create the ``cache``
+directory::
+
+    $ mkdir /home/<your-user-name>/.buildout/cache
+
+The ``eggs`` directory will be created automatically.
+
+
+Getting the latest version of the code
+======================================
+
+You can grab the code manually from Launchpad but Bazaar makes it easy to fetch
+the last version of the code. Go into the directory where you want the code
+to reside and run::
+
+    $ bzr branch lp:maas maas && cd maas
+
+
+Running tests
+=============
+
+To run the whole suite::
+
+    $ make test
+
+To run tests at a lower level of granularity::
+
+    $ bin/test.maas maasserver.tests.test_api -v
+    $ bin/test.pserv provisioningserver.tests.test_api -v
+
+The test runner is `nose`_, so you can pass in options like
+``--with-coverage`` and ``--nocapture`` (short option: ``-s``). The
+latter is essential when using ``pdb`` so that stdout is not
+adulterated.
+
+.. _nose: http://readthedocs.org/docs/nose/en/latest/
+
+
+Running tests with a real Cobbler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once you have a Cobbler instance running somewhere there are some
+tests that can be run against it::
+
+    $ PSERV_TEST_COBBLER_URL=http://user:pass@localhost/cobbler_api \
+        bin/test.pserv provisioningserver.tests.test_api
+
+Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
+tests will modify your Cobbler database.
+
+
+Development MAAS server setup
 =============================
 
 Access to the database is configured in ``src/maas/development.py``.
@@ -52,15 +139,30 @@ Create the database cluster and initialize the development database::
 
     $ make syncdb
 
-Run the development webserver::
-
-    $ make run
-
 Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Point your browser to http://localhost:8000/
+Install Cobbler, and import at least one distro and profile::
+
+    $ sudo apt-get install apache2 cobbler
+    $ sudo cobbler-ubuntu-import precise-i386  # For example.
+
+Add yourself as a user in Cobbler. For convenience, give yourself the
+password ``test``::
+
+    $ sudo htdigest /etc/cobbler/users.digest Cobbler $USER
+
+Alternatively, if you're not interested in the Provisioning Server or
+Cobbler, set ``PSERV_URL`` to ``None`` in one of ``maas``'s settings
+files (typically ``src/maas/demo.py``), and a fake Provisioning Server
+will be used instead.
+
+Run the development webserver::
+
+    $ make run
+
+Point your browser to http://localhost:5240/
 
 If you've populated your instance with the sample data, you can login as a
 simple user using the test account (username: 'test', password: 'test') or the
@@ -70,6 +172,23 @@ To shut down the database cluster and clean up all other generated files in
 your branch::
 
     $ make distclean
+
+
+Adding new dependencies
+=======================
+
+Since MAAS is distributed mainly as Ubuntu package, all runtime dependencies
+should be packaged and we should develop with the packaged version if
+possible. You'll need to add the dependency to the
+``allowed-eggs-from-site-packages`` option in the ``buildout.cfg`` file. You
+also need to add it to setup.py (And don't forget to add the version to
+``versions.cfg`` as we run with ``allowed-picked-version`` set to false.)
+
+If it is a development-only dependency (i.e. only needed for the test suite, or
+for developers' convenience), simply running ``buildout`` like this will make
+the necessary updates to ``versions.cfg``::
+
+    $ ./bin/buildout -v buildout:allow-picked-versions=true
 
 
 Adding new source files
@@ -90,3 +209,23 @@ documentation`_.
 
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
+
+Acceptance tests
+================
+
+MAAS uses checkbox manual testing infrastructure to verify features
+are implemented according to the spec. They can be found in
+the qa/checkbox/ directory.
+
+You need to install checkbox to use those tests::
+
+    $ sudo apt-get install checkbox
+
+To run them::
+
+    $ checkbox-gtk --config='checkbox/plugins/jobs_info/directories=\
+    /path/to/local/checkbox/jobs/dir' --whitelist-file=
+
+or run from the root of the MAAS tree::
+
+    $ make checkbox

@@ -40,11 +40,11 @@ setup(
     name="maas",
     version=__version__,
     url="https://launchpad.net/maas",
-    license="GPL",
+    license="AGPLv3",
     description="Metal as as Service",
     long_description=read('README.txt'),
 
-    author="MaaS Developers",
+    author="MAAS Developers",
     author_email="juju@lists.ubuntu.com",
 
     packages=find_packages(
@@ -55,9 +55,26 @@ setup(
             ]
         ),
     package_dir={'': b'src'},
+    include_package_data=True,
 
-    install_requires=['setuptools'],
-
+    install_requires=[
+        'setuptools',
+        'Django == 1.3.1',
+        'psycopg2',
+        'amqplib',
+        'convoy',
+        'django-piston',
+        'FormEncode',
+        'oauth',
+        'oops',
+        'oops-datedir-repo',
+        'oops-twisted',
+        'PyYAML',
+        'South',
+        'Twisted',
+        'txAMQP',
+        'txlongpoll',
+        ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Framework :: Django',
@@ -67,5 +84,24 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
-        ]
+        ],
+    extras_require=dict(
+        doc=[
+            'collective.recipe.sphinxbuilder',
+            'Sphinx',
+            ],
+        tests=[
+            'coverage',
+            'django-nose',
+            'lxml',
+            'sst',
+            'fixtures',
+            'nose',
+            'nose-subunit',
+            'python-subunit',
+            'rabbitfixture',
+            'testresources',
+            'testtools',
+            ],
     )
+)

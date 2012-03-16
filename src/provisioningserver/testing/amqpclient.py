@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from unittest import skip
+
 from provisioningserver.amqpclient import AMQFactory
 from testtools import TestCase
 from testtools.deferredruntest import (
@@ -66,8 +68,11 @@ class AMQTest(TestCase):
 
         """
         from provisioningserver import tests
-        return tests.rabbit
+        return tests.get_rabbit()
 
+    @skip(
+        "RabbitMQ is not yet a required component "
+        "of a running MAAS installation.")
     def setUp(self):
         """
         At each run, we delete the test vhost and recreate it, to be sure to be
@@ -123,12 +128,13 @@ class AMQTest(TestCase):
         factory.stopTrying()
         connector.disconnect()
 
-    def amq_connected(self, (client, channel)):
+    def amq_connected(self, client_and_channel):
         """
         Save the channel and client, and fire C{self.connected_deferred}.
 
         This is the connected_callback that's pased to the L{AMQFactory}.
         """
+        client, channel = client_and_channel
         self.real_queue_declare = channel.queue_declare
         channel.queue_declare = self.queue_declare
         self.real_exchange_declare = channel.exchange_declare
@@ -142,10 +148,11 @@ class AMQTest(TestCase):
         This is the disconnected_callback that's passed to the L{AMQFactory}.
         """
 
-    def amq_failed(self, (connector, reason)):
+    def amq_failed(self, connector_and_reason):
         """
         This is the failed_callback that's passed to the L{AMQFactory}.
         """
+        connector, reason = connector_and_reason
         self.connected_deferred.errback(reason)
 
     def queue_declare(self, queue, **kwargs):

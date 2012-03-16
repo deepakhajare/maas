@@ -4,7 +4,7 @@
 
 YUI({ useBrowserConsole: true }).add('maas.node_views.tests', function(Y) {
 
-Y.log('loading mass.node_views.tests');
+Y.log('loading maas.node_views.tests');
 var namespace = Y.namespace('maas.node_views.tests');
 
 var module = Y.maas.node_views;
@@ -25,7 +25,7 @@ suite.add(new Y.maas.testing.TestCase({
         // nodes.
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
-            method: 'io',
+            method: 'send',
             args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);

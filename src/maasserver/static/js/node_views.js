@@ -3,16 +3,16 @@
  *
  * Node model.
  *
- * @module Y.mass.node
+ * @module Y.maas.node
  */
 
 YUI.add('maas.node_views', function(Y) {
 
-Y.log('loading mass.node_views');
+Y.log('loading maas.node_views');
 var module = Y.namespace('maas.node_views');
 
 // Only used to mockup io in tests.
-module._io = Y;
+module._io = new Y.IO();
 
 /**
  * A base view class to display a set of Nodes (Y.maas.node.Node).
@@ -96,7 +96,7 @@ module.NodeListLoader = Y.Base.create('nodeListLoader', Y.View, [], {
                 end: Y.bind(self.loadNodesEnded, self)
             }
         };
-        var request = module._io.io(
+        var request = module._io.send(
             MAAS_config.uris.nodes_handler, cfg);
     },
 

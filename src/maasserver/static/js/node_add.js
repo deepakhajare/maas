@@ -3,19 +3,19 @@
  *
  * Widget to add a Node.
  *
- * @module Y.mass.node_add
+ * @module Y.maas.node_add
  */
 
 YUI.add('maas.node_add', function(Y) {
 
-Y.log('loading mass.node_add');
+Y.log('loading maas.node_add');
 
 var module = Y.namespace('maas.node_add');
 
 module.NODE_ADDED_EVENT = 'nodeAdded';
 
 // Only used to mockup io in tests.
-module._io = Y;
+module._io = new Y.IO();
 
 var AddNodeWidget = function() {
     AddNodeWidget.superclass.constructor.apply(this, arguments);
@@ -25,12 +25,12 @@ AddNodeWidget.NAME = 'node-add-widget';
 
 AddNodeWidget.ATTRS = {
 
-    /**
-     * The number MAC Addresses fields on the form.
-     *
-     * @attribute nb_mac_fields
-     * @type integer
-     */
+   /**
+    * The number MAC Addresses fields on the form.
+    *
+    * @attribute nb_mac_fields
+    * @type integer
+    */
     nb_mac_fields: {
         getter: function() {
             return this.get(
@@ -54,6 +54,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
         field.set('id', field.get('id') + form_nb);
         return Y.Node.create('<p />').append(field);
     },
+
     /**
      * Hide the panel.
      *
@@ -120,13 +121,32 @@ Y.extend(AddNodeWidget, Y.Panel, {
             .append(operation)
             .append(Y.Node.create(this.add_macaddress))
             .append(macaddress_add_link)
+            .append(Y.Node.create(this.add_architecture))
             .append(Y.Node.create(this.add_node));
         return addnodeform;
     },
 
-    displayFormError: function(error_message) {
+    /**
+     * Display an error message.  The passed-in parameter can be a string or
+     * a Node (in which case it will be appended to the error node).
+     *
+     * @method displayFormError
+     */
+    displayFormError: function(error) {
+        var error_node;
+        if (typeof error === 'string') {
+            // 'error' is a string, create a simple node with the error
+            // message in it.
+            error_node = Y.Node.create('<span />')
+                .set('text', error);
+        }
+        else {
+            // We assume error is a Y.Node.
+            error_node = error;
+        }
+
         this.get(
-            'srcNode').one('.form-global-errors').set('text', error_message);
+            'srcNode').one('.form-global-errors').empty().append(error_node);
      },
 
    /**
@@ -151,12 +171,31 @@ Y.extend(AddNodeWidget, Y.Panel, {
     initializer: function(cfg) {
         // Load form snippets.
         this.add_macaddress = Y.one('#add-macaddress').getContent();
+        this.add_architecture = Y.one('#add-architecture').getContent();
         this.add_node = Y.one('#add-node').getContent();
         // Create panel's content.
         this.set('bodyContent', this.createForm());
-       // Prepare spinnerNode.
+        this.initializeNodes();
+    },
+
+    /**
+     * Initialize the nodes this widget will use.
+     *
+     * @method initializeNodes
+     */
+    initializeNodes: function() {
+        // Prepare spinnerNode.
         this.spinnerNode = Y.Node.create('<img />')
+            .addClass('spinner')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
+        // Prepare logged-off error message.
+        this.loggedOffNode = Y.Node.create('<span />')
+            .set('text', "You have been logged out, please ")
+            .append(Y.Node.create('<a />')
+                .set('text', 'log in')
+                .set('href', MAAS_config.uris.login))
+            .append(Y.Node.create('<span />')
+                .set('text', ' again.'));
     },
 
     bindUI: function() {
@@ -166,6 +205,9 @@ Y.extend(AddNodeWidget, Y.Panel, {
             e.preventDefault();
             self.addMacField();
         });
+        this.get('bodyContent').on('key', function() {
+            self.sendAddNodeRequest();
+        }, 'press:enter');
     },
 
     addNode: function(node) {
@@ -185,6 +227,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
                     self.hidePanel();
                 },
                 failure: function(id, out) {
+                    Y.log(out);
                     if (out.status === 400) {
                         try {
                             // Validation error: display the errors in the
@@ -192,12 +235,16 @@ Y.extend(AddNodeWidget, Y.Panel, {
                             self.displayFieldErrors(JSON.parse(out.response));
                         }
                         catch (e) {
-                            self.displayFormError('Unable to create Node.');
+                            self.displayFormError("Unable to create Node.");
                         }
+                    }
+                    else if (out.status === 401) {
+                        // Unauthorized error: the user has been logged out.
+                        self.displayFormError(self.loggedOffNode);
                     }
                     else {
                         // Unexpected error.
-                        self.displayFormError('Unable to create Node.');
+                        self.displayFormError("Unable to create Node.");
                     }
                 },
                 end: Y.bind(self.hideSpinner, self)
@@ -207,7 +254,7 @@ Y.extend(AddNodeWidget, Y.Panel, {
                 useDisabled: true
             }
         };
-        var request = module._io.io(
+        var request = module._io.send(
             MAAS_config.uris.nodes_handler, cfg);
     }
 
@@ -250,26 +297,28 @@ module.showAddNodeWidget = function(event) {
     var cfg = {
         headerContent: "Add node",
         buttons: [
-                {
-                    value: 'Add node',
-                    section: 'footer',
-                    action: function (e) {
-                        e.preventDefault();
-                        this.sendAddNodeRequest();
-                    }
-                },
-                {
-                    value: 'Cancel',
-                    section: 'footer',
-                    classNames: 'link-button',
-                    action: function (e) {
-                        e.preventDefault();
-                        this.hidePanel();
-                    }
+            {
+                value: 'Add node',
+                section: 'footer',
+                action: function (e) {
+                    e.preventDefault();
+                    this.sendAddNodeRequest();
                 }
-            ],
-        align: {node:'',
-                points: [Y.WidgetPositionAlign.BC, Y.WidgetPositionAlign.TC]},
+            },
+            {
+                value: 'Cancel',
+                section: 'footer',
+                classNames: 'link-button',
+                action: function (e) {
+                    e.preventDefault();
+                    this.hidePanel();
+                }
+            }],
+        align: {
+            node:'',
+            points:
+                [Y.WidgetPositionAlign.BC, Y.WidgetPositionAlign.TC]
+            },
         modal: true,
         zIndex: 2,
         visible: true,
@@ -281,11 +330,12 @@ module.showAddNodeWidget = function(event) {
         duration: 0.5,
         top: '0px'
     });
-    /* We need to set the focus late as the widget wants to set the focus on 
-       the bounding box.
-    */
-    module._add_node_singleton.get('boundingBox').one('input[type=text]').focus();
+    // We need to set the focus late as the widget wants to set the focus
+    // on the bounding box.
+    module._add_node_singleton.get(
+        'boundingBox').one('input[type=text]').focus();
 };
 
-}, '0.1', {'requires': ['io', 'node', 'panel', 'event', 'event-custom', 'transition']}
+}, '0.1', {'requires': ['io', 'node', 'panel', 'event', 'event-custom',
+                        'transition']}
 );

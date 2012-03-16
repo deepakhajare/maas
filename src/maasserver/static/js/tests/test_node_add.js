@@ -4,7 +4,7 @@
 
 YUI({ useBrowserConsole: true }).add('maas.node_add.tests', function(Y) {
 
-Y.log('loading mass.node_add.tests');
+Y.log('loading maas.node_add.tests');
 var namespace = Y.namespace('maas.node_add.tests');
 
 var module = Y.maas.node_add;
@@ -17,7 +17,7 @@ suite.add(new Y.maas.testing.TestCase({
         // Silence io.
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
-            method: 'io',
+            method: 'send',
             args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);
@@ -53,10 +53,39 @@ suite.add(new Y.maas.testing.TestCase({
 suite.add(new Y.maas.testing.TestCase({
     name: 'test-add-node-widget-add-node',
 
+    testFormContainsArchitectureChoice: function() {
+        // The generated form contains an 'architecture' field.
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        var arch = panel.get('srcNode').one('form').one('#id_architecture');
+        Y.Assert.isNotNull(arch);
+        var arch_options = arch.all('option');
+        Y.Assert.areEqual(2, arch_options.size());
+     },
+
+    testAddNodeAPICallSubmitsForm: function() {
+        // The call to the API triggered by clicking on 'Add a node'
+        // submits (via an API call) the panel's form.
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        var mockXhr = new Y.Base();
+        var fired = false;
+        var form = panel.get('srcNode').one('form');
+        mockXhr.send = function(uri, cfg) {
+            fired = true;
+            Y.Assert.areEqual(form, cfg.form);
+        };
+        this.mockIO(mockXhr, module);
+        panel.get('srcNode').one('#id_hostname').set('value', 'host');
+        var button = panel.get('srcNode').one('.yui3-button');
+        button.simulate('click');
+        Y.Assert.isTrue(fired);
+    },
+
     testAddNodeAPICall: function() {
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
-            method: 'io',
+            method: 'send',
             args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);
@@ -68,13 +97,33 @@ suite.add(new Y.maas.testing.TestCase({
         Y.Mock.verify(mockXhr);
     },
 
+    testAddNodeAPICallEnterPressed: function() {
+        var mockXhr = Y.Mock();
+        Y.Mock.expect(mockXhr, {
+            method: 'send',
+            args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
+        });
+        this.mockIO(mockXhr, module);
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        panel.get('srcNode').one('#id_hostname').set('value', 'host');
+        var form = panel.get('srcNode').one('form');
+        // Simulate 'Enter' being pressed.
+        form.simulate("keypress", { keyCode: 13 });
+        Y.Mock.verify(mockXhr);
+    },
+
     testNodeidPopulation: function() {
         var mockXhr = new Y.Base();
-        mockXhr.io = function(url, cfg) {
+        mockXhr.send = function(url, cfg) {
             cfg.on.success(3, {response: Y.JSON.stringify({system_id: 3})});
         };
         this.mockIO(mockXhr, module);
         module.showAddNodeWidget();
+        this.addCleanup(
+            Y.bind(
+                module._add_node_singleton.destroy,
+                module._add_node_singleton));
         var panel = module._add_node_singleton;
         panel.get('srcNode').one('#id_hostname').set('value', 'host');
         var button = panel.get('srcNode').one('.yui3-button');
@@ -89,6 +138,41 @@ suite.add(new Y.maas.testing.TestCase({
         );
         button.simulate('click');
         Y.Assert.isTrue(fired);
+    },
+
+    testGenericErrorMessage: function() {
+        var mockXhr = new Y.Base();
+        mockXhr.send = function(url, cfg) {
+            cfg.on.failure(3, {status: 500});
+        };
+        this.mockIO(mockXhr, module);
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        panel.get('srcNode').one('#id_hostname').set('value', 'host');
+        var button = panel.get('srcNode').one('.yui3-button');
+        button.simulate('click');
+        var error_message = panel.get(
+            'srcNode').one('.form-global-errors').get('innerHTML');
+        var message_position = error_message.search("Unable to create Node.");
+        Y.Assert.areNotEqual(-1, error_message);
+    },
+
+    testLoggedOffErrorMessage: function() {
+        var mockXhr = new Y.Base();
+        mockXhr.send = function(url, cfg) {
+            cfg.on.failure(3, {status: 401});
+        };
+        this.mockIO(mockXhr, module);
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        panel.get('srcNode').one('#id_hostname').set('value', 'host');
+        var button = panel.get('srcNode').one('.yui3-button');
+        button.simulate('click');
+        var error_message = panel.get(
+            'srcNode').one('.form-global-errors').get('innerHTML');
+        // The link to the login page is present in the error message.
+        var link_position = error_message.search(MAAS_config.uris.login);
+        Y.Assert.areNotEqual(-1, link_position);
     }
 
 }));

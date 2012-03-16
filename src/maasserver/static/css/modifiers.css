@@ -3,31 +3,22 @@
     margin: 0;
     padding: 0;
     }
+.nav li {
+    float: left;
+    }
 .clear {
     clear: both;
     }
-
-/* XXX: move this yui stuff somewhere more sensible */
-.yui3-widget-mask {
-    background-color: #000;
-    opacity: 0.3;
+.hidden {
+    display: none;
     }
-.yui3-panel {
-    background-color: #FFF;
-    padding: 104px 80px 50px 80px;
-    -moz-border-radius: 0 0 6px 6px;
-    -webkit-border-radius: 0 0 6px 6px;
-    border-radius: 0 0 6px 6px;
-    -webkit-box-shadow: 0 0 15px 0 rgba(0,0,0,1);
-    box-shadow: 0 0 15px 0 rgba(0,0,0,1);
+.left {
+    float: left;
     }
-.yui3-widget-hd {
-    margin-bottom: 30px;
-    font-size: 24px;
+.right {
+    float: right;
     }
-.yui3-widget-ft {
-    margin-top: 30px;
-    }
-.yui3-panel .yui3-button {
-    margin-right: 20px;
+img.icon {
+    vertical-align: text-bottom;
+    margin-right: 3px;
     }

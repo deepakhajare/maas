@@ -5,56 +5,111 @@
     <meta http-equiv="Content-Language" content="en-us" />
     <link rel="stylesheet" href="{{ STATIC_URL }}css/import.css" />
     <link rel="stylesheet" href="{{ STATIC_URL }}css/ubuntu-webfonts.css" />
-    <title>{% block title %}{% endblock %} | MaaS Cluster</title>
+    <title>{% block title %}{% endblock %} | {% include "maasserver/site_title.html" %}</title>
     {% block js-conf %}{% include "maasserver/js-conf.html" %}{% endblock %}
     {% block head %}{% endblock %}
+    {% if user.is_authenticated %}
+        <script type="text/javascript">
+        <!--
+        YUI().use('maas.user_panel', function (Y) {
+          Y.on('load', function() {
+            var panel = Y.maas.user_panel.createUserPanelWidget()
+            Y.one('#user-options-link').on('click', Y.maas.user_panel.showUserPanelWidget);
+          });
+        });
+        // -->
+        </script>
+    {% endif %}
 </head>
 <body class="{% block layout-modifiers %}{% endblock %}">
   {% block html_includes %}{% endblock %}
-  <div id="header-wrapper">
-    <div class="center-page-wrapper">
-      <div id="header" class="center-page-content">
-        {% block header %}
-          <h1>
-            <a href="{% url 'index' %}" title="Return to dashboard"><img src="{{ STATIC_URL }}img/ubuntu_logo_header.png" alt="Ubuntu logo">
-              MaaS Cluster</a>
-          </h1>
-          {% if user.is_authenticated %}
-            {% block user-nav %}
-              {% include "maasserver/user-nav.html" %}
+  <div class="center-page-wrapper">
+    <div class="center-page-content">
+      {% if user.is_authenticated %}
+        <div class="center-page-wrapper">
+          <div id="global-header" class="center-page-content">
+            <div id="user-nav">
+              <a href="#" id="user-options-link">{{ user.username }}
+                <img src="{{ STATIC_URL }}img/down_arrow_light.png" alt="Options arrow" />
+              </a>
+              <ul id="user-options" class="nav hidden">
+                <li><a href="{% url 'prefs' %}">Preferences</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+              </ul>
+            </div>
+            {% block site-switcher %}
+              <a href="{% url 'index' %}" title="Return to dashboard">
+                {% include "maasserver/site_title.html" %}
+              </a>
             {% endblock %}
-            <ul id="main-nav" class="nav">
-              <li class="{% block nav-active-index %}{% endblock %}">
-                <a href="{% url 'index' %}">Dashboard</a>
-              </li>
-              <li class="{% block nav-active-node-list %}{% endblock %}">
-                <a href="{% url 'node-list' %}">Nodes</a>
-             </li>
-            </ul>
-          {% endif %}
+            <div class="clear"></div>
+          </div>
+          <div id="header" class="center-page-content">
+              <ul id="right-nav" class="nav">
+                {% comment %}
+                  <!-- To be enabled when we have search functionality -->
+                  <li class="search">
+                    {% block header-search %}
+                      <form action="{% url 'node-list' %}" method="get" id="header-search">
+                        <input type="text" name="query" value="Search nodes" class="search-box" />
+                      </form>
+                    {% endblock %}
+                  </li>
+                {% endcomment %}
+                {% if user.is_superuser %}
+                  {% comment %}
+                    <!-- To be enabled when we have search functionality -->
+                    <li class="divider"></li>
+                  {% endcomment %}
+                  <li class="icon {% block nav-active-settings %}{% endblock %}">
+                    <a href="{% url 'settings' %}">
+                      <img src="{{ STATIC_URL }}img/settings.png" alt="Settings" />
+                    </a>
+                  </li>
+                {% endif %}
+              </ul>
+              <ul id="main-nav" class="nav">
+                <li class="icon {% block nav-active-index %}{% endblock %}">
+                  <a href="{% url 'index' %}">
+                    <img src="{{ STATIC_URL }}img/home.png" alt="MAAS home" />
+                  </a>
+                </li>
+                <li class="{% block nav-active-node-list %}{% endblock %}">
+                  <a href="{% url 'node-list' %}">Nodes</a>
+                </li>
+              </ul>
+            <div class="clear"></div>
+          </div>
+        </div>
+      {% endif %}
+      <div id="body">
+        <ul id="flash-messages">
+          {% if messages %}
+            {% for message in messages %}
+              <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+                {{ message }}</li>
+            {% endfor %}
+          {% endif %}
+        </ul>
+        {% if user.is_authenticated %}
+          {% block page-title-block %}
+            <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
+          {% endblock %}
+        {% endif %}
+        <div id="content">
+            <div id="sidebar">{% block sidebar %}{% endblock %}</div>
+            {% block content %}{% endblock %}
+            <div class="clear"></div>
+        </div>
+      </div>
+      <div id="footer">
+        <img src="{{ STATIC_URL }}img/ubuntu_logo_footer.png" alt="Ubuntu" />
+        {% block footer-copyright %}
+          &copy; 2012 Canonical Ltd. Ubuntu and Canonical are registered 
+          trademarks of Canonical Ltd.
         {% endblock %}
         <div class="clear"></div>
       </div>
-    </div>
-  </div>
-  <div class="center-page-wrapper">
-    <div class="center-page-content">
-    <div id="body">
-      <ul id="flash-messages">
-        {% if messages %}
-          {% for message in messages %}
-            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
-              {{ message }}</li>
-          {% endfor %}
-        {% endif %}
-      </ul>
-      {% if user.is_authenticated %}
-        <form action="" method="get" id="header-search">
-          <input type="text" name="query" value="Search nodes"><input type="submit" value="">
-        </form>
-        <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
-      {% endif %}
-      <div id="content">{% block content %}{% endblock %}</div>
     </div>
   </div>
 </body>

@@ -10,16 +10,22 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'fake_auth_failure_string',
+    'fake_object_not_found_string',
+    'fake_token',
     'FakeCobbler',
     'FakeTwistedProxy',
-    'fake_token',
     'make_fake_cobbler_session',
     ]
 
+from copy import deepcopy
 from fnmatch import fnmatch
 from itertools import count
 from random import randint
-from xmlrpclib import Fault
+from xmlrpclib import (
+    dumps,
+    Fault,
+    )
 
 from provisioningserver.cobblerclient import CobblerSession
 from twisted.internet.defer import (
@@ -31,6 +37,18 @@ from twisted.internet.defer import (
 unique_ints = count(randint(0, 99999))
 
 
+def fake_auth_failure_string(token):
+    """Fake a Cobbler authentication failure fault string for `token`."""
+    return "<class 'cobbler.exceptions.CX'>:'invalid token: %s'" % token
+
+
+def fake_object_not_found_string(object_type, object_name):
+    """Fake a Cobbler unknown object fault string."""
+    return (
+        "<class 'cobbler.cexceptions.CX'>:'internal error, "
+        "unknown %s name %s'" % (object_type, object_name))
+
+
 def fake_token(user=None, custom_id=None):
     """Make up a fake auth token.
 
@@ -39,7 +57,7 @@ def fake_token(user=None, custom_id=None):
         for ease of debugging.
     """
     elements = ['token', '%s' % next(unique_ints), user, custom_id]
-    return '-'.join(filter(None, elements))
+    return '-'.join(element for element in elements if bool(element))
 
 
 class FakeTwistedProxy:
@@ -52,6 +70,11 @@ class FakeTwistedProxy:
 
     @inlineCallbacks
     def callRemote(self, method, *args):
+        # Dump the call information as an XML-RPC request to ensure that it
+        # will travel over the wire. Cobbler does not allow None so we forbid
+        # it here too.
+        dumps(args, method, allow_none=False)
+        # Continue to forward the call to fake_cobbler.
         callee = getattr(self.fake_cobbler, method, None)
         assert callee is not None, "Unknown Cobbler method: %s" % method
         result = yield callee(*args)
@@ -118,7 +141,7 @@ class FakeCobbler:
 
     def _check_token(self, token):
         if token not in self.tokens:
-            raise Fault(1, "invalid token: %s" % token)
+            raise Fault(1, fake_auth_failure_string(token))
 
     def _raise_bad_handle(self, object_type, handle):
         raise Fault(1, "Invalid %s handle: %s" % (object_type, handle))
@@ -168,6 +191,11 @@ class FakeCobbler:
         name = "name-%s-%d" % (object_type, unique_id)
         new_object = {
             'name': name,
+            'comment': (
+                "Cobbler stores lots of things we're not interested in; "
+                "this comment is here to break tests that let Cobbler's "
+                "data leak out of the Provisioning Server."
+                ),
         }
         self._add_object_to_session(token, object_type, handle, new_object)
         return handle
@@ -191,7 +219,7 @@ class FakeCobbler:
         if handle is None:
             handle = self._get_handle_if_present(None, object_type, name)
         if handle is None:
-            raise Fault(1, "Unknown %s: %s." % (object_type, name))
+            raise Fault(1, fake_object_not_found_string(object_type, name))
         return handle
 
     def _api_find_objects(self, object_type, criteria):
@@ -208,14 +236,14 @@ class FakeCobbler:
 
     def _api_get_object(self, object_type, name):
         """Get object's attributes by name."""
-        location = self.store[None][object_type]
+        location = self.store[None].get(object_type, {})
         matches = [obj for obj in location.values() if obj['name'] == name]
         assert len(matches) <= 1, (
             "Multiple %s objects are called '%s'." % (object_type, name))
         if len(matches) == 0:
             return None
         else:
-            return matches[0]
+            return deepcopy(matches[0])
 
     def _api_get_objects(self, object_type):
         """Return all saved objects of type `object_type`.
@@ -226,7 +254,7 @@ class FakeCobbler:
         """
         # Assumption: these operations look only at saved objects.
         location = self.store[None].get(object_type, {})
-        return [obj.copy() for obj in location.values()]
+        return [deepcopy(obj) for obj in location.values()]
 
     def _api_modify_object(self, token, object_type, handle, key, value):
         """Set an attribute on an object.
@@ -243,7 +271,7 @@ class FakeCobbler:
             saved_obj = self._get_object_if_present(None, object_type, handle)
             if saved_obj is None:
                 self._raise_bad_handle(object_type, handle)
-            session_obj = saved_obj.copy()
+            session_obj = deepcopy(saved_obj)
             self._add_object_to_session(
                 token, object_type, handle, session_obj)
 
@@ -311,6 +339,25 @@ class FakeCobbler:
         self.tokens[token] = user
         return token
 
+    def _xapi_edit_system_interfaces(self, token, handle, name, attrs):
+        """Edit system interfaces with Cobbler's crazy protocol."""
+        obj_state = self._api_get_object('system', name)
+        interface_name = attrs.pop("interface")
+        interfaces = obj_state.get("interfaces", {})
+        if "mac_address" in attrs:
+            interface = interfaces.setdefault(interface_name, {})
+            interface["mac_address"] = attrs.pop("mac_address")
+        elif "delete_interface" in attrs:
+            if interface_name in interfaces:
+                del interfaces[interface_name]
+        else:
+            raise AssertionError(
+                "Edit operation defined interface but "
+                "not mac_address or delete_interface. "
+                "Got: %r" % (attrs,))
+        self._api_modify_object(
+            token, 'system', handle, "interfaces", interfaces)
+
     def xapi_object_edit(self, object_type, name, operation, attrs, token):
         """Swiss-Army-Knife API: create/rename/copy/edit object."""
         if operation == 'remove':
@@ -321,6 +368,13 @@ class FakeCobbler:
             obj_dict = self.store[token][object_type][handle]
             obj_dict.update(attrs)
             obj_dict['name'] = name
+            return self._api_save_object(token, object_type, handle)
+        elif operation == 'edit':
+            handle = self._api_get_handle(token, object_type, name)
+            if object_type == "system" and "interface" in attrs:
+                self._xapi_edit_system_interfaces(token, handle, name, attrs)
+            for key, value in attrs.items():
+                self._api_modify_object(token, object_type, handle, key, value)
             return self._api_save_object(token, object_type, handle)
         else:
             raise NotImplemented(
@@ -471,14 +525,14 @@ class FakeCobbler:
             token, read, self.preseed_templates, path, contents)
 
     def get_kickstart_templates(self, token=None):
-        return self.preseed_templates.keys()
+        return list(self.preseed_templates)
 
     def read_or_write_snippet(self, path, read, contents, token):
         return self._api_access_preseed(
             token, read, self.preseed_snippets, path, contents)
 
     def get_snippets(self, token=None):
-        return self.preseed_snippets.keys()
+        return list(self.preseed_snippets)
 
     def sync(self, token):
         self._check_token(token)

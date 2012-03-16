@@ -11,35 +11,49 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import re
+
+from django.conf import settings as django_settings
 from django.conf.urls.defaults import (
+    include,
     patterns,
     url,
     )
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.views import login
 from django.views.generic.simple import (
     direct_to_template,
     redirect_to,
     )
-from maasserver.api import (
-    api_doc,
-    MaasAPIAuthentication,
-    NodeHandler,
-    NodeMacHandler,
-    NodeMacsHandler,
-    NodesHandler,
-    )
 from maasserver.models import Node
 from maasserver.views import (
+    AccountsAdd,
+    AccountsDelete,
+    AccountsEdit,
+    AccountsView,
+    combo_view,
+    KeystoreView,
     logout,
     NodeListView,
     NodesCreateView,
+    proxy_to_longpoll,
+    settings,
+    settings_add_archive,
+    userprefsview,
     )
-from piston.resource import Resource
+
+
+def adminurl(regexp, view, *args, **kwargs):
+    view = user_passes_test(lambda u: u.is_superuser)(view)
+    return url(regexp, view, *args, **kwargs)
+
 
 # URLs accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
+    url(
+        r'^%s' % re.escape(django_settings.YUI_COMBO_URL), combo_view,
+        name='yui-combo'),
     url(r'^accounts/login/$', login, name='login'),
-    url(r'^accounts/logout/$', logout, name='logout'),
     url(
         r'^robots\.txt$', direct_to_template,
         {'template': 'maasserver/robots.txt', 'mimetype': 'text/plain'},
@@ -47,10 +61,13 @@ urlpatterns = patterns('maasserver.views',
     url(
         r'^favicon\.ico$', redirect_to, {'url': '/static/img/favicon.ico'},
         name='favicon'),
+    url(r'^accounts/(?P<userid>\w+)/sshkeys/$', KeystoreView),
 )
 
 # URLs for logged-in users.
 urlpatterns += patterns('maasserver.views',
+    url(r'^account/prefs/$', userprefsview, name='prefs'),
+    url(r'^accounts/logout/$', logout, name='logout'),
     url(
         r'^$',
         NodeListView.as_view(template_name="maasserver/index.html"),
@@ -60,30 +77,45 @@ urlpatterns += patterns('maasserver.views',
         r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
 )
 
-# API.
-auth = MaasAPIAuthentication(realm="MaaS API")
 
-node_handler = Resource(NodeHandler, authentication=auth)
-nodes_handler = Resource(NodesHandler, authentication=auth)
-node_mac_handler = Resource(NodeMacHandler, authentication=auth)
-node_macs_handler = Resource(NodeMacsHandler, authentication=auth)
+def get_proxy_longpoll_enabled():
+    """Should MAAS act as a proxy to a txlongpoll server?
 
-# API URLs accessible to anonymous users.
-urlpatterns += patterns('',
-    url(r'^api/doc/$', api_doc, name='api-doc'),
+    This should only be true if longpoll is enabled (LONGPOLL_PATH) and
+    if the url to a txlongpoll is configured (LONGPOLL_SERVER_URL).
+    """
+    return (
+        django_settings.LONGPOLL_SERVER_URL is not None and
+        django_settings.LONGPOLL_PATH is not None)
+
+
+if get_proxy_longpoll_enabled():
+    urlpatterns += patterns('maasserver.views',
+        url(
+            r'^%s$' % re.escape(django_settings.LONGPOLL_PATH),
+            proxy_to_longpoll, name='proxy-to-longpoll'),
+        )
+
+# URLs for admin users.
+urlpatterns += patterns('maasserver.views',
+    adminurl(r'^settings/$', settings, name='settings'),
+    adminurl(
+        r'^settings/archives/add/$', settings_add_archive,
+        name='settings-add-archive'),
+    adminurl(r'^accounts/add/$', AccountsAdd.as_view(), name='accounts-add'),
+    adminurl(
+        r'^accounts/(?P<username>\w+)/edit/$', AccountsEdit.as_view(),
+        name='accounts-edit'),
+    adminurl(
+        r'^accounts/(?P<username>\w+)/view/$', AccountsView.as_view(),
+        name='accounts-view'),
+    adminurl(
+        r'^accounts/(?P<username>\w+)/del/$', AccountsDelete.as_view(),
+        name='accounts-del'),
 )
 
-# API URLs for logged-in users.
-urlpatterns += patterns('',
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/macs/(?P<mac_address>.+)/$',
-        node_mac_handler, name='node_mac_handler'),
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/macs/$', node_macs_handler,
-        name='node_macs_handler'),
 
-    url(
-        r'^api/nodes/(?P<system_id>[\w\-]+)/$', node_handler,
-        name='node_handler'),
-    url(r'^api/nodes/$', nodes_handler, name='nodes_handler'),
-)
+# API URLs.
+urlpatterns += patterns('',
+    (r'^api/1\.0/', include('maasserver.urls_api'))
+    )
