@@ -7,6 +7,7 @@ from django.db import transaction
 from maasserver.models import Config
 from ZeroconfService import ZeroconfService
 
+
 class AvahiService(object):
 
     @transaction.commit_manually
@@ -26,7 +27,6 @@ class AvahiService(object):
                                            port=80,
                                            stype="_maas._tcp")
             self.service.publish()
-
 
     def maas_title_changed(self, sender, instance, created, **kwargs):
         self.service.unpublish()
