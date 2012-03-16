@@ -15,12 +15,15 @@ __all__ = [
     "NodesCreateView",
     ]
 
+import mimetypes
 import os
+import urllib2
 
 from convoy.combo import (
     combine_files,
     parse_qs,
     )
+from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm as PasswordForm
 from django.contrib.auth.models import User
@@ -49,11 +52,12 @@ from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
     EditUserForm,
-    MaaSAndNetworkForm,
+    MAASAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
     UbuntuForm,
     )
+from maasserver.messages import messaging
 from maasserver.models import (
     Node,
     SSHKeys,
@@ -66,12 +70,27 @@ def logout(request):
     return dj_logout(request, next_page=reverse('login'))
 
 
+def get_longpoll_context():
+    if messaging is not None and django_settings.LONGPOLL_PATH is not None:
+        return {
+            'longpoll_queue': messaging.getQueue().name,
+            'LONGPOLL_PATH': django_settings.LONGPOLL_PATH,
+            }
+    else:
+        return {}
+
+
 class NodeListView(ListView):
 
     context_object_name = "node_list"
 
     def get_queryset(self):
         return Node.objects.get_visible_nodes(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super(NodeListView, self).get_context_data(**kwargs)
+        context.update(get_longpoll_context())
+        return context
 
 
 class NodesCreateView(CreateView):
@@ -221,11 +240,26 @@ class AccountsEdit(UpdateView):
         return reverse('settings')
 
 
+def proxy_to_longpoll(request):
+    url = django_settings.LONGPOLL_SERVER_URL
+    assert url is not None, (
+        "LONGPOLL_SERVER_URL should point to a Longpoll server.")
+
+    if 'QUERY_STRING' in request.META:
+        url += '?' + request.META['QUERY_STRING']
+    proxied_response = urllib2.urlopen(url)
+    status_code = proxied_response.code
+    mimetype = (
+        proxied_response.headers.typeheader or mimetypes.guess_type(url))
+    content = proxied_response.read()
+    return HttpResponse(content, status=status_code, mimetype=mimetype)
+
+
 def settings(request):
     user_list = UserProfile.objects.all_users().order_by('username')
-    # Process the MaaS & network form.
+    # Process the MAAS & network form.
     maas_and_network_form, response = process_form(
-        request, MaaSAndNetworkForm, reverse('settings'), 'maas_and_network',
+        request, MAASAndNetworkForm, reverse('settings'), 'maas_and_network',
         "Configuration updated.")
     if response is not None:
         return response
@@ -271,13 +305,19 @@ def settings_add_archive(request):
         context_instance=RequestContext(request))
 
 
-YUI_LOCATION = os.path.join(
-    os.path.dirname(__file__), 'static', 'jslibs', 'yui')
+def get_yui_location():
+    if django_settings.STATIC_ROOT:
+        return os.path.join(
+            django_settings.STATIC_ROOT, 'jslibs', 'yui')
+    else:
+        return os.path.join(
+            os.path.dirname(__file__), 'static', 'jslibs', 'yui')
 
 
 def combo_view(request):
     """Handle a request for combining a set of files."""
     fnames = parse_qs(request.META.get("QUERY_STRING", ""))
+    YUI_LOCATION = get_yui_location()
 
     if fnames:
         if fnames[0].endswith('.js'):

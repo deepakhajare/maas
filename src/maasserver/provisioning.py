@@ -14,6 +14,7 @@ __all__ = [
     ]
 
 from urllib import urlencode
+from urlparse import urljoin
 import warnings
 import xmlrpclib
 
@@ -34,7 +35,7 @@ def get_provisioning_api_proxy():
     """Return a proxy to the Provisioning API.
 
     If ``PSERV_URL`` is not set, we attempt to return a handle to a fake proxy
-    implementation. This will not be available in a packaged version of MaaS,
+    implementation. This will not be available in a packaged version of MAAS,
     in which case an error is raised.
     """
     url = settings.PSERV_URL
@@ -56,7 +57,7 @@ def get_provisioning_api_proxy():
 
 def get_metadata_server_url():
     """Return the URL where nodes can reach the metadata service."""
-    return "http://%s/metadata/" % Config.objects.get_config('metadata-host')
+    return urljoin(Config.objects.get_config('maas_url'), "metadata/")
 
 
 def compose_metadata(node):
@@ -81,21 +82,41 @@ def compose_metadata(node):
     }
 
 
+def name_arch_in_cobbler_style(architecture):
+    """Give architecture name as used in cobbler.
+
+    MAAS uses Ubuntu-style architecture names, notably including "amd64"
+    which in Cobbler terms is "x86_64."
+
+    :param architecture: An architecture name (e.g. as produced by MAAS).
+    :type architecture: basestring
+    :return: An architecture name in Cobbler style.
+    :rtype: unicode
+    """
+    conversions = {
+        'amd64': 'x86_64',
+        'i686': 'i386',
+    }
+    if isinstance(architecture, bytes):
+        architecture = architecture.decode('ascii')
+    return conversions.get(architecture, architecture)
+
+
+def select_profile_for_node(node, papi):
+    """Select which profile a node should be configured for."""
+    assert node.architecture, "Node's architecture is not known."
+    cobbler_arch = name_arch_in_cobbler_style(node.architecture)
+    return "%s-%s" % ("precise", cobbler_arch)
+
+
 @receiver(post_save, sender=Node)
 def provision_post_save_Node(sender, instance, created, **kwargs):
     """Create or update nodes in the provisioning server."""
     papi = get_provisioning_api_proxy()
-    nodes = papi.get_nodes_by_name([instance.system_id])
-    if instance.system_id in nodes:
-        profile = nodes[instance.system_id]["profile"]
-    else:
-        # TODO: Choose a sensible profile.
-        profiles = papi.get_profiles()
-        assert len(profiles) >= 1, (
-            "No profiles defined in Cobbler; has "
-            "cobbler-ubuntu-import been run?")
-        profile = sorted(profiles)[0]
-    papi.add_node(instance.system_id, profile, compose_metadata(instance))
+    profile = select_profile_for_node(instance, papi)
+    power_type = instance.get_effective_power_type()
+    metadata = compose_metadata(instance)
+    papi.add_node(instance.system_id, profile, power_type, metadata)
 
 
 def set_node_mac_addresses(node):

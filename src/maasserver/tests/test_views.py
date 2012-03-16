@@ -11,22 +11,34 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from collections import namedtuple
 import httplib
+import os
+import urllib2
 
+from django.conf import settings
 from django.conf.urls.defaults import patterns
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
+from maasserver import views
+from maasserver.messages import get_messaging
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
     SSHKeys,
     UserProfile,
     )
-from maasserver.testing import (
-    factory,
+from maasserver.testing.factory import factory
+from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
+    )
+from maasserver.urls import get_proxy_longpoll_enabled
+from maasserver.views import (
+    get_longpoll_context,
+    get_yui_location,
+    proxy_to_longpoll,
     )
 
 
@@ -64,6 +76,96 @@ class Test404500(LoggedInTestCase):
             ['Internal server error.'],
             [elem.text.strip() for elem in
                 doc.cssselect('h2')])
+
+
+class TestSnippets(LoggedInTestCase):
+
+    def assertTemplateExistsAndContains(self, content, template_selector,
+                                        contains_selector):
+        """Assert that the provided html 'content' contains a snippet as
+        selected by 'template_selector' which in turn contains an element
+        selected by 'contains_selector'.
+        """
+        doc = fromstring(content)
+        snippets = doc.cssselect(template_selector)
+        # The snippet exists.
+        self.assertEqual(1, len(snippets))
+        # It contains the required element.
+        selects = fromstring(snippets[0].text).cssselect(contains_selector)
+        self.assertEqual(1, len(selects))
+
+    def test_architecture_snippet(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-architecture', 'select#id_architecture')
+
+    def test_hostname(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-node', 'input#id_hostname')
+
+    def test_after_commissioning_action_snippet(self):
+        response = self.client.get('/')
+        self.assertTemplateExistsAndContains(
+            response.content, '#add-node',
+            'select#id_after_commissioning_action')
+
+
+class TestProxyView(LoggedInTestCase):
+    """Test the (dev) view used to proxy request to a txlongpoll server."""
+
+    def test_proxy_to_longpoll(self):
+        # Set LONGPOLL_SERVER_URL (to a random string).
+        longpoll_server_url = factory.getRandomString()
+        self.patch(settings, 'LONGPOLL_SERVER_URL', longpoll_server_url)
+
+        # Create content of the fake reponse.
+        query_string = factory.getRandomString()
+        mimetype = factory.getRandomString()
+        content = factory.getRandomString()
+        status_code = factory.getRandomStatusCode()
+
+        # Monkey patch urllib2.urlopen to make it return a (fake) response
+        # with status_code=code, headers.typeheader=mimetype and a
+        # 'read' method that will return 'content'.
+        def urlopen(url):
+            # Assert that urlopen is called on the longpoll url (plus
+            # additional parameters taken from the original request's
+            # query string).
+            self.assertEqual(
+                '%s?%s' % (longpoll_server_url, query_string), url)
+            FakeProxiedResponse = namedtuple(
+                'FakeProxiedResponse', 'code headers read')
+            headers = namedtuple('Headers', 'typeheader')(mimetype)
+            return FakeProxiedResponse(status_code, headers, lambda: content)
+        self.patch(urllib2, 'urlopen', urlopen)
+
+        # Create a fake request.
+        request = namedtuple(
+            'FakeRequest', ['META'])({'QUERY_STRING': query_string})
+        response = proxy_to_longpoll(request)
+
+        self.assertEqual(content, response.content)
+        self.assertEqual(mimetype, response['Content-Type'])
+        self.assertEqual(status_code, response.status_code)
+
+
+class TestGetLongpollenabled(TestCase):
+
+    def test_longpoll_not_included_if_LONGPOLL_SERVER_URL_None(self):
+        self.patch(settings, 'LONGPOLL_PATH', factory.getRandomString())
+        self.patch(settings, 'LONGPOLL_SERVER_URL', None)
+        self.assertFalse(get_proxy_longpoll_enabled())
+
+    def test_longpoll_not_included_if_LONGPOLL_PATH_None(self):
+        self.patch(settings, 'LONGPOLL_PATH', None)
+        self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
+        self.assertFalse(get_proxy_longpoll_enabled())
+
+    def test_longpoll_included_if_LONGPOLL_PATH_and_LONGPOLL_SERVER_URL(self):
+        self.patch(settings, 'LONGPOLL_PATH', factory.getRandomString())
+        self.patch(settings, 'LONGPOLL_SERVER_URL', factory.getRandomString())
+        self.assertTrue(get_proxy_longpoll_enabled())
 
 
 class TestComboLoaderView(TestCase):
@@ -105,6 +207,42 @@ class TestComboLoaderView(TestCase):
         response = self.client.get('/combo/?file.wrongextension')
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual("Invalid file type requested.", response.content)
+
+
+class TestUtilities(TestCase):
+
+    def test_get_yui_location_if_static_root_is_none(self):
+        self.patch(settings, 'STATIC_ROOT', None)
+        yui_location = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'static', 'jslibs', 'yui')
+        self.assertEqual(yui_location, get_yui_location())
+
+    def test_get_yui_location(self):
+        static_root = factory.getRandomString()
+        self.patch(settings, 'STATIC_ROOT', static_root)
+        yui_location = os.path.join(static_root, 'jslibs', 'yui')
+        self.assertEqual(yui_location, get_yui_location())
+
+    def test_get_longpoll_context_empty_if_rabbitmq_publish_is_none(self):
+        self.patch(settings, 'RABBITMQ_PUBLISH', None)
+        self.patch(views, 'messaging', get_messaging())
+        self.assertEqual({}, get_longpoll_context())
+
+    def test_get_longpoll_context_empty_if_longpoll_url_is_None(self):
+        self.patch(settings, 'LONGPOLL_PATH', None)
+        self.patch(views, 'messaging', get_messaging())
+        self.assertEqual({}, get_longpoll_context())
+
+    def test_get_longpoll_context(self):
+        longpoll = factory.getRandomString()
+        self.patch(settings, 'LONGPOLL_PATH', longpoll)
+        self.patch(settings, 'RABBITMQ_PUBLISH', True)
+        self.patch(views, 'messaging', get_messaging())
+        context = get_longpoll_context()
+        self.assertItemsEqual(
+            ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
+        self.assertEqual(longpoll, context['LONGPOLL_PATH'])
 
 
 class UserPrefsViewTest(LoggedInTestCase):

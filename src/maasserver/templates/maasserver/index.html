@@ -14,6 +14,7 @@
   <!--
   YUI().use(
     'maas.node_add', 'maas.node','maas.node_views', 'maas.utils', 'maas.nodes_chart',
+    'maas.longpoll', 
     function (Y) {
     Y.on('load', function() {
       // Create Dashboard view.
@@ -37,12 +38,35 @@
 	  {srcNode: '.page-title-form'});
       title_widget.render();
 
+
       // Show the chart
-        var cfg = {
-          node_id: 'chart',
-          width: 300
-          };
-        var chart = new Y.maas.nodes_chart.NodesChartWidget(cfg);
+      var cfg = {
+        node_id: 'chart',
+        width: 300
+        };
+      var chart = new Y.maas.nodes_chart.NodesChartWidget(cfg);
+
+      // Sample event listeners.
+      Y.on("Node.updated", function() {
+		  Y.log("node updated");
+      });
+
+      Y.on("Node.created", function() {
+		  Y.log("node created");
+      });
+
+      Y.on("Node.deleted", function() {
+		  Y.log("node deleted");
+      });
+
+      // Start longpoll.
+      {% if longpoll_queue and LONGPOLL_PATH %}
+        Y.later(0, Y.maas.longpoll, function() {
+          var longpollmanager = Y.maas.longpoll.setupLongPollManager(
+            '{{ longpoll_queue }}', '/{{ LONGPOLL_PATH }}');
+        });
+      {% endif %}
+
     });
   });
   // -->
@@ -52,8 +76,8 @@
 {% block page-title-block %}
   {% if user.is_superuser %}
     <form action="" method="" class="page-title-form">
-      <input type="text" value="{{ global_options.site_name }} MaaS"
-             title="Edit the name of this MaaS" />
+      <input type="text" value="{{ global_options.site_name }} MAAS"
+             title="Edit the name of this MAAS" />
     </form>
   {% else %}
     <h1 id="page-title">{% include "maasserver/site_title.html" %}</h1>

@@ -13,6 +13,7 @@ __all__ = [
     "ProvisioningAPI",
     ]
 
+from base64 import b64encode
 from functools import partial
 from itertools import count
 
@@ -21,6 +22,7 @@ from provisioningserver.cobblerclient import (
     CobblerProfile,
     CobblerSystem,
     )
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.utils import deferred
 from twisted.internet.defer import (
@@ -52,6 +54,7 @@ def cobbler_to_papi_node(data):
             for mac_address in mac_addresses
             if not mac_address.isspace()
             ],
+        "power_type": data["power_type"],
         }
 
 cobbler_mapping_to_papi_nodes = partial(
@@ -149,7 +152,7 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
 # Preseed data to send to cloud-init.  We set this as MAAS_PRESEED in
 # ks_meta, and it gets fed straight into debconf.
 metadata_preseed_items = [
-    ('datasources', 'multiselect', 'MaaS'),
+    ('datasources', 'multiselect', 'MAAS'),
     ('maas-metadata-url', 'string', '%(maas-metadata-url)s'),
     ('maas-metadata-credentials', 'string', '%(maas-metadata-credentials)s'),
     ]
@@ -187,13 +190,16 @@ class ProvisioningAPI:
         returnValue(profile.name)
 
     @inlineCallbacks
-    def add_node(self, name, profile, metadata):
+    def add_node(self, name, profile, power_type, metadata):
         assert isinstance(name, basestring)
         assert isinstance(profile, basestring)
+        assert power_type in (POWER_TYPE.VIRSH, POWER_TYPE.WAKE_ON_LAN)
         assert isinstance(metadata, dict)
+        preseed = b64encode(metadata_preseed % metadata)
         attributes = {
             "profile": profile,
-            "ks_meta": {"MAAS_PRESEED": metadata_preseed % metadata},
+            "ks_meta": {"MAAS_PRESEED": preseed},
+            "power_type": power_type,
             }
         system = yield CobblerSystem.new(self.session, name, attributes)
         returnValue(system.name)

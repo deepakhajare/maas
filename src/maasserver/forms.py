@@ -14,7 +14,7 @@ __all__ = [
     "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
-    "MaaSAndNetworkForm",
+    "MAASAndNetworkForm",
     "UbuntuForm",
     ]
 
@@ -33,6 +33,7 @@ from django.forms import (
     )
 from maasserver.fields import MACAddressFormField
 from maasserver.models import (
+    ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     Config,
     MACAddress,
@@ -42,10 +43,25 @@ from maasserver.models import (
     )
 
 
-INVALID_ARCHITECTURE_MESSAGE = (
-    "%(value)s is not a valid architecture. " +
-    "It should be one of: %s." % ", ".join(
-        name for name, value in ARCHITECTURE_CHOICES))
+def compose_invalid_choice_text(choice_of_what, valid_choices):
+    """Compose an "invalid choice" string for form error messages.
+
+    :param choice_of_what: The name for what the selected item is supposed
+        to be, to be inserted into the error string.
+    :type choice_of_what: basestring
+    :param valid_choices: Valid choices, in Django choices format:
+        (name, value).
+    :type valid_choices: sequence
+    """
+    return "%s is not a valid %s.  It should be one of: %s." % (
+        "%(value)s",
+        choice_of_what,
+        ", ".join(name for name, value in valid_choices),
+        )
+
+
+INVALID_ARCHITECTURE_MESSAGE = compose_invalid_choice_text(
+    'architecture', ARCHITECTURE_CHOICES)
 
 
 class NodeForm(ModelForm):
@@ -56,14 +72,15 @@ class NodeForm(ModelForm):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
     architecture = forms.ChoiceField(
-        choices=ARCHITECTURE_CHOICES, required=False,
+        choices=ARCHITECTURE_CHOICES, required=True,
+        initial=ARCHITECTURE.i386,
         error_messages={'invalid_choice': INVALID_ARCHITECTURE_MESSAGE})
 
     class Meta:
         model = Node
         fields = (
             'hostname', 'system_id', 'after_commissioning_action',
-            'architecture')
+            'architecture', 'power_type')
 
 
 class MACAddressForm(ModelForm):
@@ -123,7 +140,7 @@ class ProfileForm(ModelForm):
 
 class NewUserCreationForm(UserCreationForm):
     is_superuser = forms.BooleanField(
-        label="MaaS administrator", required=False)
+        label="MAAS administrator", required=False)
 
     def __init__(self, *args, **kwargs):
         super(NewUserCreationForm, self).__init__(*args, **kwargs)
@@ -156,7 +173,7 @@ class NewUserCreationForm(UserCreationForm):
 class EditUserForm(UserChangeForm):
     # Override the default label.
     is_superuser = forms.BooleanField(
-        label="MaaS administrator", required=False)
+        label="MAAS administrator", required=False)
     last_name = forms.CharField(
         label="Full name", max_length=30, required=False)
 
@@ -199,9 +216,9 @@ class ConfigForm(Form):
             return True
 
 
-class MaaSAndNetworkForm(ConfigForm):
-    """Settings page, MaaS and Network section."""
-    maas_name = forms.CharField(label="MaaS name")
+class MAASAndNetworkForm(ConfigForm):
+    """Settings page, MAAS and Network section."""
+    maas_name = forms.CharField(label="MAAS name")
     provide_dhcp = forms.BooleanField(
         label="Provide DHCP on this subnet", required=False)
 

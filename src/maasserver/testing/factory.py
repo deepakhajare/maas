@@ -15,30 +15,20 @@ __all__ = [
 
 from io import BytesIO
 import random
-import string
 
 from django.contrib.auth.models import User
 from maasserver.models import (
+    ARCHITECTURE,
     FileStorage,
     MACAddress,
     Node,
     NODE_STATUS,
     )
 from maasserver.testing.enum import map_enum
+import maastesting.factory
 
 
-class Factory():
-
-    def getRandomString(self, size=10):
-        return "".join(
-            random.choice(string.letters + string.digits)
-            for x in range(size))
-
-    def getRandomEmail(self, login_size=10):
-        return "%s@example.com" % self.getRandomString(size=login_size)
-
-    def getRandomBoolean(self):
-        return random.choice((True, False))
+class Factory(maastesting.factory.Factory):
 
     def getRandomEnum(self, enum):
         """Pick a random item from an enumeration class.
@@ -61,13 +51,15 @@ class Factory():
         return random.choice(choices)[0]
 
     def make_node(self, hostname='', set_hostname=False, status=None,
-                  **kwargs):
+                  architecture=ARCHITECTURE.i386, **kwargs):
         # hostname=None is a valid value, hence the set_hostname trick.
         if hostname is '' and set_hostname:
             hostname = self.getRandomString(255)
         if status is None:
             status = NODE_STATUS.DEFAULT_STATUS
-        node = Node(hostname=hostname, status=status, **kwargs)
+        node = Node(
+            hostname=hostname, status=status, architecture=architecture,
+            **kwargs)
         node.save()
         return node
 

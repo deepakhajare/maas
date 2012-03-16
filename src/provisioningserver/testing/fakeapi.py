@@ -64,15 +64,20 @@ class FakeProvisioningDatabase(dict):
 
 
 @implementer(IProvisioningAPI)
-class FakeSynchronousProvisioningAPI:
+class FakeProvisioningAPIBase:
 
     # TODO: Referential integrity might be a nice thing.
 
     def __init__(self):
-        super(FakeSynchronousProvisioningAPI, self).__init__()
+        super(FakeProvisioningAPIBase, self).__init__()
         self.distros = FakeProvisioningDatabase()
         self.profiles = FakeProvisioningDatabase()
         self.nodes = FakeProvisioningDatabase()
+        # Record power_type settings for nodes (by node name).  This is
+        # not part of the provisioning-server node as returned to the
+        # maasserver, so it's not stored as a regular attribute even if
+        # it works like one internally.
+        self.power_types = {}
         # This records nodes that start/stop commands have been issued
         # for.  If a node has been started, its name maps to 'start'; if
         # it has been stopped, its name maps to 'stop' (whichever
@@ -88,10 +93,11 @@ class FakeSynchronousProvisioningAPI:
         self.profiles[name]["distro"] = distro
         return name
 
-    def add_node(self, name, profile, metadata):
+    def add_node(self, name, profile, power_type, metadata):
         self.nodes[name]["profile"] = profile
         self.nodes[name]["mac_addresses"] = []
         self.nodes[name]["metadata"] = metadata
+        self.power_types[name] = power_type
         return name
 
     def modify_distros(self, deltas):
@@ -145,18 +151,56 @@ class FakeSynchronousProvisioningAPI:
             self.power_status[name] = 'stop'
 
 
-def async(func):
-    """Decorate a function so that it always return a `defer.Deferred`."""
+PAPI_METHODS = {
+    name: getattr(FakeProvisioningAPIBase, name)
+    for name in IProvisioningAPI.names(all=True)
+    if isinstance(IProvisioningAPI[name], Method)
+    }
+
+
+def sync_xmlrpc_func(func):
+    """Decorate a function so that it acts similarly to a synchronously
+    accessed remote XML-RPC call.
+
+    All method calls return synchronously.
+    """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        return defer.execute(func, *args, **kwargs)
+        assert len(kwargs) == 0, (
+            "The Provisioning API is meant to be used via XML-RPC, "
+            "for now, so its methods are prevented from use with "
+            "keyword arguments, which XML-RPC does not support.")
+        # TODO: Convert exceptions into Faults.
+        return func(*args)
     return wrapper
 
 
-# Generate an asynchronous variant based on the synchronous one.
+# Generate an synchronous variant.
+FakeSynchronousProvisioningAPI = type(
+    b"FakeSynchronousProvisioningAPI", (FakeProvisioningAPIBase,), {
+        name: sync_xmlrpc_func(func) for name, func in PAPI_METHODS.items()
+        })
+
+
+def async_xmlrpc_func(func):
+    """Decorate a function so that it acts similarly to an asynchronously
+    accessed remote XML-RPC call.
+
+    All method calls return asynchronously, via a :class:`defer.Deferred`.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        assert len(kwargs) == 0, (
+            "The Provisioning API is meant to be used via XML-RPC, "
+            "for now, so its methods are prevented from use with "
+            "keyword arguments, which XML-RPC does not support.")
+        # TODO: Convert exceptions into Faults.
+        return defer.execute(func, *args)
+    return wrapper
+
+
+# Generate an asynchronous variant.
 FakeAsynchronousProvisioningAPI = type(
-    b"FakeAsynchronousProvisioningAPI", (FakeSynchronousProvisioningAPI,), {
-        name: async(getattr(FakeSynchronousProvisioningAPI, name))
-        for name in IProvisioningAPI.names(all=True)
-        if isinstance(IProvisioningAPI[name], Method)
+    b"FakeAsynchronousProvisioningAPI", (FakeProvisioningAPIBase,), {
+        name: async_xmlrpc_func(func) for name, func in PAPI_METHODS.items()
         })

@@ -18,7 +18,7 @@ suite.add(new Y.maas.testing.TestCase({
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
             method: 'send',
-            args: [MaaS_config.uris.nodes_handler, Y.Mock.Value.Any]
+            args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);
     },
@@ -53,11 +53,40 @@ suite.add(new Y.maas.testing.TestCase({
 suite.add(new Y.maas.testing.TestCase({
     name: 'test-add-node-widget-add-node',
 
+    testFormContainsArchitectureChoice: function() {
+        // The generated form contains an 'architecture' field.
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        var arch = panel.get('srcNode').one('form').one('#id_architecture');
+        Y.Assert.isNotNull(arch);
+        var arch_options = arch.all('option');
+        Y.Assert.areEqual(2, arch_options.size());
+     },
+
+    testAddNodeAPICallSubmitsForm: function() {
+        // The call to the API triggered by clicking on 'Add a node'
+        // submits (via an API call) the panel's form.
+        module.showAddNodeWidget();
+        var panel = module._add_node_singleton;
+        var mockXhr = new Y.Base();
+        var fired = false;
+        var form = panel.get('srcNode').one('form');
+        mockXhr.send = function(uri, cfg) {
+            fired = true;
+            Y.Assert.areEqual(form, cfg.form);
+        };
+        this.mockIO(mockXhr, module);
+        panel.get('srcNode').one('#id_hostname').set('value', 'host');
+        var button = panel.get('srcNode').one('.yui3-button');
+        button.simulate('click');
+        Y.Assert.isTrue(fired);
+    },
+
     testAddNodeAPICall: function() {
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
             method: 'send',
-            args: [MaaS_config.uris.nodes_handler, Y.Mock.Value.Any]
+            args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);
         module.showAddNodeWidget();
@@ -72,7 +101,7 @@ suite.add(new Y.maas.testing.TestCase({
         var mockXhr = Y.Mock();
         Y.Mock.expect(mockXhr, {
             method: 'send',
-            args: [MaaS_config.uris.nodes_handler, Y.Mock.Value.Any]
+            args: [MAAS_config.uris.nodes_handler, Y.Mock.Value.Any]
         });
         this.mockIO(mockXhr, module);
         module.showAddNodeWidget();
@@ -142,7 +171,7 @@ suite.add(new Y.maas.testing.TestCase({
         var error_message = panel.get(
             'srcNode').one('.form-global-errors').get('innerHTML');
         // The link to the login page is present in the error message.
-        var link_position = error_message.search(MaaS_config.uris.login);
+        var link_position = error_message.search(MAAS_config.uris.login);
         Y.Assert.areNotEqual(-1, link_position);
     }
 

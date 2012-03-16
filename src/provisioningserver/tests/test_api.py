@@ -18,6 +18,7 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
+from base64 import b64decode
 from itertools import (
     count,
     islice,
@@ -28,6 +29,7 @@ from time import time
 from unittest import skipIf
 from urlparse import urlparse
 
+from maasserver.testing.enum import map_enum
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -40,6 +42,7 @@ from provisioningserver.cobblerclient import (
     CobblerSession,
     CobblerSystem,
     )
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.interfaces import IProvisioningAPI
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
@@ -73,7 +76,7 @@ def fake_name():
 def fake_node_metadata():
     """Produce fake metadata parameters for adding a node."""
     return {
-        'maas-metadata-url': 'http://%s:8000/metadata/' % fake_name(),
+        'maas-metadata-url': 'http://%s:5240/metadata/' % fake_name(),
         'maas-metadata-credentials': 'fake/%s' % fake_name(),
         }
 
@@ -100,12 +103,14 @@ class TestFunctions(TestCase):
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
                 },
+            "power_type": "virsh",
             "ju": "nk",
             }
         expected = {
             "name": "iced",
             "profile": "earth",
             "mac_addresses": ["12:34:56:78:9a:bc"],
+            "power_type": "virsh",
             }
         observed = cobbler_to_papi_node(data)
         self.assertEqual(expected, observed)
@@ -114,12 +119,14 @@ class TestFunctions(TestCase):
         data = {
             "name": "iced",
             "profile": "earth",
+            "power_type": "ether_wake",
             "ju": "nk",
             }
         expected = {
             "name": "iced",
             "profile": "earth",
             "mac_addresses": [],
+            "power_type": "ether_wake",
             }
         observed = cobbler_to_papi_node(data)
         self.assertEqual(expected, observed)
@@ -266,17 +273,20 @@ class ProvisioningAPITests:
         return d
 
     @inlineCallbacks
-    def add_distro(self, papi):
+    def add_distro(self, papi, name=None):
         """Creates a new distro object via `papi`.
 
-        Arranges for it to be deleted during test clean-up.
+        Arranges for it to be deleted during test clean-up. If `name` is not
+        specified, `fake_name` will be called to obtain one.
         """
+        if name is None:
+            name = fake_name()
         # For the initrd and kernel, use a file that we know will exist for a
         # running Cobbler instance (at least, on Ubuntu) so that we can test
         # against remote instances, like one in odev.
         initrd = "/etc/cobbler/settings"
         kernel = "/etc/cobbler/version"
-        distro_name = yield papi.add_distro(fake_name(), initrd, kernel)
+        distro_name = yield papi.add_distro(name, initrd, kernel)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_distros_by_name,
@@ -284,15 +294,18 @@ class ProvisioningAPITests:
         returnValue(distro_name)
 
     @inlineCallbacks
-    def add_profile(self, papi, distro_name=None):
+    def add_profile(self, papi, name=None, distro_name=None):
         """Creates a new profile object via `papi`.
 
-        Arranges for it to be deleted during test clean-up. If `distro_name`
+        Arranges for it to be deleted during test clean-up. If `name` is not
+        specified, `fake_name` will be called to obtain one. If `distro_name`
         is not specified, one will be obtained by calling `add_distro`.
         """
+        if name is None:
+            name = fake_name()
         if distro_name is None:
             distro_name = yield self.add_distro(papi)
-        profile_name = yield papi.add_profile(fake_name(), distro_name)
+        profile_name = yield papi.add_profile(name, distro_name)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_profiles_by_name,
@@ -300,20 +313,26 @@ class ProvisioningAPITests:
         returnValue(profile_name)
 
     @inlineCallbacks
-    def add_node(self, papi, profile_name=None, metadata=None):
+    def add_node(self, papi, name=None, profile_name=None, power_type=None,
+                 metadata=None):
         """Creates a new node object via `papi`.
 
-        Arranges for it to be deleted during test clean-up. If `profile_name`
+        Arranges for it to be deleted during test clean-up. If `name` is not
+        specified, `fake_name` will be called to obtain one. If `profile_name`
         is not specified, one will be obtained by calling `add_profile`. If
         `metadata` is not specified, it will be obtained by calling
         `fake_node_metadata`.
         """
+        if name is None:
+            name = fake_name()
         if profile_name is None:
             profile_name = yield self.add_profile(papi)
+        if power_type is None:
+            power_type = POWER_TYPE.WAKE_ON_LAN
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            fake_name(), profile_name, metadata)
+            name, profile_name, power_type, metadata)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_nodes_by_name,
@@ -349,6 +368,23 @@ class ProvisioningAPITests:
         self.assertItemsEqual([node_name], nodes)
 
     @inlineCallbacks
+    def _test_add_object_twice(self, method):
+        # Adding an object twice is allowed.
+        papi = self.get_provisioning_api()
+        object_name1 = yield method(papi)
+        object_name2 = yield method(papi, object_name1)
+        self.assertEqual(object_name1, object_name2)
+
+    def test_add_distro_twice(self):
+        return self._test_add_object_twice(self.add_distro)
+
+    def test_add_profile_twice(self):
+        return self._test_add_object_twice(self.add_profile)
+
+    def test_add_node_twice(self):
+        return self._test_add_object_twice(self.add_node)
+
+    @inlineCallbacks
     def test_modify_distros(self):
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
@@ -371,7 +407,7 @@ class ProvisioningAPITests:
         papi = self.get_provisioning_api()
         distro1_name = yield self.add_distro(papi)
         distro2_name = yield self.add_distro(papi)
-        profile_name = yield self.add_profile(papi, distro1_name)
+        profile_name = yield self.add_profile(papi, None, distro1_name)
         yield papi.modify_profiles({profile_name: {"distro": distro2_name}})
         values = yield papi.get_profiles_by_name([profile_name])
         self.assertEqual(distro2_name, values[profile_name]["distro"])
@@ -380,9 +416,9 @@ class ProvisioningAPITests:
     def test_modify_nodes(self):
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
-        profile1_name = yield self.add_profile(papi, distro_name)
-        profile2_name = yield self.add_profile(papi, distro_name)
-        node_name = yield self.add_node(papi, profile1_name)
+        profile1_name = yield self.add_profile(papi, None, distro_name)
+        profile2_name = yield self.add_profile(papi, None, distro_name)
+        node_name = yield self.add_node(papi, None, profile1_name)
         yield papi.modify_nodes({node_name: {"profile": profile2_name}})
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(profile2_name, values[node_name]["profile"])
@@ -468,7 +504,7 @@ class ProvisioningAPITests:
         # Create some profiles via the Provisioning API.
         profiles_expected = set()
         for num in range(3):
-            profile_name = yield self.add_profile(papi, distro_name)
+            profile_name = yield self.add_profile(papi, None, distro_name)
             profiles_expected.add(profile_name)
         profiles_after = yield papi.get_profiles()
         profiles_created = set(profiles_after) - set(profiles_before)
@@ -480,7 +516,7 @@ class ProvisioningAPITests:
         profile_name = yield self.add_profile(papi)
         node_names = set()
         for num in range(3):
-            node_name = yield self.add_node(papi, profile_name)
+            node_name = yield self.add_node(papi, None, profile_name)
             node_names.add(node_name)
         nodes = yield papi.get_nodes()
         self.assertSetEqual(node_names, node_names.intersection(nodes))
@@ -545,6 +581,28 @@ class ProvisioningAPITests:
         pass
 
 
+class ProvisioningAPITestsWithCobbler:
+    """Provisioning API tests that also access a real, or fake, Cobbler."""
+
+    @inlineCallbacks
+    def test_add_node_sets_power_type(self):
+        papi = self.get_provisioning_api()
+        power_types = list(map_enum(POWER_TYPE).values())
+        # The DEFAULT value does not exist as far as the provisioning
+        # server is concerned.
+        power_types.remove(POWER_TYPE.DEFAULT)
+        nodes = {}
+        for power_type in power_types:
+            nodes[power_type] = yield self.add_node(
+                papi, power_type=power_type)
+        cobbler_power_types = {}
+        for power_type, node_id in nodes.items():
+            attrs = yield CobblerSystem(papi.session, node_id).get_values()
+            cobbler_power_types[power_type] = attrs['power_type']
+        self.assertItemsEqual(
+            dict(zip(power_types, power_types)), cobbler_power_types)
+
+
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
 
@@ -556,7 +614,9 @@ class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
         return FakeAsynchronousProvisioningAPI()
 
 
-class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests, TestCase):
+class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
+                                         ProvisioningAPITestsWithCobbler,
+                                         TestCase):
     """Test :class:`ProvisioningAPI` with a fake Cobbler instance.
 
     Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
@@ -573,11 +633,14 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests, TestCase):
         node_name = yield self.add_node(papi, metadata=metadata)
         attrs = yield CobblerSystem(papi.session, node_name).get_values()
         preseed = attrs['ks_meta']['MAAS_PRESEED']
+        preseed = b64decode(preseed)
         self.assertIn(metadata['maas-metadata-url'], preseed)
         self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
-class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests, TestCase):
+class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
+                                         ProvisioningAPITestsWithCobbler,
+                                         TestCase):
     """Test :class:`ProvisioningAPI` with a real Cobbler instance.
 
     The URL for the Cobbler instance must be provided in the

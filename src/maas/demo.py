@@ -10,14 +10,67 @@ from __future__ import (
 
 __metaclass__ = type
 
-# SKIP, developement settings should override base settings.
-from maas.settings import *
-from maas.development import *
+import os
+
+from maas import (
+    development,
+    import_settings,
+    settings,
+    )
+
+# We expect the following settings to be overridden. They are mentioned here
+# to silence lint warnings.
+MIDDLEWARE_CLASSES = None
+
+# Extend base and development settings.
+import_settings(settings)
+import_settings(development)
+
+MEDIA_ROOT = os.path.join(os.getcwd(), "media/demo")
 
 MIDDLEWARE_CLASSES += (
-    'maasserver.middleware.ConsoleExceptionMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
-# This should match the setting in Makefile:pserv.pid.
-PSERV_URL = "http://localhost:8001/api"
+# In dev mode: Django should act as a proxy to txlongpoll.
+LONGPOLL_SERVER_URL = "http://localhost:5242/"
+
+# Disable longpoll by default for now. Set it back to 'longpoll/' to
+# enable it.
+LONGPOLL_PATH = None
+
+# This should match the setting in /etc/pserv.yaml.
+PSERV_URL = "http://localhost:5241/api"
+
+RABBITMQ_PUBLISH = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(asctime)s %(name)s %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'maas': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+     }
+}

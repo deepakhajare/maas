@@ -14,7 +14,7 @@
     <script type="text/javascript" src="test_node_add.js"></script>
     <script type="text/javascript">
     <!--
-    var MaaS_config = {
+    var MAAS_config = {
       uris: {
         login: '/login/',
         statics: '/static/',
@@ -27,6 +27,17 @@
   <body>
   <script type="text/x-template" id="add-macaddress">
     <p></p>
+  </script>
+  <script type="text/x-template" id="add-architecture">
+    <p>
+    <label for="id_architecture">Architecture
+    </label>
+    <select id="id_architecture" name="architecture">
+      <option value="amd64">amd64</option>
+      <option value="i386">i386</option>
+    </select>
+    <input type="text" maxlength="30" name="hostname" id="id_hostname" />
+    </p>
   </script>
   <script type="text/x-template" id="add-node">
     <p>

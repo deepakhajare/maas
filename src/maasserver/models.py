@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""MaaS model objects."""
+"""MAAS model objects."""
 
 from __future__ import (
     print_function,
@@ -21,10 +21,10 @@ __all__ = [
     "UserProfile",
     ]
 
+from collections import defaultdict
 import copy
 import datetime
 from errno import ENOENT
-import getpass
 from logging import getLogger
 import os
 import re
@@ -54,8 +54,12 @@ from piston.models import (
     Consumer,
     Token,
     )
+from provisioningserver.enum import (
+    POWER_TYPE,
+    POWER_TYPE_CHOICES,
+    )
 
-# Special users internal to MaaS.
+# Special users internal to MAAS.
 SYSTEM_USERS = [
     # For nodes' access to the metadata API:
     nodeinituser.user_name,
@@ -142,12 +146,6 @@ class NODE_AFTER_COMMISSIONING_ACTION:
     CHECK = 1
     #:
     DEPLOY_12_04 = 2
-    #:
-    DEPLOY_11_10 = 3
-    #:
-    DEPLOY_11_04 = 4
-    #:
-    DEPLOY_10_10 = 5
 
 
 NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
@@ -157,12 +155,6 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
         "Check compatibility and hold for future decision"),
     (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_12_04,
         "Deploy with Ubuntu 12.04 LTS"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_11_10,
-        "Deploy with Ubuntu 11.10"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_11_04,
-        "Deploy with Ubuntu 11.04"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_10_10,
-        "Deploy with Ubuntu 10.10"),
 )
 
 
@@ -331,7 +323,7 @@ class NodeManager(models.Manager):
 
 
 class Node(CommonInfo):
-    """A `Node` represents a physical machine used by the MaaS Server.
+    """A `Node` represents a physical machine used by the MAAS Server.
 
     :ivar system_id: The unique identifier for this `Node`.
         (e.g. 'node-41eba45e-4cfa-11e1-a052-00225f89f211').
@@ -342,6 +334,9 @@ class Node(CommonInfo):
     :ivar after_commissioning_action: The action to perform after
         commissioning. See vocabulary
         :class:`NODE_AFTER_COMMISSIONING_ACTION`.
+    :ivar power_type: The :class:`POWER_TYPE` that determines how this
+        node will be powered on.  If not given, the default will be used as
+        configured in the `node_power_type` setting.
     :ivar objects: The :class:`NodeManager`.
 
     """
@@ -363,8 +358,15 @@ class Node(CommonInfo):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
-    architecture = models.CharField(max_length=10,
-        choices=ARCHITECTURE_CHOICES, blank=True)
+    architecture = models.CharField(
+        max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
+        default=ARCHITECTURE.i386)
+
+    # For strings, Django insists on abusing the empty string ("blank")
+    # to mean "none."
+    power_type = models.CharField(
+        max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
+        default=POWER_TYPE.DEFAULT)
 
     objects = NodeManager()
 
@@ -405,6 +407,23 @@ class Node(CommonInfo):
         if mac:
             mac.delete()
 
+    def get_effective_power_type(self):
+        """Get power-type to use for this node.
+
+        If no power type has been set for the node, get the configured
+        default.
+        """
+        if self.power_type == POWER_TYPE.DEFAULT:
+            power_type = Config.objects.get_config('node_power_type')
+            if power_type == POWER_TYPE.DEFAULT:
+                raise ValueError(
+                    "Default power type is configured to the default, but "
+                    "that means to use the configured default.  It needs to "
+                    "be confirued to another, more useful value.")
+        else:
+            power_type = self.power_type
+        return power_type
+
     def acquire(self, by_user):
         """Mark commissioned node as acquired by the given user."""
         assert self.status == NODE_STATUS.READY
@@ -444,7 +463,7 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
-GENERIC_CONSUMER = 'MaaS consumer'
+GENERIC_CONSUMER = 'MAAS consumer'
 
 
 def create_auth_token(user):
@@ -505,7 +524,7 @@ class UserProfileManager(models.Manager):
 
 
 class UserProfile(models.Model):
-    """A User profile to store MaaS specific methods and fields.
+    """A User profile to store MAAS specific methods and fields.
 
     :ivar user: The related User_.
 
@@ -730,6 +749,10 @@ def get_default_config():
         # Commissioning section configuration.
         'after_commissioning': NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
         'check_compatibility': False,
+        'node_power_type': POWER_TYPE.WAKE_ON_LAN,
+        # The host name or address where the nodes can access the metadata
+        # service of this MAAS.
+        'maas_url': settings.DEFAULT_MAAS_URL,
         # Ubuntu section configuration.
         'fallback_master_archive': False,
         'keep_mirror_list_uptodate': False,
@@ -738,12 +761,9 @@ def get_default_config():
         'update_from_choice': (
             [['archive.ubuntu.com', 'archive.ubuntu.com']]),
         # Network section configuration.
-        'maas_name': "%s's" % getpass.getuser().capitalize(),
+        'maas_name': gethostname(),
         'provide_dhcp': False,
         ## /settings
-        # The host name or address where the nodes can access the metadata
-        # service.
-        'metadata-host': gethostname(),
         }
 
 
@@ -755,6 +775,10 @@ class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
     """
+
+    def __init__(self):
+        super(ConfigManager, self).__init__()
+        self._config_changed_connections = defaultdict(set)
 
     def get_config(self, name, default=None):
         """Return the config value corresponding to the given config name.
@@ -800,6 +824,30 @@ class ConfigManager(models.Manager):
         except Config.DoesNotExist:
             self.create(name=name, value=value)
 
+    def config_changed_connect(self, config_name, method):
+        """Connect a method to Django's 'update' signal for given config name.
+
+        :param config_name: The name of the config item to track.
+        :type config_name: basestring
+        :param method: The method to be called.
+        :type method: callable
+
+        The provided callabe should follow Django's convention.  E.g:
+
+        >>> def callable(sender, instance, created, **kwargs):
+        >>>     pass
+        >>>
+        >>> Config.objects.config_changed_connect('config_name', callable)
+        """
+        self._config_changed_connections[config_name].add(method)
+
+    def _config_changed(self, sender, instance, created, **kwargs):
+        for connection in self._config_changed_connections[instance.name]:
+            connection(sender, instance, created, **kwargs)
+
+
+config_manager = ConfigManager()
+
 
 class Config(models.Model):
     """Configuration settings.
@@ -813,10 +861,14 @@ class Config(models.Model):
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
 
-    objects = ConfigManager()
+    objects = config_manager
 
     def __unicode__(self):
         return "%s: %s" % (self.name, self.value)
+
+
+# Connect config_manager._config_changed the post save signal of Config.
+post_save.connect(config_manager._config_changed, sender=Config)
 
 
 # Register the models in the admin site.
@@ -828,7 +880,7 @@ admin.site.register(Node)
 admin.site.register(SSHKeys)
 
 
-class MaaSAuthorizationBackend(ModelBackend):
+class MAASAuthorizationBackend(ModelBackend):
 
     supports_object_permissions = True
 
@@ -857,3 +909,6 @@ class MaaSAuthorizationBackend(ModelBackend):
 from maasserver import provisioning
 # We mention 'provisioning' here to silence lint warnings.
 provisioning
+
+from maasserver import messages
+messages

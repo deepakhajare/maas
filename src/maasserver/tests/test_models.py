@@ -15,14 +15,12 @@ import codecs
 from io import BytesIO
 import os
 import shutil
+from socket import gethostname
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from fixtures import (
-    EnvironmentVariableFixture,
-    TestWithFixtures,
-    )
+from fixtures import TestWithFixtures
 from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
@@ -42,8 +40,9 @@ from maasserver.models import (
     SYSTEM_USERS,
     UserProfile,
     )
-from maasserver.testing import TestCase
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
+from maasserver.testing.testcase import TestCase
 from metadataserver.models import NodeUserData
 from piston.models import (
     Consumer,
@@ -51,6 +50,7 @@ from piston.models import (
     SECRET_SIZE,
     Token,
     )
+from provisioningserver.enum import POWER_TYPE
 from testtools.matchers import (
     GreaterThan,
     LessThan,
@@ -88,6 +88,30 @@ class NodeTest(TestCase):
         macs = MACAddress.objects.filter(
             node=node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(0, macs)
+
+    def test_get_effective_power_type_defaults_to_config(self):
+        power_types = list(map_enum(POWER_TYPE).values())
+        power_types.remove(POWER_TYPE.DEFAULT)
+        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
+        effective_types = []
+        for power_type in power_types:
+            Config.objects.set_config('node_power_type', power_type)
+            effective_types.append(node.get_effective_power_type())
+        self.assertEqual(power_types, effective_types)
+
+    def test_get_effective_power_type_reads_node_field(self):
+        power_types = list(map_enum(POWER_TYPE).values())
+        power_types.remove(POWER_TYPE.DEFAULT)
+        nodes = [
+            factory.make_node(power_type=power_type)
+            for power_type in power_types]
+        self.assertEqual(
+            power_types, [node.get_effective_power_type() for node in nodes])
+
+    def test_get_effective_power_type_rejects_default_as_config_value(self):
+        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
+        Config.objects.set_config('node_power_type', POWER_TYPE.DEFAULT)
+        self.assertRaises(ValueError, node.get_effective_power_type)
 
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -313,8 +337,7 @@ class MACAddressTest(TestCase):
 
     def make_MAC(self, address):
         """Create a MAC address."""
-        node = Node()
-        node.save()
+        node = factory.make_node()
         return MACAddress(mac_address=address, node=node)
 
     def test_stores_to_database(self):
@@ -450,8 +473,6 @@ class UserProfileTest(TestCase):
 class FileStorageTest(TestCase):
     """Testing of the :class:`FileStorage` model."""
 
-    FILEPATH = settings.MEDIA_ROOT
-
     def make_upload_dir(self):
         """Create the upload directory, and arrange for eventual deletion.
 
@@ -462,13 +483,12 @@ class FileStorageTest(TestCase):
         :return: Absolute path to the `FileStorage` upload directory.  This
             is the directory where the actual files are stored.
         """
-        # These will blow up if either directory already exists.  Which
-        # is brittle, but probably for the best since we ruthlessly
-        # delete them on cleanup!
-        os.mkdir(self.FILEPATH)
-        upload_dir = os.path.join(self.FILEPATH, FileStorage.upload_dir)
+        media_root = settings.MEDIA_ROOT
+        self.assertFalse(os.path.exists(media_root), "See media/README")
+        self.addCleanup(shutil.rmtree, media_root, ignore_errors=True)
+        os.mkdir(media_root)
+        upload_dir = os.path.join(media_root, FileStorage.upload_dir)
         os.mkdir(upload_dir)
-        self.addCleanup(shutil.rmtree, self.FILEPATH)
         return upload_dir
 
     def get_media_path(self, filename):
@@ -664,7 +684,7 @@ class FileStorageTest(TestCase):
         self.assertTrue(FileStorage.storage.exists(storage.data.name))
 
     def test_collect_garbage_tolerates_missing_upload_dir(self):
-        # When MaaS is freshly installed, the upload directory is still
+        # When MAAS is freshly installed, the upload directory is still
         # missing.  But...
         FileStorage.objects.collect_garbage()
         # ...we get through garbage collection without breakage.
@@ -675,16 +695,24 @@ class ConfigDefaultTest(TestCase, TestWithFixtures):
     """Test config default values."""
 
     def test_default_config_maas_name(self):
-        name = factory.getRandomString()
-        fixture = EnvironmentVariableFixture('LOGNAME', name)
-        self.useFixture(fixture)
         default_config = get_default_config()
-        self.assertEqual(
-            "%s's" % name.capitalize(), default_config['maas_name'])
+        self.assertEqual(gethostname(), default_config['maas_name'])
+
+
+class Listener:
+    """A utility class which tracks the calls to its 'call' method and
+    stores the arguments given to 'call' in 'self.calls'.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def call(self, *args, **kwargs):
+        self.calls.append([args, kwargs])
 
 
 class ConfigTest(TestCase):
-    """Testing of the :class:`Config` model."""
+    """Testing of the :class:`Config` model and its related manager class."""
 
     def test_manager_get_config_found(self):
         Config.objects.create(name='name', value='config')
@@ -726,3 +754,48 @@ class ConfigTest(TestCase):
         self.assertSequenceEqual(
             ['config2'],
             [config.value for config in Config.objects.filter(name='name')])
+
+    def test_manager_config_changed_connect_connects(self):
+        listener = Listener()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.set_config(name, value)
+        config = Config.objects.get(name=name)
+
+        self.assertEqual(1, len(listener.calls))
+        self.assertEqual((Config, config, True), listener.calls[0][0])
+
+    def test_manager_config_changed_connect_connects_multiple(self):
+        listener = Listener()
+        listener2 = Listener()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.config_changed_connect(name, listener2.call)
+        Config.objects.set_config(name, value)
+
+        self.assertEqual(1, len(listener.calls))
+        self.assertEqual(1, len(listener2.calls))
+
+    def test_manager_config_changed_connect_connects_multiple_same(self):
+        # If the same method is connected twice, it will only get called
+        # once.
+        listener = Listener()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.config_changed_connect(name, listener.call)
+        Config.objects.set_config(name, value)
+
+        self.assertEqual(1, len(listener.calls))
+
+    def test_manager_config_changed_connect_connects_by_config_name(self):
+        listener = Listener()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.config_changed_connect(name, listener.call)
+        another_name = factory.getRandomString()
+        Config.objects.set_config(another_name, value)
+
+        self.assertEqual(0, len(listener.calls))

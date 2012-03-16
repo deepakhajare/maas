@@ -96,6 +96,15 @@ def looks_like_auth_expiry(exception):
         return "invalid token: " in exception.faultString
 
 
+def looks_like_object_not_found(exception):
+    """Does `exception` look like an unknown object failure?"""
+    if not hasattr(exception, 'faultString'):
+        # An unknown object failure would come as an xmlrpclib.Fault.
+        return False
+    else:
+        return "internal error, unknown " in exception.faultString
+
+
 class CobblerSession:
     """A session on the Cobbler XMLRPC API.
 
@@ -328,7 +337,7 @@ class CobblerObject:
     # keep an accurate record of which attributes we use for which types
     # of objects.
     # Some attributes in Cobbler uses dashes as separators, others use
-    # underscores.  In MaaS, use only underscores.
+    # underscores.  In MAAS, use only underscores.
     known_attributes = []
 
     # What attributes does Cobbler require for this type of object?
@@ -372,7 +381,7 @@ class CobblerObject:
     def _normalize_attribute(cls, attribute_name, attributes=None):
         """Normalize an attribute name.
 
-        Cobbler mixes dashes and underscores in attribute names.  MaaS may
+        Cobbler mixes dashes and underscores in attribute names.  MAAS may
         pass attributes as keyword arguments internally, where dashes are not
         an option.  Hide the distinction by looking up the proper name in
         `known_attributes` by default, but `attributes` can be passed to
@@ -486,14 +495,24 @@ class CobblerObject:
             (cls._normalize_attribute(key), value)
             for key, value in attributes.items())
 
-        # Overwrite any existing object of the same name.  Unfortunately
-        # this parameter goes into the "attributes," and seems to be
-        # stored along with them.  Its value doesn't matter.
-        args.setdefault('clobber', True)
+        # Do not clobber under any circumstances.
+        if "clobber" in args:
+            del args["clobber"]
 
-        success = yield session.call(
-            'xapi_object_edit', cls.object_type, name, 'add', args,
-            session.token_placeholder)
+        try:
+            # Attempt to edit an existing object.
+            success = yield session.call(
+                'xapi_object_edit', cls.object_type, name, 'edit', args,
+                session.token_placeholder)
+        except xmlrpclib.Fault as e:
+            # If it was not found, add the object.
+            if looks_like_object_not_found(e):
+                success = yield session.call(
+                    'xapi_object_edit', cls.object_type, name, 'add', args,
+                    session.token_placeholder)
+            else:
+                raise
+
         if not success:
             raise RuntimeError(
                 "Cobbler refused to create %s '%s'.  Attributes: %s"
