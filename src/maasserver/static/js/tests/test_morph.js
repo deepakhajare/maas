@@ -15,22 +15,22 @@ suite.add(new Y.maas.testing.TestCase({
 
     testMorphing: function() {
         var cfg = {
-            srcNode: '#panel-one',
-            targetNode: '#panel-two'
+            srcNode: '#panel-two',
+            targetNode: '#panel-one'
         }
-        morpher = new module(cfg);
+        morpher = new module.MorphWidget(cfg);
         Y.Assert.isFalse(
             Y.one('#panel-one').hasClass('hidden'),
             'The target panel should initially be visible');
         Y.Assert.isTrue(
-            Y.one('#panel-one').hasClass('hidden'),
+            Y.one('#panel-two').hasClass('hidden'),
             'The source panel should initially be hidden');
         morpher.morph();
         Y.Assert.isTrue(
             Y.one('#panel-one').hasClass('hidden'),
             'The target panel should now be hidden');
         Y.Assert.isFalse(
-            Y.one('#panel-one').hasClass('hidden'),
+            Y.one('#panel-two').hasClass('hidden'),
             'The source panel should now be visible');
     }
 }));
