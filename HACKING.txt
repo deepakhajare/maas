@@ -143,10 +143,18 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler, and import at least one distro and profile::
+Install Cobbler, install preseed files and snippets, and import distros.
 
     $ sudo apt-get install apache2 cobbler
+    $ sudo cp contrib/preseeds/* /var/lib/cobbler/kickstarts/
+    $ sudo cp contrib/snippets/* /var/lib/cobbler/snippets/
+    $ sudo ./scripts/maas-import-isos
+
+You can also import an specific release-arch, but you will have to run
+maas-import-isos to create the maas necessary profiles:
+
     $ sudo cobbler-ubuntu-import precise-i386  # For example.
+    $ sudo ./scripts/maas-import-isos
 
 Add yourself as a user in Cobbler. For convenience, give yourself the
 password ``test``::
