@@ -248,13 +248,13 @@ class TestUtilities(TestCase):
         self.assertEqual(longpoll, context['LONGPOLL_PATH'])
 
     def test_remove_prefix_if_prefix(self):
-        url_without_prefix = factory.getrandomstring()
+        url_without_prefix = factory.getRandomString()
         url = '/%s' % url_without_prefix
-        self.assertequal(url_without_prefix, remove_prefix(url))
+        self.assertEqual(url_without_prefix, remove_prefix(url))
 
     def test_remove_prefix_if_no_prefix(self):
-        url_without_prefix = factory.getrandomstring()
-        self.assertequal(url_without_prefix, remove_prefix(url_without_prefix))
+        url_without_prefix = factory.getRandomString()
+        self.assertEqual(url_without_prefix, remove_prefix(url_without_prefix))
 
 
 class UserPrefsViewTest(LoggedInTestCase):
