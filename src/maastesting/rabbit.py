@@ -14,6 +14,7 @@ __all__ = [
     "RabbitServerSettings",
     "start_rabbit",
     "stop_rabbit",
+    "use_rabbit",
     "uses_rabbit",
     ]
 
@@ -76,14 +77,20 @@ def get_rabbit():
     return rabbit
 
 
-def uses_rabbit(test):
-    """Decorate a test function to ensure that a :class:`RabbitServer` is
-    started and Django's setting updated to point to it.
+def use_rabbit(test):
+    """Ensure that a :class:`RabbitServer` is started, and Django's setting
+    updated to point to it, and that Django's settings are returned to their
+    original values at the end.
     """
-    @wraps(test)
+    config = get_rabbit().config
+    fixture = RabbitServerSettings(config)
+    test.useFixture(fixture)
+
+
+def uses_rabbit(func):
+    """Decorate a test function with `use_rabbit`."""
+    @wraps(func)
     def wrapper(self):
-        config = get_rabbit().config
-        fixture = RabbitServerSettings(config)
-        self.useFixture(fixture)
-        return test(self)
+        use_rabbit(self)
+        return func(self)
     return wrapper
