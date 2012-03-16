@@ -5,7 +5,7 @@ from django.db.utils import DatabaseError
 from django.db import transaction
 
 from maasserver.models import Config
-from ZeroconfService import ZeroconfService
+from zeroconfservice import ZeroconfService
 
 
 class AvahiService(object):
