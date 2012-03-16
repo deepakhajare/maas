@@ -31,7 +31,6 @@ class TestZeroconfService(TestCase):
         # running a glib mainloop. And stopping one is hard. Much easier to
         # kill an external process. This slows test, and could be fragile,
         # but it's the best I've come with.
-        import pdb; pdb.set_trace()
         browser = subprocess.Popen(
             ['avahi-browse', '-k', '-p', service_type],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
