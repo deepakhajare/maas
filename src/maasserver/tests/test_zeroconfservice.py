@@ -48,7 +48,7 @@ class TestZeroconfService(TestCase):
         port = random.randint(30000, 40000)
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
-        self.addCleanup(service.group.Reset())
+        self.addCleanup(service.group.Reset)
         services = self.avahi_browse(self.STYPE)
         self.assertIn(name, services)
 
