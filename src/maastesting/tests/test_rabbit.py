@@ -11,9 +11,36 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.rabbit import RabbitServerResource
+from random import randint
+
+from django.conf import settings
+from maastesting.factory import factory
+from maastesting.rabbit import (
+    RabbitServerResource,
+    RabbitServerSettings,
+    )
 from maastesting.testcase import TestCase
-from rabbitfixture.server import RabbitServer
+from rabbitfixture.server import (
+    RabbitServer,
+    RabbitServerResources,
+    )
+
+
+class TestRabbitServerSettings(TestCase):
+
+    def test_patch(self):
+        config = RabbitServerResources(
+            hostname=factory.getRandomString(),
+            port=randint(1025, 2**16))
+        self.useFixture(config)
+        self.useFixture(RabbitServerSettings(config))
+        self.assertEqual(
+            "%s:%d" % (config.hostname, config.port),
+            settings.RABBITMQ_HOST)
+        self.assertEqual("guest", settings.RABBITMQ_PASSWORD)
+        self.assertEqual("guest", settings.RABBITMQ_USERID)
+        self.assertEqual("/", settings.RABBITMQ_VIRTUAL_HOST)
+        self.assertTrue(settings.RABBITMQ_PUBLISH)
 
 
 class TestRabbitServerResourceBasics(TestCase):
