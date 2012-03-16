@@ -14,6 +14,7 @@ __all__ = [
     ]
 
 from os import environ
+from textwrap import dedent
 from urlparse import urlparse
 
 from provisioningserver.cobblerclient import CobblerSession
@@ -32,11 +33,11 @@ class RealCobbler:
 
     env_var = 'PSERV_TEST_COBBLER_URL'
 
-    help_text = """
+    help_text = dedent("""
         Set %s to the URL for a Cobbler instance to test against,
         e.g. http://username:password@localhost/cobbler_api.
         WARNING: this will modify your Cobbler database.
-        """.lstrip() % env_var
+        """.lstrip('\n') % env_var)
 
     def __init__(self):
         self.url = environ.get(self.env_var)
