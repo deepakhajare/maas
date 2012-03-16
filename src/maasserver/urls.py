@@ -89,7 +89,7 @@ def get_proxy_longpoll_enabled():
         django_settings.LONGPOLL_PATH is not None)
 
 
-def remove_prefix(url):
+def make_path_relative(url):
     if url.startswith('/'):
         return url[1:]
     else:
@@ -99,7 +99,8 @@ def remove_prefix(url):
 if get_proxy_longpoll_enabled():
     urlpatterns += patterns('maasserver.views',
         url(
-            r'^%s$' % re.escape(remove_prefix(django_settings.LONGPOLL_PATH)),
+            r'^%s$' % re.escape(
+                make_path_relative(django_settings.LONGPOLL_PATH)),
             proxy_to_longpoll, name='proxy-to-longpoll'),
         )
 

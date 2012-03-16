@@ -36,7 +36,7 @@ from maasserver.testing.testcase import (
     )
 from maasserver.urls import (
     get_proxy_longpoll_enabled,
-    remove_prefix,
+    make_path_relative,
     )
 from maasserver.views import (
     get_longpoll_context,
@@ -247,14 +247,15 @@ class TestUtilities(TestCase):
             ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
         self.assertEqual(longpoll, context['LONGPOLL_PATH'])
 
-    def test_remove_prefix_if_prefix(self):
+    def test_make_path_relative_if_prefix(self):
         url_without_prefix = factory.getRandomString()
         url = '/%s' % url_without_prefix
-        self.assertEqual(url_without_prefix, remove_prefix(url))
+        self.assertEqual(url_without_prefix, make_path_relative(url))
 
-    def test_remove_prefix_if_no_prefix(self):
+    def test_make_path_relative_if_no_prefix(self):
         url_without_prefix = factory.getRandomString()
-        self.assertEqual(url_without_prefix, remove_prefix(url_without_prefix))
+        self.assertEqual(
+            url_without_prefix, make_path_relative(url_without_prefix))
 
 
 class UserPrefsViewTest(LoggedInTestCase):
