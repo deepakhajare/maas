@@ -10,10 +10,17 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "get_rabbit",
     "RabbitServerSettings",
+    "start_rabbit",
+    "stop_rabbit",
+    "uses_rabbit",
     ]
 
+from functools import wraps
+
 from fixtures import Fixture
+from rabbitfixture.server import RabbitServer
 from testtools.monkey import MonkeyPatcher
 
 
@@ -40,3 +47,43 @@ class RabbitServerSettings(Fixture):
         patcher.add_patch(settings, "RABBITMQ_PUBLISH", True)
         self.addCleanup(patcher.restore)
         patcher.patch()
+
+
+# See {start,stop,get}_rabbit().
+rabbit = None
+
+
+def start_rabbit():
+    """Start a shared :class:`RabbitServer`."""
+    global rabbit
+    if rabbit is None:
+        rabbit = RabbitServer()
+        rabbit.setUp()
+
+
+def stop_rabbit():
+    """Stop a shared :class:`RabbitServer`, if any."""
+    global rabbit
+    if rabbit is not None:
+        rabbit.cleanUp()
+        rabbit = None
+
+
+def get_rabbit():
+    """Start and return a shared :class:`RabbitServer`."""
+    global rabbit
+    start_rabbit()
+    return rabbit
+
+
+def uses_rabbit(test):
+    """Decorate a test function to ensure that a :class:`RabbitServer` is
+    started and Django's setting updated to point to it.
+    """
+    @wraps(test)
+    def wrapper(self):
+        config = get_rabbit().config
+        fixture = RabbitServerSettings(config)
+        self.useFixture(fixture)
+        return test(self)
+    return wrapper
