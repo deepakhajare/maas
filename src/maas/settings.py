@@ -60,12 +60,11 @@ LONGPOLL_PATH = 'longpoll/'
 # override this.
 DEFAULT_MAAS_URL = "http://%s/" % gethostname()
 
-
 if FORCE_SCRIPT_NAME is not None:
     LOGOUT_URL = FORCE_SCRIPT_NAME + LOGOUT_URL
     LOGIN_REDIRECT_URL = FORCE_SCRIPT_NAME + LOGIN_REDIRECT_URL
     LOGIN_URL = FORCE_SCRIPT_NAME + LOGIN_URL
-    LONGPOLL_PATH = FORCE_SCRIPT_NAME + LONGPOLL_PATH
+    LONGPOLL_PATH = FORCE_SCRIPT_NAME + '/' + LONGPOLL_PATH
     DEFAULT_MAAS_URL = urljoin(DEFAULT_MAAS_URL, FORCE_SCRIPT_NAME)
     # ADMIN_MEDIA_PREFIX will be deprecated in Django 1.4.
     # Admin's media will be served using staticfiles instead.
@@ -96,7 +95,7 @@ RABBITMQ_USERID = 'guest'
 RABBITMQ_PASSWORD = 'guest'
 RABBITMQ_VIRTUAL_HOST = '/'
 
-RABBITMQ_PUBLISH = False
+RABBITMQ_PUBLISH = True
 
 
 DATABASES = {

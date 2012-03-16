@@ -42,7 +42,6 @@ LONGPOLL_PATH = None
 # This should match the setting in /etc/pserv.yaml.
 PSERV_URL = "http://localhost:5241/api"
 
-RABBITMQ_PUBLISH = True
 
 LOGGING = {
     'version': 1,
