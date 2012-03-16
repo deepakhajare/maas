@@ -44,7 +44,7 @@ class TestZeroconfService(TestCase):
 
     def test_publish(self):
         # getUniqueString() generates an invalid service name
-        name = 'My Test Service-%d' % random.randint(1, 1000)
+        name = 'My-Test-Service-%d' % random.randint(1, 1000)
         port = random.randint(30000, 40000)
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
