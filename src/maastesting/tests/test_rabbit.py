@@ -15,13 +15,9 @@ from random import randint
 
 from django.conf import settings
 from maastesting.factory import factory
-from maastesting.rabbit import (
-    RabbitServerSettings,
-    )
+from maastesting.rabbit import RabbitServerSettings
 from maastesting.testcase import TestCase
-from rabbitfixture.server import (
-    RabbitServerResources,
-    )
+from rabbitfixture.server import RabbitServerResources
 
 
 class TestRabbitServerSettings(TestCase):
