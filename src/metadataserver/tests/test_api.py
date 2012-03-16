@@ -95,6 +95,7 @@ class TestHelpers(TestCase):
     def test_extract_oauth_key_rejects_auth_without_oauth_key(self):
         self.assertRaises(Unauthorized, extract_oauth_key, '')
 
+    @uses_rabbit
     def test_get_node_for_request_finds_node(self):
         node = factory.make_node()
         token = NodeKey.objects.get_token_for_node(node)
