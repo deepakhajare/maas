@@ -15,14 +15,12 @@ import codecs
 from io import BytesIO
 import os
 import shutil
+from socket import gethostname
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from fixtures import (
-    EnvironmentVariableFixture,
-    TestWithFixtures,
-    )
+from fixtures import TestWithFixtures
 from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
@@ -686,7 +684,7 @@ class FileStorageTest(TestCase):
         self.assertTrue(FileStorage.storage.exists(storage.data.name))
 
     def test_collect_garbage_tolerates_missing_upload_dir(self):
-        # When MaaS is freshly installed, the upload directory is still
+        # When MAAS is freshly installed, the upload directory is still
         # missing.  But...
         FileStorage.objects.collect_garbage()
         # ...we get through garbage collection without breakage.
@@ -697,12 +695,8 @@ class ConfigDefaultTest(TestCase, TestWithFixtures):
     """Test config default values."""
 
     def test_default_config_maas_name(self):
-        name = factory.getRandomString()
-        fixture = EnvironmentVariableFixture('LOGNAME', name)
-        self.useFixture(fixture)
         default_config = get_default_config()
-        self.assertEqual(
-            "%s's" % name.capitalize(), default_config['maas_name'])
+        self.assertEqual(gethostname(), default_config['maas_name'])
 
 
 class Listener:

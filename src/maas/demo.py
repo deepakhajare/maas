@@ -12,11 +12,19 @@ __metaclass__ = type
 
 import os
 
-# FIRST: developement settings should override base settings.
-from maas.settings import *
+from maas import (
+    development,
+    import_settings,
+    settings,
+    )
 
-from maas.development import *
+# We expect the following settings to be overridden. They are mentioned here
+# to silence lint warnings.
+MIDDLEWARE_CLASSES = None
 
+# Extend base and development settings.
+import_settings(settings)
+import_settings(development)
 
 MEDIA_ROOT = os.path.join(os.getcwd(), "media/demo")
 
@@ -25,16 +33,15 @@ MIDDLEWARE_CLASSES += (
 )
 
 # In dev mode: Django should act as a proxy to txlongpoll.
-LONGPOLL_SERVER_URL = "http://localhost:8002/"
+LONGPOLL_SERVER_URL = "http://localhost:5242/"
 
-# Disable longpoll by default for now. Set it back to 'longpoll/' to
+# Disable longpoll by default for now. Set it back to '/longpoll/' to
 # enable it.
 LONGPOLL_PATH = None
 
 # This should match the setting in /etc/pserv.yaml.
-PSERV_URL = "http://localhost:8001/api"
+PSERV_URL = "http://localhost:5241/api"
 
-RABBITMQ_PUBLISH = True
 
 LOGGING = {
     'version': 1,

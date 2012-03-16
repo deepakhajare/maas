@@ -13,6 +13,7 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
+import os
 import urllib2
 
 from django.conf import settings
@@ -33,9 +34,13 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
-from maasserver.urls import get_proxy_longpoll_enabled
+from maasserver.urls import (
+    get_proxy_longpoll_enabled,
+    make_path_relative,
+    )
 from maasserver.views import (
     get_longpoll_context,
+    get_yui_location,
     proxy_to_longpoll,
     )
 
@@ -209,6 +214,19 @@ class TestComboLoaderView(TestCase):
 
 class TestUtilities(TestCase):
 
+    def test_get_yui_location_if_static_root_is_none(self):
+        self.patch(settings, 'STATIC_ROOT', None)
+        yui_location = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'static', 'jslibs', 'yui')
+        self.assertEqual(yui_location, get_yui_location())
+
+    def test_get_yui_location(self):
+        static_root = factory.getRandomString()
+        self.patch(settings, 'STATIC_ROOT', static_root)
+        yui_location = os.path.join(static_root, 'jslibs', 'yui')
+        self.assertEqual(yui_location, get_yui_location())
+
     def test_get_longpoll_context_empty_if_rabbitmq_publish_is_none(self):
         self.patch(settings, 'RABBITMQ_PUBLISH', None)
         self.patch(views, 'messaging', get_messaging())
@@ -228,6 +246,16 @@ class TestUtilities(TestCase):
         self.assertItemsEqual(
             ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
         self.assertEqual(longpoll, context['LONGPOLL_PATH'])
+
+    def test_make_path_relative_if_prefix(self):
+        url_without_prefix = factory.getRandomString()
+        url = '/%s' % url_without_prefix
+        self.assertEqual(url_without_prefix, make_path_relative(url))
+
+    def test_make_path_relative_if_no_prefix(self):
+        url_without_prefix = factory.getRandomString()
+        self.assertEqual(
+            url_without_prefix, make_path_relative(url_without_prefix))
 
 
 class UserPrefsViewTest(LoggedInTestCase):

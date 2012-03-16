@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Twisted Application Plugin code for the MaaS provisioning server"""
+"""Twisted Application Plugin code for the MAAS provisioning server"""
 
 from __future__ import (
     print_function,
@@ -89,7 +89,7 @@ class Config(Schema):
 
     if_key_missing = None
 
-    port = Int(min=1, max=65535, if_missing=8001)
+    port = Int(min=1, max=65535, if_missing=5241)
     logfile = String(if_empty=b"pserv.log", if_missing=b"pserv.log")
     oops = ConfigOops
     broker = ConfigBroker
@@ -150,7 +150,7 @@ class ProvisioningServiceMaker(object):
         broker_vhost = broker_config["vhost"]
 
         # Connecting to RabbitMQ is not yet a required component of a running
-        # MaaS installation; skip unless the password has been set explicitly.
+        # MAAS installation; skip unless the password has been set explicitly.
         if broker_password is not b"test":
             cb_connected = lambda ignored: None  # TODO
             cb_disconnected = lambda ignored: None  # TODO
