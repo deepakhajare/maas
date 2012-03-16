@@ -41,6 +41,9 @@ DATABASES = {
 # Example: "/home/media/media.lawrence.com/media/"
 MEDIA_ROOT = os.path.join(os.getcwd(), "tmp")
 
+# The absolute path to the directory containing the Raphael JavaScript library.
+RAPHAEL_ROOT = '/usr/share/javascript/raphael'
+
 INSTALLED_APPS += (
     'django.contrib.admin',
     'maastesting',

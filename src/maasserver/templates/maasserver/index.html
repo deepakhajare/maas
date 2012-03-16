@@ -8,10 +8,12 @@
 {% endblock %}
 
 {% block head %}
+  <script type="text/javascript" src="{{ STATIC_URL }}raphael/raphael.min.js"></script>
+  <script type="text/javascript" src="{{ STATIC_URL }}js/nodes_chart.js"></script>
   <script type="text/javascript">
   <!--
   YUI().use(
-    'maas.node_add', 'maas.node','maas.node_views', 'maas.utils',
+    'maas.node_add', 'maas.node','maas.node_views', 'maas.utils', 'maas.nodes_chart',
     function (Y) {
     Y.on('load', function() {
       // Create Dashboard view.
@@ -35,6 +37,12 @@
 	  {srcNode: '.page-title-form'});
       title_widget.render();
 
+      // Show the chart
+        var cfg = {
+          node_id: 'chart',
+          width: 300
+          };
+        var chart = new Y.maas.nodes_chart.NodesChartWidget(cfg);
     });
   });
   // -->
@@ -53,4 +61,5 @@
 {% endblock %}
 
 {% block content %}
+    <div id="chart"></div>
 {% endblock %}

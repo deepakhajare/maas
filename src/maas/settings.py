@@ -152,6 +152,9 @@ STATICFILES_FINDERS = (
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
 )
 
+# The absolute path to the directory containing the Raphael JavaScript library
+RAPHAEL_ROOT = ''
+
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = 'zk@qw+fdhu_b4ljx+pmb*8sju4lpx!5zkez%&4hep_(o6y1nf0'
 
