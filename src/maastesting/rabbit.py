@@ -40,8 +40,8 @@ class RabbitServerSettings(Fixture):
         from django.conf import settings
         patcher = MonkeyPatcher()
         patcher.add_patch(
-            settings, "RABBITMQ_HOST", "%s:%d" % (
-                self.config.hostname, self.config.port))
+            settings, "RABBITMQ_HOST",
+            "%s:%d" % (self.config.hostname, self.config.port))
         patcher.add_patch(settings, "RABBITMQ_USERID", "guest")
         patcher.add_patch(settings, "RABBITMQ_PASSWORD", "guest")
         patcher.add_patch(settings, "RABBITMQ_VIRTUAL_HOST", "/")
