@@ -11,8 +11,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from random import randint
-
 from django.conf import settings
 from maastesting.factory import factory
 from maastesting.rabbit import RabbitServerSettings
@@ -25,7 +23,7 @@ class TestRabbitServerSettings(TestCase):
     def test_patch(self):
         config = RabbitServerResources(
             hostname=factory.getRandomString(),
-            port=randint(1025, 2**16))
+            port=factory.getRandomPort())
         self.useFixture(config)
         self.useFixture(RabbitServerSettings(config))
         self.assertEqual(

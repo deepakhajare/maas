@@ -34,6 +34,10 @@ class Factory:
     def getRandomBoolean(self):
         return random.choice((True, False))
 
+    def getRandomPort(self, port_min=1024, port_max=65535):
+        assert port_min >= 0 and port_max <= 65535
+        return random.randint(port_min, port_max)
+
 
 # Create factory singleton.
 factory = Factory()
