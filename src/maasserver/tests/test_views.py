@@ -40,7 +40,7 @@ from maasserver.views import (
     get_yui_location,
     proxy_to_longpoll,
     )
-from maastesting.rabbit import uses_rabbit
+from maastesting.rabbit import uses_rabbit_fixture
 
 
 def get_prefixed_form_data(prefix, data):
@@ -235,7 +235,7 @@ class TestUtilities(TestCase):
         self.patch(views, 'messaging', get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
-    @uses_rabbit
+    @uses_rabbit_fixture
     def test_get_longpoll_context(self):
         longpoll = factory.getRandomString()
         self.patch(settings, 'LONGPOLL_PATH', longpoll)
