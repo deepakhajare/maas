@@ -18,26 +18,25 @@ __all__ = [
     ]
 
 from django.core.management.base import BaseCommand
-from maasserver import provisioning
-from maasserver.models import (
-    ARCHITECTURE,
-    Node,
+from maasserver import (
+    models,
+    provisioning,
     )
 
 
 def reconcile():
     papi = provisioning.get_provisioning_api_proxy()
-    nodes_local = {node.system_id: node for node in Node.objects.all()}
+    nodes_local = {node.system_id: node for node in models.Node.objects.all()}
     nodes_remote = papi.get_nodes()
 
     missing_local = set(nodes_remote).difference(nodes_local)
     for name in missing_local:
         print("remote:", name)
         remote_node = nodes_remote[name]
-        local_node = Node(
+        local_node = models.Node(
             system_id=remote_node["name"],
             # TODO: Figure out the correct architecture.
-            architecture=ARCHITECTURE.amd64,
+            architecture=models.ARCHITECTURE.amd64,
             hostname=remote_node["name"])
         local_node.save()
         for mac_address in remote_node["mac_addresses"]:
