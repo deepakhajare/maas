@@ -603,6 +603,14 @@ def create_user(sender, instance, created, **kwargs):
 post_save.connect(create_user, sender=User)
 
 
+class SSHKeysManager(models.Manager):
+
+    def get_keys_for_user(self, user):
+        keys = SSHKeys.objects.filter(user__user__username=user).values_list('key', flat=True)
+        return keys
+
+
+
 class SSHKeys(models.Model):
     """A simple SSH public keystore that can be retrieved, a user
        can have multiple keys.
@@ -613,8 +621,14 @@ class SSHKeys(models.Model):
     user = models.ForeignKey(UserProfile)
     key = models.TextField()
 
+    objects = SSHKeysManager()
+
     def __unicode__(self):
         return self.key
+
+    def get_keys_for_user(self, user):
+        keys = SSHKeys.objects.filter(user__user__username=user).values_list('key', flat=True)
+        return keys
 
 
 class FileStorageManager(models.Manager):

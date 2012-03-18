@@ -17,6 +17,7 @@ __all__ = [
     ]
 
 from django.http import HttpResponse
+from django.http import Http404
 from maasserver.exceptions import (
     MAASAPINotFound,
     PermissionDenied,
@@ -26,6 +27,10 @@ from metadataserver.models import (
     NodeKey,
     NodeUserData,
     )
+from maasserver.models import (
+    SSHKeys,
+    )
+
 from piston.handler import BaseHandler
 
 
@@ -59,6 +64,10 @@ def get_node_for_request(request):
     except NodeKey.DoesNotExist:
         raise PermissionDenied("Not authenticated as a known node.")
 
+def get_public_keys(node):
+    """Set user data for the given node."""
+    keys = SSHKeys.objects.get_keys_for_user(user=node.owner)
+    return keys
 
 def make_text_response(contents):
     """Create a response containing `contents` as plain text."""
@@ -107,7 +116,7 @@ class VersionIndexHandler(MetadataViewHandler):
 class MetaDataHandler(VersionIndexHandler):
     """Meta-data listing for a given version."""
 
-    fields = ('instance-id', 'local-hostname',)
+    fields = ('instance-id', 'local-hostname','public-keys')
 
     def get_attribute_producer(self, item):
         """Return a callable to deliver a given metadata item.
@@ -127,6 +136,7 @@ class MetaDataHandler(VersionIndexHandler):
         producers = {
             'local-hostname': self.local_hostname,
             'instance-id': self.instance_id,
+            'public-keys' : self.public_keys,
         }
 
         return producers[field]
@@ -149,6 +159,13 @@ class MetaDataHandler(VersionIndexHandler):
     def instance_id(self, node, version, item):
         """Produce instance-id attribute."""
         return make_text_response(node.system_id)
+
+    def public_keys(self, node, version, item):
+        """ Produce public-keys attribute."""
+        keys = get_public_keys(node=node)
+        if not keys:
+            raise Http404
+        return make_list_response(keys)
 
 
 class UserDataHandler(MetadataViewHandler):
