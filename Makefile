@@ -105,8 +105,9 @@ harness: bin/maas dev-db
 	bin/maas shell --settings=maas.demo
 
 syncdb: bin/maas dev-db
-	bin/maas syncdb --noinput --migrate
-
+	bin/maas syncdb --noinput
+	bin/maas migrate maasserver
+	bin/maas migrate metadataserver
 
 checkbox: config=checkbox/plugins/jobs_info/directories=$(PWD)/qa/checkbox
 checkbox:
