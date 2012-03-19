@@ -24,6 +24,7 @@ from maasserver.models import (
 from maasserver.provisioning import (
     compose_metadata,
     get_metadata_server_url,
+    name_arch_in_cobbler_style,
     select_profile_for_node,
     )
 from maasserver.testing.enum import map_enum
@@ -62,22 +63,44 @@ class ProvisioningTests:
         profile_name = 'profile-%s' % shared_name
         return self.papi.add_profile(profile_name, distro)
 
+    def test_name_arch_in_cobbler_style_converts_architecture_names(self):
+        self.assertSequenceEqual(
+            ['i386', 'i386', 'x86_64', 'x86_64'],
+            map(
+                name_arch_in_cobbler_style,
+                ['i386', 'i686', 'amd64', 'x86_64']))
+
+    def test_name_arch_in_cobbler_works_for_both_bytes_and_unicode(self):
+        self.assertEqual(
+            name_arch_in_cobbler_style(u'amd64'),
+            name_arch_in_cobbler_style(b'amd64'))
+
+    def test_name_arch_in_cobbler_returns_unicode(self):
+        self.assertIsInstance(name_arch_in_cobbler_style(b'amd64'), unicode)
+
     def test_select_profile_for_node_ignores_previously_chosen_profile(self):
         node = factory.make_node(architecture='i386')
         self.papi.modify_nodes(
             {node.system_id: {'profile': self.make_papi_profile()}})
         self.assertEqual(
-            'precise-i386', select_profile_for_node(node, self.papi))
+            'maas-precise-i386', select_profile_for_node(node, self.papi))
 
     def test_select_profile_for_node_selects_Precise_and_right_arch(self):
         nodes = {
             arch: self.make_node_without_saving(arch=arch)
             for arch in map_enum(ARCHITECTURE).values()}
-        self.assertItemsEqual(
-            ['precise-%s' % arch for arch in nodes.keys()],
+        self.assertItemsEqual([
+                'maas-precise-%s' % name_arch_in_cobbler_style(arch)
+                for arch in nodes.keys()],
             [
                 select_profile_for_node(node, self.papi)
                 for node in nodes.values()])
+
+    def test_select_profile_for_node_converts_architecture_name(self):
+        node = factory.make_node(architecture='amd64')
+        profile = select_profile_for_node(node, self.papi)
+        self.assertNotIn('amd64', profile)
+        self.assertIn('x86_64', profile)
 
     def test_provision_post_save_Node_create(self):
         # The handler for Node's post-save signal registers the node in
@@ -87,7 +110,7 @@ class ProvisioningTests:
             sender=Node, instance=node, created=True)
         system_id = node.system_id
         pserv_node = self.papi.get_nodes_by_name([system_id])[system_id]
-        self.assertEqual("precise-i386", pserv_node["profile"])
+        self.assertEqual("maas-precise-i386", pserv_node["profile"])
 
     def test_provision_post_save_Node_registers_effective_power_type(self):
         power_types = list(map_enum(POWER_TYPE).values())

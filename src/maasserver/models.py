@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""MaaS model objects."""
+"""MAAS model objects."""
 
 from __future__ import (
     print_function,
@@ -25,10 +25,10 @@ from collections import defaultdict
 import copy
 import datetime
 from errno import ENOENT
-import getpass
 from logging import getLogger
 import os
 import re
+from socket import gethostname
 import time
 from uuid import uuid1
 
@@ -59,7 +59,7 @@ from provisioningserver.enum import (
     POWER_TYPE_CHOICES,
     )
 
-# Special users internal to MaaS.
+# Special users internal to MAAS.
 SYSTEM_USERS = [
     # For nodes' access to the metadata API:
     nodeinituser.user_name,
@@ -146,12 +146,6 @@ class NODE_AFTER_COMMISSIONING_ACTION:
     CHECK = 1
     #:
     DEPLOY_12_04 = 2
-    #:
-    DEPLOY_11_10 = 3
-    #:
-    DEPLOY_11_04 = 4
-    #:
-    DEPLOY_10_10 = 5
 
 
 NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
@@ -161,12 +155,6 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
         "Check compatibility and hold for future decision"),
     (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_12_04,
         "Deploy with Ubuntu 12.04 LTS"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_11_10,
-        "Deploy with Ubuntu 11.10"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_11_04,
-        "Deploy with Ubuntu 11.04"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_10_10,
-        "Deploy with Ubuntu 10.10"),
 )
 
 
@@ -335,7 +323,7 @@ class NodeManager(models.Manager):
 
 
 class Node(CommonInfo):
-    """A `Node` represents a physical machine used by the MaaS Server.
+    """A `Node` represents a physical machine used by the MAAS Server.
 
     :ivar system_id: The unique identifier for this `Node`.
         (e.g. 'node-41eba45e-4cfa-11e1-a052-00225f89f211').
@@ -475,7 +463,7 @@ class MACAddress(CommonInfo):
         return self.mac_address
 
 
-GENERIC_CONSUMER = 'MaaS consumer'
+GENERIC_CONSUMER = 'MAAS consumer'
 
 
 def create_auth_token(user):
@@ -536,7 +524,7 @@ class UserProfileManager(models.Manager):
 
 
 class UserProfile(models.Model):
-    """A User profile to store MaaS specific methods and fields.
+    """A User profile to store MAAS specific methods and fields.
 
     :ivar user: The related User_.
 
@@ -763,7 +751,7 @@ def get_default_config():
         'check_compatibility': False,
         'node_power_type': POWER_TYPE.WAKE_ON_LAN,
         # The host name or address where the nodes can access the metadata
-        # service of this MaaS.
+        # service of this MAAS.
         'maas_url': settings.DEFAULT_MAAS_URL,
         # Ubuntu section configuration.
         'fallback_master_archive': False,
@@ -773,7 +761,7 @@ def get_default_config():
         'update_from_choice': (
             [['archive.ubuntu.com', 'archive.ubuntu.com']]),
         # Network section configuration.
-        'maas_name': "%s's" % getpass.getuser().capitalize(),
+        'maas_name': gethostname(),
         'provide_dhcp': False,
         ## /settings
         }
@@ -892,7 +880,7 @@ admin.site.register(Node)
 admin.site.register(SSHKeys)
 
 
-class MaaSAuthorizationBackend(ModelBackend):
+class MAASAuthorizationBackend(ModelBackend):
 
     supports_object_permissions = True
 
@@ -921,3 +909,6 @@ class MaaSAuthorizationBackend(ModelBackend):
 from maasserver import provisioning
 # We mention 'provisioning' here to silence lint warnings.
 provisioning
+
+from maasserver import messages
+messages

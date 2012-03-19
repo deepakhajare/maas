@@ -14,7 +14,7 @@ __all__ = [
     "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
-    "MaaSAndNetworkForm",
+    "MAASAndNetworkForm",
     "UbuntuForm",
     ]
 
@@ -71,13 +71,9 @@ class NodeForm(ModelForm):
     after_commissioning_action = forms.TypedChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
-    # The architecture field is not visible yet, but requires a choice.
-    # Faking it by setting 'i386' as the representation for "none
-    # selected."  Once this field becomes meaningful, it may simply have
-    # to become mandatory.
-    architecture = forms.TypedChoiceField(
-        choices=ARCHITECTURE_CHOICES, required=False,
-        empty_value=ARCHITECTURE.i386,
+    architecture = forms.ChoiceField(
+        choices=ARCHITECTURE_CHOICES, required=True,
+        initial=ARCHITECTURE.i386,
         error_messages={'invalid_choice': INVALID_ARCHITECTURE_MESSAGE})
 
     class Meta:
@@ -144,7 +140,7 @@ class ProfileForm(ModelForm):
 
 class NewUserCreationForm(UserCreationForm):
     is_superuser = forms.BooleanField(
-        label="MaaS administrator", required=False)
+        label="MAAS administrator", required=False)
 
     def __init__(self, *args, **kwargs):
         super(NewUserCreationForm, self).__init__(*args, **kwargs)
@@ -177,7 +173,7 @@ class NewUserCreationForm(UserCreationForm):
 class EditUserForm(UserChangeForm):
     # Override the default label.
     is_superuser = forms.BooleanField(
-        label="MaaS administrator", required=False)
+        label="MAAS administrator", required=False)
     last_name = forms.CharField(
         label="Full name", max_length=30, required=False)
 
@@ -220,9 +216,9 @@ class ConfigForm(Form):
             return True
 
 
-class MaaSAndNetworkForm(ConfigForm):
-    """Settings page, MaaS and Network section."""
-    maas_name = forms.CharField(label="MaaS name")
+class MAASAndNetworkForm(ConfigForm):
+    """Settings page, MAAS and Network section."""
+    maas_name = forms.CharField(label="MAAS name")
     provide_dhcp = forms.BooleanField(
         label="Provide DHCP on this subnet", required=False)
 
