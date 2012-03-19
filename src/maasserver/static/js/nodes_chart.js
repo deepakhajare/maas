@@ -224,7 +224,7 @@ Y.extend(NodesChartWidget, Y.Widget, {
                     this._outer_paths.push(slice);
                 }
                 else {
-                    outer_paths[i].animate(
+                    this._outer_paths[i].animate(
                         {segment: segment},
                         TRANSITION_TIME,
                         TRANSITION_EASING
@@ -237,21 +237,21 @@ Y.extend(NodesChartWidget, Y.Widget, {
 
         var offline_circle_width = inner_total / total_nodes * this._radius();
         if (!this._offline_circle) {
-            var width = 0;
             if (offline_nodes > 0) {
-                width = offline_circle_width;
+                this._offline_circle = this._addCircle(
+                    offline_circle_width, OFFLINE_COLOUR);
+                Y.one(this._offline_circle[0].node).on(
+                    'hover',
+                    function(e, widget) {
+			            widget.fire(
+			                'hover.offline.over', {nodes: offline_nodes});
+		            },
+		            function(e, widget) {
+			            widget.fire('hover.offline.out');
+		            },
+		            null,
+		            this);
             }
-            this._offline_circle = this._addCircle(width, OFFLINE_COLOUR);
-            Y.one(this._offline_circle[0].node).on(
-                'hover',
-                function(e, widget) {
-			        widget.fire('hover.offline.over', {nodes: offline_nodes});
-		        },
-		        function(e, widget) {
-			        widget.fire('hover.offline.out');
-		        },
-		        null,
-		        this);
         }
         else {
             this._offline_circle.toFront();
@@ -281,9 +281,14 @@ Y.extend(NodesChartWidget, Y.Widget, {
 		        this);
         }
         else {
-            this._added_circle.toFront();
-            this._added_circle.animate(
-                {r: added_circle_width}, TRANSITION_TIME, TRANSITION_EASING);
+            if (added_nodes != total_nodes) {
+                this._added_circle.toFront();
+                this._added_circle.animate(
+                    {r: added_circle_width},
+                    TRANSITION_TIME,
+                    TRANSITION_EASING
+                    );
+            }
         }
     },
 
