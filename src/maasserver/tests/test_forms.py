@@ -16,9 +16,11 @@ from django.core.exceptions import ValidationError
 from django.http import QueryDict
 from maasserver.forms import (
     ConfigForm,
+    EditUserForm,
     HostnameFormField,
     NewUserCreationForm,
     NodeWithMACAddressesForm,
+    ProfileForm,
     validate_hostname,
     )
 from maasserver.models import (
@@ -188,7 +190,50 @@ class TestHostnameFormField(TestCase):
             form.errors['hostname'])
 
 
+class TestProfileForm(TestCase):
+
+    def test_email_must_be_unique(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = ProfileForm(instance=user, data={'email': email})
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+        self.assertEqual(
+            ["This email address is already in use."], form._errors['email'])
+
+
+class TestEditUserForm(TestCase):
+
+    def test_email_must_be_unique(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(instance=user, data={'email': email})
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+        self.assertEqual(
+            ["This email address is already in use."], form._errors['email'])
+
+    def test_email_must_be_unique_ignores_case(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(instance=user, data={'email': email.upper()})
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+
+
 class TestNewUserCreationForm(TestCase):
+
+    def test_email_must_be_unique(self):
+        email = '%s@example.com' % factory.getRandomString()
+        factory.make_user(email=email)
+        form = NewUserCreationForm(
+            {
+                'email': email,
+            })
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+        self.assertEqual(
+            ["This email address is already in use."], form._errors['email'])
 
     def test_fields_order(self):
         form = NewUserCreationForm()

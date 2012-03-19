@@ -127,7 +127,19 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
-class ProfileForm(ModelForm):
+class UniqueEmailMixin:
+
+    def clean_email(self):
+        """Validate that the supplied email address is unique for the
+        site.
+        """
+        if User.objects.filter(email__iexact=self.cleaned_data['email']):
+            raise forms.ValidationError(
+                "This email address is already in use.")
+        return self.cleaned_data['email']
+
+
+class ProfileForm(UniqueEmailMixin, ModelForm):
     # We use the field 'last_name' to store the user's full name (and
     # don't display Django's 'first_name' field).
     last_name = forms.CharField(
@@ -138,7 +150,7 @@ class ProfileForm(ModelForm):
         fields = ('last_name', 'email')
 
 
-class NewUserCreationForm(UserCreationForm):
+class NewUserCreationForm(UniqueEmailMixin, UserCreationForm):
     is_superuser = forms.BooleanField(
         label="MAAS administrator", required=False)
 
@@ -170,7 +182,7 @@ class NewUserCreationForm(UserCreationForm):
         return user
 
 
-class EditUserForm(UserChangeForm):
+class EditUserForm(UniqueEmailMixin, UserChangeForm):
     # Override the default label.
     is_superuser = forms.BooleanField(
         label="MAAS administrator", required=False)
