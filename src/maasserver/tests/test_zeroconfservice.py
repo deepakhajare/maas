@@ -23,9 +23,11 @@ from maasserver.zeroconfservice import ZeroconfService
 # feel like writing a private DBus session with a mock Avahi service on it.
 class TestZeroconfService(TestCase):
 
-    STYPE = '_zeroconftest._tcp'
+    STYPE = '_maas_zeroconftest._tcp'
 
-    def avahi_browse(self, service_type, timeout=0.5):
+    count = 0
+
+    def avahi_browse(self, service_type, timeout=1):
         """Return the list of published Avahi service through avahi-browse."""
         # Doing this from pure python would be a pain, as it would involve
         # running a glib mainloop. And stopping one is hard. Much easier to
@@ -42,14 +44,29 @@ class TestZeroconfService(TestCase):
             names.append(fields[3])
         return names
 
-    def test_publish(self):
+    @classmethod
+    def getUniqueServiceNameAndPort(self):
         # getUniqueString() generates an invalid service name
-        name = 'My-Test-Service-%d' % random.randint(1, 1000)
+        name = 'My-Test-Service-%d' % self.count
+        self.count += 1
         port = random.randint(30000, 40000)
+        return name, port
+
+
+    def test_publish(self):
+        name, port = self.getUniqueServiceNameAndPort()
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
         self.addCleanup(service.group.Reset)
         services = self.avahi_browse(self.STYPE)
         self.assertIn(name, services)
+
+    def test_unpublish(self):
+        name, port = self.getUniqueServiceNameAndPort()
+        service = ZeroconfService(name, port, self.STYPE)
+        service.publish()
+        service.unpublish()
+        services = self.avahi_browse(self.STYPE)
+        self.assertNotIn(name, services)
 
 
