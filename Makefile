@@ -111,6 +111,7 @@ syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
+
 checkbox: config=checkbox/plugins/jobs_info/directories=$(PWD)/qa/checkbox
 checkbox:
 	checkbox-gtk --config=$(config) --whitelist-file=
