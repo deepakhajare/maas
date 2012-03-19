@@ -96,8 +96,9 @@ class TestLogin(TestCase):
         response = self.client.get('/accounts/login/')
         self.assertEqual(
             [
-                "No user has been configured yet!  "
-                "Run the following command to create an administrator user:"
+                "No admin user has been created yet. "
+                "Run the following command from the console to create an "
+                "admin user:"
                 "<pre>%s createsuperuser</pre>" % path
             ],
             [message.message for message in response.context['messages']])

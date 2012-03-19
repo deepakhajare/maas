@@ -72,8 +72,9 @@ from maasserver.models import (
 def login(request):
     if UserProfile.objects.all_users().count() == 0:
         message = mark_safe(
-            "No user has been configured yet!  "
-            "Run the following command to create an administrator user:"
+            "No admin user has been created yet. "
+            "Run the following command from the console to create an "
+            "admin user:"
             "<pre>%s createsuperuser</pre>" % django_settings.MAAS_CLI)
         messages.error(request, message)
     return dj_login(request)
