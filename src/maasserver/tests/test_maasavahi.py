@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from collections import defaultdict
+
 from maastesting.testcase import TestCase
 
 import maasserver.maasavahi
@@ -18,7 +20,10 @@ from maasserver.maasavahi import (
     MAASAvahiService,
     setup_maas_avahi_service,
     )
-from maasserver.models import Config
+from maasserver.models import (
+    Config,
+    config_manager,
+    )
 
 
 class MockZeroconfServiceFactory:
@@ -56,6 +61,11 @@ class MockZeroconfService:
 class TestMAASAvahiService(TestCase):
 
     def setup_mock_avahi(self):
+        # Unregister other signals from Config, otherwise
+        # the one registered in urls.py, will interfere with these tests
+        self.patch(
+            config_manager, '_config_changed_connections', defaultdict(set))
+
         mock_avahi = MockZeroconfServiceFactory()
         self.patch(
             maasserver.maasavahi, 'ZeroconfService', mock_avahi)
