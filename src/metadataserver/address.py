@@ -35,8 +35,11 @@ def get_command_output(*command_line):
     :return: Output from the command.
     :rtype: List of basestring, one per line.
     """
-    return check_output(
-        ('env', 'LC_ALL=C', 'LANG=en_US.UTF-8') + command_line).splitlines()
+    env = {
+        'LC_ALL': 'C',
+        'LANG': 'en_US.UTF-8',
+    }
+    return check_output(command_line, env=env).splitlines()
 
 
 def find_default_interface(ip_route_output):
@@ -80,7 +83,8 @@ def get_ip_address(interface):
 
 def guess_server_address():
     """Make a guess as to this server's IP address."""
-    ip_route_output = get_command_output('/bin/ip', 'route', 'show')
+    ip_route_output = get_command_output(
+        '/bin/ip', '-oneline', 'route', 'show')
     interface = find_default_interface(ip_route_output)
     if interface is None:
         return socket.gethostname()
