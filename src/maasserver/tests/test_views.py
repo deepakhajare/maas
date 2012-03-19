@@ -34,12 +34,16 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
-from maasserver.urls import get_proxy_longpoll_enabled
+from maasserver.urls import (
+    get_proxy_longpoll_enabled,
+    make_path_relative,
+    )
 from maasserver.views import (
     get_longpoll_context,
     get_yui_location,
     proxy_to_longpoll,
     )
+from maastesting.rabbit import uses_rabbit_fixture
 
 
 def get_prefixed_form_data(prefix, data):
@@ -234,6 +238,7 @@ class TestUtilities(TestCase):
         self.patch(views, 'messaging', get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
+    @uses_rabbit_fixture
     def test_get_longpoll_context(self):
         longpoll = factory.getRandomString()
         self.patch(settings, 'LONGPOLL_PATH', longpoll)
@@ -243,6 +248,16 @@ class TestUtilities(TestCase):
         self.assertItemsEqual(
             ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
         self.assertEqual(longpoll, context['LONGPOLL_PATH'])
+
+    def test_make_path_relative_if_prefix(self):
+        url_without_prefix = factory.getRandomString()
+        url = '/%s' % url_without_prefix
+        self.assertEqual(url_without_prefix, make_path_relative(url))
+
+    def test_make_path_relative_if_no_prefix(self):
+        url_without_prefix = factory.getRandomString()
+        self.assertEqual(
+            url_without_prefix, make_path_relative(url_without_prefix))
 
 
 class UserPrefsViewTest(LoggedInTestCase):
