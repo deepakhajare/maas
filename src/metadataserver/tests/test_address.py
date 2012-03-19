@@ -41,6 +41,7 @@ class TestAddress(TestCase):
     def test_get_command_output_uses_C_locale(self):
         locale = parse_locale_lines(address.get_command_output('locale'))
         self.assertEqual('C', locale['LC_CTYPE'])
+        self.assertEqual('C', locale['LC_MESSAGES'])
         self.assertEqual('en_US.UTF-8', locale['LANG'])
 
     def test_find_default_interface_finds_default_interface(self):

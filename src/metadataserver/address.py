@@ -35,7 +35,8 @@ def get_command_output(*command_line):
     :return: Output from the command.
     :rtype: List of basestring, one per line.
     """
-    return check_output(('env', 'LC_ALL=C') + command_line).splitlines()
+    return check_output(
+        ('env', 'LC_ALL=C', 'LANG=en_US.UTF-8') + command_line).splitlines()
 
 
 def find_default_interface(ip_route_output):
