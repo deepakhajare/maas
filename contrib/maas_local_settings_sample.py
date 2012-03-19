@@ -17,7 +17,7 @@ FORCE_SCRIPT_NAME = '/MAAS'
 # Where to store the user uploaded files.
 MEDIA_ROOT = '/var/lib/maas/media/'
 
-# Rabbit MQ.
+# RabbitMQ settings.
 RABBITMQ_HOST = 'localhost'
 RABBITMQ_USERID = 'maas_longpoll'
 RABBITMQ_PASSWORD = ''
