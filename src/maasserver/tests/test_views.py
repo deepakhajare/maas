@@ -43,6 +43,7 @@ from maasserver.views import (
     get_yui_location,
     proxy_to_longpoll,
     )
+from maastesting.rabbit import uses_rabbit_fixture
 
 
 def get_prefixed_form_data(prefix, data):
@@ -79,6 +80,33 @@ class Test404500(LoggedInTestCase):
             ['Internal server error.'],
             [elem.text.strip() for elem in
                 doc.cssselect('h2')])
+
+
+class TestLogin(TestCase):
+
+    def test_login_contains_input_tags(self):
+        response = self.client.get('/accounts/login/')
+        doc = fromstring(response.content)
+        self.assertEqual(1, len(doc.cssselect('input#id_username')))
+        self.assertEqual(1, len(doc.cssselect('input#id_password')))
+
+    def test_login_displays_createsuperuser_message_if_no_user(self):
+        path = factory.getRandomString()
+        self.patch(settings, 'MAAS_CLI', path)
+        response = self.client.get('/accounts/login/')
+        self.assertEqual(
+            [
+                "No admin user has been created yet. "
+                "Run the following command from the console to create an "
+                "admin user:"
+                "<pre>%s createsuperuser</pre>" % path
+            ],
+            [message.message for message in response.context['messages']])
+
+    def test_login_does_not_display_createsuperuser_message_if_user(self):
+        factory.make_user()
+        response = self.client.get('/accounts/login/')
+        self.assertEqual(0, len(response.context['messages']))
 
 
 class TestSnippets(LoggedInTestCase):
@@ -237,6 +265,7 @@ class TestUtilities(TestCase):
         self.patch(views, 'messaging', get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
+    @uses_rabbit_fixture
     def test_get_longpoll_context(self):
         longpoll = factory.getRandomString()
         self.patch(settings, 'LONGPOLL_PATH', longpoll)
