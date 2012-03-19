@@ -15,6 +15,7 @@ __all__ = [
 
 from fcntl import ioctl
 from logging import getLogger
+from os import environ
 import re
 import socket
 import struct
@@ -36,9 +37,13 @@ def get_command_output(*command_line):
     :rtype: List of basestring, one per line.
     """
     env = {
+        variable: value
+        for variable, value in environ.items()
+            if not variable.startswith('LC_')}
+    env.update({
         'LC_ALL': 'C',
         'LANG': 'en_US.UTF-8',
-    }
+    })
     return check_output(command_line, env=env).splitlines()
 
 
