@@ -41,7 +41,7 @@ validate_mac = RegexValidator(regex=mac_re, message=mac_error_msg)
 
 
 # The MACAddressField and the JSONObjectField don't introduce any new
-# parameter compared to their parent's constructors so South will handle
+# parameters compared to their parent's constructors so South will handle
 # them just fine.
 # See http://south.aeracode.org/docs/customfields.html#extending-introspection
 # for details.

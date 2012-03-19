@@ -53,7 +53,7 @@ class Bin(bytes):
         super(Bin, self).__init__(initializer)
 
 
-# The BinaryField does not introduce any new parameter compared to its
+# The BinaryField does not introduce any new parameters compared to its
 # parent's constructor so South will handle it just fine.
 # See http://south.aeracode.org/docs/customfields.html#extending-introspection
 # for details.

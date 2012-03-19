@@ -17,7 +17,7 @@ __all__ = [
 import unittest
 
 from django.conf import settings
-from django.core.management.commands.syncdb import Command
+from django.core.management.commands import syncdb
 from django.db.models import loading
 import django.test
 import testresources
@@ -82,7 +82,7 @@ class TestModelTestCase(TestCase):
         settings.INSTALLED_APPS.append(self.app)
         loading.cache.loaded = False
         # Use Django's 'syncdb' rather than South's.
-        Command().handle_noargs(verbosity=0, interactive=False)
+        syncdb.Command().handle_noargs(verbosity=0, interactive=False)
         super(TestModelTestCase, self)._pre_setup()
 
     def _post_teardown(self):
