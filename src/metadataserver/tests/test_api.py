@@ -234,3 +234,9 @@ class TestViews(TestCase):
     def test_user_data_for_node_without_user_data_returns_not_found(self):
         response = self.get('/latest/user-data', self.make_node_client())
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    @uses_rabbit_fixture
+    def test_public_keys_for_node_without_public_keys_returns_not_found(self):
+        response = self.get('/latest/meta-data/public-keys', self.make_node_client())
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
