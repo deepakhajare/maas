@@ -37,6 +37,7 @@ def reconcile():
             system_id=remote_node["name"],
             # TODO: Figure out the correct architecture.
             architecture=models.ARCHITECTURE.amd64,
+            power_type=remote_node["power_type"],
             hostname=remote_node["name"])
         local_node.save()
         for mac_address in remote_node["mac_addresses"]:
