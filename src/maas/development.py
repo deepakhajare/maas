@@ -1,3 +1,4 @@
+
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
@@ -55,9 +56,6 @@ DATABASES = {
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
 MEDIA_ROOT = os.path.join(os.getcwd(), "media/development")
-
-# The absolute path to the directory containing the Raphael JavaScript library.
-RAPHAEL_ROOT = '/usr/share/javascript/raphael'
 
 INSTALLED_APPS += (
     'django.contrib.admin',

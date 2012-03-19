@@ -29,8 +29,6 @@ if settings.STATIC_LOCAL_SERVE:
     urlpatterns += patterns('',
         (r'^media/(?P<path>.*)$', 'django.views.static.serve',
             {'document_root': settings.MEDIA_ROOT}),
-        (r'^static/raphael/(?P<path>.*)$', 'django.views.static.serve',
-            {'document_root': settings.RAPHAEL_ROOT}),
     )
 
     urlpatterns += staticfiles_urlpatterns()
