@@ -18,7 +18,7 @@ suite.add(new Y.maas.testing.TestCase({
             srcNode: '#panel-two',
             targetNode: '#panel-one'
         }
-        morpher = new module.MorphWidget(cfg);
+        morpher = new module.Morph(cfg);
         Y.Assert.isFalse(
             Y.one('#panel-one').hasClass('hidden'),
             'The target panel should initially be visible');
@@ -26,12 +26,24 @@ suite.add(new Y.maas.testing.TestCase({
             Y.one('#panel-two').hasClass('hidden'),
             'The source panel should initially be hidden');
         morpher.morph();
-        Y.Assert.isTrue(
-            Y.one('#panel-one').hasClass('hidden'),
-            'The target panel should now be hidden');
-        Y.Assert.isFalse(
-            Y.one('#panel-two').hasClass('hidden'),
-            'The source panel should now be visible');
+        this.wait(function() {
+            Y.Assert.isTrue(
+                Y.one(cfg.targetNode).hasClass('hidden'),
+                'The target panel should now be hidden');
+            Y.Assert.isFalse(
+                Y.one(cfg.srcNode).hasClass('hidden'),
+                'The source panel should now be visible');
+            /* Fire this morph again, this time for the reverse. */
+            morpher.morph(true);
+            this.wait(function() {
+                Y.Assert.isFalse(
+                    Y.one(cfg.targetNode).hasClass('hidden'),
+                    'The target panel should now be visible again');
+                Y.Assert.isTrue(
+                    Y.one(cfg.srcNode).hasClass('hidden'),
+                    'The source panel should now be hidden again');
+            }, 2000);
+        }, 2000);
     }
 }));
 

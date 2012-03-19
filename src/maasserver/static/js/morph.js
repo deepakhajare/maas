@@ -1,7 +1,7 @@
 /* Copyright 2012 Canonical Ltd.  This software is licensed under the
  * GNU Affero General Public License version 3 (see the file LICENSE).
  *
- * Widget to add a Node.
+ * Widget to fade and resize between two DOM nodes.
  *
  * @module Y.mass.morph
  */
@@ -12,13 +12,13 @@ Y.log('loading mass.morph');
 
 var module = Y.namespace('maas.morph');
 
-var MorphWidget = function(config) {
-    MorphWidget.superclass.constructor.apply(this, arguments);
+var Morph = function(config) {
+    Morph.superclass.constructor.apply(this, arguments);
 };
 
-MorphWidget.NAME = 'morph';
+Morph.NAME = 'morph';
 
-MorphWidget.ATTRS = {
+Morph.ATTRS = {
     /**
      * The DOM node to be morphed from.
      *
@@ -33,34 +33,49 @@ MorphWidget.ATTRS = {
     }
 };
 
-Y.extend(MorphWidget, Y.Widget, {
-    morph: function() {
-        var srcNode = this.get('srcNode');
-        var targetNode = this.get('targetNode');
+Y.extend(Morph, Y.Widget, {
+    morph: function(reverse) {
+        if (reverse){
+            var srcNode = this.get('targetNode');
+            var targetNode = this.get('srcNode');
+        }
+        else {
+            var srcNode = this.get('srcNode');
+            var targetNode = this.get('targetNode');
+        }
         
         target_height = targetNode.getComputedStyle('height');
-        targetNode.addClass('hidden');
-        srcNode.setStyle('opacity', 0);
-        srcNode.removeClass('hidden');
-        src_height = srcNode.getComputedStyle('height').replace('px', '');
-        srcNode.setStyle('height', target_height);
-        var fade_in = new Y.Anim({
-            node: srcNode,
-            to: {opacity: 1},
-            duration: 1,
-            easing: 'easeIn'
-            });
-        var resize = new Y.Anim({
-            node: srcNode,
-            to: {height: src_height},
-            duration: 0.5,
+        var fade_out = new Y.Anim({
+            node: targetNode,
+            to: {opacity: 0},
+            duration: 0.2,
             easing: 'easeOut'
             });
-        fade_in.run();
-        resize.run();
+        fade_out.run();
+        fade_out.on('end', function () {
+            targetNode.addClass('hidden');
+            srcNode.setStyle('opacity', 0);
+            srcNode.removeClass('hidden');
+            src_height = srcNode.getComputedStyle('height').replace('px', '');
+            srcNode.setStyle('height', target_height);
+            var fade_in = new Y.Anim({
+                node: srcNode,
+                to: {opacity: 1},
+                duration: 1,
+                easing: 'easeIn'
+                });
+            var resize = new Y.Anim({
+                node: srcNode,
+                to: {height: src_height},
+                duration: 0.5,
+                easing: 'easeOut'
+                });
+            fade_in.run();
+            resize.run();
+        });
     }
 });
 
-module.MorphWidget = MorphWidget
+module.Morph = Morph
 
 }, '0.1', {'requires': ['widget', 'node', 'anim']});
