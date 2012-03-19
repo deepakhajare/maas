@@ -18,6 +18,7 @@ import time
 from maastesting.testcase import TestCase
 from maasserver.zeroconfservice import ZeroconfService
 
+
 # These tests will actually inject data in the system Avahi system.
 # Would be nice to isolate it from the system Avahi service, but I didn't
 # feel like writing a private DBus session with a mock Avahi service on it.
@@ -52,7 +53,6 @@ class TestZeroconfService(TestCase):
         port = random.randint(30000, 40000)
         return name, port
 
-
     def test_publish(self):
         name, port = self.getUniqueServiceNameAndPort()
         service = ZeroconfService(name, port, self.STYPE)
@@ -68,5 +68,3 @@ class TestZeroconfService(TestCase):
         service.unpublish()
         services = self.avahi_browse(self.STYPE)
         self.assertNotIn(name, services)
-
-
