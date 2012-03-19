@@ -118,4 +118,3 @@ class TestMAASAvahiService(TestCase):
         self.assertEquals(2, len(mock_avahi.instances))
         self.assertEquals(
             'Second Name MAAS Server', mock_avahi.instances[1].name)
-
