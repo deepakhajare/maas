@@ -913,5 +913,3 @@ provisioning
 from maasserver import messages
 messages
 
-from maasserver import maas_avahi
-maas_avahi
