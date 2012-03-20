@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+# Exit immediately if a command exits with a non-zero status.
+set -o errexit
+# Treat unset variables as an error when substituting.
+set -o nounset
+
+wait_for_next() {
+    local key=
+    until [ "${key}" == "n" ]; do
+        read -s -p 'Press `n` to continue. ' -n 1 key
+    done
+    echo
+    echo
+}
+
+cat <<'EOF'
+
+This script assumes that `vdenv` has been started, and that `zimmer` is
+running. It will then *destroy* your development/demo database, rebuild
+everything, and reconcile with Cobbler.
+
+EOF
+wait_for_next
+
+# After setting up vdenv, do the following:
+
+export DJANGO_SETTINGS_MODULE="maas.demo"
+
+make distclean
+make syncdb
+make pserv-start
+make txlongpoll-start
+bin/maas createadmin --username gavin --password test
+
+cat <<'EOF'
+
+You now need to create the `maas-precise-x86_64` profile in Cobbler, if it
+does not yet exist.
+
+1. Go to <http://local.cobbler.dev/cobbler_web/profile/list>. Credentials are
+   cobbler/xcobbler.
+
+2. Copy `precise-x86_64-juju` to `maas-precise-x86_64`.
+
+EOF
+wait_for_next
+
+bin/maas reconcile
+utilities/maasdb shell db <<<\
+    "UPDATE maasserver_node SET owner_id = NULL, status = 4;"
+
+cat <<'EOF'
+
+Now do Juju stuff, and:
+
+- Check VNC output (via virsh). Go to vt7 for the boot log.
+
+- Check netboot enabled/disabled (in Cobbler).
+
+Good luck. You'll need it ;)
+
+EOF
