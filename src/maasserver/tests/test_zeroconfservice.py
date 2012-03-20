@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 import random
+import select
 import subprocess
 import time
 
@@ -28,7 +29,7 @@ class TestZeroconfService(TestCase):
 
     count = 0
 
-    def avahi_browse(self, service_type, timeout=1):
+    def avahi_browse(self, service_type, timeout=3):
         """Return the list of published Avahi service through avahi-browse."""
         # Doing this from pure python would be a pain, as it would involve
         # running a glib mainloop. And stopping one is hard. Much easier to
@@ -37,7 +38,13 @@ class TestZeroconfService(TestCase):
         browser = subprocess.Popen(
             ['avahi-browse', '-k', '-p', service_type],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(timeout)
+        until = time.time() + timeout;
+        while time.time() < until:
+            # Busy loop until there is some input on stdout,
+            # or we give up.
+            ready = select.select([browser.stdout], [], [], 0.10)
+            if ready[0] or browser.poll():
+                break
         browser.terminate()
         names = []
         for record in browser.stdout.readlines():
