@@ -15,7 +15,6 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-from random import randint
 from unittest import skipIf
 from xmlrpclib import Fault
 
@@ -125,12 +124,12 @@ class ExceptionConversionTests:
     def test_bad_token_means_token_expired(self):
         session = yield self.get_cobbler_session()
         session.token = factory.getRandomString()
-        arbitrary_id = randint(10000, 99999)
+        arbitrary_id = factory.getRandomString()
 
         faultfinder = FaultFinder()
         with faultfinder:
             yield session._issue_call(
-                'xapi_object_edit', 'repo', 'repo-%d' % arbitrary_id,
+                'xapi_object_edit', 'repo', 'repo-%s' % arbitrary_id,
                 'edit', {'mirror': 'on-the-wall'}, session.token)
 
         self.assertEqual(
@@ -139,13 +138,13 @@ class ExceptionConversionTests:
     @inlineCallbacks
     def test_bad_profile_name_is_distinct_error(self):
         session = yield self.get_cobbler_session()
-        arbitrary_id = randint(10000, 99999)
+        arbitrary_id = factory.getRandomString()
 
         faultfinder = FaultFinder()
         with faultfinder:
             yield CobblerSystem.new(
-                session, 'system-%d' % arbitrary_id,
-                {'profile': 'profile-%d' % arbitrary_id})
+                session, 'system-%s' % arbitrary_id,
+                {'profile': 'profile-%s' % arbitrary_id})
 
         self.assertEqual(
             PSERV_FAULT.NO_SUCH_PROFILE, faultfinder.fault.faultCode)
