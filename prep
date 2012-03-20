@@ -33,17 +33,18 @@ make distclean
 make syncdb
 make pserv-start
 make txlongpoll-start
-bin/maas createadmin --username gavin --password test
+bin/maas createadmin \
+    --username "${LOGNAME}" --password test
 
 cat <<'EOF'
 
 You now need to create the `maas-precise-x86_64` profile in Cobbler, if it
 does not yet exist.
 
-1. Go to <http://local.cobbler.dev/cobbler_web/profile/list>. Credentials are
-   cobbler/xcobbler.
+  1. Go to <http://local.cobbler.dev/cobbler_web/profile/list>. Credentials
+     are cobbler/xcobbler.
 
-2. Copy `precise-x86_64-juju` to `maas-precise-x86_64`.
+  2. Copy `precise-x86_64-juju` to `maas-precise-x86_64`.
 
 EOF
 wait_for_next
@@ -54,12 +55,39 @@ utilities/maasdb shell db <<<\
 
 cat <<'EOF'
 
-Now do Juju stuff, and:
+Next the MAAS server will be started, at which point you can Juju.
 
-- Check VNC output (via virsh). Go to vt7 for the boot log.
+However, once MAAS is running, Juju needs to be pointed at it, and given
+credentials with which to manipulate it:
 
-- Check netboot enabled/disabled (in Cobbler).
+  1. Copy an OAuth token from <http://localhost:5240/account/prefs/>.
+
+  2. Interpolate it into the following:
+
+     {{{
+     juju: environments
+     environments:
+       maas:
+         type: maas
+         maas-server: 'http://localhost:5240'
+         maas-oauth: '${OAUTH_TOKEN_FROM_STEP_1}
+         admin-secret: 'nothing'
+         juju-origin: lp:maas
+     }}}
+
+  3. Customize `juju-origin` as desired.
+
+  4. Put it into `~/.juju/environments.yaml`.
+
+Some tips for productive Juju fun:
+
+  - Check VNC output (via virsh). Go to vt7 for the boot log.
+
+  - Check netboot enabled/disabled (in Cobbler).
 
 Good luck. You'll need it ;)
 
 EOF
+wait_for_next
+
+make run
