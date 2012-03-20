@@ -133,7 +133,7 @@ class ProvisioningTests:
             provisioning.provision_post_save_Node(
                 sender=Node, instance=node, created=True)
 
-    def test_provision_post_save_Node_passes_on_other_pserv_faults(self):
+    def test_provision_post_save_Node_returns_other_pserv_faults(self):
         error_text = factory.getRandomString()
 
         def raise_fault(*args, **kwargs):
