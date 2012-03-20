@@ -190,50 +190,64 @@ class TestHostnameFormField(TestCase):
             form.errors['hostname'])
 
 
-class TestProfileForm(TestCase):
+class TestUniqueEmailForms(TestCase):
 
-    def test_email_must_be_unique(self):
+    def assertFormFailsValidationBecauseEmailNotUnique(self, form):
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+        self.assertEqual(
+            ["User with this E-mail address already exists."],
+            form._errors['email'])
+
+    def test_ProfileForm_fails_validation_if_email_taken(self):
+        another_email = '%s@example.com' % factory.getRandomString()
+        factory.make_user(email=another_email)
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = ProfileForm(instance=user, data={'email': another_email})
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_ProfileForm_validates_if_email_unchanged(self):
         email = '%s@example.com' % factory.getRandomString()
         user = factory.make_user(email=email)
         form = ProfileForm(instance=user, data={'email': email})
-        self.assertFalse(form.is_valid())
-        self.assertIn('email', form._errors)
-        self.assertEqual(
-            ["This email address is already in use."], form._errors['email'])
+        self.assertTrue(form.is_valid())
 
-
-class TestEditUserForm(TestCase):
-
-    def test_email_must_be_unique(self):
+    def test_NewUserCreationForm_fails_validation_if_email_taken(self):
         email = '%s@example.com' % factory.getRandomString()
-        user = factory.make_user(email=email)
-        form = EditUserForm(instance=user, data={'email': email})
-        self.assertFalse(form.is_valid())
-        self.assertIn('email', form._errors)
-        self.assertEqual(
-            ["This email address is already in use."], form._errors['email'])
-
-    def test_email_must_be_unique_ignores_case(self):
-        email = '%s@example.com' % factory.getRandomString()
-        user = factory.make_user(email=email)
-        form = EditUserForm(instance=user, data={'email': email.upper()})
-        self.assertFalse(form.is_valid())
-        self.assertIn('email', form._errors)
-
-
-class TestNewUserCreationForm(TestCase):
-
-    def test_email_must_be_unique(self):
-        email = '%s@example.com' % factory.getRandomString()
+        username = factory.getRandomString()
+        password = factory.getRandomString()
         factory.make_user(email=email)
         form = NewUserCreationForm(
             {
                 'email': email,
+                'username': username,
+                'password1': password,
+                'password2': password,
             })
-        self.assertFalse(form.is_valid())
-        self.assertIn('email', form._errors)
-        self.assertEqual(
-            ["This email address is already in use."], form._errors['email'])
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_EditUserForm_fails_validation_if_email_taken(self):
+        another_email = '%s@example.com' % factory.getRandomString()
+        factory.make_user(email=another_email)
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(instance=user, data={'email': another_email})
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_EditUserForm_validates_if_email_unchanged(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(
+            instance=user,
+            data={
+                'email': email,
+                'username': factory.getRandomString(),
+            })
+        self.assertTrue(form.is_valid())
+
+
+class TestNewUserCreationForm(TestCase):
 
     def test_fields_order(self):
         form = NewUserCreationForm()
