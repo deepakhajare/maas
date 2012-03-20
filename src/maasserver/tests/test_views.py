@@ -369,7 +369,7 @@ class NodeViewTest(LoggedInTestCase):
         self.assertIn(node_link, all_links)
 
     def test_view_node_displays_node_info(self):
-        # The node page feature the basic information about the node.
+        # The node page features the basic information about the node.
         node = factory.make_node()
         node_link = reverse('node-view', args=[node.id])
         response = self.client.get(node_link)
