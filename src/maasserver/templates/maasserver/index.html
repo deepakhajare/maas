@@ -20,6 +20,7 @@
       // Create Dashboard view.
       var view = new Y.maas.node_views.NodesDashboard({
           srcNode: '#dashboard',
+          summaryNode: '#summary',
           numberNode: '#nodes-number',
           descriptionNode: '#nodes-description',
           reservedNode: '#reserved-nodes',
@@ -61,8 +62,10 @@
   <div id="dashboard" class="pad-top">
     <div id="chart" class="block size6"></div>
     <div class="block block size8">
-      <h2 id="nodes-number" class="super-size pad-top-large"></h2>
-      <p id="nodes-description" class="large"></p>
+      <div id="summary">
+        <h2 id="nodes-number" class="super-size pad-top-large"></h2>
+        <p id="nodes-description" class="large"></p>
+      </div>
       <p id="reserved-nodes" class="medium space-bottom-small"></p>
       <p id="retired-nodes" class="secondary medium space-top-none"></p>
       <a href="#" id="addnode" class="button right space-top">Add node</a>

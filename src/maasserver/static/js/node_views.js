@@ -150,11 +150,13 @@ module.NodesDashboard = Y.Base.create(
     queued_template: ('node{plural} queued'),
     offline_template: ('node{plural} offline'),
     added_template: ('node{plural} added but never seen'),
-    reserved_template: ('{nodes} node{plural} running without a registered service.'),
+    reserved_template: 
+        ('{nodes} node{plural} running without a registered service.'),
     retired_template: ('{nodes} retired node{plural} not represented.'),
 
     initializer: function(config) {
         this.srcNode = config.srcNode;
+        this.summaryNode = Y.one(config.summaryNode);
         this.numberNode = Y.one(config.numberNode);
         this.descriptionNode = Y.one(config.descriptionNode);
         this.reservedNode = Y.one(config.reservedNode);
@@ -207,11 +209,11 @@ module.NodesDashboard = Y.Base.create(
         for (var ev in events) {
             this.chart.on(events[ev].event, function(e, template, widget) {
                 if (Y.Lang.isValue(e.nodes)) {
-                    widget.setSummary(e.nodes, template);
+                    widget.setSummary(true, e.nodes, template, true);
                 }
                 else {
                     // Set the text to the default
-                    widget.setSummary();
+                    widget.setSummary(true);
                 }
             }, null, events[ev].template, this);
         }
@@ -238,7 +240,7 @@ module.NodesDashboard = Y.Base.create(
         // Update the chart with the new node/status counts
         this.chart.updateChart();
         // Set the default text on the dashboard
-        this.setSummary();
+        this.setSummary(false);
         this.setNodeText(
             this.reservedNode, this.reserved_template, this.reserved_nodes);
         this.setNodeText(
@@ -280,7 +282,7 @@ module.NodesDashboard = Y.Base.create(
             // Update the chart with the new node/status counts
             this.chart.updateChart();
             // Set the default text on the dashboard
-            this.setSummary();
+            this.setSummary(true);
         }
     },
 
@@ -348,7 +350,7 @@ module.NodesDashboard = Y.Base.create(
    /**
     * Set the text for the number of nodes for a status.
     */
-    setSummary: function(nodes, template) {
+    setSummary: function(animate, nodes, template) {
         // By default we just want to display the total nodes.
         if (!nodes || !template) {
             nodes = this.modelList.size();
@@ -357,8 +359,30 @@ module.NodesDashboard = Y.Base.create(
         plural = (nodes === 1) ? '' : 's';
         text = Y.Lang.sub(template, {plural: plural})
 
-        this.numberNode.setContent(nodes);
-        this.descriptionNode.setContent(text);
+        if (animate) {
+            var fade_out = new Y.Anim({
+                node: this.summaryNode,
+                to: {opacity: 0},
+                duration: 0.1,
+                easing: 'easeIn'
+                });
+            fade_out.run();
+            fade_out.on('end', function (e, self, nodes, text) {
+                self.numberNode.setContent(nodes);
+                self.descriptionNode.setContent(text);
+                var fade_in = new Y.Anim({
+                    node: self.summaryNode,
+                    to: {opacity: 1},
+                    duration: 0.2,
+                    easing: 'easeIn'
+                    });
+                fade_in.run();
+            }, null, this, nodes, text);
+        }
+        else {
+            this.numberNode.setContent(nodes);
+            this.descriptionNode.setContent(text);
+        }
     },
 
    /**
@@ -373,5 +397,6 @@ module.NodesDashboard = Y.Base.create(
 });
 
 }, '0.1', {'requires': [
-    'view', 'io', 'maas.node', 'maas.node_add', 'maas.nodes_chart']}
+    'view', 'io', 'maas.node', 'maas.node_add', 'maas.nodes_chart', 
+    'maas.morph', 'anim']}
 );
