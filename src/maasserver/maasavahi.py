@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""..."""
+"""Glue to publish MAAS over Avahi."""
 
 from __future__ import (
     print_function,
@@ -19,7 +19,7 @@ class MAASAvahiService:
     """Publishes the MAAS server existence over Avahi.
 
     The server is exported as '%s MAAS Server' using the _maas._tcp service
-    type.
+    type where %s is the configured MAAS server name.
     """
 
     def __init__(self):

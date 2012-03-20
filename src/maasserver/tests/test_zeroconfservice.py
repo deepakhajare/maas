@@ -54,14 +54,19 @@ class TestZeroconfService(TestCase):
         return name, port
 
     def test_publish(self):
+        # Calling publish() should make the service name available
+        # over Avahi.
         name, port = self.getUniqueServiceNameAndPort()
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
+        # This will unregister the published name from Avahi.
         self.addCleanup(service.group.Reset)
         services = self.avahi_browse(self.STYPE)
         self.assertIn(name, services)
 
     def test_unpublish(self):
+        # Calling unpublish() should remove the published
+        # service name from Avahi.
         name, port = self.getUniqueServiceNameAndPort()
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
