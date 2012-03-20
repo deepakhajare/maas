@@ -144,45 +144,234 @@ module.NodeListLoader = Y.Base.create('nodeListLoader', Y.View, [], {
  */
 module.NodesDashboard = Y.Base.create(
     'nodesDashboard', module.NodeListLoader, [], {
-
-    plural_template: (
-      '<h2>{nb_nodes} nodes in this cluster</h2><div id="chart" />'),
-    singular_template: (
-        '<h2>{nb_nodes} node in this cluster</h2><div id="chart" />'),
+    all_template: ('node{plural} in this MAAS'),
+    deployed_template: ('node{plural} deployed'),
+    commissioned_template: ('node{plural} commissioned'),
+    queued_template: ('node{plural} queued'),
+    offline_template: ('node{plural} offline'),
+    added_template: ('node{plural} added but never seen'),
+    reserved_template: ('{nodes} node{plural} running without a registered service.'),
+    retired_template: ('{nodes} retired node{plural} not represented.'),
 
     initializer: function(config) {
-        this.append = config.append;
-       // Prepare spinnerNode.
+        this.srcNode = config.srcNode;
+        this.numberNode = Y.one(config.numberNode);
+        this.descriptionNode = Y.one(config.descriptionNode);
+        this.reservedNode = Y.one(config.reservedNode);
+        this.retiredNode = Y.one(config.retiredNode);
+        this.deployed_nodes = 0;
+        this.commissioned_nodes = 0;
+        this.queued_nodes = 0;
+        this.reserved_nodes = 0;
+        this.offline_nodes = 0;
+        this.added_nodes = 0;
+        this.retired_nodes = 0;
+        // Prepare spinnerNode.
         this.spinnerNode = Y.Node.create('<img />')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
+        // Set up the chart
+        this.chart = new Y.maas.nodes_chart.NodesChartWidget({
+            node_id: 'chart',
+            width: 300
+            });
+
+        // Set up the event listeners for node changes
+        Y.on('Node.updated', function(e, widget) {
+            widget.updateNode('updated', e.instance);
+        }, null, this);
+
+        Y.on('Node.created', function(e, widget) {
+            widget.updateNode('created', e.instance);
+        }, null, this);
+
+        Y.on('Node.deleted', function(e, widget) {
+            widget.updateNode('deleted', e.instance);
+        }, null, this);
+
+        // Set up the hovers for changing the dashboard text
+        var events = [
+            {event: 'hover.offline.over', template: this.offline_template},
+            {event: 'hover.offline.out'},
+            {event: 'hover.added.over', template: this.added_template},
+            {event: 'hover.added.out'},
+            {event: 'hover.deployed.over', template: this.deployed_template},
+            {event: 'hover.deployed.out'},
+            {
+                event: 'hover.commissioned.over',
+                template: this.commissioned_template
+                },
+            {event: 'hover.commissioned.out'},
+            {event: 'hover.queued.over', template: this.queued_template},
+            {event: 'hover.queued.out'}
+            ];
+        for (var ev in events) {
+            this.chart.on(events[ev].event, function(e, template, widget) {
+                if (Y.Lang.isValue(e.nodes)) {
+                    widget.setSummary(e.nodes, template);
+                }
+                else {
+                    // Set the text to the default
+                    widget.setSummary();
+                }
+            }, null, events[ev].template, this);
+        }
     },
 
    /**
-    * Display a dashboard of the nodes (right now a simple count).
+    * Display a dashboard of the nodes.
     *
     * @method display
     */
     display: function () {
-        var size = this.modelList.size();
-        var template = (size === 1) ?
-            this.singular_template : this.plural_template;
-        Y.one(this.container).setContent(
-            Y.Lang.sub(template, {nb_nodes: size}));
-
-        if (!this.container.inDoc()) {
-            Y.one(this.append).empty().append(this.container, 0);
+        /* Set up the initial node/status counts. This needs to happen here
+           so that this.modelList exists.
+        */
+        if (!Y.Lang.isValue(this.nodes)) {
+            this.nodes = {};
+            for (var i=0; i<this.modelList.size(); i++) {
+                var node = this.modelList.item(i);
+                var status = node.get('status');
+                this.updateStatus('add', status);
+                this.nodes[node.get('system_id')] = node.get('status');
+            }
         }
+        // Update the chart with the new node/status counts
+        this.chart.updateChart();
+        // Set the default text on the dashboard
+        this.setSummary();
+        this.setNodeText(
+            this.reservedNode, this.reserved_template, this.reserved_nodes);
+        this.setNodeText(
+            this.retiredNode, this.retired_template, this.retired_nodes);
     },
 
     loadNodesStarted: function() {
-        Y.one(this.append).insert(this.spinnerNode, 0);
+        Y.one(this.srcNode).insert(this.spinnerNode, 0);
     },
 
     loadNodesEnded: function() {
         this.spinnerNode.remove();
+    },
+
+   /**
+    * Update the nodes in the chart.
+    */
+    updateNode: function(action, node) {
+        var update = false;
+        if (action == 'created') {
+            this.nodes[node.system_id] = node.status;
+            update = this.updateStatus('add', node.status);
+        }
+        else if (action == 'deleted') {
+            delete this.nodes[node.system_id];
+            update = this.updateStatus('remove', node.status);
+        }
+        else if (action == 'updated') {
+            previous_status = this.nodes[node.system_id];
+            this.nodes[node.system_id] = node.status;
+            update_remove = this.updateStatus('remove', previous_status);
+            update_add = this.updateStatus('add', node.status);
+            if (update_remove || update_add) {
+                update = true;
+            }
+        }
+
+        if (update) {
+            // Update the chart with the new node/status counts
+            this.chart.updateChart();
+            // Set the default text on the dashboard
+            this.setSummary();
+        }
+    },
+
+   /**
+    * Update the number of nodes for a status.
+    */
+    updateStatus: function(action, status) {
+        var update_chart = false;
+        /* This seems like an ugly way to calculate the change, but it stops
+           duplication of checking for the action for each status.
+        */
+        if (action == 'add') {
+            var node_counter = 1;
+        }
+        else if (action == 'remove') {
+            var node_counter = -1;
+        }
+
+        /* TODO: The commissioned status currently doesn't exist, but once it
+           does it should be added here too.
+        */
+        if (status == 0) {
+            // Added nodes
+            this.added_nodes += node_counter;
+            this.chart.set('added_nodes', this.added_nodes);
+            update_chart = true;
+        }
+        else if (status == 1 || status == 2 || status == 3) {
+            // Offline nodes
+            this.offline_nodes += node_counter;
+            this.chart.set('offline_nodes', this.offline_nodes);
+            update_chart = true;
+        }
+        else if (status == 4) {
+            // Queued nodes
+            this.queued_nodes += node_counter;
+            this.chart.set('queued_nodes', this.queued_nodes);
+            update_chart = true;
+        }
+        else if (status == 5) {
+            // Reserved nodes
+            this.reserved_nodes += node_counter;
+            this.setNodeText(
+                this.reservedNode,
+                this.reserved_template,
+                this.reserved_nodes
+                );
+        }
+        else if (status == 6) {
+            // Deployed nodes
+            this.deployed_nodes += node_counter;
+            this.chart.set('deployed_nodes', this.deployed_nodes);
+            update_chart = true;
+        }
+        else if (status == 7) {
+            // Retired nodes
+            this.retired_nodes += node_counter;
+            this.setNodeText(
+                this.retiredNode, this.retired_template, this.retired_nodes);
+        }
+
+        return update_chart;
+    },
+
+   /**
+    * Set the text for the number of nodes for a status.
+    */
+    setSummary: function(nodes, template) {
+        // By default we just want to display the total nodes.
+        if (!nodes || !template) {
+            nodes = this.modelList.size();
+            template = this.all_template;
+        }
+        plural = (nodes === 1) ? '' : 's';
+        text = Y.Lang.sub(template, {plural: plural})
+
+        this.numberNode.setContent(nodes);
+        this.descriptionNode.setContent(text);
+    },
+
+   /**
+    * Set the text from a template for a DOM node.
+    */
+    setNodeText: function(node, template, nodes) {
+        plural = (nodes === 1) ? '' : 's';
+        text = Y.Lang.sub(template, {plural: plural, nodes: nodes})
+        node.setContent(text);
     }
 
 });
 
-}, '0.1', {'requires': ['view', 'io', 'maas.node', 'maas.node_add']}
+}, '0.1', {'requires': [
+    'view', 'io', 'maas.node', 'maas.node_add', 'maas.nodes_chart']}
 );
