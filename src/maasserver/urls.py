@@ -36,6 +36,7 @@ from maasserver.views import (
     logout,
     NodeListView,
     NodeView,
+    NodeEdit,
     NodesCreateView,
     proxy_to_longpoll,
     settings,
@@ -75,6 +76,7 @@ urlpatterns += patterns('maasserver.views',
         name='index'),
     url(r'^nodes/$', NodeListView.as_view(model=Node), name='node-list'),
     url(r'^nodes/(?P<id>\d*)/view/$', NodeView.as_view(), name='node-view'),
+    url(r'^nodes/(?P<id>\d*)/edit/$', NodeEdit.as_view(), name='node-edit'),
     url(
         r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
 )

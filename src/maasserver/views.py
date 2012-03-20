@@ -61,6 +61,7 @@ from maasserver.forms import (
     NewUserCreationForm,
     ProfileForm,
     UbuntuForm,
+    UINodeEditForm,
     )
 from maasserver.messages import messaging
 from maasserver.models import (
@@ -95,6 +96,20 @@ class NodeView(DetailView):
     def get_object(self):
         id = self.kwargs.get('id', None)
         return get_object_or_404(Node, id=id)
+
+
+class NodeEdit(UpdateView):
+
+    form_class = UINodeEditForm
+
+    template_name = 'maasserver/node_edit.html'
+
+    def get_object(self):
+        id = self.kwargs.get('id', None)
+        return get_object_or_404(Node, id=id)
+
+    def get_success_url(self):
+        return reverse('node-view', args=[self.get_object().id])
 
 
 def get_longpoll_context():

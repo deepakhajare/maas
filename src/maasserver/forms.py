@@ -16,6 +16,7 @@ __all__ = [
     "MACAddressForm",
     "MAASAndNetworkForm",
     "UbuntuForm",
+    "UINodeEditForm",
     ]
 
 from django import forms
@@ -81,6 +82,16 @@ class NodeForm(ModelForm):
         fields = (
             'hostname', 'system_id', 'after_commissioning_action',
             'architecture', 'power_type')
+
+
+class UINodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+    class Meta:
+        model = Node
+        fields = ('hostname', 'after_commissioning_action', 'power_type')
+
 
 
 class MACAddressForm(ModelForm):
