@@ -368,6 +368,9 @@ class Node(CommonInfo):
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
 
+    token = models.ForeignKey(
+        Token, db_index=True, null=True, editable=False, unique=False)
+
     objects = NodeManager()
 
     def __unicode__(self):
