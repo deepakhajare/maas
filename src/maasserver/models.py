@@ -450,6 +450,7 @@ class Node(CommonInfo):
             ]
         self.status = NODE_STATUS.READY
         self.owner = None
+        self.token = None
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')

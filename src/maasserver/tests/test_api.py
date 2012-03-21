@@ -393,6 +393,19 @@ class TestNodeAPI(APITestCase):
             [NODE_STATUS.READY] * len(owned_nodes),
             [node.status for node in reload_objects(Node, owned_nodes)])
 
+    def test_POST_release_removes_token_and_user(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
+        self.assertEqual(self.logged_in_user, node.owner)
+        self.assertEqual(self.client.token.key, node.token.key)
+        self.client.post(self.get_node_uri(node), {'op': 'release'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertIs(None, node.owner)
+        self.assertIs(None, node.token)
+
     def test_POST_release_does_nothing_for_unowned_node(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         response = self.client.post(
