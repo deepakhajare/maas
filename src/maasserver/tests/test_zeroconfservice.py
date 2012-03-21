@@ -11,10 +11,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import random
+import itertools
 import subprocess
 
 from maasserver.zeroconfservice import ZeroconfService
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from testtools.content import text_content
 
@@ -30,7 +31,7 @@ class TestZeroconfService(TestCase):
 
     STYPE = '_maas_zeroconftest._tcp'
 
-    count = 0
+    count = itertools.count(1)
 
     def avahi_browse(self, service_type, timeout=3):
         """Return the list of published Avahi service through avahi-browse."""
@@ -52,12 +53,10 @@ class TestZeroconfService(TestCase):
             names.append(fields[3])
         return names
 
-    @classmethod
-    def getUniqueServiceNameAndPort(cls):
+    def getUniqueServiceNameAndPort(self):
         # getUniqueString() generates an invalid service name
-        name = 'My-Test-Service-%d' % cls.count
-        cls.count += 1
-        port = random.randint(30000, 40000)
+        name = 'My-Test-Service-%d' % next(self.count)
+        port = factory.getRandomPort()
         return name, port
 
     def test_publish(self):
@@ -67,7 +66,7 @@ class TestZeroconfService(TestCase):
         service = ZeroconfService(name, port, self.STYPE)
         service.publish()
         # This will unregister the published name from Avahi.
-        self.addCleanup(service.group.Reset)
+        self.addCleanup(service.unpublish)
         services = self.avahi_browse(self.STYPE)
         self.assertIn(name, services)
 
