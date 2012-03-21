@@ -150,7 +150,7 @@ module.NodesDashboard = Y.Base.create(
     queued_template: ('node{plural} queued'),
     offline_template: ('node{plural} offline'),
     added_template: ('node{plural} added but never seen'),
-    reserved_template: 
+    reserved_template:
         ('{nodes} node{plural} running without a registered service.'),
     retired_template: ('{nodes} retired node{plural} not represented.'),
 
@@ -168,6 +168,18 @@ module.NodesDashboard = Y.Base.create(
         this.offline_nodes = 0;
         this.added_nodes = 0;
         this.retired_nodes = 0;
+        this.fade_out = new Y.Anim({
+            node: this.summaryNode,
+            to: {opacity: 0},
+            duration: 0.1,
+            easing: 'easeIn'
+            });
+        this.fade_in = new Y.Anim({
+            node: this.summaryNode,
+            to: {opacity: 1},
+            duration: 0.2,
+            easing: 'easeIn'
+            });
         // Prepare spinnerNode.
         this.spinnerNode = Y.Node.create('<img />')
             .set('src', MAAS_config.uris.statics + 'img/spinner.gif');
@@ -259,14 +271,14 @@ module.NodesDashboard = Y.Base.create(
     * Update the nodes in the chart.
     */
     updateNode: function(action, node) {
-        var update = false;
+        var update_chart = false;
         if (action == 'created') {
             this.nodes[node.system_id] = node.status;
-            update = this.updateStatus('add', node.status);
+            update_chart = this.updateStatus('add', node.status);
         }
         else if (action == 'deleted') {
             delete this.nodes[node.system_id];
-            update = this.updateStatus('remove', node.status);
+            update_chart = this.updateStatus('remove', node.status);
         }
         else if (action == 'updated') {
             previous_status = this.nodes[node.system_id];
@@ -274,14 +286,19 @@ module.NodesDashboard = Y.Base.create(
             update_remove = this.updateStatus('remove', previous_status);
             update_add = this.updateStatus('add', node.status);
             if (update_remove || update_add) {
-                update = true;
+                update_chart = true;
             }
         }
 
-        if (update) {
+        if (update_chart) {
             // Update the chart with the new node/status counts
             this.chart.updateChart();
-            // Set the default text on the dashboard
+        }
+
+        if (action != 'updated') {
+            /* Set the default text on the dashboard. We only need to do this
+               if the total number of nodes has changed.
+            */
             this.setSummary(true);
         }
     },
@@ -360,23 +377,11 @@ module.NodesDashboard = Y.Base.create(
         text = Y.Lang.sub(template, {plural: plural})
 
         if (animate) {
-            var fade_out = new Y.Anim({
-                node: this.summaryNode,
-                to: {opacity: 0},
-                duration: 0.1,
-                easing: 'easeIn'
-                });
-            fade_out.run();
-            fade_out.on('end', function (e, self, nodes, text) {
+            this.fade_out.run();
+            this.fade_out.on('end', function (e, self, nodes, text) {
                 self.numberNode.setContent(nodes);
                 self.descriptionNode.setContent(text);
-                var fade_in = new Y.Anim({
-                    node: self.summaryNode,
-                    to: {opacity: 1},
-                    duration: 0.2,
-                    easing: 'easeIn'
-                    });
-                fade_in.run();
+                self.fade_in.run();
             }, null, this, nodes, text);
         }
         else {
@@ -388,15 +393,15 @@ module.NodesDashboard = Y.Base.create(
    /**
     * Set the text from a template for a DOM node.
     */
-    setNodeText: function(node, template, nodes) {
+    setNodeText: function(element, template, nodes) {
         plural = (nodes === 1) ? '' : 's';
         text = Y.Lang.sub(template, {plural: plural, nodes: nodes})
-        node.setContent(text);
+        element.setContent(text);
     }
 
 });
 
 }, '0.1', {'requires': [
-    'view', 'io', 'maas.node', 'maas.node_add', 'maas.nodes_chart', 
+    'view', 'io', 'maas.node', 'maas.node_add', 'maas.nodes_chart',
     'maas.morph', 'anim']}
 );
