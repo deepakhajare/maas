@@ -12,6 +12,6 @@
     {% endfor %}
     </ul>
     <input type="submit" value="Save node" class="right" />
-    <a class="link-button" href="{% url 'node-list' %}">Cancel</a>
+    <a class="link-button" href="{% url 'node-view' node.id %}">Cancel</a>
   </form>
 {% endblock %}

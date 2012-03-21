@@ -25,6 +25,7 @@ from convoy.combo import (
     parse_qs,
     )
 from django.conf import settings as django_settings
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm as PasswordForm
 from django.contrib.auth.models import User
@@ -62,6 +63,7 @@ from maasserver.forms import (
     ProfileForm,
     UbuntuForm,
     UINodeEditForm,
+    UIAdminNodeEditForm,
     )
 from maasserver.messages import messaging
 from maasserver.models import (
@@ -97,16 +99,31 @@ class NodeView(DetailView):
         id = self.kwargs.get('id', None)
         return get_object_or_404(Node, id=id)
 
+    def get_context_data(self, **kwargs):
+        context = super(NodeView, self).get_context_data(**kwargs)
+        node = self.get_object()
+        context.update(
+            {'can_edit': self.request.user.has_perm('edit', node)})
+        return context
+
 
 class NodeEdit(UpdateView):
-
-    form_class = UINodeEditForm
 
     template_name = 'maasserver/node_edit.html'
 
     def get_object(self):
         id = self.kwargs.get('id', None)
-        return get_object_or_404(Node, id=id)
+        node = get_object_or_404(Node, id=id)
+        if self.request.user.has_perm('edit', node):
+            return node
+        else:
+            raise PermissionDenied
+
+    def get_form_class(self):
+        if self.request.user.is_superuser:
+            return UIAdminNodeEditForm
+        else:
+            return UINodeEditForm
 
     def get_success_url(self):
         return reverse('node-view', args=[self.get_object().id])

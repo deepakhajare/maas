@@ -7,12 +7,12 @@
 
 {% block sidebar %}
   <div class="block size3">
-    {% if user.is_superuser %}
+    {% if can_edit %}
     <h4>Node details</h4>
-    <a href="{% url 'node-edit' node.id %}" class="button secondary">
+    <a href="{% url 'node-edit' node.id %}" class="button secondary">
       Edit node
     </a>
-    {% endif %}
+    {% endif%}
   </div>
 {% endblock %}
 

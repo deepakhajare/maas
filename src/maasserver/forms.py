@@ -16,6 +16,7 @@ __all__ = [
     "MACAddressForm",
     "MAASAndNetworkForm",
     "UbuntuForm",
+    "UIAdminNodeEditForm",
     "UINodeEditForm",
     ]
 
@@ -37,6 +38,7 @@ from maasserver.models import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     Config,
+    UserProfile,
     MACAddress,
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -90,8 +92,18 @@ class UINodeEditForm(ModelForm):
 
     class Meta:
         model = Node
-        fields = ('hostname', 'after_commissioning_action', 'power_type')
+        fields = ('hostname', 'after_commissioning_action')
 
+
+class UIAdminNodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+    owner = forms.ModelChoiceField(queryset=UserProfile.objects.all_users())
+
+    class Meta:
+        model = Node
+        fields = (
+            'hostname', 'after_commissioning_action', 'power_type', 'owner')
 
 
 class MACAddressForm(ModelForm):
