@@ -22,7 +22,7 @@ __all__ = [
     "Command",
     ]
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import NoArgsCommand
 from maasserver import (
     models,
     provisioning,
@@ -76,9 +76,9 @@ def reconcile():
             provisioning.set_node_mac_addresses(node_local)
 
 
-class Command(BaseCommand):
+class Command(NoArgsCommand):
 
     help = __doc__
 
-    def handle(self, *args, **options):
+    def handle_noargs(self, **options):
         reconcile()
