@@ -36,7 +36,7 @@ make txlongpoll-start
 bin/maas createadmin \
     --username "${LOGNAME}" --password test \
     --email "${LOGNAME}@example.com"
-bin/maas reconcile
+bin/maas qareconcile
 utilities/maasdb shell db <<'EOF'
 UPDATE maasserver_node
    SET owner_id = NULL, status = 4

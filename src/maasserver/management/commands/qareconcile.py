@@ -5,6 +5,11 @@
 
 The Provisioning Server is currently stateless, so this actually implies
 reconciling with Cobbler.
+
+************************************************************************
+**                DO NOT USE ON A PRODUCTION SYSTEM                   **
+**            This is intended for use as a QA tool only              **
+************************************************************************
 """
 
 from __future__ import (
