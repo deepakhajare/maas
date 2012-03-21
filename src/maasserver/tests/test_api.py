@@ -463,7 +463,7 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
 
     def test_PUT_updates_node(self):
-        # The api allows to update a Node.
+        # The api allows the updating of a Node.
         node = factory.make_node(hostname='diane')
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'francis'})
@@ -640,7 +640,7 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             [existing_id], extract_system_ids(parsed_result))
 
-    def test_POST_returns_available_node(self):
+    def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.
         available_status = NODE_STATUS.READY
         node = factory.make_node(status=available_status, owner=None)
@@ -663,6 +663,16 @@ class TestNodesAPI(APITestCase):
         response = self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
         # Fails with Conflict error: resource can't satisfy request.
         self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_sets_a_token(self):
+        # "acquire" should set the Token being used in the request on
+        # the Node that is allocated.
+        available_status = NODE_STATUS.READY
+        node = factory.make_node(status=available_status, owner=None)
+        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        oauth_key = self.client.token.key
+        self.assertEqual(oauth_key, node.token.key)
 
 
 class MACAddressAPITest(APITestCase):

@@ -64,6 +64,7 @@ from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
 
@@ -405,7 +406,12 @@ class NodesHandler(BaseHandler):
         node = Node.objects.get_available_node_for_acquisition(request.user)
         if node is None:
             raise NodesNotAvailable("No node is available.")
-        node.acquire(request.user)
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        token = Token.objects.get(key=key)
+        node.acquire(request.user, token)
         node.save()
         return node
 
