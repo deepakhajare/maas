@@ -43,7 +43,7 @@ class Command(BaseCommand):
             raise CommandError("You must provide a password with --password.")
         email = options.get('email', None)
         if email is None:
-            raise CommandError("You must provide a email with --email.")
+            raise CommandError("You must provide an email with --email.")
 
         User.objects.db_manager(DEFAULT_DB_ALIAS).create_superuser(
             username, email=email, password=password)

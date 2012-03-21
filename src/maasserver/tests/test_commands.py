@@ -69,7 +69,7 @@ class TestCommands(TestCase):
         command_output = stderr.getvalue().strip()
 
         self.assertIn(
-            "Error: You must provide a email with --email.",
+            "Error: You must provide an email with --email.",
              command_output)
 
     def test_createadmin_creates_admin(self):
