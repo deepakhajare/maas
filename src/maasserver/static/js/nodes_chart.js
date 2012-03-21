@@ -241,7 +241,11 @@ Y.extend(NodesChartWidget, Y.Widget, {
             }
         }
 
-        var offline_circle_width = inner_total / total_nodes * this._radius();
+        var offline_circle_width = 0;
+        if (offline_nodes > 0) {
+            offline_circle_width = inner_total / total_nodes * this._radius();
+        }
+
         if (!this._offline_circle) {
             if (offline_nodes > 0) {
                 this._offline_circle = this._addCircle(
@@ -266,16 +270,18 @@ Y.extend(NodesChartWidget, Y.Widget, {
                 {r: offline_circle_width}, TRANSITION_TIME, TRANSITION_EASING);
         }
 
-        var added_circle_width = added_nodes / total_nodes * this._radius();
+        var added_circle_width = 0;
+        if (total_nodes == 0) {
+            added_circle_width = this._radius() - STROKE_WIDTH * 2;
+            console.log('full width!');
+        }
+        else if (added_nodes > 0) {
+            added_circle_width = added_nodes / total_nodes * this._radius();
+        }
+
         if (!this._added_circle) {
-            var width = 0;
-            if (added_nodes > 0) {
-                width = added_circle_width;
-            }
-            else if (total_nodes == 0) {
-                width = this._radius() - STROKE_WIDTH * 2;
-            }
-            this._added_circle = this._addCircle(width, ADDED_COLOUR);
+            this._added_circle = this._addCircle(
+                added_circle_width, ADDED_COLOUR);
             Y.one(this._added_circle[0].node).on(
                 'hover',
                 function(e, widget) {
@@ -290,7 +296,7 @@ Y.extend(NodesChartWidget, Y.Widget, {
                 this);
         }
         else {
-            if (added_nodes != total_nodes) {
+            if (added_nodes != total_nodes || total_nodes == 0) {
                 this._added_circle.toFront();
                 this._added_circle.animate(
                     {r: added_circle_width},
