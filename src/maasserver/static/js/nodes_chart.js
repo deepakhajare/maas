@@ -273,7 +273,6 @@ Y.extend(NodesChartWidget, Y.Widget, {
         var added_circle_width = 0;
         if (total_nodes == 0) {
             added_circle_width = this._radius() - STROKE_WIDTH * 2;
-            console.log('full width!');
         }
         else if (added_nodes > 0) {
             added_circle_width = added_nodes / total_nodes * this._radius();
