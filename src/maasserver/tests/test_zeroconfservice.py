@@ -12,12 +12,11 @@ __metaclass__ = type
 __all__ = []
 
 import random
-import select
 import subprocess
-import time
 
 from maasserver.zeroconfservice import ZeroconfService
 from maastesting.testcase import TestCase
+from testtools.content import text_content
 
 
 class TestZeroconfService(TestCase):
@@ -39,19 +38,16 @@ class TestZeroconfService(TestCase):
         # running a glib mainloop. And stopping one is hard. Much easier to
         # kill an external process. This slows test, and could be fragile,
         # but it's the best I've come with.
+        command = (
+            'avahi-browse', '--no-db-lookup', '--parsable',
+            '--terminate', service_type)
         browser = subprocess.Popen(
-            ['avahi-browse', '-k', '-p', service_type],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        until = time.time() + timeout
-        while time.time() < until:
-            # Busy loop until there is some input on stdout,
-            # or we give up.
-            ready = select.select([browser.stdout], [], [], 0.10)
-            if ready[0] or browser.poll():
-                break
-        browser.terminate()
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = browser.communicate()
+        self.addDetail("stdout", text_content(stdout))
+        self.addDetail("stderr", text_content(stderr))
         names = []
-        for record in browser.stdout.readlines():
+        for record in stdout.splitlines():
             fields = record.split(';')
             names.append(fields[3])
         return names
