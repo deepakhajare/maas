@@ -16,7 +16,6 @@ __all__ = [
 from textwrap import dedent
 from urllib import urlencode
 from urlparse import urljoin
-import warnings
 import xmlrpclib
 
 from django.conf import settings
@@ -41,21 +40,17 @@ def get_provisioning_api_proxy():
     implementation. This will not be available in a packaged version of MAAS,
     in which case an error is raised.
     """
-    url = settings.PSERV_URL
-    if url is None:
-        try:
-            from maasserver import testing
-        except ImportError:
-            # This is probably in a package.
-            raise RuntimeError("PSERV_URL must be defined.")
-        else:
-            warnings.warn(
-                "PSERV_URL is None; using the fake Provisioning API.",
-                RuntimeWarning)
-            return testing.get_fake_provisioning_api_proxy()
-    else:
+    if settings.USE_REAL_PSERV:
+        # Use a real provisioning server.  This requires PSERV_URL to be
+        # set.
         return xmlrpclib.ServerProxy(
-            url, allow_none=True, use_datetime=True)
+            settings.PSERV_URL, allow_none=True, use_datetime=True)
+    else:
+        # Create a fake.  The code that provides the testing fake is not
+        # available in an installed production system, so import it only
+        # when a fake is requested.
+        from maasserver.testing import get_fake_provisioning_api_proxy
+        return get_fake_provisioning_api_proxy()
 
 
 def get_metadata_server_url():
