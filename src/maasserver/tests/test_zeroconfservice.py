@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for the ZeroconfService class"""
+"""Tests for `zeroconfservice`."""
 
 from __future__ import (
     print_function,
@@ -19,10 +19,15 @@ import time
 from maasserver.zeroconfservice import ZeroconfService
 from maastesting.testcase import TestCase
 
-# These tests will actually inject data in the system Avahi system.
-# Would be nice to isolate it from the system Avahi service, but I didn't
-# feel like writing a private DBus session with a mock Avahi service on it.
+
 class TestZeroconfService(TestCase):
+    """Test :class:`ZeroconfService`.
+
+    These tests will actually inject data in the system Avahi service. It
+    would be nice to isolate it from the system Avahi service, but there's a
+    lot of work involved in writing a private DBus session with a mock Avahi
+    service on it, probably more than it's worth.
+    """
 
     STYPE = '_maas_zeroconftest._tcp'
 
@@ -52,10 +57,10 @@ class TestZeroconfService(TestCase):
         return names
 
     @classmethod
-    def getUniqueServiceNameAndPort(self):
+    def getUniqueServiceNameAndPort(cls):
         # getUniqueString() generates an invalid service name
-        name = 'My-Test-Service-%d' % self.count
-        self.count += 1
+        name = 'My-Test-Service-%d' % cls.count
+        cls.count += 1
         port = random.randint(30000, 40000)
         return name, port
 
