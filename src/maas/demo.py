@@ -39,6 +39,9 @@ LONGPOLL_SERVER_URL = "http://localhost:5242/"
 # enable it.
 LONGPOLL_PATH = None
 
+# For demo purposes, use a real provisioning server.
+USE_REAL_PSERV = True
+
 MAAS_CLI = os.path.join(os.getcwd(), 'bin', 'maas')
 
 LOGGING = {

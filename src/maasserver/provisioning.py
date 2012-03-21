@@ -13,6 +13,7 @@ __all__ = [
     'get_provisioning_api_proxy',
     ]
 
+from logging import getLogger
 from textwrap import dedent
 from urllib import urlencode
 from urlparse import urljoin
@@ -49,7 +50,15 @@ def get_provisioning_api_proxy():
         # Create a fake.  The code that provides the testing fake is not
         # available in an installed production system, so import it only
         # when a fake is requested.
-        from maasserver.testing import get_fake_provisioning_api_proxy
+        try:
+            from maasserver.testing import get_fake_provisioning_api_proxy
+        except ImportError:
+            getLogger('maasserver').error(
+                "Could not import fake provisioning proxy.  "
+                "This may mean you're trying to run tests, or have set "
+                "USE_REAL_PSERV to False, on an installed MAAS.  "
+                "Don't do either.")
+            raise
         return get_fake_provisioning_api_proxy()
 
 
