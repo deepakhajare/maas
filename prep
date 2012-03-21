@@ -34,24 +34,14 @@ make syncdb
 make pserv-start
 make txlongpoll-start
 bin/maas createadmin \
-    --username "${LOGNAME}" --password test
-
-cat <<'EOF'
-
-You now need to create the `maas-precise-x86_64` profile in Cobbler, if it
-does not yet exist.
-
-  1. Go to <http://local.cobbler.dev/cobbler_web/profile/list>. Credentials
-     are cobbler/xcobbler.
-
-  2. Copy `precise-x86_64-juju` to `maas-precise-x86_64`.
-
-EOF
-wait_for_next
-
+    --username "${LOGNAME}" --password test \
+    --email "${LOGNAME}@example.com"
 bin/maas reconcile
-utilities/maasdb shell db <<<\
-    "UPDATE maasserver_node SET owner_id = NULL, status = 4;"
+utilities/maasdb shell db <<'EOF'
+UPDATE maasserver_node
+   SET owner_id = NULL, status = 4
+ WHERE hostname LIKE 'odev-node%';
+EOF
 
 cat <<'EOF'
 
