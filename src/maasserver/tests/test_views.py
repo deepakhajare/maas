@@ -14,6 +14,7 @@ __all__ = []
 from collections import namedtuple
 import httplib
 import os
+import random
 import urllib2
 
 from django.conf import settings
@@ -26,11 +27,11 @@ from maasserver.messages import get_messaging
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
+    POWER_TYPE_CHOICES,
     SSHKeys,
     UserProfile,
-    POWER_TYPE_CHOICES,
     )
-import random
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
@@ -46,9 +47,6 @@ from maasserver.views import (
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
-from maasserver.testing import (
-            reload_object,
-            )
 
 
 def get_prefixed_form_data(prefix, data):

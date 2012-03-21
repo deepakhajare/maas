@@ -38,11 +38,11 @@ from maasserver.models import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     Config,
-    UserProfile,
     MACAddress,
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    UserProfile,
     )
 
 

@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import random
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.http import QueryDict
@@ -21,9 +23,9 @@ from maasserver.forms import (
     NewUserCreationForm,
     NodeWithMACAddressesForm,
     ProfileForm,
-    validate_hostname,
     UIAdminNodeEditForm,
-    UINodeEditForm
+    UINodeEditForm,
+    validate_hostname,
     )
 from maasserver.models import (
     ARCHITECTURE,
@@ -34,7 +36,6 @@ from maasserver.models import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-import random
 
 
 class NodeWithMACAddressesFormTest(TestCase):
