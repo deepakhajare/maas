@@ -22,6 +22,7 @@ from maasserver.api import extract_oauth_key
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
     Config,
+    create_auth_token,
     MACAddress,
     Node,
     NODE_STATUS,
@@ -395,8 +396,7 @@ class TestNodeAPI(APITestCase):
 
     def test_POST_release_removes_token_and_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
-        response = self.client.post(
-            self.get_uri('nodes/'), {'op': 'acquire'})
+        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
         node = Node.objects.get(system_id=node.system_id)
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
         self.assertEqual(self.logged_in_user, node.owner)
@@ -652,6 +652,26 @@ class TestNodesAPI(APITestCase):
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(
             [existing_id], extract_system_ids(parsed_result))
+
+    def test_GET_list_allocated_returns_only_allocated_with_user_token(self):
+        # If the user's allocated nodes have different session tokens,
+        # list_allocated should only return the nodes that have the
+        # current request's token on them.
+        available_status = NODE_STATUS.READY
+        node_1 = factory.make_node(status=available_status, owner=None)
+        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
+        user_2 = factory.make_user()
+        token = create_auth_token(user_2)
+        node_2 = factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
+            token=token)
+
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list_allocated'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [node_1.system_id], extract_system_ids(parsed_result))
 
     def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.

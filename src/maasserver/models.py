@@ -224,6 +224,21 @@ class NodeManager(models.Manager):
                 models.Q(owner__isnull=True) | models.Q(owner=user))
         return self.filter_by_ids(visible_nodes, ids)
 
+    def get_allocated_visible_nodes(self, user, token):
+        """Fetch Nodes that were allocated to the User_/oauth token.
+
+        :param user: The user whose nodes to fetch
+        :type user: User_
+        :param token: The OAuth token associated with the Nodes.
+        :type token: piston.models.Token.
+
+        .. _User: https://
+           docs.djangoproject.com/en/dev/topics/auth/
+           #django.contrib.auth.models.User
+        """
+        nodes = self.filter(owner=user, token=token)
+        return nodes
+
     def get_editable_nodes(self, user, ids=None):
         """Fetch Nodes a User_ has ownership privileges on.
 

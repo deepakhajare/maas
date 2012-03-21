@@ -400,6 +400,17 @@ class NodesHandler(BaseHandler):
         nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
         return nodes.order_by('id')
 
+    @api_exported('list_allocated', 'GET')
+    def list_allocated(self, request):
+        """Fetch Nodes that were allocated to the User/oauth token."""
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        token = Token.objects.get(key=key)
+        nodes = Node.objects.get_allocated_visible_nodes(request.user, token)
+        return nodes.order_by('id')
+
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
