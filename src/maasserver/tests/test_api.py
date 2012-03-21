@@ -662,7 +662,7 @@ class TestNodesAPI(APITestCase):
         self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
         user_2 = factory.make_user()
         token = create_auth_token(user_2)
-        node_2 = factory.make_node(
+        factory.make_node(
             owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
             token=token)
 
