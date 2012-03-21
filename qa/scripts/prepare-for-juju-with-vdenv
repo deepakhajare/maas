@@ -11,8 +11,8 @@ wait_for_next() {
     local key=
     until [ "${key}" == "n" ]; do
         read -s -p 'Press `n` to continue. ' -n 1 key
+        echo
     done
-    echo
     echo
 }
 
@@ -36,7 +36,7 @@ make txlongpoll-start
 bin/maas createadmin \
     --username "${LOGNAME}" --password test \
     --email "${LOGNAME}@example.com"
-bin/maas qareconcile
+bin/maas reconcile
 utilities/maasdb shell db <<'EOF'
 UPDATE maasserver_node
    SET owner_id = NULL, status = 4
