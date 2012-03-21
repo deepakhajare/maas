@@ -175,19 +175,6 @@ module.NodesDashboard = Y.Base.create(
             width: 300
             });
 
-        // Set up the event listeners for node changes
-        Y.on('Node.updated', function(e, widget) {
-            widget.updateNode('updated', e.instance);
-        }, null, this);
-
-        Y.on('Node.created', function(e, widget) {
-            widget.updateNode('created', e.instance);
-        }, null, this);
-
-        Y.on('Node.deleted', function(e, widget) {
-            widget.updateNode('deleted', e.instance);
-        }, null, this);
-
         // Set up the hovers for changing the dashboard text
         var events = [
             {event: 'hover.offline.over', template: this.offline_template},
@@ -233,6 +220,19 @@ module.NodesDashboard = Y.Base.create(
                 this.updateStatus('add', status);
             }
             this.data_populated = true;
+
+            // Set up the event listeners for node changes
+            Y.on('Node.updated', function(e, widget) {
+                widget.updateNode('updated', e.instance);
+            }, null, this);
+
+            Y.on('Node.created', function(e, widget) {
+                widget.updateNode('created', e.instance);
+            }, null, this);
+
+            Y.on('Node.deleted', function(e, widget) {
+                widget.updateNode('deleted', e.instance);
+            }, null, this);
         }
         // Update the chart with the new node/status counts
         this.chart.updateChart();
