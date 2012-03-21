@@ -34,12 +34,6 @@ module.NodeListLoader = Y.Base.create('nodeListLoader', Y.View, [], {
     initializer: function(config) {
         this.modelList = new Y.maas.node.NodeList();
         this.nodes_loaded = false;
-        this.handle = this.registerAddNodeDispatcher(
-            Y.maas.node_add.AddNodeDispatcher);
-    },
-
-    destructor: function() {
-        this.handle.detach();
     },
 
     render: function () {
@@ -49,15 +43,6 @@ module.NodeListLoader = Y.Base.create('nodeListLoader', Y.View, [], {
         else {
             this.loadNodesAndRender();
         }
-    },
-
-    registerAddNodeDispatcher: function(dispatcher) {
-        return dispatcher.on(
-            Y.maas.node_add.NODE_ADDED_EVENT,
-            function(e, node) {
-                this.modelList.add(node);
-            },
-            this);
     },
 
    /**
@@ -151,7 +136,7 @@ module.NodesDashboard = Y.Base.create(
     offline_template: ('node{plural} offline'),
     added_template: ('node{plural} added but never seen'),
     reserved_template:
-        ('{nodes} node{plural} running without a registered service.'),
+        ('{nodes} node{plural} reserved for named deployment.'),
     retired_template: ('{nodes} retired node{plural} not represented.'),
 
     initializer: function(config) {
@@ -168,6 +153,7 @@ module.NodesDashboard = Y.Base.create(
         this.offline_nodes = 0;
         this.added_nodes = 0;
         this.retired_nodes = 0;
+        this.data_populated = false;
         this.fade_out = new Y.Anim({
             node: this.summaryNode,
             to: {opacity: 0},
@@ -240,14 +226,13 @@ module.NodesDashboard = Y.Base.create(
         /* Set up the initial node/status counts. This needs to happen here
            so that this.modelList exists.
         */
-        if (!Y.Lang.isValue(this.nodes)) {
-            this.nodes = {};
+        if (!this.data_populated) {
             for (var i=0; i<this.modelList.size(); i++) {
                 var node = this.modelList.item(i);
                 var status = node.get('status');
                 this.updateStatus('add', status);
-                this.nodes[node.get('system_id')] = node.get('status');
             }
+            this.data_populated = true;
         }
         // Update the chart with the new node/status counts
         this.chart.updateChart();
@@ -273,16 +258,18 @@ module.NodesDashboard = Y.Base.create(
     updateNode: function(action, node) {
         var update_chart = false;
         if (action == 'created') {
-            this.nodes[node.system_id] = node.status;
+            this.modelList.add(node);
             update_chart = this.updateStatus('add', node.status);
         }
         else if (action == 'deleted') {
-            delete this.nodes[node.system_id];
+            var model_node = this.modelList.getById(node.system_id);
+            this.modelList.remove(model_node);
             update_chart = this.updateStatus('remove', node.status);
         }
         else if (action == 'updated') {
-            previous_status = this.nodes[node.system_id];
-            this.nodes[node.system_id] = node.status;
+            var model_node = this.modelList.getById(node.system_id);
+            previous_status = model_node.get('status');
+            model_node.set('status', node.status);
             update_remove = this.updateStatus('remove', previous_status);
             update_add = this.updateStatus('add', node.status);
             if (update_remove || update_add) {
@@ -370,7 +357,7 @@ module.NodesDashboard = Y.Base.create(
     setSummary: function(animate, nodes, template) {
         // By default we just want to display the total nodes.
         if (!nodes || !template) {
-            nodes = this.modelList.size();
+            nodes = this.getNodeCount();
             template = this.all_template;
         }
         plural = (nodes === 1) ? '' : 's';
@@ -397,8 +384,16 @@ module.NodesDashboard = Y.Base.create(
         plural = (nodes === 1) ? '' : 's';
         text = Y.Lang.sub(template, {plural: plural, nodes: nodes})
         element.setContent(text);
-    }
+    },
 
+   /**
+    * Get the number of nodes (excluding retired).
+    */
+    getNodeCount: function() {
+        return Y.Array.filter(this.modelList.toArray(), function (model) {
+            return model.get('status') != 7;
+        }).length;
+    }
 });
 
 }, '0.1', {'requires': [
