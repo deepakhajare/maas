@@ -12,10 +12,13 @@ __metaclass__ = type
 __all__ = []
 
 
+import socket
 import time
 
 from amqplib import client_0_8 as amqp
+from django.conf import settings
 from fixtures import MonkeyPatch
+from maasserver.exceptions import NoRabbit
 from maasserver.rabbit import (
     RabbitBase,
     RabbitExchange,
@@ -26,12 +29,12 @@ from maasserver.rabbit import (
 from maasserver.testing.factory import factory
 from maastesting.testcase import TestCase
 from rabbitfixture.server import RabbitServer
+from testtools.testcase import ExpectedException
 
 
-class RabbitTestCase(TestCase):
+class RabbitTestBase:
 
-    def setUp(self):
-        super(RabbitTestCase, self).setUp()
+    def use_rabbit(self):
         self.rabbit_server = self.useFixture(RabbitServer())
         self.rabbit_env = self.rabbit_server.runner.environment
         patch = MonkeyPatch(
@@ -43,9 +46,10 @@ class RabbitTestCase(TestCase):
         return self.rabbit_env.rabbitctl(str(command))[0]
 
 
-class TestRabbitSession(RabbitTestCase):
+class TestRabbitSession(TestCase, RabbitTestBase):
 
-    def test_session_connection(self):
+    def test_connection_gets_connection(self):
+        self.use_rabbit()
         session = RabbitSession()
         # Referencing the connection property causes a connection to be
         # created.
@@ -54,15 +58,35 @@ class TestRabbitSession(RabbitTestCase):
         # The same connection is returned every time.
         self.assertIs(connection, session.connection)
 
-    def test_session_disconnect(self):
+    def test_connection_raises_NoRabbit_if_cannot_connect(self):
+        # Attempt to connect to a RabbitMQ on the local "discard"
+        # service.  The connection will be refused.
+        self.patch(settings, 'RABBITMQ_HOST', 'localhost:9')
+        session = RabbitSession()
+        with ExpectedException(NoRabbit):
+            session.connection
+
+    def test_connection_propagates_exceptions(self):
+
+        def fail(*args, **kwargs):
+            raise socket.error("Connection not refused, but failed anyway.")
+
+        self.patch(amqp, 'Connection', fail)
+        session = RabbitSession()
+        with ExpectedException(socket.error):
+            session.connection
+
+    def test_disconnect(self):
+        self.use_rabbit()
         session = RabbitSession()
         session.disconnect()
         self.assertIsNone(session._connection)
 
 
-class TestRabbitMessaging(RabbitTestCase):
+class TestRabbitMessaging(TestCase, RabbitTestBase):
 
     def test_messaging_getExchange(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         messaging = RabbitMessaging(exchange_name)
         exchange = messaging.getExchange()
@@ -71,6 +95,7 @@ class TestRabbitMessaging(RabbitTestCase):
         self.assertEqual(exchange_name, exchange.exchange_name)
 
     def test_messaging_getQueue(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         messaging = RabbitMessaging(exchange_name)
         queue = messaging.getQueue()
@@ -79,19 +104,22 @@ class TestRabbitMessaging(RabbitTestCase):
         self.assertEqual(exchange_name, queue.exchange_name)
 
 
-class TestRabbitBase(RabbitTestCase):
+class TestRabbitBase(TestCase, RabbitTestBase):
 
     def test_rabbitbase_contains_session(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         rabbitbase = RabbitBase(RabbitSession(), exchange_name)
         self.assertIsInstance(rabbitbase._session, RabbitSession)
 
     def test_base_has_exchange_name(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         rabbitbase = RabbitBase(RabbitSession(), exchange_name)
         self.assertEqual(exchange_name, rabbitbase.exchange_name)
 
     def test_base_channel(self):
+        self.use_rabbit()
         rabbitbase = RabbitBase(RabbitSession(), factory.getRandomString())
         # Referencing the channel property causes an open channel to be
         # created.
@@ -102,6 +130,7 @@ class TestRabbitBase(RabbitTestCase):
         self.assertIs(channel, rabbitbase.channel)
 
     def test_base_channel_creates_exchange(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         rabbitbase = RabbitBase(RabbitSession(), exchange_name)
         rabbitbase.channel
@@ -110,7 +139,7 @@ class TestRabbitBase(RabbitTestCase):
             self.get_command_output('list_exchanges'))
 
 
-class TestRabbitExchange(RabbitTestCase):
+class TestRabbitExchange(TestCase, RabbitTestBase):
 
     def basic_get(self, channel, queue_name, timeout):
         endtime = time.time() + timeout
@@ -124,6 +153,7 @@ class TestRabbitExchange(RabbitTestCase):
                 return message
 
     def test_exchange_publish(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         message_content = factory.getRandomString()
         exchange = RabbitExchange(RabbitSession(), exchange_name)
@@ -136,9 +166,10 @@ class TestRabbitExchange(RabbitTestCase):
         self.assertEqual(message_content, message.body)
 
 
-class TestRabbitQueue(RabbitTestCase):
+class TestRabbitQueue(TestCase, RabbitTestBase):
 
     def test_rabbit_queue_binds_queue(self):
+        self.use_rabbit()
         exchange_name = factory.getRandomString()
         message_content = factory.getRandomString()
         queue = RabbitQueue(RabbitSession(), exchange_name)

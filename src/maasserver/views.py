@@ -16,6 +16,7 @@ __all__ = [
     "NodeView",
     ]
 
+from logging import getLogger
 import mimetypes
 import os
 import urllib2
@@ -52,7 +53,10 @@ from django.views.generic import (
     ListView,
     UpdateView,
     )
-from maasserver.exceptions import CannotDeleteUserException
+from maasserver.exceptions import (
+    CannotDeleteUserException,
+    NoRabbit,
+    )
 from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
@@ -99,10 +103,15 @@ class NodeView(DetailView):
 
 def get_longpoll_context():
     if messaging is not None and django_settings.LONGPOLL_PATH is not None:
-        return {
-            'longpoll_queue': messaging.getQueue().name,
-            'LONGPOLL_PATH': django_settings.LONGPOLL_PATH,
-            }
+        try:
+            return {
+                'longpoll_queue': messaging.getQueue().name,
+                'LONGPOLL_PATH': django_settings.LONGPOLL_PATH,
+                }
+        except NoRabbit as e:
+            getLogger('maasserver').warn(
+                "Could not connect to RabbitMQ: %s", e)
+            return {}
     else:
         return {}
 
