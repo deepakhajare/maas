@@ -18,8 +18,8 @@ import os
 import shutil
 
 from django.conf import settings
-from fixtures import Fixture
 from django.db.models.signals import post_save
+from fixtures import Fixture
 from maasserver.api import extract_oauth_key
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
