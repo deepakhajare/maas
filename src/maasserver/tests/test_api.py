@@ -666,8 +666,15 @@ class TestNodesAPI(APITestCase):
             owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
             token=second_token)
 
+        user_2 = factory.make_user()
+        user_2_token = create_auth_token(user_2)
+        factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
+            token=second_token)
+
         # At this point we have two nodes owned by the same user but
-        # allocated with different tokens.  We expect lits_allocated to
+        # allocated with different tokens, and a third node allocated to
+        # someone else entirely.  We expect list_allocated to
         # return the node with the same token as the one used in
         # self.client, which is the one we set on node_1 above.
 

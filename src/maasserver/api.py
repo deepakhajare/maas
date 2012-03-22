@@ -428,7 +428,7 @@ class NodesHandler(BaseHandler):
             "HTTP_AUTHORIZATION not set on request")
         key = extract_oauth_key(auth_header)
         token = Token.objects.get(key=key)
-        node.acquire(request.user, token)
+        node.acquire(token)
         node.save()
         return node
 
