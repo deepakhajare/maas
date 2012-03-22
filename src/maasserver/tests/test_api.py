@@ -211,9 +211,9 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         mac = 'aa:bb:cc:dd:ee:ff'
         factory.make_mac_address(mac)
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
-        def test(sender,instance, created, **kwargs):
+        def node_created(sender, instance, created, **kwargs):
             self.assertFalse(True)
-        post_save.connect(test, sender=Node)
+        post_save.connect(node_created, sender=Node)
         self.client.post(
             self.get_uri('nodes/'),
             {
