@@ -34,6 +34,18 @@ from maasserver import (
     )
 
 
+def guess_architecture_from_profile(profile_name):
+    """
+    This attempts to obtain the architecture from a Cobbler profile name. The
+    naming convention for profile names is "maas-${series}-${arch}".
+    """
+    for architecture, _ in models.ARCHITECTURE_CHOICES:
+        if architecture in profile_name:
+            return architecture
+    else:
+        return None
+
+
 def reconcile():
     papi = provisioning.get_provisioning_api_proxy()
     nodes_local = {node.system_id: node for node in models.Node.objects.all()}
@@ -45,8 +57,8 @@ def reconcile():
         remote_node = nodes_remote[name]
         local_node = models.Node(
             system_id=remote_node["name"],
-            # TODO: Figure out the correct architecture.
-            architecture=models.ARCHITECTURE.amd64,
+            architecture=(
+                guess_architecture_from_profile(remote_node["profile"])),
             power_type=remote_node["power_type"],
             hostname=remote_node["name"])
         local_node.save()
