@@ -30,10 +30,6 @@ class CannotDeleteUserException(Exception):
     """User can't be deleted."""
 
 
-class MissingProfileException(MAASException):
-    """System profile does not exist."""
-
-
 class MAASAPIException(Exception):
     """Base class for MAAS' API exceptions.
 
