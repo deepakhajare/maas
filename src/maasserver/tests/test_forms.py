@@ -195,7 +195,7 @@ class NodeEditForms(TestCase):
     def test_UIAdminNodeEditForm_contains_limited_set_of_fields(self):
         form = UIAdminNodeEditForm()
 
-        self.assertEqual(
+        self.assertSequenceEqual(
             ['hostname', 'after_commissioning_action', 'power_type', 'owner'],
             list(form.fields))
 
@@ -205,7 +205,7 @@ class NodeEditForms(TestCase):
         after_commissioning_action = factory.getRandomChoice(
             NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
         power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
-        owner = random.choice([factory.make_user() for i in range(10)])
+        owner = random.choice([factory.make_user() for i in range(3)])
         form = UIAdminNodeEditForm(
             data={
                 'hostname': hostname,

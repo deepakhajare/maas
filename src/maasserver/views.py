@@ -102,8 +102,7 @@ class NodeView(DetailView):
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
         node = self.get_object()
-        context.update(
-            {'can_edit': self.request.user.has_perm('edit', node)})
+        context['can_edit'] = self.request.user.has_perm('edit', node)
         return context
 
 
@@ -114,10 +113,9 @@ class NodeEdit(UpdateView):
     def get_object(self):
         id = self.kwargs.get('id', None)
         node = get_object_or_404(Node, id=id)
-        if self.request.user.has_perm('edit', node):
-            return node
-        else:
-            raise PermissionDenied
+        if not self.request.user.has_perm('edit', node):
+            raise PermissionDenied()
+        return node
 
     def get_form_class(self):
         if self.request.user.is_superuser:

@@ -369,25 +369,20 @@ class AdminLoggedInTestCase(LoggedInTestCase):
         self.logged_in_user.save()
 
 
+def get_content_links(response):
+    """Extract links from :class:`HttpResponse` HTML body."""
+    doc = fromstring(response.content)
+    [content_node] = doc.cssselect('#content')
+    return [elem.get('href') for elem in content_node.cssselect('a')]
+
+
 class NodeViewsTest(LoggedInTestCase):
-
-    def assertContainsLink(self, response, link, reverse=False):
-        doc = fromstring(response.content)
-        content_node = doc.cssselect('#content')[0]
-        all_links = [elem.get('href') for elem in content_node.cssselect('a')]
-        if not reverse:
-            self.assertIn(link, all_links)
-        else:
-            self.assertNotIn(link, all_links)
-
-    def assertDoesNotContainLink(self, response, link):
-        return self.assertContainsLink(response, link, reverse=True)
 
     def test_node_list_contains_link_to_node_view(self):
         node = factory.make_node()
         response = self.client.get(reverse('node-list'))
         node_link = reverse('node-view', args=[node.id])
-        self.assertContainsLink(response, node_link)
+        self.assertIn(node_link, get_content_links(response))
 
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
@@ -404,14 +399,14 @@ class NodeViewsTest(LoggedInTestCase):
         node_link = reverse('node-view', args=[node.id])
         response = self.client.get(node_link)
         node_edit_link = reverse('node-edit', args=[node.id])
-        self.assertContainsLink(response, node_edit_link)
+        self.assertIn(node_edit_link, get_content_links(response))
 
     def test_view_node_no_link_to_edit_someonelses_node(self):
         node = factory.make_node(owner=factory.make_user())
         node_link = reverse('node-view', args=[node.id])
         response = self.client.get(node_link)
         node_edit_link = reverse('node-edit', args=[node.id])
-        self.assertDoesNotContainLink(response, node_edit_link)
+        self.assertNotIn(node_edit_link, get_content_links(response))
 
     def test_user_cannot_edit_someonelses_node(self):
         node = factory.make_node(owner=factory.make_user())
