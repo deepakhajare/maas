@@ -121,6 +121,8 @@ class NodeWithMACAddressesForm(NodeForm):
         return valid
 
     def add_mac(self, node, mac):
+        # Add a mac address to a node.  Raise a ValidationError with key
+        # mac_addresses is the mac address is a duplicate.
         try:
             node.add_mac_address(mac)
         except ValidationError, e:
@@ -132,6 +134,8 @@ class NodeWithMACAddressesForm(NodeForm):
                 raise ValidationError(
                     {'mac_addresses': [
                         'Mac address %s already in use.' % mac]})
+            else:
+                raise
 
     def save(self):
         node = super(NodeWithMACAddressesForm, self).save()
