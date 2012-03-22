@@ -3,6 +3,11 @@
 
 """Reconcile MAAS's view of the world with the Provisioning Server's.
 
+Both MAAS and the Provisioning Server will be examined. Missing nodes will be
+copied in *both* directions. Nodes that exist in common will have their MAC
+addresses reconciled in *both* directions. The result should be the union of
+nodes in MAAS and nodes as the Provisioning Server sees them.
+
 The Provisioning Server is currently stateless, so this actually implies
 reconciling with Cobbler.
 
