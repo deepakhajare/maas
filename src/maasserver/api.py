@@ -502,7 +502,13 @@ class NodeMacHandler(BaseHandler):
         return ('node_mac_handler', [node_system_id, mac_address])
 
 
-def get_file(request):
+def get_file(handler, request):
+    """Get a named file from the file storage.
+
+    :param filename: The exact name of the file you want to get.
+    :type filename: string
+    :return: The file is returned in the response content.
+    """
     filename = request.GET.get("filename", None)
     if not filename:
         raise MAASAPIBadRequest("Filename not supplied")
@@ -518,15 +524,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
     """Anonymous file operations."""
     allowed_methods = ('GET',)
 
-    @api_exported('get', 'GET')
-    def get(self, request):
-        """Get a named file from the file storage.
-
-        :param filename: The exact name of the file you want to get.
-        :type filename: string
-        :return: The file is returned in the response content.
-        """
-        return get_file(request)
+    get = api_exported('get', 'GET')(get_file)
 
 
 @api_operations
@@ -535,15 +533,7 @@ class FilesHandler(BaseHandler):
     allowed_methods = ('GET', 'POST',)
     anonymous = AnonFilesHandler
 
-    @api_exported('get', 'GET')
-    def get(self, request):
-        """Get a named file from the file storage.
-
-        :param filename: The exact name of the file you want to get.
-        :type filename: string
-        :return: The file is returned in the response content.
-        """
-        return get_file(request)
+    get = api_exported('get', 'GET')(get_file)
 
     @api_exported('add', 'POST')
     def add(self, request):
