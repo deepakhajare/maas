@@ -18,6 +18,7 @@ import os
 import shutil
 
 from django.conf import settings
+from django.db.models.signals import post_save
 from maasserver.api import extract_oauth_key
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
@@ -204,6 +205,23 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertEqual(
             ["Mac address %s already in use." % mac],
             parsed_result['mac_addresses'])
+
+    def test_POST_fails_if_mac_duplicated_does_not_trigger_post_save(self):
+        # Mac Addresses should be unique.
+        mac = 'aa:bb:cc:dd:ee:ff'
+        factory.make_mac_address(mac)
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        def test(sender,instance, created, **kwargs):
+            self.assertFalse(True)
+        post_save.connect(test, sender=Node)
+        self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'architecture': architecture,
+                'hostname': factory.getRandomString(),
+                'mac_addresses': [mac],
+            })
 
     def test_POST_fails_with_bad_operation(self):
         # If the operation ('op=operation_name') specified in the
