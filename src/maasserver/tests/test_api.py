@@ -278,8 +278,12 @@ class NodeAnonAPITest(APIv10TestMixin, TestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
+class AnonAPITestCase(APIv10TestMixin, TestCase):
+    """Base class for anonymous API tests."""
+
+
 class APITestCase(APIv10TestMixin, TestCase):
-    """Extension to `TestCase`: log in first.
+    """Base class for logged-in API tests.
 
     :ivar logged_in_user: A user who is currently logged in and can access
         the API.
@@ -976,8 +980,7 @@ class FileStorageAPITestMixin:
         return self.client.get(self.get_uri('files/'), params)
 
 
-class AnonymousFileStorageAPITest(FileStorageAPITestMixin, APIv10TestMixin,
-                                  TestCase):
+class AnonymousFileStorageAPITest(FileStorageAPITestMixin, AnonAPITestCase):
 
     def test_get_works_anonymously(self):
         factory.make_file_storage(filename="foofilers", data=b"give me rope")
