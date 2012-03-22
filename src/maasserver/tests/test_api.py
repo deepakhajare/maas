@@ -213,8 +213,12 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         mac = 'aa:bb:cc:dd:ee:ff'
         factory.make_mac_address(mac)
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+
         def node_created(sender, instance, created, **kwargs):
-            self.assertFalse(True)
+            self.fail(
+                "The post_save event for %r should not have "
+                "been fired." % instance)
+
         post_save.connect(node_created, sender=Node)
         self.client.post(
             self.get_uri('nodes/'),
@@ -954,7 +958,7 @@ class MediaRootFixture(Fixture):
     def setUp(self):
         super(MediaRootFixture, self).setUp()
         self.path = settings.MEDIA_ROOT
-        if  os.path.exists(self.path):
+        if os.path.exists(self.path):
             raise AssertionError("See media/README")
         self.addCleanup(shutil.rmtree, self.path, ignore_errors=True)
         os.mkdir(self.path)
