@@ -23,6 +23,7 @@ from maasserver.models import (
     ARCHITECTURE_CHOICES,
     Config,
     create_auth_token,
+    get_auth_tokens,
     MACAddress,
     Node,
     NODE_STATUS,
@@ -657,14 +658,18 @@ class TestNodesAPI(APITestCase):
         # If the user's allocated nodes have different session tokens,
         # list_allocated should only return the nodes that have the
         # current request's token on them.
-        available_status = NODE_STATUS.READY
-        node_1 = factory.make_node(status=available_status, owner=None)
-        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
-        user_2 = factory.make_user()
-        token = create_auth_token(user_2)
+        node_1 = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
+            token=get_auth_tokens(self.logged_in_user)[0])
+        second_token = create_auth_token(self.logged_in_user)
         factory.make_node(
             owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
-            token=token)
+            token=second_token)
+
+        # At this point we have two nodes owned by the same user but
+        # allocated with different tokens.  We expect lits_allocated to
+        # return the node with the same token as the one used in
+        # self.client, which is the one we set on node_1 above.
 
         response = self.client.get(self.get_uri('nodes/'), {
             'op': 'list_allocated'})

@@ -404,11 +404,17 @@ class NodesHandler(BaseHandler):
     def list_allocated(self, request):
         """Fetch Nodes that were allocated to the User/oauth token."""
         auth_header = request.META.get("HTTP_AUTHORIZATION")
+        # A plain assertion is fine here because to get this far we
+        # should already have a valid authorization. If the assertion
+        # fails it is a genuine bug in the code and this will return a
+        # 500 response which is appropriate.
         assert auth_header is not None, (
             "HTTP_AUTHORIZATION not set on request")
         key = extract_oauth_key(auth_header)
+        assert key is not None, (
+            "Invalid Authorization header on request.")
         token = Token.objects.get(key=key)
-        nodes = Node.objects.get_allocated_visible_nodes(request.user, token)
+        nodes = Node.objects.get_allocated_visible_nodes(token)
         return nodes.order_by('id')
 
     @api_exported('acquire', 'POST')

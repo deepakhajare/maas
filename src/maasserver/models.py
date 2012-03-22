@@ -224,7 +224,7 @@ class NodeManager(models.Manager):
                 models.Q(owner__isnull=True) | models.Q(owner=user))
         return self.filter_by_ids(visible_nodes, ids)
 
-    def get_allocated_visible_nodes(self, user, token):
+    def get_allocated_visible_nodes(self, token):
         """Fetch Nodes that were allocated to the User_/oauth token.
 
         :param user: The user whose nodes to fetch
@@ -236,7 +236,7 @@ class NodeManager(models.Manager):
            docs.djangoproject.com/en/dev/topics/auth/
            #django.contrib.auth.models.User
         """
-        nodes = self.filter(owner=user, token=token)
+        nodes = self.filter(token=token)
         return nodes
 
     def get_editable_nodes(self, user, ids=None):
@@ -447,14 +447,13 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, by_user, token=None):
+    def acquire(self, by_user, token):
         """Mark commissioned node as acquired by the given user and token."""
         assert self.status == NODE_STATUS.READY
         assert self.owner is None
         self.status = NODE_STATUS.ALLOCATED
         self.owner = by_user
-        if token is not None:
-            self.token = token
+        self.token = token
 
     def release(self):
         """Mark allocated or reserved node as available again."""
