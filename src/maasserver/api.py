@@ -521,7 +521,17 @@ def get_file(handler, request):
 
 @api_operations
 class AnonFilesHandler(AnonymousBaseHandler):
-    """Anonymous file operations."""
+    """Anonymous file operations.
+
+    This is needed for Juju. The story goes something like this:
+
+    - The Juju provider will upload a file using an "unguessable" name.
+
+    - The name of this file (or its URL) will be shared with all the agents in
+      the environment. They cannot modify the file, but they can access it
+      without credentials.
+
+    """
     allowed_methods = ('GET',)
 
     get = api_exported('get', 'GET')(get_file)
