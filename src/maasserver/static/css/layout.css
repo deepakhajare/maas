@@ -53,6 +53,10 @@
     padding-top: 18px;
     height: 46px;
     }
+#main-nav li.icon.large a {
+    padding-top: 13px;
+    height: 51px;
+    }
 #right-nav li.active a,
 #main-nav li.active a {
     background: rgba(0,0,0,0.2) url(../img/header_tail.png) no-repeat bottom center;
@@ -184,7 +188,7 @@
 */
 #footer {
     margin-bottom: 20px;
-    padding: 12px 20px;
+    padding: 12px 0;
     color: #aea79f;
     font-size: 12px;
     }
