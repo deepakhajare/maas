@@ -143,13 +143,16 @@ class NodeWithMACAddressesForm(NodeForm):
                 ['One or more MAC Addresses is invalid.'])
         return valid
 
-    def save(self):
-        # Manually validate the uniqueness of the mac addresses.
-        for mac in self.cleaned_data['mac_addresses']:
+    def clean_mac_addresses(self):
+        data = self.cleaned_data['mac_addresses']
+        for mac in data:
             if MACAddress.objects.filter(mac_address=mac.lower()).count() > 0:
                 raise ValidationError(
                     {'mac_addresses': [
                         'Mac address %s already in use.' % mac]})
+        return data
+
+    def save(self):
         node = super(NodeWithMACAddressesForm, self).save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
