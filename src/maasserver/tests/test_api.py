@@ -207,7 +207,8 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             parsed_result['mac_addresses'])
 
     def test_POST_fails_if_mac_duplicated_does_not_trigger_post_save(self):
-        # Mac Addresses should be unique.
+        # Mac Addresses should be unique, if the check fails,
+        # Node.post_save is not triggered.
         mac = 'aa:bb:cc:dd:ee:ff'
         factory.make_mac_address(mac)
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
