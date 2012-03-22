@@ -7,7 +7,7 @@ set -o errexit
 # Treat unset variables as an error when substituting.
 set -o nounset
 
-wait_for_next() {
+wait_for_user_to_press_n() {
     local key=
     until [ "${key}" == "n" ]; do
         read -s -p 'Press `n` to continue. ' -n 1 key
@@ -23,7 +23,7 @@ running. It will then *destroy* your development/demo database, rebuild
 everything, and reconcile with Cobbler.
 
 EOF
-wait_for_next
+wait_for_user_to_press_n
 
 # After setting up vdenv, do the following:
 
@@ -60,7 +60,7 @@ credentials with which to manipulate it:
        maas:
          type: maas
          maas-server: 'http://localhost:5240'
-         maas-oauth: '${OAUTH_TOKEN_FROM_STEP_1}
+         maas-oauth: '${OAUTH_TOKEN_FROM_STEP_1}'
          admin-secret: 'nothing'
          juju-origin: lp:maas
      }}}
@@ -78,6 +78,6 @@ Some tips for productive Juju fun:
 Good luck. You'll need it ;)
 
 EOF
-wait_for_next
+wait_for_user_to_press_n
 
 make run
