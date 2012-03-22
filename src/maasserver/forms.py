@@ -127,7 +127,7 @@ class NodeWithMACAddressesForm(NodeForm):
             is_unique_validation_error = (
                 'mac_address' in e.message_dict and
                 e.message_dict['mac_address'] == [
-                    u'Mac address with this Mac address already exists.'])
+                    'Mac address with this Mac address already exists.'])
             if is_unique_validation_error:
                 raise ValidationError(
                     {'mac_addresses': [
