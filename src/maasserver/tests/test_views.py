@@ -88,10 +88,9 @@ class TestLogin(TestCase):
         factory.make_user()
         response = self.client.get('/accounts/login/')
         doc = fromstring(response.content)
+        self.assertFalse(response.context['no_users'])
         self.assertEqual(1, len(doc.cssselect('input#id_username')))
         self.assertEqual(1, len(doc.cssselect('input#id_password')))
-        self.assertFalse(response.context['no_users'])
-        self.assertEqual(None, response.context['create_command'])
 
     def test_login_displays_createsuperuser_message_if_no_user(self):
         path = factory.getRandomString()

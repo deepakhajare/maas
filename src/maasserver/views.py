@@ -70,10 +70,10 @@ from maasserver.models import (
 
 
 def login(request):
-    extra_context = {'no_users': False, 'create_command': None}
-    if UserProfile.objects.all_users().count() == 0:
-        extra_context['no_users'] = True
-        extra_context['create_command'] = django_settings.MAAS_CLI
+    extra_context = {
+        'no_users': UserProfile.objects.all_users().count() == 0,
+        'create_command': django_settings.MAAS_CLI,
+        }
     return dj_login(request, extra_context=extra_context)
 
 
