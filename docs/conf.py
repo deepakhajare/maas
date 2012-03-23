@@ -91,8 +91,6 @@ pygments_style = 'sphinx'
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
-# AutoDoc <http://sphinx.pocoo.org/ext/autodoc.html>
-autodoc_default_flags = ['members', 'show-inheritance']
 autodoc_member_order = 'bysource'
 
 # -- Options for HTML output ---------------------------------------------------

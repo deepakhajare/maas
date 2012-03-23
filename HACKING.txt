@@ -219,7 +219,6 @@ documentation`_.
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
 
-
 Acceptance tests
 ================
 

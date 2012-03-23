@@ -5,12 +5,30 @@ MAAS Objects
 
 .. automodule:: maasserver.models
 
-.. autoclass:: ARCHITECTURE
 .. autoclass:: CommonInfo
-.. autoclass:: ConfigManager
-.. autoclass:: FileStorageManager
-.. autoclass:: MAASAuthorizationBackend
+    :show-inheritance:
+    :members:
+
+.. autoclass:: Node
+    :show-inheritance:
+    :members:
+
+.. autoclass:: NODE_STATUS
+    :members:
+
 .. autoclass:: NODE_AFTER_COMMISSIONING_ACTION
+    :members:
+
 .. autoclass:: NodeManager
-.. autoclass:: SSHKeys
-.. autoclass:: UserProfileManager
+    :show-inheritance:
+    :members:
+
+.. autoclass:: MACAddress
+    :show-inheritance:
+    :members:
+
+.. autoclass:: UserProfile
+    :show-inheritance:
+    :members:
+
+
