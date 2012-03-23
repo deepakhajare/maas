@@ -92,3 +92,20 @@ following the install on the node directly.
 
 .. _bug 413415:
   https://bugs.launchpad.net/ubuntu/+source/console-setup/+bug/413415
+
+Once the master node has been installed a status command should come
+up with something a bit more interesting::
+
+  TODO
+
+Now it's possible to deploy some charms::
+
+  juju deploy --repository /usr/share/doc/juju/examples local:mysql
+  juju deploy --repository /usr/share/doc/juju/examples local:wordpress
+  juju add-relation wordpress mysql
+  juju expose wordpress
+  juju status
+
+Note that each charm runs on its own host, so each deployment will
+actually take as long as it took to bootstrap. Have a beer, drown your
+sorrows in liquor, or, my preference, have another cup of tea.
