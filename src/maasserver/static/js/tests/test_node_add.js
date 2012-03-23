@@ -225,6 +225,14 @@ suite.add(new Y.maas.testing.TestCase({
         submit_add_node();
         var error_message = find_global_errors().get('innerHTML');
         Y.Assert.areNotEqual(-1, error_message.search("Internal error."));
+    },
+
+    testErrorsAreEscaped: function() {
+        this.mock_failure({status: 400, responseText: "<huh>"});
+        submit_add_node();
+        var error_message = find_global_errors().get('innerHTML');
+        Y.Assert.areEqual(-1, error_message.search("<huh>"));
+        Y.Assert.areNotEqual(-1, error_message.search("&lt;huh&gt;"));
     }
 
 }));
