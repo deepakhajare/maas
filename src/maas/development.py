@@ -1,4 +1,3 @@
-
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
@@ -44,6 +43,8 @@ DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
 STATIC_LOCAL_SERVE = True
+
+RABBITMQ_PUBLISH = False
 
 DATABASES = {
     'default': {

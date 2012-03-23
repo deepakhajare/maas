@@ -71,8 +71,14 @@ class NodeTest(TestCase):
     def test_display_status(self):
         node = factory.make_node()
         self.assertEqual(
-            NODE_STATUS_CHOICES_DICT[NODE_STATUS.DECLARED],
+            NODE_STATUS_CHOICES_DICT[NODE_STATUS.DEFAULT_STATUS],
             node.display_status())
+
+    def test_add_node_with_token(self):
+        user = factory.make_user()
+        token = create_auth_token(user)
+        node = factory.make_node(token=token)
+        self.assertEqual(token, node.token)
 
     def test_add_mac_address(self):
         node = factory.make_node()
@@ -88,6 +94,13 @@ class NodeTest(TestCase):
         macs = MACAddress.objects.filter(
             node=node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(0, macs)
+
+    def test_delete_node_deletes_related_mac(self):
+        node = factory.make_node()
+        mac = node.add_mac_address('AA:BB:CC:DD:EE:FF')
+        node.delete()
+        self.assertRaises(
+            MACAddress.DoesNotExist, MACAddress.objects.get, id=mac.id)
 
     def test_set_mac_based_hostname(self):
         node = factory.make_node()
@@ -122,7 +135,8 @@ class NodeTest(TestCase):
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
-        node.acquire(user)
+        token = create_auth_token(user)
+        node.acquire(token)
         self.assertEqual(user, node.owner)
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
 
