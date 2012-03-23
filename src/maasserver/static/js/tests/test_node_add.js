@@ -50,14 +50,72 @@ suite.add(new Y.maas.testing.TestCase({
 
 }));
 
+
+/* Find the add-node widget.
+ */
+function find_widget() {
+    return module._add_node_singleton.get('srcNode');
+}
+
+
+/* Find the add-node form.
+ */
+function find_form() {
+    return find_widget().one('form');
+}
+
+
+/* Find the hostname input field in the add-node form.
+ */
+function find_hostname_input() {
+    return find_widget().one('#id_hostname');
+}
+
+
+/* Find the "Add node" button at the bottom of the add-node form.
+ */
+function find_add_button() {
+    return find_widget().one('.yui3-button');
+}
+
+
+/* Find the global errors panel at the top of the add-node form.
+ */
+function find_global_errors() {
+    return find_widget().one('.form-global-errors');
+}
+
+
+/* Set up and submit the add-node form.
+ */
+function submit_add_node() {
+    module.showAddNodeWidget();
+    find_hostname_input().set('value', 'host');
+    find_add_button().simulate('click');
+}
+
+
 suite.add(new Y.maas.testing.TestCase({
     name: 'test-add-node-widget-add-node',
+
+    /* Set up a mock failure for adding a node.
+     *
+     * When the form tries to send an add-node request, the request's failure
+     * handler will be called with the fake response you provide.
+     */
+    mock_failure: function(fake_response) {
+	var mockXhr = new Y.Base();
+	mockXhr.send = function(url, cfg) {
+	    /* The 3 is a bogus transaction id. */
+	    cfg.on.failure(3, fake_response);
+	};
+	this.mockIO(mockXhr, module);
+    },
 
     testFormContainsArchitectureChoice: function() {
         // The generated form contains an 'architecture' field.
         module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        var arch = panel.get('srcNode').one('form').one('#id_architecture');
+        var arch = find_form().one('#id_architecture');
         Y.Assert.isNotNull(arch);
         var arch_options = arch.all('option');
         Y.Assert.areEqual(2, arch_options.size());
@@ -67,18 +125,16 @@ suite.add(new Y.maas.testing.TestCase({
         // The call to the API triggered by clicking on 'Add a node'
         // submits (via an API call) the panel's form.
         module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
         var mockXhr = new Y.Base();
         var fired = false;
-        var form = panel.get('srcNode').one('form');
+        var form = find_form();
         mockXhr.send = function(uri, cfg) {
             fired = true;
             Y.Assert.areEqual(form, cfg.form);
         };
         this.mockIO(mockXhr, module);
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
-        button.simulate('click');
+        find_hostname_input().set('value', 'host');
+        find_add_button().simulate('click');
         Y.Assert.isTrue(fired);
     },
 
@@ -90,10 +146,8 @@ suite.add(new Y.maas.testing.TestCase({
         });
         this.mockIO(mockXhr, module);
         module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
-        button.simulate('click');
+        find_hostname_input().set('value', 'host');
+        find_add_button().simulate('click');
         Y.Mock.verify(mockXhr);
     },
 
@@ -105,11 +159,9 @@ suite.add(new Y.maas.testing.TestCase({
         });
         this.mockIO(mockXhr, module);
         module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var form = panel.get('srcNode').one('form');
+        find_hostname_input().set('value', 'host');
         // Simulate 'Enter' being pressed.
-        form.simulate("keypress", { keyCode: 13 });
+        find_form().simulate("keypress", { keyCode: 13 });
         Y.Mock.verify(mockXhr);
     },
 
@@ -124,9 +176,8 @@ suite.add(new Y.maas.testing.TestCase({
             Y.bind(
                 module._add_node_singleton.destroy,
                 module._add_node_singleton));
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
+        find_hostname_input().set('value', 'host');
+        var button = find_add_button();
 
         var fired = false;
         this.registerListener(
@@ -140,39 +191,40 @@ suite.add(new Y.maas.testing.TestCase({
         Y.Assert.isTrue(fired);
     },
 
-    testGenericErrorMessage: function() {
-        var mockXhr = new Y.Base();
-        mockXhr.send = function(url, cfg) {
-            cfg.on.failure(3, {status: 500});
-        };
-        this.mockIO(mockXhr, module);
-        module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
-        button.simulate('click');
-        var error_message = panel.get(
-            'srcNode').one('.form-global-errors').get('innerHTML');
-        var message_position = error_message.search("Unable to create Node.");
-        Y.Assert.areNotEqual(-1, error_message);
+    testValidationErrorInJSONGoesToFieldsNotGlobalErrors: function() {
+        this.mock_failure({
+            status: 400,
+            response: '{"architecture": ["Xur."]}'
+        });
+        submit_add_node();
+        Y.Assert.areEqual(
+            -1, find_global_errors().get('innerHTML').search("Xur."));
+        var field_label = find_widget().one('label[for="id_architecture"]');
+        var error_node = field_label.next();
+        Y.Assert.areNotEqual(-1, error_node.get('innerHTML').search("Xur."));
+    },
+
+    test400ErrorMessageWithPlainText: function() {
+        this.mock_failure({status: 400, responseText: "Blergh."});
+        submit_add_node();
+        var error_message = find_global_errors().get('innerHTML');
+        Y.Assert.areNotEqual(-1, error_message.search("Blergh."));
     },
 
     testLoggedOffErrorMessage: function() {
-        var mockXhr = new Y.Base();
-        mockXhr.send = function(url, cfg) {
-            cfg.on.failure(3, {status: 401});
-        };
-        this.mockIO(mockXhr, module);
-        module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
-        button.simulate('click');
-        var error_message = panel.get(
-            'srcNode').one('.form-global-errors').get('innerHTML');
+        this.mock_failure({status: 401});
+        submit_add_node();
+        var error_message = find_global_errors().get('innerHTML');
         // The link to the login page is present in the error message.
         var link_position = error_message.search(MAAS_config.uris.login);
         Y.Assert.areNotEqual(-1, link_position);
+    },
+
+    testGenericErrorMessage: function() {
+        this.mock_failure({status: 500, responseText: "Internal error."});
+        submit_add_node();
+        var error_message = find_global_errors().get('innerHTML');
+        Y.Assert.areNotEqual(-1, error_message.search("Internal error."));
     }
 
 }));

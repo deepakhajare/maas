@@ -87,6 +87,12 @@ Y.extend(AddNodeWidget, Y.Panel, {
         this.get('srcNode').all('div.field-error').remove();
     },
 
+    /* Display validation errors on their respective fields.
+     *
+     * The "errors" argument is an object.  If a field has validation errors,
+     * this object will map the field's name to a list of error strings.  Each
+     * field's errors will be shown with the label for that field.
+     */
     displayFieldErrors: function(errors) {
         this.cleanFormErrors();
         var key;
@@ -227,15 +233,21 @@ Y.extend(AddNodeWidget, Y.Panel, {
                     self.hidePanel();
                 },
                 failure: function(id, out) {
+                    Y.log("Adding a node failed.  Response object follows.")
                     Y.log(out);
                     if (out.status === 400) {
                         try {
-                            // Validation error: display the errors in the
-                            // form.
+                            /* Validation error: display the errors in the
+                             * form next to their respective fields.
+                             */
                             self.displayFieldErrors(JSON.parse(out.response));
                         }
                         catch (e) {
-                            self.displayFormError("Unable to create Node.");
+                            Y.log(
+                                "Exception while decoding error JSON: " +
+                                e.message);
+                            self.displayFormError(
+                                "Unable to create Node: " + out.responseText);
                         }
                     }
                     else if (out.status === 401) {
@@ -244,7 +256,8 @@ Y.extend(AddNodeWidget, Y.Panel, {
                     }
                     else {
                         // Unexpected error.
-                        self.displayFormError("Unable to create Node.");
+                        self.displayFormError(
+                            "Unable to create Node: " + out.responseText);
                     }
                 },
                 end: Y.bind(self.hideSpinner, self)
