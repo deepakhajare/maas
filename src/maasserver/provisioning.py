@@ -33,6 +33,48 @@ from maasserver.models import (
     )
 from provisioningserver.enum import PSERV_FAULT
 
+# Presentation templates for various provisioning faults.
+PRESENTATIONS = {
+    PSERV_FAULT.NO_COBBLER: """
+        The provisioning server was unable to reach the Cobbler service:
+        %(fault_string)s
+
+        Check pserv.log, and restart MaaS if needed.
+        """,
+    PSERV_FAULT.COBBLER_AUTH_FAILED: """
+        The provisioning server failed to authenticate with the Cobbler
+        service: %(fault_string)s.
+
+        This may mean that Cobbler's authentication configuration has
+        changed.  Check /var/log/cobbler/ and pserv.log.
+        """,
+    PSERV_FAULT.COBBLER_AUTH_ERROR: """
+        The Cobbler server no longer accepts the provisioning server's
+        authentication token.  This should not happen; it may indicate
+        that the server is under unsustainable load.
+        """,
+    PSERV_FAULT.NO_SUCH_PROFILE: """
+        System profile does not exist: %(fault_string)s.
+
+        Has the maas-import-isos script been run?  This will run
+        automatically from time to time, but if it is failing, an
+        administrator may need to run it manually.
+        """,
+    PSERV_FAULT.GENERIC_COBBLER_ERROR: """
+        The provisioning service encountered a problem with the Cobbler
+        server, fault code %(fault_code)s: %(fault_string)s
+
+        If the error message is not clear, you may need to check the
+        Cobbler logs in /var/log/cobbler/ or pserv.log.
+        """,
+    8002: """
+        Unable to reach provisioning server (%(fault_string)s).
+
+        Check pserv.log and your PSERV_URL setting, and restart MaaS if
+        needed.
+        """,
+}
+
 
 def present_user_friendly_fault(fault):
     """Return a more user-friendly exception to represent `fault`.
@@ -49,47 +91,7 @@ def present_user_friendly_fault(fault):
         'fault_code': fault.faultCode,
         'fault_string': fault.faultString,
     }
-    presentations = {
-        PSERV_FAULT.NO_COBBLER: """
-            The provisioning server was unable to reach the Cobbler service:
-            %(fault_string)s
-
-            Check pserv.log, and restart MaaS if needed.
-            """,
-        PSERV_FAULT.COBBLER_AUTH_FAILED: """
-            The provisioning server failed to authenticate with the Cobbler
-            service: %(fault_string)s.
-
-            This may mean that Cobbler's authentication configuration has
-            changed.  Check /var/log/cobbler/ and pserv.log.
-            """,
-        PSERV_FAULT.COBBLER_AUTH_ERROR: """
-            The Cobbler server no longer accepts the provisioning server's
-            authentication token.  This should not happen; it may indicate
-            that the server is under unsustainable load.
-            """,
-        PSERV_FAULT.NO_SUCH_PROFILE: """
-            System profile does not exist: %(fault_string)s.
-
-            Has the maas-import-isos script been run?  This will run
-            automatically from time to time, but if it is failing, an
-            administrator may need to run it manually.
-            """,
-        PSERV_FAULT.GENERIC_COBBLER_ERROR: """
-            The provisioning service encountered a problem with the Cobbler
-            server, fault code %(fault_code)s: %(fault_string)s
-
-            If the error message is not clear, you may need to check the
-            Cobbler logs in /var/log/cobbler/ or pserv.log.
-            """,
-        8002: """
-            Unable to reach provisioning server (%(fault_string)s).
-
-            Check pserv.log and your PSERV_URL setting, and restart MaaS if
-            needed.
-            """,
-    }
-    user_friendly_text = presentations.get(fault.faultCode)
+    user_friendly_text = PRESENTATIONS.get(fault.faultCode)
     if user_friendly_text is None:
         return None
     else:
@@ -119,7 +121,7 @@ class ProvisioningCaller:
 
 
 class ProvisioningProxy:
-    """Proxy for calling the provisionig service.
+    """Proxy for calling the provisioning service.
 
     This wraps an XMLRPC :class:`ServerProxy`, but translates exceptions
     coming in from, or across, the xmlrpc mechanism into more helpful ones

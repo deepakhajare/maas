@@ -27,6 +27,7 @@ from maasserver.provisioning import (
     get_metadata_server_url,
     name_arch_in_cobbler_style,
     present_user_friendly_fault,
+    PRESENTATIONS,
     select_profile_for_node,
     )
 from maasserver.testing.enum import map_enum
@@ -236,10 +237,9 @@ class ProvisioningTests:
             parse_qs(metadata['maas-metadata-credentials']))
 
     def test_papi_xmlrpc_faults_are_reported_helpfully(self):
-        error = factory.getRandomString()
 
         def raise_fault(*args, **kwargs):
-            raise Fault(8002, error)
+            raise Fault(8002, factory.getRandomString())
 
         self.papi.patch('add_node', raise_fault)
 
@@ -247,10 +247,9 @@ class ProvisioningTests:
             self.papi.add_node('node', 'profile', 'power', {})
 
     def test_provisioning_errors_are_reported_helpfully(self):
-        error = factory.getRandomString()
 
         def raise_provisioning_error(*args, **kwargs):
-            raise Fault(PSERV_FAULT.NO_COBBLER, error)
+            raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
         self.papi.patch('add_node', raise_provisioning_error)
 
@@ -262,26 +261,37 @@ class ProvisioningTests:
             "provisioning server",
             present_user_friendly_fault(Fault(8002, 'error')).faultString)
 
+    def test_present_user_friendly_fault_covers_all_pserv_faults(self):
+        all_pserv_faults = set(map_enum(PSERV_FAULT).values())
+        presentable_pserv_faults = set(PRESENTATIONS.keys())
+        self.assertItemsEqual([], all_pserv_faults - presentable_pserv_faults)
+
+    def test_present_user_friendly_fault_rerepresents_all_pserv_faults(self):
+        fault_string = factory.getRandomString()
+        for fault_code in map_enum(PSERV_FAULT).values():
+            original_fault = Fault(fault_code, fault_string)
+            new_fault = present_user_friendly_fault(original_fault)
+            self.assertNotEqual(fault_string, new_fault.faultString)
+
     def test_present_user_friendly_fault_describes_cobbler_fault(self):
         fault = Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
         self.assertIn(
             "Cobbler", present_user_friendly_fault(fault).faultString)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_fail(self):
-        random_text = factory.getRandomString()
-        fault = Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, random_text)
+        fault = Fault(
+            PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString())
         self.assertIn(
             "Cobbler", present_user_friendly_fault(fault).faultString)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_error(self):
-        random_text = factory.getRandomString()
-        fault = Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, random_text)
+        fault = Fault(
+            PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString())
         self.assertIn(
             "Cobbler", present_user_friendly_fault(fault).faultString)
 
     def test_present_user_friendly_fault_describes_missing_profile(self):
-        random_text = factory.getRandomString()
-        fault = Fault(PSERV_FAULT.NO_SUCH_PROFILE, random_text)
+        fault = Fault(PSERV_FAULT.NO_SUCH_PROFILE, factory.getRandomString())
         self.assertIn(
             "maas-import-isos",
             present_user_friendly_fault(fault).faultString)
