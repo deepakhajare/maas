@@ -1,0 +1,43 @@
+***************
+Installing MAAS
+***************
+
+There are two main ways to install MAAS:
+
+ * as part of a fresh Ubuntu install using the Ubuntu Server installer
+ * or from Ubuntu's archive on an existing Ubuntu install.
+ 
+This is a guide to installing MAAS from the Ubuntu archive.
+
+It assumes that you're working with:
+
+ * a fresh Ubuntu 12.04 LTS install
+ * a machine dedicated to running MAAS
+ * control of the network your machine is connected to
+ * internet access or a local mirror of the Ubuntu archive.
+
+Installing MAAS from the archive
+================================
+
+Installing MAAS is straightforward. At the commandline, type::
+
+  sudo apt-get install maas
+
+From a fresh Ubuntu 12.04 LTS install, MAAS will pull down around 200 MB of packages.
+
+Creating a superuser account
+----------------------------
+
+Once MAAS is installed, you'll need to create your first administrator account.
+
+At the commandline, type::
+
+  maas createsuperuser
+  
+Follow the prompts and MAAS will create an admin account that you can later use to log in.
+
+Configuring a DHCP server
+=========================
+
+So that MAAS can PXE boot machines, you'll need a DHCP server. MAAS can work with your existing DHCP set-up but for this guide we'll use dnsmasq.
+
