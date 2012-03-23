@@ -1211,7 +1211,7 @@ class APIErrorsTest(APITestCase):
     def test_internal_error_generate_proper_api_response(self):
         error_message = factory.getRandomString()
 
-        # Monkey patch api.create_node to have it raise an Exception.
+        # Monkey patch api.create_node to have it raise a RuntimeError.
         def raise_exception(request):
             raise RuntimeError(error_message)
         self.patch(api, 'create_node', raise_exception)
