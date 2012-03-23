@@ -115,9 +115,14 @@ up with something a bit more interesting::
 
   TODO
 
-Now it's possible to deploy some charms::
+Now it's possible to deploy a charm::
 
   juju deploy --repository /usr/share/doc/juju/examples local:mysql
+  juju status
+
+If you have another node free you can finish off the canonical and by
+now familiar example::
+
   juju deploy --repository /usr/share/doc/juju/examples local:wordpress
   juju add-relation wordpress mysql
   juju expose wordpress
