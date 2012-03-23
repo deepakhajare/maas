@@ -13,6 +13,7 @@ __all__ = []
 
 from io import BytesIO
 import os
+from StringIO import StringIO
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -36,6 +37,14 @@ class TestCommands(TestCase):
         call_command('gc')
         # The test is that we get here without errors.
         pass
+
+    def test_generate_api_doc(self):
+        stdout = StringIO()
+        call_command('generate_api_doc', stdout=stdout)
+        result = stdout.getvalue()
+        # Just check that the documentation looks all right.
+        self.assertIn("POST /api/1.0/account/", result)
+        self.assertIn("MAAS API documentation", result)
 
     def test_createadmin_requires_username(self):
         stderr = BytesIO()
