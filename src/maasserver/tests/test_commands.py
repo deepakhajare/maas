@@ -11,9 +11,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from codecs import getwriter
 from io import BytesIO
 import os
-from StringIO import StringIO
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -39,7 +39,8 @@ class TestCommands(TestCase):
         pass
 
     def test_generate_api_doc(self):
-        stdout = StringIO()
+        out = BytesIO()
+        stdout = getwriter("UTF-8")(out)
         call_command('generate_api_doc', stdout=stdout)
         result = stdout.getvalue()
         # Just check that the documentation looks all right.
