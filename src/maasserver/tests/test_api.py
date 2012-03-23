@@ -19,6 +19,7 @@ import shutil
 
 from django.conf import settings
 from django.db.models.signals import post_save
+from maasserver import api
 from maasserver.api import extract_oauth_key
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
@@ -1203,3 +1204,18 @@ class MAASAPITest(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         stored_value = Config.objects.get_config(name)
         self.assertEqual(stored_value, value)
+
+
+class APIErrorsTest(APITestCase):
+
+    def test_internal_error_generate_proper_api_response(self):
+        error_message = factory.getRandomString()
+
+        # Monkey patch api.create_node to have it raise an Exception.
+        def raise_exception(request):
+            raise RuntimeError(error_message)
+        self.patch(api, 'create_node', raise_exception)
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'new'})
+
+        self.assertEqual(httplib.INTERNAL_SERVER_ERROR, response.status_code)
+        self.assertEqual(error_message, response.content)
