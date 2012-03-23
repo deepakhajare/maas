@@ -215,9 +215,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
 
         def node_created(sender, instance, created, **kwargs):
-            self.fail(
-                "The post_save event for %r should not have "
-                "been fired." % instance)
+            self.fail("post_save should not have been called")
 
         post_save.connect(node_created, sender=Node)
         self.client.post(
