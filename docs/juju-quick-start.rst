@@ -4,15 +4,20 @@ Juju Quick Start
 These instructions will help you deploy your first charm with Juju to
 a MAAS cluster.
 
-It's assumed that you have a MAAS cluster set-up, and you have at
-least 2 nodes enlisted with it.
+A few assumptions are made:
 
-It's also assumed that you're running from the Juju PPA
-(``ppa:juju/pkgs``) or from a branch of ``lp:juju``. At the time of
-writing MAAS support had not made it into the main Ubuntu archives.
+- You have a MAAS cluster set-up, and you have at least 2 nodes
+  enlisted with it.
 
-Note that, if you're using a branch, you'll need to set ``PYTHONPATH``
-carefully to ensure you use the code in the branch.
+- You're running MAAS on your local machine. If not you'll need to
+  adjust some of the URLs mentioned accordingly.
+
+- You're running Juju from the PPA (``ppa:juju/pkgs``) or from a
+  branch of ``lp:juju``. At the time of writing MAAS support had not
+  made it into the main Ubuntu archives.
+
+  Note that, if you're using a branch, you'll need to set
+  ``PYTHONPATH`` carefully to ensure you use the code in the branch.
 
 
 Your API key and environments.yaml
