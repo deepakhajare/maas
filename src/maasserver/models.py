@@ -96,7 +96,9 @@ def generate_node_system_id():
 
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
-    DEFAULT_STATUS = 0
+    # A node starts out as READY.
+    DEFAULT_STATUS = 4
+
     #: The node has been created and has a system ID assigned to it.
     DECLARED = 0
     #: Testing and other commissioning steps are taking place.
@@ -192,12 +194,16 @@ class NodeManager(models.Manager):
     def filter_by_ids(self, query, ids=None):
         """Filter `query` result set by system_id values.
 
-        :param query: A queryset of Nodes.
-        :type query: QuerySet_
+        :param query: A QuerySet of Nodes.
+        :type query: django.db.models.query.QuerySet_
         :param ids: Optional set of ids to filter by.  If given, nodes whose
             system_ids are not in `ids` will be ignored.
         :type param_ids: Sequence
         :return: A filtered version of `query`.
+
+        .. _django.db.models.query.QuerySet: https://docs.djangoproject.com/
+           en/dev/ref/models/querysets/
+
         """
         if ids is None:
             return query
@@ -224,6 +230,21 @@ class NodeManager(models.Manager):
                 models.Q(owner__isnull=True) | models.Q(owner=user))
         return self.filter_by_ids(visible_nodes, ids)
 
+    def get_allocated_visible_nodes(self, token):
+        """Fetch Nodes that were allocated to the User_/oauth token.
+
+        :param user: The user whose nodes to fetch
+        :type user: User_
+        :param token: The OAuth token associated with the Nodes.
+        :type token: piston.models.Token.
+
+        .. _User: https://
+           docs.djangoproject.com/en/dev/topics/auth/
+           #django.contrib.auth.models.User
+        """
+        nodes = self.filter(token=token)
+        return nodes
+
     def get_editable_nodes(self, user, ids=None):
         """Fetch Nodes a User_ has ownership privileges on.
 
@@ -249,7 +270,7 @@ class NodeManager(models.Manager):
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
         :raises: django.http.Http404_,
-            maasserver.exceptions.PermissionDenied_.
+            :class:`maasserver.exceptions.PermissionDenied`.
 
         .. _django.http.Http404: https://
            docs.djangoproject.com/en/dev/topics/http/views/
@@ -352,7 +373,7 @@ class Node(CommonInfo):
         default=NODE_STATUS.DEFAULT_STATUS)
 
     owner = models.ForeignKey(
-        User, default=None, blank=True, null=True, editable=False)
+        User, default=None, blank=True, null=True, editable=True)
 
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -367,6 +388,9 @@ class Node(CommonInfo):
     power_type = models.CharField(
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
+
+    token = models.ForeignKey(
+        Token, db_index=True, null=True, editable=False, unique=False)
 
     objects = NodeManager()
 
@@ -407,6 +431,16 @@ class Node(CommonInfo):
         if mac:
             mac.delete()
 
+    def delete(self):
+        # Delete the related mac addresses first.
+        self.macaddress_set.all().delete()
+        super(Node, self).delete()
+
+    def set_mac_based_hostname(self, mac_address):
+        mac_hostname = mac_address.replace(':', '').lower()
+        self.hostname = "node-%s" % mac_hostname
+        self.save()
+
     def get_effective_power_type(self):
         """Get power-type to use for this node.
 
@@ -424,12 +458,13 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, by_user):
-        """Mark commissioned node as acquired by the given user."""
+    def acquire(self, token):
+        """Mark commissioned node as acquired by the given user's token."""
         assert self.status == NODE_STATUS.READY
         assert self.owner is None
         self.status = NODE_STATUS.ALLOCATED
-        self.owner = by_user
+        self.owner = token.user
+        self.token = token
 
     def release(self):
         """Mark allocated or reserved node as available again."""
@@ -440,6 +475,7 @@ class Node(CommonInfo):
             ]
         self.status = NODE_STATUS.READY
         self.owner = None
+        self.token = None
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
@@ -453,7 +489,7 @@ class MACAddress(CommonInfo):
     :ivar node: The `Node` related to this `MACAddress`.
 
     """
-    mac_address = MACAddressField()
+    mac_address = MACAddressField(unique=True)
     node = models.ForeignKey(Node, editable=False)
 
     class Meta:
@@ -517,6 +553,9 @@ class UserProfileManager(models.Manager):
 
         :return: A QuerySet of the users.
         :rtype: django.db.models.query.QuerySet_
+
+        .. _django.db.models.query.QuerySet: https://docs.djangoproject.com/
+           en/dev/ref/models/querysets/
 
         """
         user_ids = UserProfile.objects.all().values_list('user', flat=True)
@@ -603,12 +642,16 @@ def create_user(sender, instance, created, **kwargs):
 post_save.connect(create_user, sender=User)
 
 
+# Monkey patch django.contrib.auth.models.User to force email to be unique.
+User._meta.get_field('email')._unique = True
+
+
 class SSHKeysManager(models.Manager):
 
     def get_keys_for_user(self, user):
-        keys = SSHKeys.objects.filter(user__user__username=user).values_list('key', flat=True)
+        keys = SSHKeys.objects.filter(
+            user__user__username=user).values_list('key', flat=True)
         return keys
-
 
 
 class SSHKeys(models.Model):
@@ -910,12 +953,13 @@ class MAASAuthorizationBackend(ModelBackend):
             raise NotImplementedError(
                 'Invalid permission check (invalid object type).')
 
-        # Only the generic 'access' permission is supported.
-        if perm != 'access':
+        if perm == 'access':
+            return obj.owner in (None, user)
+        elif perm == 'edit':
+            return obj.owner == user
+        else:
             raise NotImplementedError(
                 'Invalid permission check (invalid permission name).')
-
-        return obj.owner in (None, user)
 
 
 # 'provisioning' is imported so that it can register its signal handlers early

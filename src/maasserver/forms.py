@@ -16,6 +16,8 @@ __all__ = [
     "MACAddressForm",
     "MAASAndNetworkForm",
     "UbuntuForm",
+    "UIAdminNodeEditForm",
+    "UINodeEditForm",
     ]
 
 from django import forms
@@ -40,6 +42,7 @@ from maasserver.models import (
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    UserProfile,
     )
 
 
@@ -83,6 +86,27 @@ class NodeForm(ModelForm):
             'architecture', 'power_type')
 
 
+class UINodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+    class Meta:
+        model = Node
+        fields = ('hostname', 'after_commissioning_action')
+
+
+class UIAdminNodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+    owner = forms.ModelChoiceField(
+        queryset=UserProfile.objects.all_users(), required=False)
+
+    class Meta:
+        model = Node
+        fields = (
+            'hostname', 'after_commissioning_action', 'power_type', 'owner')
+
+
 class MACAddressForm(ModelForm):
     class Meta:
         model = MACAddress
@@ -120,10 +144,21 @@ class NodeWithMACAddressesForm(NodeForm):
                 ['One or more MAC Addresses is invalid.'])
         return valid
 
+    def clean_mac_addresses(self):
+        data = self.cleaned_data['mac_addresses']
+        for mac in data:
+            if MACAddress.objects.filter(mac_address=mac.lower()).count() > 0:
+                raise ValidationError(
+                    {'mac_addresses': [
+                        'Mac address %s already in use.' % mac]})
+        return data
+
     def save(self):
         node = super(NodeWithMACAddressesForm, self).save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
+        if self.cleaned_data['hostname'] == "":
+            node.set_mac_based_hostname(self.cleaned_data['mac_addresses'][0])
         return node
 
 
@@ -168,6 +203,17 @@ class NewUserCreationForm(UserCreationForm):
             user.email = new_email
         user.save()
         return user
+
+    def clean_email(self):
+        """Validate that the supplied email address is unique for the
+        site.
+        """
+        email = self.cleaned_data['email']
+        email_count = User.objects.filter(email__iexact=email).count()
+        if email_count != 0:
+            raise forms.ValidationError(
+                "User with this E-mail address already exists.")
+        return email
 
 
 class EditUserForm(UserChangeForm):

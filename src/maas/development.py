@@ -11,13 +11,13 @@ from __future__ import (
 __metaclass__ = type
 
 import os
-from socket import gethostname
 
 from maas import (
     import_local_settings,
     import_settings,
     settings,
     )
+from metadataserver.address import guess_server_address
 
 # We expect the following settings to be overridden. They are mentioned here
 # to silence lint warnings.
@@ -27,11 +27,14 @@ INSTALLED_APPS = None
 import_settings(settings)
 
 # In development, django can be accessed directly on port 5240.
-DEFAULT_MAAS_URL = "http://%s:5240/" % gethostname()
+DEFAULT_MAAS_URL = "http://%s:5240/" % guess_server_address()
 
 # Use our custom test runner, which makes sure that a local database
 # cluster is running in the branch.
 TEST_RUNNER = 'maastesting.runner.TestRunner'
+
+# Use a fake provisioning server for test/demo purposes.
+USE_REAL_PSERV = False
 
 # Invalid strings should be visible.
 TEMPLATE_STRING_IF_INVALID = '#### INVALID STRING ####'
@@ -40,6 +43,8 @@ DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 YUI_DEBUG = DEBUG
 STATIC_LOCAL_SERVE = True
+
+RABBITMQ_PUBLISH = False
 
 DATABASES = {
     'default': {

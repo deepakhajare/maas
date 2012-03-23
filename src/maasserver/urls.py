@@ -20,11 +20,11 @@ from django.conf.urls.defaults import (
     url,
     )
 from django.contrib.auth.decorators import user_passes_test
-from django.contrib.auth.views import login
 from django.views.generic.simple import (
     direct_to_template,
     redirect_to,
     )
+from maasserver.maasavahi import setup_maas_avahi_service
 from maasserver.models import Node
 from maasserver.views import (
     AccountsAdd,
@@ -33,9 +33,12 @@ from maasserver.views import (
     AccountsView,
     combo_view,
     KeystoreView,
+    login,
     logout,
+    NodeEdit,
     NodeListView,
     NodesCreateView,
+    NodeView,
     proxy_to_longpoll,
     settings,
     settings_add_archive,
@@ -73,6 +76,8 @@ urlpatterns += patterns('maasserver.views',
         NodeListView.as_view(template_name="maasserver/index.html"),
         name='index'),
     url(r'^nodes/$', NodeListView.as_view(model=Node), name='node-list'),
+    url(r'^nodes/(?P<id>\d*)/view/$', NodeView.as_view(), name='node-view'),
+    url(r'^nodes/(?P<id>\d*)/edit/$', NodeEdit.as_view(), name='node-edit'),
     url(
         r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
 )
@@ -127,3 +132,10 @@ urlpatterns += patterns('maasserver.views',
 urlpatterns += patterns('',
     (r'^api/1\.0/', include('maasserver.urls_api'))
     )
+
+# Code to run once when the server is initialized, as suggested in
+# http://stackoverflow.com/
+#   questions/
+#       6791911/
+#           execute-code-when-django-starts-once-only
+setup_maas_avahi_service()

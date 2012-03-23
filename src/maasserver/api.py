@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "api_doc",
+    "extract_oauth_key",
     "generate_api_doc",
     "AccountHandler",
     "AnonNodesHandler",
@@ -63,6 +64,7 @@ from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
 
@@ -240,9 +242,25 @@ def get_mandatory_param(data, key, validator=None):
         return value
 
 
+def extract_oauth_key(auth_data):
+    """Extract the oauth key from auth data in HTTP header.
+
+    :param auth_data: {string} The HTTP Authorization header.
+
+    :return: The oauth key from the header, or None.
+    """
+    for entry in auth_data.split():
+        key_value = entry.split('=', 1)
+        if len(key_value) == 2:
+            key, value = key_value
+            if key == 'oauth_token':
+                return value.rstrip(',').strip('"')
+    return None
+
+
 NODE_FIELDS = (
     'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
-    'architecture')
+    'architecture', 'status')
 
 
 @api_operations
@@ -382,13 +400,35 @@ class NodesHandler(BaseHandler):
         nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
         return nodes.order_by('id')
 
+    @api_exported('list_allocated', 'GET')
+    def list_allocated(self, request):
+        """Fetch Nodes that were allocated to the User/oauth token."""
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        # A plain assertion is fine here because to get this far we
+        # should already have a valid authorization. If the assertion
+        # fails it is a genuine bug in the code and this will return a
+        # 500 response which is appropriate.
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        assert key is not None, (
+            "Invalid Authorization header on request.")
+        token = Token.objects.get(key=key)
+        nodes = Node.objects.get_allocated_visible_nodes(token)
+        return nodes.order_by('id')
+
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
         node = Node.objects.get_available_node_for_acquisition(request.user)
         if node is None:
             raise NodesNotAvailable("No node is available.")
-        node.acquire(request.user)
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        token = Token.objects.get(key=key)
+        node.acquire(token)
         node.save()
         return node
 
@@ -462,27 +502,48 @@ class NodeMacHandler(BaseHandler):
         return ('node_mac_handler', [node_system_id, mac_address])
 
 
+def get_file(handler, request):
+    """Get a named file from the file storage.
+
+    :param filename: The exact name of the file you want to get.
+    :type filename: string
+    :return: The file is returned in the response content.
+    """
+    filename = request.GET.get("filename", None)
+    if not filename:
+        raise MAASAPIBadRequest("Filename not supplied")
+    try:
+        db_file = FileStorage.objects.get(filename=filename)
+    except FileStorage.DoesNotExist:
+        raise MAASAPINotFound("File not found")
+    return HttpResponse(db_file.data.read(), status=httplib.OK)
+
+
+@api_operations
+class AnonFilesHandler(AnonymousBaseHandler):
+    """Anonymous file operations.
+
+    This is needed for Juju. The story goes something like this:
+
+    - The Juju provider will upload a file using an "unguessable" name.
+
+    - The name of this file (or its URL) will be shared with all the agents in
+      the environment. They cannot modify the file, but they can access it
+      without credentials.
+
+    """
+    allowed_methods = ('GET',)
+
+    get = api_exported('get', 'GET')(get_file)
+
+
 @api_operations
 class FilesHandler(BaseHandler):
     """File management operations."""
     allowed_methods = ('GET', 'POST',)
+    anonymous = AnonFilesHandler
 
-    @api_exported('get', 'GET')
-    def get(self, request):
-        """Get a named file from the file storage.
-
-        :param filename: The exact name of the file you want to get.
-        :type filename: string
-        :return: The file is returned in the response content.
-        """
-        filename = request.GET.get("filename", None)
-        if not filename:
-            raise MAASAPIBadRequest("Filename not supplied")
-        try:
-            db_file = FileStorage.objects.get(filename=filename)
-        except FileStorage.DoesNotExist:
-            raise MAASAPINotFound("File not found")
-        return HttpResponse(db_file.data.read(), status=httplib.OK)
+    get = api_exported('get', 'GET')(get_file)
 
     @api_exported('add', 'POST')
     def add(self, request):

@@ -11,20 +11,28 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import random
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.http import QueryDict
 from maasserver.forms import (
     ConfigForm,
+    EditUserForm,
     HostnameFormField,
     NewUserCreationForm,
     NodeWithMACAddressesForm,
+    ProfileForm,
+    UIAdminNodeEditForm,
+    UINodeEditForm,
     validate_hostname,
     )
 from maasserver.models import (
     ARCHITECTURE,
     Config,
     DEFAULT_CONFIG,
+    NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    POWER_TYPE_CHOICES,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -158,6 +166,91 @@ class FormWithHostname(forms.Form):
     hostname = HostnameFormField()
 
 
+class NodeEditForms(TestCase):
+
+    def test_UINodeEditForm_contains_limited_set_of_fields(self):
+        form = UINodeEditForm()
+
+        self.assertEqual(
+            ['hostname', 'after_commissioning_action'], list(form.fields))
+
+    def test_UINodeEditForm_changes_node(self):
+        node = factory.make_node()
+        hostname = factory.getRandomString()
+        after_commissioning_action = factory.getRandomChoice(
+            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+        form = UINodeEditForm(
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action,
+                },
+            instance=node)
+        form.save()
+
+        self.assertEqual(hostname, node.hostname)
+        self.assertEqual(
+            after_commissioning_action, node.after_commissioning_action)
+
+    def test_UIAdminNodeEditForm_contains_limited_set_of_fields(self):
+        form = UIAdminNodeEditForm()
+
+        self.assertSequenceEqual(
+            ['hostname', 'after_commissioning_action', 'power_type', 'owner'],
+            list(form.fields))
+
+    def test_UIAdminNodeEditForm_changes_node(self):
+        node = factory.make_node()
+        hostname = factory.getRandomString()
+        after_commissioning_action = factory.getRandomChoice(
+            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        owner = random.choice([factory.make_user() for i in range(3)])
+        form = UIAdminNodeEditForm(
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action,
+                'power_type': power_type,
+                'owner': owner.id,
+                },
+            instance=node)
+        form.save()
+
+        self.assertEqual(hostname, node.hostname)
+        self.assertEqual(
+            after_commissioning_action, node.after_commissioning_action)
+        self.assertEqual(power_type, node.power_type)
+        self.assertEqual(owner, node.owner)
+
+    def test_UIAdminNodeEditForm_changes_node_empty_owner(self):
+        node = factory.make_node()
+        hostname = factory.getRandomString()
+        after_commissioning_action = factory.getRandomChoice(
+            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        form = UIAdminNodeEditForm(
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action,
+                'power_type': power_type,
+                },
+            instance=node)
+        form.save()
+
+        self.assertEqual(hostname, node.hostname)
+        self.assertEqual(
+            after_commissioning_action, node.after_commissioning_action)
+        self.assertEqual(power_type, node.power_type)
+        self.assertEqual(None, node.owner)
+
+    def test_UIAdminNodeEditForm_owner_choices_contains_active_users(self):
+        form = UIAdminNodeEditForm()
+        user = factory.make_user()
+        user_ids = [choice[0] for choice in form.fields['owner'].choices]
+
+        self.assertItemsEqual(['', user.id], user_ids)
+
+
 class TestHostnameFormField(TestCase):
 
     def test_validate_hostname_validates_valid_hostnames(self):
@@ -186,6 +279,63 @@ class TestHostnameFormField(TestCase):
         self.assertEqual(
             ["Enter a valid hostname (e.g. host.example.com)."],
             form.errors['hostname'])
+
+
+class TestUniqueEmailForms(TestCase):
+
+    def assertFormFailsValidationBecauseEmailNotUnique(self, form):
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form._errors)
+        self.assertEqual(
+            ["User with this E-mail address already exists."],
+            form._errors['email'])
+
+    def test_ProfileForm_fails_validation_if_email_taken(self):
+        another_email = '%s@example.com' % factory.getRandomString()
+        factory.make_user(email=another_email)
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = ProfileForm(instance=user, data={'email': another_email})
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_ProfileForm_validates_if_email_unchanged(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = ProfileForm(instance=user, data={'email': email})
+        self.assertTrue(form.is_valid())
+
+    def test_NewUserCreationForm_fails_validation_if_email_taken(self):
+        email = '%s@example.com' % factory.getRandomString()
+        username = factory.getRandomString()
+        password = factory.getRandomString()
+        factory.make_user(email=email)
+        form = NewUserCreationForm(
+            {
+                'email': email,
+                'username': username,
+                'password1': password,
+                'password2': password,
+            })
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_EditUserForm_fails_validation_if_email_taken(self):
+        another_email = '%s@example.com' % factory.getRandomString()
+        factory.make_user(email=another_email)
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(instance=user, data={'email': another_email})
+        self.assertFormFailsValidationBecauseEmailNotUnique(form)
+
+    def test_EditUserForm_validates_if_email_unchanged(self):
+        email = '%s@example.com' % factory.getRandomString()
+        user = factory.make_user(email=email)
+        form = EditUserForm(
+            instance=user,
+            data={
+                'email': email,
+                'username': factory.getRandomString(),
+            })
+        self.assertTrue(form.is_valid())
 
 
 class TestNewUserCreationForm(TestCase):

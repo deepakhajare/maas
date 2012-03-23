@@ -28,8 +28,10 @@ class Command(BaseCommand):
             help="Specifies the username for the admin."),
         make_option('--password', dest='password', default=None,
             help="Specifies the password for the admin."),
-     )
-    help = "Used to create an admin with an empty email."
+        make_option('--email', dest='email', default=None,
+            help="Specifies the email for the admin."),
+      )
+    help = "Used to create an admin."
 
     def handle(self, *args, **options):
         username = options.get('username', None)
@@ -38,6 +40,9 @@ class Command(BaseCommand):
         password = options.get('password', None)
         if password is None:
             raise CommandError("You must provide a password with --password.")
+        email = options.get('email', None)
+        if email is None:
+            raise CommandError("You must provide an email with --email.")
 
         User.objects.db_manager(DEFAULT_DB_ALIAS).create_superuser(
-            username, email='', password=password)
+            username, email=email, password=password)

@@ -13,9 +13,10 @@ __all__ = [
     'get_provisioning_api_proxy',
     ]
 
+from logging import getLogger
+from textwrap import dedent
 from urllib import urlencode
 from urlparse import urljoin
-import warnings
 import xmlrpclib
 
 from django.conf import settings
@@ -24,11 +25,13 @@ from django.db.models.signals import (
     post_save,
     )
 from django.dispatch import receiver
+from maasserver.exceptions import MissingProfileException
 from maasserver.models import (
     Config,
     MACAddress,
     Node,
     )
+from provisioningserver.enum import PSERV_FAULT
 
 
 def get_provisioning_api_proxy():
@@ -38,21 +41,25 @@ def get_provisioning_api_proxy():
     implementation. This will not be available in a packaged version of MAAS,
     in which case an error is raised.
     """
-    url = settings.PSERV_URL
-    if url is None:
-        try:
-            from maasserver import testing
-        except ImportError:
-            # This is probably in a package.
-            raise RuntimeError("PSERV_URL must be defined.")
-        else:
-            warnings.warn(
-                "PSERV_URL is None; using the fake Provisioning API.",
-                RuntimeWarning)
-            return testing.get_fake_provisioning_api_proxy()
-    else:
+    if settings.USE_REAL_PSERV:
+        # Use a real provisioning server.  This requires PSERV_URL to be
+        # set.
         return xmlrpclib.ServerProxy(
-            url, allow_none=True, use_datetime=True)
+            settings.PSERV_URL, allow_none=True, use_datetime=True)
+    else:
+        # Create a fake.  The code that provides the testing fake is not
+        # available in an installed production system, so import it only
+        # when a fake is requested.
+        try:
+            from maasserver.testing import get_fake_provisioning_api_proxy
+        except ImportError:
+            getLogger('maasserver').error(
+                "Could not import fake provisioning proxy.  "
+                "This may mean you're trying to run tests, or have set "
+                "USE_REAL_PSERV to False, on an installed MAAS.  "
+                "Don't do either.")
+            raise
+        return get_fake_provisioning_api_proxy()
 
 
 def get_metadata_server_url():
@@ -116,7 +123,18 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
     profile = select_profile_for_node(instance, papi)
     power_type = instance.get_effective_power_type()
     metadata = compose_metadata(instance)
-    papi.add_node(instance.system_id, profile, power_type, metadata)
+    try:
+        papi.add_node(instance.system_id, profile, power_type, metadata)
+    except xmlrpclib.Fault as e:
+        if e.faultCode == PSERV_FAULT.NO_SUCH_PROFILE:
+            raise MissingProfileException(dedent("""
+                System profile %s does not exist.  Has the maas-import-isos
+                script been run?  This will run automatically from time to
+                time, but if it is failing, an administrator may need to run
+                it manually.
+                """ % profile).lstrip('\n'))
+        else:
+            raise
 
 
 def set_node_mac_addresses(node):

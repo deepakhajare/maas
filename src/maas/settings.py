@@ -11,13 +11,13 @@ from __future__ import (
 __metaclass__ = type
 
 import os
-from socket import gethostname
 from urlparse import urljoin
 
 # Use new style url tag:
 # https://docs.djangoproject.com/en/dev/releases/1.3/#changes-to-url-and-ssi
 import django.template
 from maas import import_local_settings
+from metadataserver.address import guess_server_address
 
 
 django.template.add_to_builtins('django.templatetags.future')
@@ -45,6 +45,9 @@ LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
+# The MAAS CLI.
+MAAS_CLI = 'sudo maas'
+
 # The location of the Longpoll server.
 # Set LONGPOLL_SERVER_URL to have the web app proxy requests to
 # a txlongpoll (note that this should only be required in a dev
@@ -58,7 +61,7 @@ LONGPOLL_PATH = '/longpoll/'
 # Default URL specifying protocol, host, and (if necessary) port where
 # this MAAS can be found.  Configuration can, and probably should,
 # override this.
-DEFAULT_MAAS_URL = "http://%s/" % gethostname()
+DEFAULT_MAAS_URL = "http://%s/" % guess_server_address()
 
 if FORCE_SCRIPT_NAME is not None:
     LOGOUT_URL = FORCE_SCRIPT_NAME + LOGOUT_URL
@@ -235,6 +238,7 @@ INSTALLED_APPS = (
     'maasserver',
     'metadataserver',
     'piston',
+    'south',
 )
 
 if DEBUG:
@@ -248,9 +252,14 @@ LOGGING = {
     'version': 1,
 }
 
-# The location of the Provisioning API XML-RPC endpoint. If PSERV_URL is None,
-# use the fake Provisioning API.
-PSERV_URL = None
+# The location of the Provisioning API XML-RPC endpoint.  This should
+# match the setting in etc/pserv.yaml.
+PSERV_URL = "http://localhost:5241/api"
+
+# Use a real provisioning server?  If yes, the URL for the provisioning
+# server's API should be set in PSERV_URL.  If this is set to False, for
+# testing or demo purposes, MAAS will use an internal fake service.
+USE_REAL_PSERV = True
 
 # Allow the user to override settings in maas_local_settings.
 import_local_settings()
