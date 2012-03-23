@@ -730,25 +730,21 @@ class TestNodesAPI(APITestCase):
         # list_allocated takes an optional list of 'id' parameters to
         # filter returned results.
         current_token = get_auth_tokens(self.logged_in_user)[0]
-        node_1 = factory.make_node(
-            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
-            token=current_token)
-        node_2 = factory.make_node(
-            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
-            token=current_token)
-        node_3 = factory.make_node(
-            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
-            token=current_token)
+        nodes = []
+        for i in range(3):
+            nodes.append(factory.make_node(
+                status=NODE_STATUS.ALLOCATED,
+                owner=self.logged_in_user, token=current_token))
 
+        required_node_ids = [nodes[0].system_id, nodes[1].system_id]
         response = self.client.get(self.get_uri('nodes/'), {
             'op': 'list_allocated',
-            'id': [node_1.system_id, node_2.system_id],
+            'id': required_node_ids,
         })
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(
-            [node_1.system_id, node_2.system_id],
-            extract_system_ids(parsed_result))
+            required_node_ids, extract_system_ids(parsed_result))
 
     def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.
