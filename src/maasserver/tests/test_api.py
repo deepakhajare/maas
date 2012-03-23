@@ -1217,5 +1217,6 @@ class APIErrorsTest(APITestCase):
         self.patch(api, 'create_node', raise_exception)
         response = self.client.post(self.get_uri('nodes/'), {'op': 'new'})
 
-        self.assertEqual(httplib.INTERNAL_SERVER_ERROR, response.status_code)
-        self.assertEqual(error_message, response.content)
+        self.assertEqual(
+            (httplib.INTERNAL_SERVER_ERROR, error_message),
+            (response.status_code, response.content))
