@@ -245,9 +245,10 @@ class NodeManager(models.Manager):
            docs.djangoproject.com/en/dev/topics/auth/
            #django.contrib.auth.models.User
         """
-        nodes = self.filter(token=token)
-        if ids is not None:
-            nodes = self.filter(system_id__in=ids)
+        if ids is None:
+            nodes = self.filter(token=token)
+        else:
+            nodes = self.filter(token=token, system_id__in=ids)
         return nodes
 
     def get_editable_nodes(self, user, ids=None):
