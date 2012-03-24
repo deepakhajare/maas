@@ -31,7 +31,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from maasserver.models import (
-    SSHKeys,
+    SSHKey,
     )
 
 from piston.handler import BaseHandler
@@ -60,7 +60,7 @@ def get_node_for_request(request):
 
 def get_public_keys(node):
     """Set user data for the given node."""
-    keys = SSHKeys.objects.get_keys_for_user(user=node.owner)
+    keys = SSHKey.objects.get_keys_for_user(user=node.owner)
     return keys
 
 def make_text_response(contents):

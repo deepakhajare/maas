@@ -18,6 +18,7 @@ __all__ = [
     "NODE_STATUS",
     "Node",
     "MACAddress",
+    "SSHKey",
     "UserProfile",
     ]
 
@@ -646,32 +647,37 @@ post_save.connect(create_user, sender=User)
 User._meta.get_field('email')._unique = True
 
 
-class SSHKeysManager(models.Manager):
+class SSHKeyManager(models.Manager):
+    """A utility to manage the colletion of `SSHKey`s."""
 
     def get_keys_for_user(self, user):
-        keys = SSHKeys.objects.filter(
-            user__user__username=user).values_list('key', flat=True)
-        return keys
+        """Return the text of the ssh keys associated with a user."""
+        return SSHKey.objects.filter(user=user).values_list('key', flat=True)
 
 
-class SSHKeys(models.Model):
-    """A simple SSH public keystore that can be retrieved, a user
-       can have multiple keys.
+class SSHKey(CommonInfo):
+    """A `SSHKey` represents a user public SSH key.
+
+    Users will be able to access `Node`s using any of their registered keys.
 
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
+    :ivar size: The key size.
+    :ivar fingerprints: The key fingerprints.
+    :ivar comment: The key comment.
+    :ivar key_type: The key type.
     """
-    user = models.ForeignKey(UserProfile)
-    key = models.TextField()
+    class Meta:
+        verbose_name_plural = "SSH keys"
 
-    objects = SSHKeysManager()
+    objects = SSHKeyManager()
+
+    user = models.ForeignKey(User, null=False, editable=False)
+
+    key = models.TextField(null=False, editable=True)
 
     def __unicode__(self):
         return self.key
-
-    def get_keys_for_user(self, user):
-        keys = SSHKeys.objects.filter(user__user__username=user).values_list('key', flat=True)
-        return keys
 
 
 class FileStorageManager(models.Manager):
@@ -934,7 +940,7 @@ admin.site.register(Config)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
-admin.site.register(SSHKeys)
+admin.site.register(SSHKey)
 
 
 class MAASAuthorizationBackend(ModelBackend):
