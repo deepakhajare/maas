@@ -494,27 +494,19 @@ class UserProfileTest(TestCase):
 class SSHKeyManager(TestCase):
     """Testing for the :class `SSHKeyManager` model manager."""
 
-    def make_user_with_keys(self, n=2):
-        """Create a user with n `SSHKey`s."""
-        user = factory.make_user()
-        for i in range(n):
-            SSHKey(
-                user=user, key='ssh-rsa KEY%d %s' % (i, user.username)).save()
-        return user
-
     def test_get_keys_for_user_no_keys(self):
         user = factory.make_user()
         keys = SSHKey.objects.get_keys_for_user(user)
         self.assertEquals([], list(keys))
 
     def test_get_keys_for_user_with_keys(self):
-        user1 = self.make_user_with_keys(3)
-        user2 = factory.make_user(2)
+        user1 = factory.make_user_with_keys(n_keys=3, username='user1')
+        user2 = factory.make_user_with_keys(n_keys=2)
         keys = SSHKey.objects.get_keys_for_user(user1)
         self.assertEquals([
-            'ssh-rsa KEY0 %s' % user1.username,
-            'ssh-rsa KEY1 %s' % user1.username,
-            'ssh-rsa KEY2 %s' % user1.username,
+            'ssh-rsa KEY user1-key-0',
+            'ssh-rsa KEY user1-key-1',
+            'ssh-rsa KEY user1-key-2',
             ], list(keys))
 
 class FileStorageTest(TestCase):
