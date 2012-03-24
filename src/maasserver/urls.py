@@ -32,7 +32,6 @@ from maasserver.views import (
     AccountsEdit,
     AccountsView,
     combo_view,
-    KeystoreView,
     login,
     logout,
     NodeEdit,
