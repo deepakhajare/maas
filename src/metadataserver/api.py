@@ -58,11 +58,6 @@ def get_node_for_request(request):
     except NodeKey.DoesNotExist:
         raise PermissionDenied("Not authenticated as a known node.")
 
-def get_public_keys(node):
-    """Set user data for the given node."""
-    keys = SSHKey.objects.get_keys_for_user(user=node.owner)
-    return keys
-
 def make_text_response(contents):
     """Create a response containing `contents` as plain text."""
     return HttpResponse(contents, mimetype='text/plain')
@@ -110,7 +105,7 @@ class VersionIndexHandler(MetadataViewHandler):
 class MetaDataHandler(VersionIndexHandler):
     """Meta-data listing for a given version."""
 
-    fields = ('instance-id', 'local-hostname','public-keys')
+    fields = ('instance-id', 'local-hostname', 'public-keys')
 
     def get_attribute_producer(self, item):
         """Return a callable to deliver a given metadata item.
@@ -156,7 +151,7 @@ class MetaDataHandler(VersionIndexHandler):
 
     def public_keys(self, node, version, item):
         """ Produce public-keys attribute."""
-        keys = get_public_keys(node=node)
+        keys = SSHKey.objects.get_keys_for_user(user=node.owner)
         if not keys:
             raise Http404
         return make_list_response(keys)
