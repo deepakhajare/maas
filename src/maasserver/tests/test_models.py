@@ -501,13 +501,15 @@ class SSHKeyManager(TestCase):
 
     def test_get_keys_for_user_with_keys(self):
         user1 = factory.make_user_with_keys(n_keys=3, username='user1')
-        user2 = factory.make_user_with_keys(n_keys=2)
+        # user2
+        factory.make_user_with_keys(n_keys=2)
         keys = SSHKey.objects.get_keys_for_user(user1)
         self.assertEquals([
             'ssh-rsa KEY user1-key-0',
             'ssh-rsa KEY user1-key-1',
             'ssh-rsa KEY user1-key-2',
             ], list(keys))
+
 
 class FileStorageTest(TestCase):
     """Testing of the :class:`FileStorage` model."""

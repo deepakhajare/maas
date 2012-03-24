@@ -58,6 +58,7 @@ def get_node_for_request(request):
     except NodeKey.DoesNotExist:
         raise PermissionDenied("Not authenticated as a known node.")
 
+
 def make_text_response(contents):
     """Create a response containing `contents` as plain text."""
     return HttpResponse(contents, mimetype='text/plain')
@@ -125,7 +126,7 @@ class MetaDataHandler(VersionIndexHandler):
         producers = {
             'local-hostname': self.local_hostname,
             'instance-id': self.instance_id,
-            'public-keys' : self.public_keys,
+            'public-keys': self.public_keys,
         }
 
         return producers[field]
