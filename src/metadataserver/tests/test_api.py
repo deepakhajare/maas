@@ -13,6 +13,7 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
+from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
 from maasserver.testing.factory import factory
@@ -190,8 +191,19 @@ class TestViews(TestCase):
         response = self.get('/latest/user-data', self.make_node_client())
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    @uses_rabbit_fixture
     def test_public_keys_for_node_without_public_keys_returns_not_found(self):
-        response = self.get('/latest/meta-data/public-keys', self.make_node_client())
+        response = self.get(
+            '/latest/meta-data/public-keys', self.make_node_client())
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
+    def test_public_keys_for_node_returns_list_of_keys(self):
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        response = self.get(
+            '/latest/meta-data/public-keys', self.make_node_client(node=node))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEquals(dedent("""\
+            ssh-rsa KEY my-user-key-0
+            ssh-rsa KEY my-user-key-1"""),
+            response.content.decode('ascii'))
+        self.assertIn('text/plain', response['Content-Type'])
