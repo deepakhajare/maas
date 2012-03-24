@@ -662,10 +662,6 @@ class SSHKey(CommonInfo):
 
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
-    :ivar size: The key size.
-    :ivar fingerprints: The key fingerprints.
-    :ivar comment: The key comment.
-    :ivar key_type: The key type.
     """
     class Meta:
         verbose_name_plural = "SSH keys"
