@@ -1,1 +1,1 @@
-INSTALL.txt
+../INSTALL.txt
