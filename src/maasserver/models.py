@@ -119,6 +119,9 @@ class NODE_STATUS:
     RETIRED = 7
 
 
+# Django choices for NODE_STATUS: sequence of tuples (key, UI
+# representation).  Limited parameterization of the representation is
+# allowed; see Node.display_status.
 NODE_STATUS_CHOICES = (
     (NODE_STATUS.DECLARED, "Declared"),
     (NODE_STATUS.COMMISSIONING, "Commissioning"),
@@ -400,7 +403,16 @@ class Node(CommonInfo):
             return self.system_id
 
     def display_status(self):
+        """Resturn status text as displayed to the user.
+
+        The UI representation is taken from NODE_STATUS_CHOICES_DICT and may
+        interpolate the variable "owner" to reflect the username of the node's
+        current owner, if any.
+        """
         params = {
+            # The User reference is represented as the user's username.
+            # Don't just say self.owner.username here, or there will be
+            # trouble with unowned nodes!
             'owner': self.owner,
         }
         return NODE_STATUS_CHOICES_DICT[self.status] % params
