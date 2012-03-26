@@ -151,8 +151,8 @@ suite.add(new Y.maas.testing.TestCase({
         panel.get('srcNode').one('#id_hostname').set('value', 'host');
         var button = panel.get('srcNode').one('.yui3-button');
         button.simulate('click');
-        var error_message = panel.get(
-            'srcNode').one('.form-global-errors').get('innerHTML');
+        var error_message = panel.get('srcNode').one('.form-errors').get(
+            'innerHTML');
         var message_position = error_message.search("Unable to create Node.");
         Y.Assert.areNotEqual(-1, error_message);
     },
@@ -168,8 +168,8 @@ suite.add(new Y.maas.testing.TestCase({
         panel.get('srcNode').one('#id_hostname').set('value', 'host');
         var button = panel.get('srcNode').one('.yui3-button');
         button.simulate('click');
-        var error_message = panel.get(
-            'srcNode').one('.form-global-errors').get('innerHTML');
+        var error_message = panel.get('srcNode').one('.form-errors').get(
+            'innerHTML');
         // The link to the login page is present in the error message.
         var link_position = error_message.search(MAAS_config.uris.login);
         Y.Assert.areNotEqual(-1, link_position);
