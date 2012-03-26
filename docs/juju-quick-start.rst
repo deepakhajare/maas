@@ -118,9 +118,12 @@ makes it easy to follow on progress::
   node.
 
 Once the master node has been installed a status command should come
-up with something a bit more interesting::
+up with something a bit more interesting:
 
-  TODO
+  **XXX** `Bug 965101
+  <https://bugs.launchpad.net/maas/+bug/965101>`_ - *MAAS provider
+  does not raise an exception when get_machines(...)  does not find
+  the requested machines* - prevented capturing of output here.
 
 Now it's possible to deploy a charm::
 
