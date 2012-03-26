@@ -14,6 +14,7 @@ __all__ = []
 from collections import namedtuple
 import httplib
 import os
+import random
 import urllib2
 
 from django.conf import settings
@@ -21,14 +22,19 @@ from django.conf.urls.defaults import patterns
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver import views
-from maasserver.messages import get_messaging
+from maasserver import (
+    messages,
+    views,
+    )
+from maasserver.exceptions import NoRabbit
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
+    POWER_TYPE_CHOICES,
     SSHKeys,
     UserProfile,
     )
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
@@ -84,9 +90,11 @@ class Test404500(LoggedInTestCase):
 
 class TestLogin(TestCase):
 
-    def test_login_contains_input_tags(self):
+    def test_login_contains_input_tags_if_user(self):
+        factory.make_user()
         response = self.client.get('/accounts/login/')
         doc = fromstring(response.content)
+        self.assertFalse(response.context['no_users'])
         self.assertEqual(1, len(doc.cssselect('input#id_username')))
         self.assertEqual(1, len(doc.cssselect('input#id_password')))
 
@@ -94,19 +102,8 @@ class TestLogin(TestCase):
         path = factory.getRandomString()
         self.patch(settings, 'MAAS_CLI', path)
         response = self.client.get('/accounts/login/')
-        self.assertEqual(
-            [
-                "No admin user has been created yet. "
-                "Run the following command from the console to create an "
-                "admin user:"
-                "<pre>%s createsuperuser</pre>" % path
-            ],
-            [message.message for message in response.context['messages']])
-
-    def test_login_does_not_display_createsuperuser_message_if_user(self):
-        factory.make_user()
-        response = self.client.get('/accounts/login/')
-        self.assertEqual(0, len(response.context['messages']))
+        self.assertTrue(response.context['no_users'])
+        self.assertEqual(path, response.context['create_command'])
 
 
 class TestSnippets(LoggedInTestCase):
@@ -257,12 +254,23 @@ class TestUtilities(TestCase):
 
     def test_get_longpoll_context_empty_if_rabbitmq_publish_is_none(self):
         self.patch(settings, 'RABBITMQ_PUBLISH', None)
-        self.patch(views, 'messaging', get_messaging())
+        self.patch(views, 'messaging', messages.get_messaging())
+        self.assertEqual({}, get_longpoll_context())
+
+    def test_get_longpoll_context_returns_empty_if_rabbit_not_running(self):
+
+        class FakeMessaging:
+            """Fake :class:`RabbitMessaging`: fail with `NoRabbit`."""
+
+            def getQueue(self, *args, **kwargs):
+                raise NoRabbit("Pretending not to have a rabbit.")
+
+        self.patch(messages, 'messaging', FakeMessaging())
         self.assertEqual({}, get_longpoll_context())
 
     def test_get_longpoll_context_empty_if_longpoll_url_is_None(self):
         self.patch(settings, 'LONGPOLL_PATH', None)
-        self.patch(views, 'messaging', get_messaging())
+        self.patch(views, 'messaging', messages.get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
     @uses_rabbit_fixture
@@ -270,7 +278,7 @@ class TestUtilities(TestCase):
         longpoll = factory.getRandomString()
         self.patch(settings, 'LONGPOLL_PATH', longpoll)
         self.patch(settings, 'RABBITMQ_PUBLISH', True)
-        self.patch(views, 'messaging', get_messaging())
+        self.patch(views, 'messaging', messages.get_messaging())
         context = get_longpoll_context()
         self.assertItemsEqual(
             ['LONGPOLL_PATH', 'longpoll_queue'], list(context))
@@ -357,16 +365,29 @@ class UserPrefsViewTest(LoggedInTestCase):
         self.assertNotEqual(old_pw, user.password)
 
 
-class NodeViewTest(LoggedInTestCase):
+class AdminLoggedInTestCase(LoggedInTestCase):
+
+    def setUp(self):
+        super(AdminLoggedInTestCase, self).setUp()
+        # Promote the logged-in user to admin.
+        self.logged_in_user.is_superuser = True
+        self.logged_in_user.save()
+
+
+def get_content_links(response):
+    """Extract links from :class:`HttpResponse` HTML body."""
+    doc = fromstring(response.content)
+    [content_node] = doc.cssselect('#content')
+    return [elem.get('href') for elem in content_node.cssselect('a')]
+
+
+class NodeViewsTest(LoggedInTestCase):
 
     def test_node_list_contains_link_to_node_view(self):
         node = factory.make_node()
         response = self.client.get(reverse('node-list'))
-        doc = fromstring(response.content)
-        content_node = doc.cssselect('#content')[0]
-        all_links = [elem.get('href') for elem in content_node.cssselect('a')]
         node_link = reverse('node-view', args=[node.id])
-        self.assertIn(node_link, all_links)
+        self.assertIn(node_link, get_content_links(response))
 
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
@@ -378,14 +399,78 @@ class NodeViewTest(LoggedInTestCase):
         self.assertIn(node.hostname, content_text)
         self.assertIn(node.display_status(), content_text)
 
+    def test_view_node_displays_link_to_edit_if_user_owns_node(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_link = reverse('node-view', args=[node.id])
+        response = self.client.get(node_link)
+        node_edit_link = reverse('node-edit', args=[node.id])
+        self.assertIn(node_edit_link, get_content_links(response))
 
-class AdminLoggedInTestCase(LoggedInTestCase):
+    def test_view_node_no_link_to_edit_someonelses_node(self):
+        node = factory.make_node(owner=factory.make_user())
+        node_link = reverse('node-view', args=[node.id])
+        response = self.client.get(node_link)
+        node_edit_link = reverse('node-edit', args=[node.id])
+        self.assertNotIn(node_edit_link, get_content_links(response))
 
-    def setUp(self):
-        super(AdminLoggedInTestCase, self).setUp()
-        # Promote the logged-in user to admin.
-        self.logged_in_user.is_superuser = True
-        self.logged_in_user.save()
+    def test_user_cannot_edit_someonelses_node(self):
+        node = factory.make_node(owner=factory.make_user())
+        node_edit_link = reverse('node-edit', args=[node.id])
+        response = self.client.get(node_edit_link)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_user_can_access_the_edition_page_for_his_nodes(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_edit_link = reverse('node-edit', args=[node.id])
+        response = self.client.get(node_edit_link)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_user_can_edit_his_nodes(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_edit_link = reverse('node-edit', args=[node.id])
+        hostname = factory.getRandomString()
+        after_commissioning_action = factory.getRandomEnum(
+            NODE_AFTER_COMMISSIONING_ACTION)
+        response = self.client.post(
+            node_edit_link,
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action
+            })
+
+        node = reload_object(node)
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(hostname, node.hostname)
+        self.assertEqual(
+            after_commissioning_action, node.after_commissioning_action)
+
+
+class AdminNodeViewsTest(AdminLoggedInTestCase):
+
+    def test_admin_can_edit_nodes(self):
+        node = factory.make_node(owner=factory.make_user())
+        node_edit_link = reverse('node-edit', args=[node.id])
+        hostname = factory.getRandomString()
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        after_commissioning_action = factory.getRandomEnum(
+            NODE_AFTER_COMMISSIONING_ACTION)
+        owner = random.choice([factory.make_user() for i in range(5)])
+        response = self.client.post(
+            node_edit_link,
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action,
+                'power_type': power_type,
+                'owner': owner.id,
+            })
+
+        node = reload_object(node)
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(hostname, node.hostname)
+        self.assertEqual(owner, node.owner)
+        self.assertEqual(power_type, node.power_type)
+        self.assertEqual(
+            after_commissioning_action, node.after_commissioning_action)
 
 
 class SettingsTest(AdminLoggedInTestCase):

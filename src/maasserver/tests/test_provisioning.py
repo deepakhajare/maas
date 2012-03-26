@@ -274,38 +274,46 @@ class ProvisioningTests:
             self.assertNotEqual(fault_string, new_fault.faultString)
 
     def test_present_user_friendly_fault_describes_cobbler_fault(self):
-        fault = Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
-        self.assertIn(
-            "Cobbler", present_user_friendly_fault(fault).faultString)
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString()))
+        friendly_text = friendly_fault.faultString
+        self.assertIn("unable to reach", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_fail(self):
-        fault = Fault(
-            PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString())
-        self.assertIn(
-            "Cobbler", present_user_friendly_fault(fault).faultString)
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString()))
+        friendly_text = friendly_fault.faultString
+        self.assertIn("failed to authenticate", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_error(self):
-        fault = Fault(
-            PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString())
-        self.assertIn(
-            "Cobbler", present_user_friendly_fault(fault).faultString)
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString()))
+        friendly_text = friendly_fault.faultString
+        self.assertIn("authentication token", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
 
     def test_present_user_friendly_fault_describes_missing_profile(self):
-        fault = Fault(PSERV_FAULT.NO_SUCH_PROFILE, factory.getRandomString())
-        self.assertIn(
-            "maas-import-isos",
-            present_user_friendly_fault(fault).faultString)
+        profile = factory.getRandomString()
+        friendly_fault = present_user_friendly_fault(
+            Fault(
+                PSERV_FAULT.NO_SUCH_PROFILE,
+                "invalid profile name: %s" % profile))
+        friendly_text = friendly_fault.faultString
+        self.assertIn(profile, friendly_text)
+        self.assertIn("maas-import-isos", friendly_text)
 
     def test_present_user_friendly_fault_describes_generic_cobbler_fail(self):
-        random_text = factory.getRandomString()
-        fault = Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, random_text)
-        friendly_fault = present_user_friendly_fault(fault)
-        self.assertIn("Cobbler", friendly_fault.faultString)
-        self.assertIn(random_text, friendly_fault.faultString)
+        error_text = factory.getRandomString()
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, error_text))
+        friendly_text = friendly_fault.faultString
+        self.assertIn("Cobbler", friendly_text)
+        self.assertIn(error_text, friendly_text)
 
     def test_present_user_friendly_fault_returns_None_for_other_fault(self):
-        self.assertIsNone(
-            present_user_friendly_fault(Fault(9999, "Kaboomski.")))
+        self.assertIsNone(present_user_friendly_fault(Fault(9999, "!!!")))
 
 
 class TestProvisioningWithFake(ProvisioningTests, TestCase):
