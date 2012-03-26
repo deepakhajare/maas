@@ -14,9 +14,11 @@ A few assumptions are made:
 
 - You're running Juju from the PPA (``ppa:juju/pkgs``) or from a
   branch of ``lp:juju``. At the time of writing MAAS support had not
-  made it into the main Ubuntu archives.
+  made it into the main Ubuntu archives. However, following the
+  release of Ubuntu Precise, all the necessary package revisions will
+  be in main.
 
-  Note that, if you're using a branch, you'll need to set
+  If you're using a branch, note that you'll need to set
   ``PYTHONPATH`` carefully to ensure you use the code in the branch.
 
 
