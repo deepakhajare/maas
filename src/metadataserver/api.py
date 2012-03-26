@@ -132,13 +132,20 @@ class MetaDataHandler(VersionIndexHandler):
         return producers[field]
 
     def read(self, request, version, item=None):
-        if item is None or len(item) == 0:
-            # Requesting the list of attributes, not any particular
-            # attribute.
-            return make_list_response(sorted(self.fields))
-
         check_version(version)
         node = get_node_for_request(request)
+
+        # Requesting the list of attributes, not any particular
+        # attribute.
+        if item is None or len(item) == 0:
+            fields = list(self.fields)
+            # Add public-keys to the list of attributes, if the
+            # node has registered SSH keys.
+            keys = SSHKey.objects.get_keys_for_user(user=node.owner)
+            if not keys:
+                fields.remove('public-keys')
+            return make_list_response(sorted(fields))
+
         producer = self.get_attribute_producer(item)
         return producer(node, version, item)
 
@@ -154,7 +161,7 @@ class MetaDataHandler(VersionIndexHandler):
         """ Produce public-keys attribute."""
         keys = SSHKey.objects.get_keys_for_user(user=node.owner)
         if not keys:
-            raise Http404
+            raise MAASAPINotFound("No registered public keys")
         return make_list_response(keys)
 
 

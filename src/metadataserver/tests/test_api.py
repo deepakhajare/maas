@@ -136,7 +136,10 @@ class TestViews(TestCase):
         self.assertIn('user-data', items)
 
     def test_meta_data_view_lists_fields(self):
-        client = self.make_node_client()
+        # Some fields only are returned if there is data related to them.
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        client = self.make_node_client(node=node)
         response = self.get('/latest/meta-data/', client)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertItemsEqual(
@@ -190,6 +193,19 @@ class TestViews(TestCase):
     def test_user_data_for_node_without_user_data_returns_not_found(self):
         response = self.get('/latest/user-data', self.make_node_client())
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_public_keys_not_listed_for_node_without_public_keys(self):
+        response = self.get('/latest/meta-data/', self.make_node_client())
+        self.assertNotIn(
+            'public-keys', response.content.decode('ascii').split('\n'))
+
+    def test_public_keys_listed_for_node_with_public_keys(self):
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        response = self.get(
+            '/latest/meta-data/', self.make_node_client(node=node))
+        self.assertIn(
+            'public-keys', response.content.decode('ascii').split('\n'))
 
     def test_public_keys_for_node_without_public_keys_returns_not_found(self):
         response = self.get(
