@@ -19,6 +19,7 @@ Overview
 
    readme
    hacking
+   installation
    juju-quick-start
    api
 
