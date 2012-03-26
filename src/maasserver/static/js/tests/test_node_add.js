@@ -98,20 +98,6 @@ function submit_add_node() {
 suite.add(new Y.maas.testing.TestCase({
     name: 'test-add-node-widget-add-node',
 
-    /* Set up a mock failure for adding a node.
-     *
-     * When the form tries to send an add-node request, the request's failure
-     * handler will be called with the fake response you provide.
-     */
-    mock_failure: function(fake_response) {
-	var mockXhr = new Y.Base();
-	mockXhr.send = function(url, cfg) {
-	    /* The 3 is a bogus transaction id. */
-	    cfg.on.failure(3, fake_response);
-	};
-	this.mockIO(mockXhr, module);
-    },
-
     testFormContainsArchitectureChoice: function() {
         // The generated form contains an 'architecture' field.
         module.showAddNodeWidget();
@@ -126,16 +112,18 @@ suite.add(new Y.maas.testing.TestCase({
         // submits (via an API call) the panel's form.
         module.showAddNodeWidget();
         var mockXhr = new Y.Base();
-        var fired = false;
         var form = find_form();
+        var fired = false;
+        var passed_form;
         mockXhr.send = function(uri, cfg) {
             fired = true;
-            Y.Assert.areEqual(form, cfg.form);
+            passed_form = cfg.form;
         };
         this.mockIO(mockXhr, module);
         find_hostname_input().set('value', 'host');
         find_add_button().simulate('click');
         Y.Assert.isTrue(fired);
+        Y.Assert.areEqual(form, passed_form.id);
     },
 
     testAddNodeAPICall: function() {
@@ -192,10 +180,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testValidationErrorInJSONGoesToFieldsNotGlobalErrors: function() {
-        this.mock_failure({
-            status: 400,
-            response: '{"architecture": ["Xur."]}'
-        });
+        this.mockFailure('{"architecture": ["Xur."]}', module, 400);
         submit_add_node();
         Y.Assert.areEqual(
             -1, find_global_errors().get('innerHTML').search("Xur."));
@@ -205,14 +190,14 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     test400ErrorMessageWithPlainText: function() {
-        this.mock_failure({status: 400, responseText: "Blergh."});
+        this.mockFailure("Blergh.", module, 400);
         submit_add_node();
         var error_message = find_global_errors().get('innerHTML');
         Y.Assert.areNotEqual(-1, error_message.search("Blergh."));
     },
 
     testLoggedOffErrorMessage: function() {
-        this.mock_failure({status: 401});
+        this.mockFailure("You are not logged in.", module, 401);
         submit_add_node();
         var error_message = find_global_errors().get('innerHTML');
         // The link to the login page is present in the error message.
@@ -221,14 +206,14 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testGenericErrorMessage: function() {
-        this.mock_failure({status: 500, responseText: "Internal error."});
+        this.mockFailure("Internal error.", module, 500);
         submit_add_node();
         var error_message = find_global_errors().get('innerHTML');
         Y.Assert.areNotEqual(-1, error_message.search("Internal error."));
     },
 
     testErrorsAreEscaped: function() {
-        this.mock_failure({status: 400, responseText: "<huh>"});
+        this.mockFailure("<huh>", module, 400);
         submit_add_node();
         var error_message = find_global_errors().get('innerHTML');
         Y.Assert.areEqual(-1, error_message.search("<huh>"));

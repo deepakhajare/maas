@@ -92,6 +92,8 @@ Y.extend(AddNodeWidget, Y.Panel, {
      * The "errors" argument is an object.  If a field has validation errors,
      * this object will map the field's name to a list of error strings.  Each
      * field's errors will be shown with the label for that field.
+     *
+     * @method displayFieldErrors
      */
     displayFieldErrors: function(errors) {
         this.cleanFormErrors();
@@ -240,7 +242,8 @@ Y.extend(AddNodeWidget, Y.Panel, {
                             /* Validation error: display the errors in the
                              * form next to their respective fields.
                              */
-                            self.displayFieldErrors(JSON.parse(out.response));
+                            self.displayFieldErrors(
+                                JSON.parse(out.responseText));
                         }
                         catch (e) {
                             Y.log(
