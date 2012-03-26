@@ -126,7 +126,7 @@ NODE_STATUS_CHOICES = (
     (NODE_STATUS.MISSING, "Missing"),
     (NODE_STATUS.READY, "Ready"),
     (NODE_STATUS.RESERVED, "Reserved"),
-    (NODE_STATUS.ALLOCATED, "Allocated"),
+    (NODE_STATUS.ALLOCATED, "Allocated to %(owner)s"),
     (NODE_STATUS.RETIRED, "Retired"),
 )
 
@@ -400,7 +400,10 @@ class Node(CommonInfo):
             return self.system_id
 
     def display_status(self):
-        return NODE_STATUS_CHOICES_DICT[self.status]
+        params = {
+            'owner': self.owner,
+        }
+        return NODE_STATUS_CHOICES_DICT[self.status] % params
 
     def add_mac_address(self, mac_address):
         """Add a new MAC Address to this `Node`.
