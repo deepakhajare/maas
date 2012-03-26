@@ -179,23 +179,6 @@ suite.add(new Y.maas.testing.TestCase({
         Y.Assert.isTrue(fired);
     },
 
-    testGenericErrorMessage: function() {
-        var mockXhr = new Y.Base();
-        mockXhr.send = function(url, cfg) {
-            cfg.on.failure(3, {status: 500});
-        };
-        this.mockIO(mockXhr, module);
-        module.showAddNodeWidget();
-        var panel = module._add_node_singleton;
-        panel.get('srcNode').one('#id_hostname').set('value', 'host');
-        var button = panel.get('srcNode').one('.yui3-button');
-        button.simulate('click');
-        var error_message = panel.get('srcNode').one('.form-errors').get(
-            'innerHTML');
-        var message_position = error_message.search("Unable to create Node.");
-        Y.Assert.areNotEqual(-1, error_message);
-    },
-
     testValidationErrorInJSONGoesToFieldsNotGlobalErrors: function() {
         this.mockFailure('{"architecture": ["Xur."]}', module, 400);
         submit_add_node();
