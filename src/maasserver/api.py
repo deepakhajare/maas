@@ -384,7 +384,7 @@ def extract_constraints(request_params):
     """Extract a dict of node allocation constraints from http parameters.
 
     :param request_params: Parameters submitted with the allocation request.
-    :type request_params: :class:`django.http.QueryDict. QueryDict`
+    :type request_params: :class:`django.http.QueryDict`
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """

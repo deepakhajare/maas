@@ -302,7 +302,7 @@ class NodeManagerTest(TestCase):
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': nodes[1].system_id}))
 
-    def test_get_available_node_does_not_blow_up_if_name_is_unknown(self):
+    def test_get_available_node_returns_None_if_name_is_unknown(self):
         user = factory.make_user()
         self.assertEqual(
             None,
