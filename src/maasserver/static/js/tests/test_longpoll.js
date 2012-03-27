@@ -201,7 +201,6 @@ suite.add(new Y.maas.testing.TestCase({
         var event_payload = null;
         Y.on(custom_response.event_key, function(data) {
             event_payload = data;
-            Y.Assert.areEqual(data, custom_response + '44');
         });
         var manager = longpoll.getLongPollManager();
         // Simulate success.
