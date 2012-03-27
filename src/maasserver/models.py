@@ -21,7 +21,10 @@ __all__ = [
     "UserProfile",
     ]
 
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    OrderedDict,
+    )
 import copy
 import datetime
 from errno import ENOENT
@@ -120,8 +123,7 @@ class NODE_STATUS:
 
 
 # Django choices for NODE_STATUS: sequence of tuples (key, UI
-# representation).  Limited parameterization of the representation is
-# allowed; see Node.display_status.
+# representation).
 NODE_STATUS_CHOICES = (
     (NODE_STATUS.DECLARED, "Declared"),
     (NODE_STATUS.COMMISSIONING, "Commissioning"),
@@ -129,12 +131,12 @@ NODE_STATUS_CHOICES = (
     (NODE_STATUS.MISSING, "Missing"),
     (NODE_STATUS.READY, "Ready"),
     (NODE_STATUS.RESERVED, "Reserved"),
-    (NODE_STATUS.ALLOCATED, "Allocated to %(owner)s"),
+    (NODE_STATUS.ALLOCATED, "Allocated"),
     (NODE_STATUS.RETIRED, "Retired"),
 )
 
 
-NODE_STATUS_CHOICES_DICT = dict(NODE_STATUS_CHOICES)
+NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -403,19 +405,20 @@ class Node(CommonInfo):
             return self.system_id
 
     def display_status(self):
-        """Resturn status text as displayed to the user.
+        """Return status text as displayed to the user.
 
         The UI representation is taken from NODE_STATUS_CHOICES_DICT and may
         interpolate the variable "owner" to reflect the username of the node's
         current owner, if any.
         """
-        params = {
-            # The User reference is represented as the user's username.
+        status_text = NODE_STATUS_CHOICES_DICT[self.status]
+        if self.status == NODE_STATUS.ALLOCATED:
+            # The User is represented as its username in interpolation.
             # Don't just say self.owner.username here, or there will be
             # trouble with unowned nodes!
-            'owner': self.owner,
-        }
-        return NODE_STATUS_CHOICES_DICT[self.status] % params
+            return "%s to %s" % (status_text, self.owner)
+        else:
+            return status_text
 
     def add_mac_address(self, mac_address):
         """Add a new MAC Address to this `Node`.

@@ -78,7 +78,9 @@ class NodeTest(TestCase):
     def test_display_status_for_allocated_node_shows_owner(self):
         node = factory.make_node(
             owner=factory.make_user(), status=NODE_STATUS.ALLOCATED)
-        self.assertIn(node.owner.username, node.display_status())
+        self.assertEqual(
+            "Allocated to %s" % node.owner.username,
+            node.display_status())
 
     def test_add_node_with_token(self):
         user = factory.make_user()
