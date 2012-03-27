@@ -6,6 +6,13 @@
 #
 # port: 5241
 
+## The credentials which the Provisioning API will require.
+#
+# username:
+username: "test"
+# password:
+password: "test"
+
 ## Where to log. This log can be rotated by sending SIGUSR1 to the
 ## running server.
 #

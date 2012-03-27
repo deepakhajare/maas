@@ -35,15 +35,69 @@ from twisted.application.service import (
     IServiceMaker,
     MultiService,
     )
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.credentials import IUsernamePassword
+from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.portal import (
+    IRealm,
+    Portal,
+    )
+from twisted.internet.defer import (
+    inlineCallbacks,
+    maybeDeferred,
+    returnValue,
+    )
 from twisted.plugin import IPlugin
 from twisted.python import (
     log,
     usage,
     )
-from twisted.web.resource import Resource
+from twisted.web.guard import (
+    BasicCredentialFactory,
+    HTTPAuthSessionWrapper,
+    )
+from twisted.web.resource import (
+    IResource,
+    Resource,
+    )
 from twisted.web.server import Site
 import yaml
-from zope.interface import implements
+from zope.interface import implementer
+
+
+@implementer(ICredentialsChecker)
+class SingleUsernamePasswordChecker:
+    """TODO."""
+
+    credentialInterfaces = [IUsernamePassword]
+
+    def __init__(self, username, password):
+        super(SingleUsernamePasswordChecker, self).__init__()
+        self.username = username
+        self.password = password
+
+    @inlineCallbacks
+    def requestAvatarId(self, credentials):
+        if credentials.username == self.username:
+            matched = yield maybeDeferred(
+                credentials.checkPassword, self.password)
+            if matched:
+                returnValue(credentials.username)
+        raise UnauthorizedLogin(credentials.username)
+
+
+@implementer(IRealm)
+class ProvisioningRealm:
+    """TODO."""
+
+    def __init__(self, resource):
+        super(ProvisioningRealm, self).__init__()
+        self.resource = resource
+
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        if IResource in interfaces:
+            return (IResource, self.resource, lambda: None)
+        raise NotImplementedError()
 
 
 class ConfigOops(Schema):
@@ -90,6 +144,8 @@ class Config(Schema):
     if_key_missing = None
 
     port = Int(min=1, max=65535, if_missing=5241)
+    username = String(not_empty=True)
+    password = String(not_empty=True)
     logfile = String(if_empty=b"pserv.log", if_missing=b"pserv.log")
     oops = ConfigOops
     broker = ConfigBroker
@@ -115,10 +171,9 @@ class Options(usage.Options):
         ]
 
 
+@implementer(IServiceMaker, IPlugin)
 class ProvisioningServiceMaker(object):
     """Create a service for the Twisted plugin."""
-
-    implements(IServiceMaker, IPlugin)
 
     options = Options
 
@@ -170,8 +225,15 @@ class ProvisioningServiceMaker(object):
             cobbler_config["password"])
         papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
 
+        papi_realm = ProvisioningRealm(papi_xmlrpc)
+        papi_checker = SingleUsernamePasswordChecker(
+            config["username"], config["password"])
+        papi_portal = Portal(papi_realm, [papi_checker])
+        papi_creds = BasicCredentialFactory(b"MAAS Provisioning API")
+        papi_root = HTTPAuthSessionWrapper(papi_portal, [papi_creds])
+
         site_root = Resource()
-        site_root.putChild("api", papi_xmlrpc)
+        site_root.putChild("api", papi_root)
         site = Site(site_root)
         site_port = config["port"]
         site_service = TCPServer(site_port, site)
