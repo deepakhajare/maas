@@ -39,21 +39,26 @@ Follow the prompts and MAAS will create an admin account that you can later use 
 Configuring a DHCP server
 =========================
 
-So that MAAS can PXE boot machines, you'll need a DHCP server. MAAS can work with your existing DHCP set-up but for this guide we'll use dnsmasq.
+So that MAAS can PXE boot machines, you'll need a DHCP server. MAAS can work 
+with your existing DHCP set-up but for this guide we'll use dnsmasq.
 
-dnsmasq should already be installed. However, if it is not, enter the following::
+dnsmasq should already be installed. However, if it is not, enter the 
+following::
 
   sudo apt-get install dnsmasq
 
-MAAS enlists nodes using a tool called Cobbler. Cobbler provides a configuration file for dnsmasq that you'll find here::
+MAAS enlists nodes using a tool called Cobbler. Cobbler provides a 
+configuration file for dnsmasq that you'll find here::
 
   /etc/cobbler/dnsmasq.template
   
 Make the following changes:
 
- * **domain**: if applicable, specify your network's domain.
- * **dhcp-range**: specify the range from which dnsmasq should allocate IP addresses to servers in your MAAS.
- * **dhcp-option=3,next_server**: replace **next_server** with the current server's IP address.
+ * ``domain``: if applicable, specify your network's domain.
+ * ``dhcp-range``: specify the range from wluke haineshich dnsmasq should allocate IP 
+                   addresses to servers in your MAAS.
+ * ``dhcp-option=3,next_server``: replace **next_server** with the current 
+                                  server's IP address.
  
 Save that file and now edit the Cobbler settings file::
 
@@ -61,8 +66,8 @@ Save that file and now edit the Cobbler settings file::
 
 You need to change two settings:
 
- * **manage_dns**: change the 0 to 1
- * **manage_dhcp**: again, change the 0 to 1.
+ * ``manage_dns``: change the 0 to 1
+ * ``manage_dhcp``: again, change the 0 to 1.
  
 Now restart dnsmasq::
 
@@ -72,7 +77,8 @@ Now restart dnsmasq::
 Import the Ubuntu images
 ========================
 
-MAAS will check for and download new Ubuntu images once a week. However, you'll need to download them manually the first time::
+MAAS will check for and download new Ubuntu images once a week. However, 
+you'll need to download them manually the first time::
 
   sudo maas-import-isos
 
@@ -80,8 +86,9 @@ MAAS will check for and download new Ubuntu images once a week. However, you'll 
 Next steps
 ==========
 
-Your MAAS is now ready for use. Visit the MAAS web interface in your browser at::
+Your MAAS is now ready for use. Visit the MAAS web interface in your browser 
+at::
 
-  $MAASServer/MAAS
+  http://localhost/MAAS
   
-The next step is to prepare your Juju environment.
+Now, :doc:`let's prepare your Juju environment <juju-quick-start>`.
