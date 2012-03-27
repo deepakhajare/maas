@@ -20,9 +20,13 @@ import shutil
 
 from django.conf import settings
 from django.db.models.signals import post_save
+from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
-from maasserver.api import extract_oauth_key
+from maasserver.api import (
+    extract_constraints,
+    extract_oauth_key,
+    )
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
     Config,
@@ -72,6 +76,15 @@ class TestModuleHelpers(TestCase):
 
     def test_extract_oauth_key_returns_None_without_oauth_key(self):
         self.assertIs(None, extract_oauth_key(''))
+
+    def test_extract_constraints_ignores_unknown_parameters(self):
+        self.assertEqual({}, extract_constraints(QueryDict('spin=left')))
+
+    def test_extract_constraints_extracts_name(self):
+        name = factory.getRandomString()
+        self.assertEqual(
+            {'name': name},
+            extract_constraints(QueryDict('name=%s' % name)))
 
 
 class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
@@ -795,6 +808,16 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual(desired_node.system_id, parsed_result['system_id'])
+
+    def test_POST_acquire_ignores_unknown_constraint(self):
+        node = factory.make_node(status=NODE_STATUS.READY, owner=None)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'scent': factory.getRandomString(),
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(node.system_id, parsed_result['system_id'])
 
     def test_POST_acquire_would_rather_fail_than_disobey_constraint(self):
         # If "acquire" is passed a constraint, it won't return a node
