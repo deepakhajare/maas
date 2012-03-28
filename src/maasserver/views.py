@@ -10,10 +10,21 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "AccountsAdd",
+    "AccountsDelete",
+    "AccountsEdit",
+    "AccountsView",
+    "combo_view",
+    "login",
     "logout",
     "NodeListView",
     "NodesCreateView",
     "NodeView",
+    "NodeEdit",
+    "settings",
+    "settings_add_archive",
+    "SSHKeyCreateView",
+    "SSHKeyDeleteView",
     ]
 
 from logging import getLogger
