@@ -123,7 +123,7 @@ class SSHKeyForm(ModelForm):
     class Meta:
         model = SSHKey
 
-    def __init__(self, user=None, *args, **kwargs):
+    def __init__(self, user, *args, **kwargs):
         super(SSHKeyForm, self).__init__(*args, **kwargs)
         self.user = user
 

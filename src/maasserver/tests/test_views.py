@@ -424,7 +424,7 @@ class KeyManagementTest(LoggedInTestCase):
         doc = fromstring(response.content)
 
         self.assertIn(
-            'Are you sure you want to delete the following key?',
+            "Are you sure you want to delete the following key?",
             response.content)
         # The page features a form that submits to itself.
         self.assertSequenceEqual(
