@@ -40,6 +40,7 @@ from maasserver.models import (
     SSHKey,
     SYSTEM_USERS,
     UserProfile,
+    validate_ssh_public_key,
     )
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing.enum import map_enum
@@ -518,6 +519,44 @@ class UserProfileTest(TestCase):
         usernames = set(
             user.username for user in UserProfile.objects.all_users())
         self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
+
+
+
+class SSHKeyValidatorTest(TestCase):
+
+    def get_data(self, filename):
+        """Utility method to read the content of files in
+        src/maasserver/tests.
+
+        Usually used to read files in src/maasserver/tests/data."""
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), filename)
+        return file(path).read()
+
+    def test_validates_rsa_public_key(self):
+        key_string = self.get_data('data/test_rsa.pub')
+        validate_ssh_public_key(key_string)
+        # No ValidationError.
+
+    def test_validates_dsa_public_key(self):
+        key_string = self.get_data('data/test_dsa.pub')
+        validate_ssh_public_key(key_string)
+        # No ValidationError.
+
+    def test_does_not_validate_random_data(self):
+        key_string = factory.getRandomString()
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
+
+    def test_does_not_validate_rsa_private_key(self):
+        key_string = self.get_data('data/test_rsa')
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
+
+    def test_does_not_validate_dsa_private_key(self):
+        key_string = self.get_data('data/test_dsa')
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
 
 
 class SSHKeyManagerTest(TestCase):
