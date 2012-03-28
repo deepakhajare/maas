@@ -59,6 +59,7 @@ def reconcile():
     nodes_remote = papi.get_nodes()
 
     missing_local = set(nodes_remote).difference(nodes_local)
+    missing_local.discard("default")
     for name in missing_local:
         print("remote:", name)
         remote_node = nodes_remote[name]
