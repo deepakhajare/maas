@@ -234,7 +234,11 @@ will need to run::
     $ ./bin/maas schemamigration maasserver --auto description_of_the_change
 
 This will generate a migration module named
-``src/maasserver/migrations/<auto_number>_description_of_the_change.py``.
+``src/maasserver/migrations/<auto_number>_description_of_the_change.py``.  Don't
+forget to add that file to the project with::
+
+    $ bzr add \
+        src/maasserver/migrations/<auto_number>_description_of_the_change.py
 
 To apply that migration, run::
 
@@ -254,7 +258,11 @@ changes to the ``maasserver`` application, run::
 This will generate a migration module named
 ``src/maasserver/migrations/<auto_number>_description_of_the_change.py``.
 You will need to edit that file and fill the ``forwards`` and ``backwards``
-methods were data should be actually migrated.
+methods where data should be actually migrated. Again, don't forget to
+add that file to the project::
+
+    $ bzr add \
+        src/maasserver/migrations/<auto_number>_description_of_the_change.py
 
 Once the methods have been written, apply that migration with::
 
