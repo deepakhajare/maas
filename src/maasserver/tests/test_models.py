@@ -520,6 +520,26 @@ class UserProfileTest(TestCase):
             user.username for user in UserProfile.objects.all_users())
         self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
 
+    def create_key_for_user(self, user):
+        key_string = get_data('data/test_rsa.pub')
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        return key
+
+    def test_get_ssh_keys_returns_users_keys(self):
+        user = factory.make_user()
+        key1 = self.create_key_for_user(user)
+        key2 = self.create_key_for_user(user)
+        self.assertSequenceEqual(
+            [key1, key2], user.get_profile().get_ssh_keys())
+
+    def test_get_ssh_keys_returns_only_users_keys(self):
+        user = factory.make_user()
+        self.create_key_for_user(factory.make_user())
+        key = self.create_key_for_user(user)
+        self.assertSequenceEqual(
+            [key], user.get_profile().get_ssh_keys())
+
 
 def get_data(filename):
     """Utility method to read the content of files in
@@ -575,6 +595,21 @@ class SSHKeyTest(TestCase):
         key = SSHKey(key=key_string, user=user)
         self.assertRaises(
             ValidationError, key.full_clean)
+
+    def test_sshkey_display_if_comment_size_limited(self):
+        key_string = get_data('data/test_rsa.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        display = key.display_html()
+        self.assertEqual(
+            'ssh-rsa AAAA&hellip; ubuntu@server-7476', display)
+
+    def test_sshkey_display_if_very_long_comment(self):
+        key_string = get_data('data/test_rsa_long_comment.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        display = key.display_html()
+        self.assertEqual('ssh-rsa AAAAB3NzaC1yc2EAAAADAQ&hellip;', display)
 
 
 class SSHKeyManagerTest(TestCase):

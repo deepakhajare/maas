@@ -46,6 +46,7 @@ from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
+from django.utils.safestring import mark_safe
 from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
@@ -657,6 +658,10 @@ class UserProfile(models.Model):
         token.consumer.delete()
         token.delete()
 
+    def get_ssh_keys(self):
+        """Return the SSH keys associated with this user."""
+        return SSHKey.objects.filter(user=self.user)
+
     def __unicode__(self):
         return self.user.username
 
@@ -699,6 +704,9 @@ def validate_ssh_public_key(value):
         raise ValidationError("Invalid SSH public key.")
 
 
+MAX_KEY_DISPLAY = 30
+
+
 class SSHKey(CommonInfo):
     """A `SSHKey` represents a user public SSH key.
 
@@ -719,6 +727,22 @@ class SSHKey(CommonInfo):
 
     def __unicode__(self):
         return self.key
+
+    def display_html(self):
+        """Return a compact HTML representation of this key.
+
+        :return: The HTML representation of this key.
+        :rtype: basestring
+        """
+        key = self.key.strip()
+        key_parts = key.split(' ')
+        if len(key_parts) == 3 and len(key_parts[2]) < MAX_KEY_DISPLAY:
+            comment = key_parts[2]
+            return mark_safe(
+                '%s&hellip; %s' % (
+                    key[:MAX_KEY_DISPLAY - len(comment)], comment))
+        else:
+            return mark_safe('%s&hellip;' % key[:MAX_KEY_DISPLAY])
 
 
 class FileStorageManager(models.Manager):
