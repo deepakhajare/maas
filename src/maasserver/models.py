@@ -658,10 +658,6 @@ class UserProfile(models.Model):
         token.consumer.delete()
         token.delete()
 
-    def get_ssh_keys(self):
-        """Return the SSH keys associated with this user."""
-        return SSHKey.objects.filter(user=self.user)
-
     def __unicode__(self):
         return self.user.username
 
