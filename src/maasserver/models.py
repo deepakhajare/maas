@@ -13,6 +13,7 @@ __all__ = [
     "create_auth_token",
     "generate_node_system_id",
     "get_auth_tokens",
+    "get_db_state",
     "get_html_display_for_key",
     "Config",
     "FileStorage",
@@ -146,6 +147,45 @@ NODE_STATUS_CHOICES = (
 
 
 NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
+
+
+NODE_TRANSITIONS = {
+    None: [
+        NODE_STATUS.DECLARED,  # Authenticated enlistment.
+        NODE_STATUS.READY,  # Anonymous enlistement.
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
+        ],
+    NODE_STATUS.DECLARED: [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
+        ],
+    NODE_STATUS.COMMISSIONING: [
+        NODE_STATUS.FAILED_TESTS,
+        NODE_STATUS.READY,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.READY: [
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.RESERVED,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.ALLOCATED: [
+        NODE_STATUS.READY,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.MISSING: [
+        NODE_STATUS.DECLARED,
+        NODE_STATUS.READY,
+        ],
+    NODE_STATUS.RETIRED: [
+        NODE_STATUS.MISSING,
+        ],
+    }
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -354,7 +394,7 @@ class NodeManager(models.Manager):
         :param user_data: Optional blob of user-data to be made available to
             the nodes through the metadata service.  If not given, any
             previous user data is used.
-        :type user_data: str
+        :type user_data: basestring
         :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
@@ -365,6 +405,21 @@ class NodeManager(models.Manager):
                 NodeUserData.objects.set_user_data(node, user_data)
         get_papi().start_nodes([node.system_id for node in nodes])
         return nodes
+
+
+def get_db_state(instance, field_name):
+    """Get the persisted state of the given field for the given instance.
+
+    :param instance: The model instance to consider.
+    :type instance: :class:`models.Model`
+    :param field_name: The name of the field to return.
+    :type field_name: basestring
+    """
+    try:
+        return getattr(
+            instance.__class__.objects.get(pk=instance.pk), field_name)
+    except instance.DoesNotExist:
+        return None
 
 
 class Node(CommonInfo):
@@ -423,6 +478,17 @@ class Node(CommonInfo):
             return "%s (%s)" % (self.system_id, self.hostname)
         else:
             return self.system_id
+
+    def clean(self, *args, **kwargs):
+        super(Node, self).clean(*args, **kwargs)
+        # Check that the status transition (if any) is valid.
+        old_status = get_db_state(self, 'status')
+        if self.status != old_status:
+            if self.status not in NODE_TRANSITIONS[old_status]:
+                raise ValidationError(
+                    "Invalid transition: %s -> %s" % (
+                        NODE_STATUS_CHOICES_DICT[old_status],
+                        NODE_STATUS_CHOICES_DICT[self.status]))
 
     def display_status(self):
         """Return status text as displayed to the user.
