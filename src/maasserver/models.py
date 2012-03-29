@@ -411,7 +411,7 @@ def get_db_state(instance, field_name):
     """Get the persisted state of the given field for the given instance.
 
     :param instance: The model instance to consider.
-    :type instance: :class:`models.Model`
+    :type instance: :class:`django.db.models.Model`
     :param field_name: The name of the field to return.
     :type field_name: basestring
     """
