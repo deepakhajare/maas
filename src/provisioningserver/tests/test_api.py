@@ -388,8 +388,7 @@ class ProvisioningAPITests:
         self.assertItemsEqual([node_name], nodes)
         node = nodes[node_name]
         self.assertEqual("enthroned", node["hostname"])
-        # TODO: Get fakeapi to record power_type as a node attribute.
-        #self.assertEqual("ether_wake", node["power_type"])
+        self.assertEqual("ether_wake", node["power_type"])
         self.assertEqual([], node["mac_addresses"])
 
     @inlineCallbacks
