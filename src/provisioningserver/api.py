@@ -146,6 +146,7 @@ def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
         yield {
             "interface": interface_name,
             "mac_address": mac_address,
+            "dns_name": "fred",
             }
 
 
@@ -190,13 +191,15 @@ class ProvisioningAPI:
         returnValue(profile.name)
 
     @inlineCallbacks
-    def add_node(self, name, profile, power_type, metadata):
+    def add_node(self, name, hostname, profile, power_type, metadata):
         assert isinstance(name, basestring)
+        assert isinstance(hostname, basestring)
         assert isinstance(profile, basestring)
         assert power_type in (POWER_TYPE.VIRSH, POWER_TYPE.WAKE_ON_LAN)
         assert isinstance(metadata, dict)
         preseed = b64encode(metadata_preseed % metadata)
         attributes = {
+            "hostname": hostname,
             "profile": profile,
             "ks_meta": {"MAAS_PRESEED": preseed},
             "power_type": power_type,

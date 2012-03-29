@@ -309,8 +309,8 @@ class ProvisioningAPITests:
         returnValue(profile_name)
 
     @inlineCallbacks
-    def add_node(self, papi, name=None, profile_name=None, power_type=None,
-                 metadata=None):
+    def add_node(self, papi, name=None, hostname=None, profile_name=None,
+                 power_type=None, metadata=None):
         """Creates a new node object via `papi`.
 
         Arranges for it to be deleted during test clean-up. If `name` is not
@@ -321,6 +321,8 @@ class ProvisioningAPITests:
         """
         if name is None:
             name = fake_name()
+        if hostname is None:
+            hostname = fake_name()
         if profile_name is None:
             profile_name = yield self.add_profile(papi)
         if power_type is None:
@@ -328,7 +330,7 @@ class ProvisioningAPITests:
         if metadata is None:
             metadata = fake_node_metadata()
         node_name = yield papi.add_node(
-            name, profile_name, power_type, metadata)
+            name, hostname, profile_name, power_type, metadata)
         self.addCleanup(
             self.cleanup_objects,
             papi.delete_nodes_by_name,
