@@ -35,7 +35,7 @@ class TestFactory(TestCase):
             factory.getRandomChoice(options),
             [option[0] for option in options])
 
-    def test_getRandomChoice_can_exclude_choice(self):
+    def test_getRandomChoice_can_exclude_choices(self):
         options = [(2, 'b'), (10, 'j')]
         but_not = [2]
         self.assertEqual(
