@@ -15,7 +15,12 @@ __all__ = [
 
 from base64 import b64encode
 from functools import partial
-from itertools import count
+from itertools import (
+    chain,
+    count,
+    izip,
+    repeat,
+    )
 
 from provisioningserver.cobblerclient import (
     CobblerDistro,
@@ -84,13 +89,14 @@ cobbler_mapping_to_papi_distros = partial(
     postprocess_mapping, function=cobbler_to_papi_distro)
 
 
-def gen_cobbler_interface_deltas(interfaces, mac_addresses):
+def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
     """Generate `modify_system` dicts for use with `xapi_object_edit`.
 
     This takes `interfaces` - the current state of a system's interfaces - and
     generates the operations required to transform it into a list of
     interfaces containing exactly `mac_addresses`.
 
+    :param hostname: The hostname of the system.
     :param interfaces: A dict of interface-names -> interface-configurations.
     :param mac_addresses: A collection of desired MAC addresses.
     """
@@ -98,9 +104,9 @@ def gen_cobbler_interface_deltas(interfaces, mac_addresses):
     # assigned. We may end up setting the MAC on these interfaces, but whether
     # or not that happens is undefined (for now).
     interfaces = {
-        name: configuration
-        for name, configuration in interfaces.items()
-        if configuration["mac_address"]
+        interface_name: interface
+        for interface_name, interface in interfaces.items()
+        if interface["mac_address"]
         }
 
     interface_names_by_mac_address = {
@@ -112,13 +118,11 @@ def gen_cobbler_interface_deltas(interfaces, mac_addresses):
     mac_addresses_to_add = set(
         mac_addresses).difference(interface_names_by_mac_address)
 
-    # Keep track of the used interface names.
-    interface_names = set(interfaces)
     # The following generator will lazily return interface names that can be
     # used when adding MAC addresses.
     interface_names_unused = (
         "eth%d" % num for num in count(0)
-        if "eth%d" % num not in interface_names)
+        if "eth%d" % num not in interfaces)
 
     # Create a delta to remove an interface in Cobbler. We sort the MAC
     # addresses to provide stability in this function's output (which
@@ -127,7 +131,7 @@ def gen_cobbler_interface_deltas(interfaces, mac_addresses):
         interface_name = interface_names_by_mac_address[mac_address]
         # Deallocate this interface name from our records; it can be used when
         # allocating interfaces later.
-        interface_names.remove(interface_name)
+        del interfaces[interface_name]
         yield {
             "interface": interface_name,
             "delete_interface": True,
@@ -142,12 +146,24 @@ def gen_cobbler_interface_deltas(interfaces, mac_addresses):
         # necessary (interface_names_unused will never go backwards) but we do
         # it defensively in case of later additions to this function, and
         # because it has a satifying symmetry.
-        interface_names.add(interface_name)
-        yield {
+        interface = {
             "interface": interface_name,
             "mac_address": mac_address,
-            "dns_name": "fred",
             }
+        interfaces[interface_name] = interface
+        yield interface
+
+    # Set dns_name to `hostname` for the first interface, and to the empty
+    # string for the rest.
+    interface_names = sorted(interfaces)  # Lowest-numbered first.
+    dns_names = chain([hostname], repeat(""))
+    for interface_name, dns_name in izip(interface_names, dns_names):
+        current_dns_name = interfaces[interface_name].get("dns_name", "")
+        if current_dns_name != dns_name:
+            yield {
+                "interface": interface_name,
+                "dns_name": dns_name,
+                }
 
 
 # Preseed data to send to cloud-init.  We set this as MAAS_PRESEED in
@@ -225,9 +241,10 @@ class ProvisioningAPI:
                 # This needs to be handled carefully.
                 mac_addresses = delta.pop("mac_addresses")
                 system_state = yield system.get_values()
+                hostname = system_state.get("hostname", "")
                 interfaces = system_state.get("interfaces", {})
                 interface_modifications = gen_cobbler_interface_deltas(
-                    interfaces, mac_addresses)
+                    interfaces, hostname, mac_addresses)
                 for interface_modification in interface_modifications:
                     yield system.modify(interface_modification)
             yield system.modify(delta)
