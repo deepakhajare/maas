@@ -30,8 +30,8 @@ class CannotDeleteUserException(Exception):
     """User can't be deleted."""
 
 
-class MissingProfileException(MAASException):
-    """System profile does not exist."""
+class NoRabbit(MAASException):
+    """Could not reach RabbitMQ."""
 
 
 class MAASAPIException(Exception):

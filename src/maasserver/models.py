@@ -18,10 +18,14 @@ __all__ = [
     "NODE_STATUS",
     "Node",
     "MACAddress",
+    "SSHKey",
     "UserProfile",
     ]
 
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    OrderedDict,
+    )
 import copy
 import datetime
 from errno import ENOENT
@@ -96,7 +100,9 @@ def generate_node_system_id():
 
 class NODE_STATUS:
     """The vocabulary of a `Node`'s possible statuses."""
-    DEFAULT_STATUS = 0
+    # A node starts out as READY.
+    DEFAULT_STATUS = 4
+
     #: The node has been created and has a system ID assigned to it.
     DECLARED = 0
     #: Testing and other commissioning steps are taking place.
@@ -117,6 +123,8 @@ class NODE_STATUS:
     RETIRED = 7
 
 
+# Django choices for NODE_STATUS: sequence of tuples (key, UI
+# representation).
 NODE_STATUS_CHOICES = (
     (NODE_STATUS.DECLARED, "Declared"),
     (NODE_STATUS.COMMISSIONING, "Commissioning"),
@@ -129,7 +137,7 @@ NODE_STATUS_CHOICES = (
 )
 
 
-NODE_STATUS_CHOICES_DICT = dict(NODE_STATUS_CHOICES)
+NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -175,19 +183,15 @@ ARCHITECTURE_CHOICES = (
 )
 
 
+def get_papi():
+    """Return a provisioning server API proxy."""
+    # Avoid circular imports.
+    from maasserver.provisioning import get_provisioning_api_proxy
+    return get_provisioning_api_proxy()
+
+
 class NodeManager(models.Manager):
     """A utility to manage the collection of Nodes."""
-
-    # Twisted XMLRPC proxy for talking to the provisioning API.  Created
-    # on demand.
-    provisioning_proxy = None
-
-    def _set_provisioning_proxy(self):
-        """Set up the provisioning-API proxy if needed."""
-        # Avoid circular imports.
-        from maasserver.provisioning import get_provisioning_api_proxy
-        if self.provisioning_proxy is None:
-            self.provisioning_proxy = get_provisioning_api_proxy()
 
     def filter_by_ids(self, query, ids=None):
         """Filter `query` result set by system_id values.
@@ -228,6 +232,27 @@ class NodeManager(models.Manager):
                 models.Q(owner__isnull=True) | models.Q(owner=user))
         return self.filter_by_ids(visible_nodes, ids)
 
+    def get_allocated_visible_nodes(self, token, ids):
+        """Fetch Nodes that were allocated to the User_/oauth token.
+
+        :param user: The user whose nodes to fetch
+        :type user: User_
+        :param token: The OAuth token associated with the Nodes.
+        :type token: piston.models.Token.
+        :param ids: Optional set of IDs to filter by. If given, nodes whose
+            system_ids are not in `ids` will be ignored.
+        :type param_ids: Sequence
+
+        .. _User: https://
+           docs.djangoproject.com/en/dev/topics/auth/
+           #django.contrib.auth.models.User
+        """
+        if ids is None:
+            nodes = self.filter(token=token)
+        else:
+            nodes = self.filter(token=token, system_id__in=ids)
+        return nodes
+
     def get_editable_nodes(self, user, ids=None):
         """Fetch Nodes a User_ has ownership privileges on.
 
@@ -265,15 +290,26 @@ class NodeManager(models.Manager):
         else:
             raise PermissionDenied
 
-    def get_available_node_for_acquisition(self, for_user):
+    def get_available_node_for_acquisition(self, for_user, constraints=None):
         """Find a `Node` to be acquired by the given user.
 
         :param for_user: The user who is to acquire the node.
-        :return: A `Node`, or None if none are available.
+        :type for_user: :class:`django.contrib.auth.models.User`
+        :param constraints: Optional selection constraints.  If given, only
+            nodes matching these constraints are considered.
+        :type constraints: :class:`dict`
+        :return: A matching `Node`, or None if none are available.
         """
+        if constraints is None:
+            constraints = {}
         available_nodes = (
             self.get_visible_nodes(for_user)
                 .filter(status=NODE_STATUS.READY))
+
+        if constraints.get('name'):
+            available_nodes = available_nodes.filter(
+                system_id=constraints['name'])
+
         available_nodes = list(available_nodes[:1])
         if len(available_nodes) == 0:
             return None
@@ -293,9 +329,8 @@ class NodeManager(models.Manager):
         :return: Those Nodes for which shutdown was actually requested.
         :rtype: list
         """
-        self._set_provisioning_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
-        self.provisioning_proxy.stop_nodes([node.system_id for node in nodes])
+        get_papi().stop_nodes([node.system_id for node in nodes])
         return nodes
 
     def start_nodes(self, ids, by_user, user_data=None):
@@ -316,13 +351,11 @@ class NodeManager(models.Manager):
         :rtype: list
         """
         from metadataserver.models import NodeUserData
-        self._set_provisioning_proxy()
         nodes = self.get_editable_nodes(by_user, ids=ids)
         if user_data is not None:
             for node in nodes:
                 NodeUserData.objects.set_user_data(node, user_data)
-        self.provisioning_proxy.start_nodes(
-            [node.system_id for node in nodes])
+        get_papi().start_nodes([node.system_id for node in nodes])
         return nodes
 
 
@@ -356,7 +389,7 @@ class Node(CommonInfo):
         default=NODE_STATUS.DEFAULT_STATUS)
 
     owner = models.ForeignKey(
-        User, default=None, blank=True, null=True, editable=False)
+        User, default=None, blank=True, null=True, editable=True)
 
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -372,6 +405,9 @@ class Node(CommonInfo):
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
 
+    token = models.ForeignKey(
+        Token, db_index=True, null=True, editable=False, unique=False)
+
     objects = NodeManager()
 
     def __unicode__(self):
@@ -381,7 +417,20 @@ class Node(CommonInfo):
             return self.system_id
 
     def display_status(self):
-        return NODE_STATUS_CHOICES_DICT[self.status]
+        """Return status text as displayed to the user.
+
+        The UI representation is taken from NODE_STATUS_CHOICES_DICT and may
+        interpolate the variable "owner" to reflect the username of the node's
+        current owner, if any.
+        """
+        status_text = NODE_STATUS_CHOICES_DICT[self.status]
+        if self.status == NODE_STATUS.ALLOCATED:
+            # The User is represented as its username in interpolation.
+            # Don't just say self.owner.username here, or there will be
+            # trouble with unowned nodes!
+            return "%s to %s" % (status_text, self.owner)
+        else:
+            return status_text
 
     def add_mac_address(self, mac_address):
         """Add a new MAC Address to this `Node`.
@@ -411,6 +460,11 @@ class Node(CommonInfo):
         if mac:
             mac.delete()
 
+    def delete(self):
+        # Delete the related mac addresses first.
+        self.macaddress_set.all().delete()
+        super(Node, self).delete()
+
     def set_mac_based_hostname(self, mac_address):
         mac_hostname = mac_address.replace(':', '').lower()
         self.hostname = "node-%s" % mac_hostname
@@ -433,12 +487,13 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, by_user):
-        """Mark commissioned node as acquired by the given user."""
+    def acquire(self, token):
+        """Mark commissioned node as acquired by the given user's token."""
         assert self.status == NODE_STATUS.READY
         assert self.owner is None
         self.status = NODE_STATUS.ALLOCATED
-        self.owner = by_user
+        self.owner = token.user
+        self.token = token
 
     def release(self):
         """Mark allocated or reserved node as available again."""
@@ -449,6 +504,7 @@ class Node(CommonInfo):
             ]
         self.status = NODE_STATUS.READY
         self.owner = None
+        self.token = None
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
@@ -462,7 +518,7 @@ class MACAddress(CommonInfo):
     :ivar node: The `Node` related to this `MACAddress`.
 
     """
-    mac_address = MACAddressField()
+    mac_address = MACAddressField(unique=True)
     node = models.ForeignKey(Node, editable=False)
 
     class Meta:
@@ -619,15 +675,30 @@ post_save.connect(create_user, sender=User)
 User._meta.get_field('email')._unique = True
 
 
-class SSHKeys(models.Model):
-    """A simple SSH public keystore that can be retrieved, a user
-       can have multiple keys.
+class SSHKeyManager(models.Manager):
+    """A utility to manage the colletion of `SSHKey`s."""
+
+    def get_keys_for_user(self, user):
+        """Return the text of the ssh keys associated with a user."""
+        return SSHKey.objects.filter(user=user).values_list('key', flat=True)
+
+
+class SSHKey(CommonInfo):
+    """A `SSHKey` represents a user public SSH key.
+
+    Users will be able to access `Node`s using any of their registered keys.
 
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
     """
-    user = models.ForeignKey(UserProfile)
-    key = models.TextField()
+    class Meta:
+        verbose_name_plural = "SSH keys"
+
+    objects = SSHKeyManager()
+
+    user = models.ForeignKey(User, null=False, editable=False)
+
+    key = models.TextField(null=False, editable=True)
 
     def __unicode__(self):
         return self.key
@@ -778,7 +849,6 @@ def get_default_config():
             [['archive.ubuntu.com', 'archive.ubuntu.com']]),
         # Network section configuration.
         'maas_name': gethostname(),
-        'provide_dhcp': False,
         ## /settings
         }
 
@@ -893,7 +963,7 @@ admin.site.register(Config)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
-admin.site.register(SSHKeys)
+admin.site.register(SSHKey)
 
 
 class MAASAuthorizationBackend(ModelBackend):
@@ -912,12 +982,13 @@ class MAASAuthorizationBackend(ModelBackend):
             raise NotImplementedError(
                 'Invalid permission check (invalid object type).')
 
-        # Only the generic 'access' permission is supported.
-        if perm != 'access':
+        if perm == 'access':
+            return obj.owner in (None, user)
+        elif perm == 'edit':
+            return obj.owner == user
+        else:
             raise NotImplementedError(
                 'Invalid permission check (invalid permission name).')
-
-        return obj.owner in (None, user)
 
 
 # 'provisioning' is imported so that it can register its signal handlers early

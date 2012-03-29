@@ -13,11 +13,11 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
+from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
-from maastesting.rabbit import uses_rabbit_fixture
 from maastesting.testcase import TestCase
 from metadataserver.api import (
     check_version,
@@ -63,7 +63,6 @@ class TestHelpers(TestCase):
     def test_check_version_reports_unknown_version(self):
         self.assertRaises(UnknownMetadataVersion, check_version, '1.0')
 
-    @uses_rabbit_fixture
     def test_get_node_for_request_finds_node(self):
         node = factory.make_node()
         token = NodeKey.objects.get_token_for_node(node)
@@ -108,12 +107,10 @@ class TestViews(TestCase):
     def test_no_anonymous_access(self):
         self.assertEqual(httplib.UNAUTHORIZED, self.get('/').status_code)
 
-    @uses_rabbit_fixture
     def test_metadata_index_shows_latest(self):
         client = self.make_node_client()
         self.assertIn('latest', self.get('/', client).content)
 
-    @uses_rabbit_fixture
     def test_metadata_index_shows_only_known_versions(self):
         client = self.make_node_client()
         for item in self.get('/', client).content.splitlines():
@@ -121,19 +118,16 @@ class TestViews(TestCase):
         # The test is that we get here without exception.
         pass
 
-    @uses_rabbit_fixture
     def test_version_index_shows_meta_data(self):
         client = self.make_node_client()
         items = self.get('/latest/', client).content.splitlines()
         self.assertIn('meta-data', items)
 
-    @uses_rabbit_fixture
     def test_version_index_does_not_show_user_data_if_not_available(self):
         client = self.make_node_client()
         items = self.get('/latest/', client).content.splitlines()
         self.assertNotIn('user-data', items)
 
-    @uses_rabbit_fixture
     def test_version_index_shows_user_data_if_available(self):
         node = factory.make_node()
         NodeUserData.objects.set_user_data(node, b"User data for node")
@@ -141,22 +135,22 @@ class TestViews(TestCase):
         items = self.get('/latest/', client).content.splitlines()
         self.assertIn('user-data', items)
 
-    @uses_rabbit_fixture
     def test_meta_data_view_lists_fields(self):
-        client = self.make_node_client()
+        # Some fields only are returned if there is data related to them.
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        client = self.make_node_client(node=node)
         response = self.get('/latest/meta-data/', client)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertItemsEqual(
             MetaDataHandler.fields, response.content.split())
 
-    @uses_rabbit_fixture
     def test_meta_data_view_is_sorted(self):
         client = self.make_node_client()
         response = self.get('/latest/meta-data/', client)
         attributes = response.content.split()
         self.assertEqual(sorted(attributes), attributes)
 
-    @uses_rabbit_fixture
     def test_meta_data_unknown_item_is_not_found(self):
         client = self.make_node_client()
         response = self.get('/latest/meta-data/UNKNOWN-ITEM-HA-HA-HA', client)
@@ -167,7 +161,6 @@ class TestViews(TestCase):
         producers = map(handler.get_attribute_producer, handler.fields)
         self.assertNotIn(None, producers)
 
-    @uses_rabbit_fixture
     def test_meta_data_local_hostname_returns_hostname(self):
         hostname = factory.getRandomString()
         client = self.make_node_client(factory.make_node(hostname=hostname))
@@ -177,7 +170,6 @@ class TestViews(TestCase):
             (response.status_code, response.content.decode('ascii')))
         self.assertIn('text/plain', response['Content-Type'])
 
-    @uses_rabbit_fixture
     def test_meta_data_instance_id_returns_system_id(self):
         node = factory.make_node()
         client = self.make_node_client(node)
@@ -187,7 +179,6 @@ class TestViews(TestCase):
             (response.status_code, response.content.decode('ascii')))
         self.assertIn('text/plain', response['Content-Type'])
 
-    @uses_rabbit_fixture
     def test_user_data_view_returns_binary_data(self):
         data = b"\x00\xff\xff\xfe\xff"
         node = factory.make_node()
@@ -199,7 +190,36 @@ class TestViews(TestCase):
         self.assertEqual(
             (httplib.OK, data), (response.status_code, response.content))
 
-    @uses_rabbit_fixture
     def test_user_data_for_node_without_user_data_returns_not_found(self):
         response = self.get('/latest/user-data', self.make_node_client())
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_public_keys_not_listed_for_node_without_public_keys(self):
+        response = self.get('/latest/meta-data/', self.make_node_client())
+        self.assertNotIn(
+            'public-keys', response.content.decode('ascii').split('\n'))
+
+    def test_public_keys_listed_for_node_with_public_keys(self):
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        response = self.get(
+            '/latest/meta-data/', self.make_node_client(node=node))
+        self.assertIn(
+            'public-keys', response.content.decode('ascii').split('\n'))
+
+    def test_public_keys_for_node_without_public_keys_returns_not_found(self):
+        response = self.get(
+            '/latest/meta-data/public-keys', self.make_node_client())
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_public_keys_for_node_returns_list_of_keys(self):
+        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        node = factory.make_node(owner=user)
+        response = self.get(
+            '/latest/meta-data/public-keys', self.make_node_client(node=node))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEquals(dedent("""\
+            ssh-rsa KEY my-user-key-0
+            ssh-rsa KEY my-user-key-1"""),
+            response.content.decode('ascii'))
+        self.assertIn('text/plain', response['Content-Type'])

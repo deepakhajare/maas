@@ -56,7 +56,6 @@ from maasserver.models import (
     MACAddress,
     Node,
     NODE_STATUS,
-    NODE_STATUS_CHOICES_DICT,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -64,6 +63,7 @@ from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
 
@@ -349,7 +349,7 @@ class NodeHandler(BaseHandler):
         else:
             raise NodeStateViolation(
                 "Node cannot be released in its current state ('%s')."
-                % NODE_STATUS_CHOICES_DICT.get(node.status, "UNKNOWN"))
+                % node.display_status())
         return node
 
 
@@ -379,6 +379,21 @@ class AnonNodesHandler(AnonymousBaseHandler):
         return ('nodes_handler', [])
 
 
+def extract_constraints(request_params):
+    """Extract a dict of node allocation constraints from http parameters.
+
+    :param request_params: Parameters submitted with the allocation request.
+    :type request_params: :class:`django.http.QueryDict`
+    :return: A mapping of applicable constraint names to their values.
+    :rtype: :class:`dict`
+    """
+    name = request_params.get('name', None)
+    if name is None:
+        return {}
+    else:
+        return {'name': name}
+
+
 @api_operations
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes."""
@@ -399,13 +414,39 @@ class NodesHandler(BaseHandler):
         nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
         return nodes.order_by('id')
 
+    @api_exported('list_allocated', 'GET')
+    def list_allocated(self, request):
+        """Fetch Nodes that were allocated to the User/oauth token."""
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        # A plain assertion is fine here because to get this far we
+        # should already have a valid authorization. If the assertion
+        # fails it is a genuine bug in the code and this will return a
+        # 500 response which is appropriate.
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        assert key is not None, (
+            "Invalid Authorization header on request.")
+        token = Token.objects.get(key=key)
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_allocated_visible_nodes(token, match_ids)
+        return nodes.order_by('id')
+
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
-        node = Node.objects.get_available_node_for_acquisition(request.user)
+        node = Node.objects.get_available_node_for_acquisition(
+            request.user, constraints=extract_constraints(request.data))
         if node is None:
-            raise NodesNotAvailable("No node is available.")
-        node.acquire(request.user)
+            raise NodesNotAvailable("No matching node is available.")
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        token = Token.objects.get(key=key)
+        node.acquire(token)
         node.save()
         return node
 
@@ -479,27 +520,48 @@ class NodeMacHandler(BaseHandler):
         return ('node_mac_handler', [node_system_id, mac_address])
 
 
+def get_file(handler, request):
+    """Get a named file from the file storage.
+
+    :param filename: The exact name of the file you want to get.
+    :type filename: string
+    :return: The file is returned in the response content.
+    """
+    filename = request.GET.get("filename", None)
+    if not filename:
+        raise MAASAPIBadRequest("Filename not supplied")
+    try:
+        db_file = FileStorage.objects.get(filename=filename)
+    except FileStorage.DoesNotExist:
+        raise MAASAPINotFound("File not found")
+    return HttpResponse(db_file.data.read(), status=httplib.OK)
+
+
+@api_operations
+class AnonFilesHandler(AnonymousBaseHandler):
+    """Anonymous file operations.
+
+    This is needed for Juju. The story goes something like this:
+
+    - The Juju provider will upload a file using an "unguessable" name.
+
+    - The name of this file (or its URL) will be shared with all the agents in
+      the environment. They cannot modify the file, but they can access it
+      without credentials.
+
+    """
+    allowed_methods = ('GET',)
+
+    get = api_exported('get', 'GET')(get_file)
+
+
 @api_operations
 class FilesHandler(BaseHandler):
     """File management operations."""
     allowed_methods = ('GET', 'POST',)
+    anonymous = AnonFilesHandler
 
-    @api_exported('get', 'GET')
-    def get(self, request):
-        """Get a named file from the file storage.
-
-        :param filename: The exact name of the file you want to get.
-        :type filename: string
-        :return: The file is returned in the response content.
-        """
-        filename = request.GET.get("filename", None)
-        if not filename:
-            raise MAASAPIBadRequest("Filename not supplied")
-        try:
-            db_file = FileStorage.objects.get(filename=filename)
-        except FileStorage.DoesNotExist:
-            raise MAASAPINotFound("File not found")
-        return HttpResponse(db_file.data.read(), status=httplib.OK)
+    get = api_exported('get', 'GET')(get_file)
 
     @api_exported('add', 'POST')
     def add(self, request):

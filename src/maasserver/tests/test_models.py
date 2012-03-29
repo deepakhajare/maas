@@ -37,9 +37,11 @@ from maasserver.models import (
     Node,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
+    SSHKey,
     SYSTEM_USERS,
     UserProfile,
     )
+from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -68,11 +70,24 @@ class NodeTest(TestCase):
         self.assertEqual(len(node.system_id), 41)
         self.assertTrue(node.system_id.startswith('node-'))
 
-    def test_display_status(self):
+    def test_display_status_shows_default_status(self):
         node = factory.make_node()
         self.assertEqual(
-            NODE_STATUS_CHOICES_DICT[NODE_STATUS.DECLARED],
+            NODE_STATUS_CHOICES_DICT[node.status],
             node.display_status())
+
+    def test_display_status_for_allocated_node_shows_owner(self):
+        node = factory.make_node(
+            owner=factory.make_user(), status=NODE_STATUS.ALLOCATED)
+        self.assertEqual(
+            "Allocated to %s" % node.owner.username,
+            node.display_status())
+
+    def test_add_node_with_token(self):
+        user = factory.make_user()
+        token = create_auth_token(user)
+        node = factory.make_node(token=token)
+        self.assertEqual(token, node.token)
 
     def test_add_mac_address(self):
         node = factory.make_node()
@@ -88,6 +103,13 @@ class NodeTest(TestCase):
         macs = MACAddress.objects.filter(
             node=node, mac_address='AA:BB:CC:DD:EE:FF').count()
         self.assertEqual(0, macs)
+
+    def test_delete_node_deletes_related_mac(self):
+        node = factory.make_node()
+        mac = node.add_mac_address('AA:BB:CC:DD:EE:FF')
+        node.delete()
+        self.assertRaises(
+            MACAddress.DoesNotExist, MACAddress.objects.get, id=mac.id)
 
     def test_set_mac_based_hostname(self):
         node = factory.make_node()
@@ -122,7 +144,8 @@ class NodeTest(TestCase):
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
-        node.acquire(user)
+        token = create_auth_token(user)
+        node.acquire(token)
         self.assertEqual(user, node.owner)
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
 
@@ -270,15 +293,37 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             None, Node.objects.get_available_node_for_acquisition(user))
 
+    def test_get_available_node_combines_constraint_with_availability(self):
+        user = factory.make_user()
+        node = self.make_node(factory.make_user())
+        self.assertEqual(
+            None,
+            Node.objects.get_available_node_for_acquisition(
+                user, {'name': node.system_id}))
+
+    def test_get_available_node_constrains_by_name(self):
+        user = factory.make_user()
+        nodes = [self.make_node() for counter in range(3)]
+        self.assertEqual(
+            nodes[1],
+            Node.objects.get_available_node_for_acquisition(
+                user, {'name': nodes[1].system_id}))
+
+    def test_get_available_node_returns_None_if_name_is_unknown(self):
+        user = factory.make_user()
+        self.assertEqual(
+            None,
+            Node.objects.get_available_node_for_acquisition(
+                user, {'name': factory.getRandomString()}))
+
     def test_stop_nodes_stops_nodes(self):
         user = factory.make_user()
         node = self.make_node(user)
         output = Node.objects.stop_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
-        self.assertEqual(
-            'stop',
-            Node.objects.provisioning_proxy.power_status[node.system_id])
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('stop', power_status[node.system_id])
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [self.make_node(factory.make_user()) for counter in range(3)]
@@ -294,9 +339,8 @@ class NodeManagerTest(TestCase):
         output = Node.objects.start_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
-        self.assertEqual(
-            'start',
-            Node.objects.provisioning_proxy.power_status[node.system_id])
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('start', power_status[node.system_id])
 
     def test_start_nodes_ignores_uneditable_nodes(self):
         nodes = [self.make_node(factory.make_user()) for counter in range(3)]
@@ -474,6 +518,26 @@ class UserProfileTest(TestCase):
         usernames = set(
             user.username for user in UserProfile.objects.all_users())
         self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
+
+
+class SSHKeyManagerTest(TestCase):
+    """Testing for the :class `SSHKeyManager` model manager."""
+
+    def test_get_keys_for_user_no_keys(self):
+        user = factory.make_user()
+        keys = SSHKey.objects.get_keys_for_user(user)
+        self.assertItemsEqual([], keys)
+
+    def test_get_keys_for_user_with_keys(self):
+        user1 = factory.make_user_with_keys(n_keys=3, username='user1')
+        # user2
+        factory.make_user_with_keys(n_keys=2)
+        keys = SSHKey.objects.get_keys_for_user(user1)
+        self.assertItemsEqual([
+            'ssh-rsa KEY user1-key-0',
+            'ssh-rsa KEY user1-key-1',
+            'ssh-rsa KEY user1-key-2',
+            ], keys)
 
 
 class FileStorageTest(TestCase):

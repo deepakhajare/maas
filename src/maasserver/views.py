@@ -16,6 +16,7 @@ __all__ = [
     "NodeView",
     ]
 
+from logging import getLogger
 import mimetypes
 import os
 import urllib2
@@ -32,6 +33,7 @@ from django.contrib.auth.views import (
     login as dj_login,
     logout as dj_logout,
     )
+from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
@@ -44,7 +46,6 @@ from django.shortcuts import (
     render_to_response,
     )
 from django.template import RequestContext
-from django.utils.safestring import mark_safe
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -52,7 +53,10 @@ from django.views.generic import (
     ListView,
     UpdateView,
     )
-from maasserver.exceptions import CannotDeleteUserException
+from maasserver.exceptions import (
+    CannotDeleteUserException,
+    NoRabbit,
+    )
 from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
@@ -61,11 +65,12 @@ from maasserver.forms import (
     NewUserCreationForm,
     ProfileForm,
     UbuntuForm,
+    UIAdminNodeEditForm,
+    UINodeEditForm,
     )
 from maasserver.messages import messaging
 from maasserver.models import (
     Node,
-    SSHKeys,
     UserProfile,
     )
 
@@ -93,13 +98,45 @@ class NodeView(DetailView):
         id = self.kwargs.get('id', None)
         return get_object_or_404(Node, id=id)
 
+    def get_context_data(self, **kwargs):
+        context = super(NodeView, self).get_context_data(**kwargs)
+        node = self.get_object()
+        context['can_edit'] = self.request.user.has_perm('edit', node)
+        return context
+
+
+class NodeEdit(UpdateView):
+
+    template_name = 'maasserver/node_edit.html'
+
+    def get_object(self):
+        id = self.kwargs.get('id', None)
+        node = get_object_or_404(Node, id=id)
+        if not self.request.user.has_perm('edit', node):
+            raise PermissionDenied()
+        return node
+
+    def get_form_class(self):
+        if self.request.user.is_superuser:
+            return UIAdminNodeEditForm
+        else:
+            return UINodeEditForm
+
+    def get_success_url(self):
+        return reverse('node-view', args=[self.get_object().id])
+
 
 def get_longpoll_context():
     if messaging is not None and django_settings.LONGPOLL_PATH is not None:
-        return {
-            'longpoll_queue': messaging.getQueue().name,
-            'LONGPOLL_PATH': django_settings.LONGPOLL_PATH,
-            }
+        try:
+            return {
+                'longpoll_queue': messaging.getQueue().name,
+                'LONGPOLL_PATH': django_settings.LONGPOLL_PATH,
+                }
+        except NoRabbit as e:
+            getLogger('maasserver').warn(
+                "Could not connect to RabbitMQ: %s", e)
+            return {}
     else:
         return {}
 
@@ -123,13 +160,6 @@ class NodesCreateView(CreateView):
 
     def get_success_url(self):
         return reverse('index')
-
-
-def KeystoreView(request, userid):
-    keys = SSHKeys.objects.filter(user__user__username=userid)
-    return render_to_response(
-        'maasserver/sshkeys.txt', {'keys': keys}, mimetype="text/plain",
-        context_instance=RequestContext(request))
 
 
 def process_form(request, form_class, redirect_url, prefix,

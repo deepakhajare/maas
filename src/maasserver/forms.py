@@ -16,6 +16,8 @@ __all__ = [
     "MACAddressForm",
     "MAASAndNetworkForm",
     "UbuntuForm",
+    "UIAdminNodeEditForm",
+    "UINodeEditForm",
     ]
 
 from django import forms
@@ -40,6 +42,7 @@ from maasserver.models import (
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    UserProfile,
     )
 
 
@@ -83,6 +86,27 @@ class NodeForm(ModelForm):
             'architecture', 'power_type')
 
 
+class UINodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+    class Meta:
+        model = Node
+        fields = ('hostname', 'after_commissioning_action')
+
+
+class UIAdminNodeEditForm(ModelForm):
+    after_commissioning_action = forms.ChoiceField(
+        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+    owner = forms.ModelChoiceField(
+        queryset=UserProfile.objects.all_users(), required=False)
+
+    class Meta:
+        model = Node
+        fields = (
+            'hostname', 'after_commissioning_action', 'power_type', 'owner')
+
+
 class MACAddressForm(ModelForm):
     class Meta:
         model = MACAddress
@@ -119,6 +143,15 @@ class NodeWithMACAddressesForm(NodeForm):
             self.errors['mac_addresses'] = (
                 ['One or more MAC Addresses is invalid.'])
         return valid
+
+    def clean_mac_addresses(self):
+        data = self.cleaned_data['mac_addresses']
+        for mac in data:
+            if MACAddress.objects.filter(mac_address=mac.lower()).count() > 0:
+                raise ValidationError(
+                    {'mac_addresses': [
+                        'Mac address %s already in use.' % mac]})
+        return data
 
     def save(self):
         node = super(NodeWithMACAddressesForm, self).save()
@@ -232,8 +265,6 @@ class ConfigForm(Form):
 class MAASAndNetworkForm(ConfigForm):
     """Settings page, MAAS and Network section."""
     maas_name = forms.CharField(label="MAAS name")
-    provide_dhcp = forms.BooleanField(
-        label="Provide DHCP on this subnet", required=False)
 
 
 class CommissioningForm(ConfigForm):
