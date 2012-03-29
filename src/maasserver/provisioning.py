@@ -40,7 +40,7 @@ PRESENTATIONS = {
         The provisioning server was unable to reach the Cobbler service:
         %(fault_string)s
 
-        Check pserv.log, and restart MaaS if needed.
+        Check pserv.log, and restart MAAS if needed.
         """,
     PSERV_FAULT.COBBLER_AUTH_FAILED: """
         The provisioning server failed to authenticate with the Cobbler
@@ -71,7 +71,7 @@ PRESENTATIONS = {
     8002: """
         Unable to reach provisioning server (%(fault_string)s).
 
-        Check pserv.log and your PSERV_URL setting, and restart MaaS if
+        Check pserv.log and your PSERV_URL setting, and restart MAAS if
         needed.
         """,
 }
