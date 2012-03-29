@@ -13,6 +13,7 @@ __all__ = [
     "create_auth_token",
     "generate_node_system_id",
     "get_auth_tokens",
+    "get_html_display_for_key",
     "Config",
     "FileStorage",
     "NODE_STATUS",
@@ -41,11 +42,13 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
+from django.utils.safestring import mark_safe
 from maasserver.exceptions import (
     CannotDeleteUserException,
     PermissionDenied,
@@ -62,6 +65,10 @@ from piston.models import (
 from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
+    )
+from twisted.conch.ssh.keys import (
+    BadKeyError,
+    Key,
     )
 
 # Special users internal to MAAS.
@@ -689,6 +696,59 @@ class SSHKeyManager(models.Manager):
         return SSHKey.objects.filter(user=user).values_list('key', flat=True)
 
 
+def validate_ssh_public_key(value):
+    """Validate that the given value contains a valid SSH public key."""
+    try:
+        key = Key.fromString(value)
+        if not key.isPublic():
+            raise ValidationError(
+                "Invalid SSH public key (this key is a private key).")
+    except BadKeyError:
+        raise ValidationError("Invalid SSH public key.")
+
+
+HELLIPSIS = '&hellip;'
+
+
+def get_html_display_for_key(key, size):
+    """Return a compact HTML representation of this key with a boundary on
+    the size of the resulting string.
+
+    A key typically looks like this: 'key_type key_string comment'.
+    What we want here is display the key_type and, if possible (i.e. if it
+    fits in the boundary that `size` gives us), the comment.  If possible we
+    also want to display a truncated key_string.  If the comment is too big
+    to fit in, we simply display a cropped version of the whole string.
+
+    :param key: The key for which we want an HTML representation.
+    :type name: basestring
+    :param size: The maximum size of the representation.
+    :type size: int
+    :return: The HTML representation of this key.
+    :rtype: basestring
+    """
+    key = key.strip()
+    key_parts = key.split(' ', 2)
+
+    if len(key_parts) == 3:
+        key_type = key_parts[0]
+        key_string = key_parts[1]
+        comment = key_parts[2]
+        room_for_key = (
+            size - (len(key_type) + len(comment) + len(HELLIPSIS) + 2))
+        if room_for_key > 0:
+            return '%s %.*s%s %s' % (
+                key_type, room_for_key, key_string, HELLIPSIS, comment)
+
+    if len(key) > size:
+        return '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS)
+    else:
+        return key
+
+
+MAX_KEY_DISPLAY = 50
+
+
 class SSHKey(CommonInfo):
     """A `SSHKey` represents a user public SSH key.
 
@@ -704,10 +764,19 @@ class SSHKey(CommonInfo):
 
     user = models.ForeignKey(User, null=False, editable=False)
 
-    key = models.TextField(null=False, editable=True)
+    key = models.TextField(
+        null=False, editable=True, validators=[validate_ssh_public_key])
 
     def __unicode__(self):
         return self.key
+
+    def display_html(self):
+        """Return a compact HTML representation of this key.
+
+        :return: The HTML representation of this key.
+        :rtype: basestring
+        """
+        return mark_safe(get_html_display_for_key(self.key, MAX_KEY_DISPLAY))
 
 
 class FileStorageManager(models.Manager):
