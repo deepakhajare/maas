@@ -210,7 +210,7 @@ class GetDbStateTest(TestCase):
 
     def test_get_db_state_returns_db_state(self):
         status = factory.getRandomChoice(NODE_STATUS_CHOICES)
-        node = factory.make_node(status)
+        node = factory.make_node(status=status)
         another_status = factory.getRandomChoice(
             NODE_STATUS_CHOICES, but_not=[status])
         node.status = another_status
