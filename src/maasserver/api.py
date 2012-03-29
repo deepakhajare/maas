@@ -92,6 +92,7 @@ from maasserver.exceptions import (
     NodesNotAvailable,
     NodeStateViolation,
     PermissionDenied,
+    Unauthorized,
     )
 from maasserver.fields import validate_mac
 from maasserver.forms import NodeWithMACAddressesForm
@@ -437,6 +438,11 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """
         return create_node(request, NODE_STATUS.DECLARED)
 
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept a node's enlistment: not allowed to anonymous users."""
+        raise Unauthorized("You must be logged in to accept nodes.")
+
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('nodes_handler', [])
@@ -471,6 +477,27 @@ class NodesHandler(BaseHandler):
         ready for allocation to services running on the MAAS.
         """
         return create_node(request, NODE_STATUS.READY)
+
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously, as opposed to by a
+        logged-in user, at the nodes' own request.  These nodes are held in
+        the Declared state; a MAAS user must first verify the authenticity of
+        these enlistments, and accept them.
+
+        Enlistments can be accepted en masse, by passing multiple nodes to
+        this call.  Accepting an already accepted node is not an error, but
+        accepting one that is already allocated, broken, etc. is.
+        """
+        system_ids = set(request.POST.getlist('node'))
+        nodes = Node.objects.filter(system_id__in=system_ids)
+        found_ids = set(node.system_id for node in nodes)
+        if len(nodes) < len(system_ids):
+            raise MAASAPIBadRequest(
+                "Unknown node(s): %s" % ', '.join(system_ids - found_ids))
+        return filter(None, [node.accept_enlistment() for node in nodes])
 
     @api_exported('list', 'GET')
     def list(self, request):

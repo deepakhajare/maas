@@ -1001,7 +1001,7 @@ class TestNodesAPI(APITestCase):
             {status: status for status in unacceptable_states},
             {status: node.status for status, node in nodes.items()})
         # Each error describes the problem.
-        for response in responses.keys():
+        for response in responses.values():
             self.assertIn("Cannot accept node enlistment", response.content)
         # Each error names the node it encountered a problem with.
         for status, response in responses.items():
@@ -1035,7 +1035,7 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
             [target_state] * len(nodes),
-            [node.status for node in nodes])
+            [reload_object(node).status for node in nodes])
 
     def test_POST_accept_returns_actually_accepted_nodes(self):
         acceptable_nodes = [
@@ -1043,9 +1043,10 @@ class TestNodesAPI(APITestCase):
             for counter in range(2)
             ]
         accepted_node = factory.make_node(status=NODE_STATUS.READY)
+        nodes = acceptable_nodes + [accepted_node]
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'accept',
-            'node': [node.id for node in acceptable_nodes + [accepted_node]],
+            'node': [node.system_id for node in nodes],
             })
         self.assertEqual(httplib.OK, response.status_code)
         self.assertItemsEqual(
