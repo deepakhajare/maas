@@ -43,15 +43,14 @@ Y.extend(Morph, Y.Widget, {
             var srcNode = this.get('srcNode');
             var targetNode = this.get('targetNode');
         }
-        
-        target_height = targetNode.getComputedStyle('height');
+        var target_height = targetNode.getComputedStyle('height');
         var fade_out = new Y.Anim({
             node: targetNode,
             to: {opacity: 0},
             duration: 0.2,
             easing: 'easeOut'
             });
-        fade_out.run();
+        var self = this;
         fade_out.on('end', function () {
             targetNode.addClass('hidden');
             srcNode.setStyle('opacity', 0);
@@ -70,9 +69,14 @@ Y.extend(Morph, Y.Widget, {
                 duration: 0.5,
                 easing: 'easeOut'
                 });
+            resize.on('end', function () {
+                srcNode.setStyle('height', 'auto');
+                self.fire('morphed');
+            });
             fade_in.run();
             resize.run();
         });
+        fade_out.run();
     }
 });
 
