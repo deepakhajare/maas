@@ -19,8 +19,8 @@ number is included in the API's URL, e.g. /api/1.0/
 For now, 1.0 is the only supported version.
 
 
-HTTP methods
-------------
+HTTP methods and parameter-passing
+----------------------------------
 
 The following HTTP methods are available for accessing the API:
  * GET (for information retrieval and queries),
@@ -45,7 +45,7 @@ Most resources offer a choice of GET or POST operations.  In those cases these
 methods will take one special parameter, called `op`, to indicate what it is
 you want to do.
 
-For example, to list all nodes, you might GET "/api/1.0/nodes/?op=list"
+For example, to list all nodes, you might GET "/api/1.0/nodes/?op=list".
 """
 
 from __future__ import (
