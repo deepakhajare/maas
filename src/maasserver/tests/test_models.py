@@ -136,8 +136,8 @@ class NodeTest(TestCase):
         self.assertEqual(hostname, node.hostname)
 
     def test_set_mac_based_hostname_no_enlistment_domain(self):
-        # The enlistment domain can be unset and set_mac_based_hostname sets a
-        # hostname with no domain.
+        # The enlistment domain can be set to the empty string and
+        # set_mac_based_hostname sets a hostname with no domain.
         Config.objects.set_config("enlistment_domain", "")
         node = factory.make_node()
         node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
