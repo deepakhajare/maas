@@ -195,7 +195,10 @@ class NodeTest(TestCase):
         node = factory.make_node(
             status=NODE_STATUS.RETIRED, owner=factory.make_user())
         node.status = NODE_STATUS.READY
-        self.assertRaises(ValidationError, node.full_clean)
+        self.assertRaisesRegexp(
+            ValidationError,
+            str({'status': u'Invalid transition: Retired -> Ready'}),
+            node.full_clean)
 
     def test_full_clean_passes_if_status_unchanged(self):
         status = factory.getRandomChoice(NODE_STATUS_CHOICES)

@@ -486,9 +486,9 @@ class Node(CommonInfo):
         if self.status != old_status:
             if self.status not in NODE_TRANSITIONS[old_status]:
                 raise ValidationError(
-                    "Invalid transition: %s -> %s" % (
+                    {'status': "Invalid transition: %s -> %s" % (
                         NODE_STATUS_CHOICES_DICT[old_status],
-                        NODE_STATUS_CHOICES_DICT[self.status]))
+                        NODE_STATUS_CHOICES_DICT[self.status])})
 
     def display_status(self):
         """Return status text as displayed to the user.
