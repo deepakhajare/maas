@@ -84,7 +84,7 @@ cobbler_mapping_to_papi_distros = partial(
     postprocess_mapping, function=cobbler_to_papi_distro)
 
 
-def mac_addresses_to_cobbler_deltas(interfaces, mac_addresses):
+def gen_cobbler_interface_deltas(interfaces, mac_addresses):
     """Generate `modify_system` dicts for use with `xapi_object_edit`.
 
     This takes `interfaces` - the current state of a system's interfaces - and
@@ -226,7 +226,7 @@ class ProvisioningAPI:
                 mac_addresses = delta.pop("mac_addresses")
                 system_state = yield system.get_values()
                 interfaces = system_state.get("interfaces", {})
-                interface_modifications = mac_addresses_to_cobbler_deltas(
+                interface_modifications = gen_cobbler_interface_deltas(
                     interfaces, mac_addresses)
                 for interface_modification in interface_modifications:
                     yield system.modify(interface_modification)
