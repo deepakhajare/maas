@@ -383,9 +383,14 @@ class ProvisioningAPITests:
     def test_add_node(self):
         # Create a system/node via the Provisioning API.
         papi = self.get_provisioning_api()
-        node_name = yield self.add_node(papi)
+        node_name = yield self.add_node(papi, hostname="enthroned")
         nodes = yield papi.get_nodes_by_name([node_name])
         self.assertItemsEqual([node_name], nodes)
+        node = nodes[node_name]
+        self.assertEqual("enthroned", node["hostname"])
+        # TODO: Get fakeapi to record power_type as a node attribute.
+        #self.assertEqual("ether_wake", node["power_type"])
+        self.assertEqual([], node["mac_addresses"])
 
     @inlineCallbacks
     def _test_add_object_twice(self, method):

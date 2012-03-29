@@ -53,6 +53,7 @@ def cobbler_to_papi_node(data):
         for interface in interfaces.itervalues())
     return {
         "name": data["name"],
+        "hostname": data["hostname"],
         "profile": data["profile"],
         "mac_addresses": [
             mac_address.strip()
