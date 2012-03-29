@@ -694,7 +694,7 @@ def validate_ssh_public_key(value):
         key = Key.fromString(value)
         if not key.isPublic():
             raise ValidationError(
-                "Invalid SSH public key (this key contains a private key).")
+                "Invalid SSH public key (this key is a private key).")
     except BadKeyError:
         raise ValidationError("Invalid SSH public key.")
 
