@@ -1061,8 +1061,8 @@ class TestNodesAPI(APITestCase):
         accepted_ids = [
             node['system_id'] for node in json.loads(response.content)]
         self.assertItemsEqual(
-            [node.system_id for node in acceptable_nodes], [accepted_ids])
-        self.assetNotIn(accepted_node.system_id, accepted_ids)
+            [node.system_id for node in acceptable_nodes], accepted_ids)
+        self.assertNotIn(accepted_node.system_id, accepted_ids)
 
 
 class MACAddressAPITest(APITestCase):
