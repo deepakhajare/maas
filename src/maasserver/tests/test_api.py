@@ -949,8 +949,13 @@ class TestNodesAPI(APITestCase):
         response = self.client.post(
             self.get_uri('nodes/'),
             {'op': 'accept', 'node': [node.system_id]})
+        accepted_ids = [
+            accepted_node['system_id']
+            for accepted_node in json.loads(response.content)]
         self.assertEqual(
-            (httplib.OK, target_state), (response.status_code, node.status))
+            (httplib.OK, [node.system_id]),
+            (response.status_code, accepted_ids))
+        self.assertEqual(target_state, reload_object(node).status)
 
     def test_POST_accept_ignores_nodes_that_are_already_accepted(self):
         accepted_states = [
@@ -970,7 +975,9 @@ class TestNodesAPI(APITestCase):
         # The nodes remain in their existing, accepted states.
         self.assertEqual(
             {status: status for status in accepted_states},
-            {status: node.status for status, node in nodes.items()})
+            {
+                status: reload_object(node).status
+                for status, node in nodes.items()})
 
     def test_POST_accept_rejects_impossible_state_changes(self):
         acceptable_states = set([
@@ -999,7 +1006,9 @@ class TestNodesAPI(APITestCase):
         # All of these nodes remain in their original states.
         self.assertEqual(
             {status: status for status in unacceptable_states},
-            {status: node.status for status, node in nodes.items()})
+            {
+                status: reload_object(node).status
+                for status, node in nodes.items()})
         # Each error describes the problem.
         for response in responses.values():
             self.assertIn("Cannot accept node enlistment", response.content)
@@ -1049,9 +1058,11 @@ class TestNodesAPI(APITestCase):
             'node': [node.system_id for node in nodes],
             })
         self.assertEqual(httplib.OK, response.status_code)
+        accepted_ids = [
+            node['system_id'] for node in json.loads(response.content)]
         self.assertItemsEqual(
-            [node.system_id for node in acceptable_nodes],
-            [node['system_id'] for node in json.loads(response.content)])
+            [node.system_id for node in acceptable_nodes], [accepted_ids])
+        self.assetNotIn(accepted_node.system_id, accepted_ids)
 
 
 class MACAddressAPITest(APITestCase):

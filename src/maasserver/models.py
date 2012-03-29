@@ -485,7 +485,8 @@ class Node(CommonInfo):
                 "Cannot accept node enlistment: node %s is in state %s."
                 % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
 
-        self.status = NODE_STATUS.READY
+        self.status = target_state
+        self.save()
         return self
 
     def delete(self):
