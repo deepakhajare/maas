@@ -48,7 +48,7 @@ STATIC_LOCAL_SERVE = True
 RABBITMQ_PUBLISH = False
 
 # Silent South during tests.
-logging.getLogger('south').setLevel(logging.INFO)
+logging.getLogger('south').setLevel(logging.WARNING)
 
 DATABASES = {
     'default': {
