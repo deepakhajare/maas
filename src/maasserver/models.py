@@ -33,6 +33,7 @@ from logging import getLogger
 import os
 import re
 from socket import gethostname
+from string import whitespace
 import time
 from uuid import uuid1
 
@@ -467,7 +468,12 @@ class Node(CommonInfo):
 
     def set_mac_based_hostname(self, mac_address):
         mac_hostname = mac_address.replace(':', '').lower()
-        self.hostname = "node-%s" % mac_hostname
+        domain = Config.objects.get_config("enlistment_domain")
+        domain = domain.strip("." + whitespace)
+        if len(domain) > 0:
+            self.hostname = "node-%s.%s" % (mac_hostname, domain)
+        else:
+            self.hostname = "node-%s" % mac_hostname
         self.save()
 
     def get_effective_power_type(self):
