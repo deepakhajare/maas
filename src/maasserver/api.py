@@ -1,13 +1,11 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""
-========
-MAAS API
-========
+"""Restful MAAS API.
 
-This is the documentation for the MAAS API.  The API is "Restful"; you access
-it through normal HTTP requests.
+This is the documentation for the API that lets you control and query MAAS.
+The API is "Restful", which means that you access it through normal HTTP
+requests.
 
 
 API versions
@@ -56,6 +54,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "api_doc",
+    "api_doc_title",
     "extract_oauth_key",
     "generate_api_doc",
     "AccountHandler",
@@ -71,6 +70,7 @@ from base64 import b64decode
 import httplib
 import json
 import sys
+from textwrap import dedent
 import types
 
 from django.core.exceptions import ValidationError
@@ -708,6 +708,16 @@ class MAASHandler(BaseHandler):
         name = get_mandatory_param(request.GET, 'name')
         value = Config.objects.get_config(name)
         return HttpResponse(json.dumps(value), content_type='application/json')
+
+
+# Title section for the API documentation.  Matches in style, format,
+# etc. whatever generate_api_doc() produces, so that you can concatenate
+# the two.
+api_doc_title = dedent("""
+    ========
+    MAAS API
+    ========
+    """.lstrip('\n'))
 
 
 def generate_api_doc():
