@@ -96,6 +96,7 @@ class TestFunctions(TestCase):
         data = {
             "name": "iced",
             "profile": "earth",
+            "hostname": "dystopia",
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
                 },
@@ -105,6 +106,7 @@ class TestFunctions(TestCase):
         expected = {
             "name": "iced",
             "profile": "earth",
+            "hostname": "dystopia",
             "mac_addresses": ["12:34:56:78:9a:bc"],
             "power_type": "virsh",
             }
@@ -115,12 +117,14 @@ class TestFunctions(TestCase):
         data = {
             "name": "iced",
             "profile": "earth",
+            "hostname": "darksaga",
             "power_type": "ether_wake",
             "ju": "nk",
             }
         expected = {
             "name": "iced",
             "profile": "earth",
+            "hostname": "darksaga",
             "mac_addresses": [],
             "power_type": "ether_wake",
             }
