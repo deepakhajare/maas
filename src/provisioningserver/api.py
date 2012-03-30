@@ -101,72 +101,55 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
     :param interfaces: A dict of interface-names -> interface-configurations.
     :param mac_addresses: A collection of desired MAC addresses.
     """
-    # For the sake of this calculation, ignore interfaces without MACs
-    # assigned. We may end up setting the MAC on these interfaces, but whether
-    # or not that happens is undefined (for now).
-    interfaces = {
-        interface_name: interface
-        for interface_name, interface in interfaces.items()
-        if interface["mac_address"]
-        }
-
-    interface_names_by_mac_address = {
-        interface["mac_address"]: interface_name
-        for interface_name, interface in interfaces.items()
-        }
-    mac_addresses_to_remove = set(
-        interface_names_by_mac_address).difference(mac_addresses)
-    mac_addresses_to_add = set(
-        mac_addresses).difference(interface_names_by_mac_address)
-
-    # The interface_names_unused generator will lazily return interface names
-    # that can be used when adding MAC addresses.
+    # A lazy list of ethernet interface names, used for constructing the
+    # target configuration. Names will be allocated in order, eth0 for the
+    # first MAC address, eth1 for the second, and so on.
     eth_names = ("eth%d" % num for num in count(0))
-    interface_names_unused = (
-        eth_name for eth_name in eth_names
-        if eth_name not in interfaces)
 
-    # Create a delta to remove an interface in Cobbler. We sort the MAC
-    # addresses to provide stability in this function's output (which
-    # facilitates testing).
-    for mac_address in sorted(mac_addresses_to_remove):
-        interface_name = interface_names_by_mac_address[mac_address]
-        # Deallocate this interface name from our records; it can be used when
-        # allocating interfaces later.
-        del interfaces[interface_name]
-        yield {
+    # Allocate DNS names in order too, `hostname` for the first interface, and
+    # to the empty string for the rest. Cobbler will complain (in its default
+    # config) if a dns_name is duplicated. Setting the dns_name for only a
+    # single interface and keeping dns_name on the first interface at all
+    # times also makes things slightly easier to reason about.
+    dns_names = chain([hostname], repeat(""))
+
+    # Calculate comparable mappings of the current interface configuration and
+    # the desired interface configuration.
+    interfaces_from = {
+        interface_name: {
             "interface": interface_name,
-            "delete_interface": True,
+            "mac_address": interface["mac_address"],
+            "dns_name": interface.get("dns_name", ""),
             }
-
-    # Create a delta to add an interface in Cobbler. We sort the MAC addresses
-    # to provide stability in this function's output (which facilitates
-    # testing).
-    for mac_address in sorted(mac_addresses_to_add):
-        interface_name = next(interface_names_unused)
-        # Allocate this interface name in our records; it may be needed when
-        # setting dns_name later.
-        interface = {
+        for interface_name, interface
+        in interfaces.items()
+        }
+    interfaces_to = {
+        interface_name: {
             "interface": interface_name,
             "mac_address": mac_address,
+            "dns_name": dns_name,
             }
-        interfaces[interface_name] = interface
-        yield interface
+        for interface_name, mac_address, dns_name
+        in izip(eth_names, mac_addresses, dns_names)
+        }
 
-    # Set dns_name to `hostname` for the first interface, and to the empty
-    # string for the rest. Cobbler will complain (in its default config) if a
-    # dns_name is duplicated. Setting the dns_name for only a single interface
-    # and keeping dns_name on the first interface at all times also makes this
-    # easier to reason about.
-    interface_names = sorted(interfaces)  # Lowest-numbered first.
-    dns_names = chain([hostname], repeat(""))
-    for interface_name, dns_name in izip(interface_names, dns_names):
-        current_dns_name = interfaces[interface_name].get("dns_name", "")
-        if current_dns_name != dns_name:
-            yield {
-                "interface": interface_name,
-                "dns_name": dns_name,
-                }
+    # Go through interfaces, generating deltas from `interfaces_from` to
+    # `interfaces_to`. This is done in sorted order to make testing easier.
+    interface_names = set().union(interfaces_from, interfaces_to)
+    for interface_name in sorted(interface_names):
+        interface_from = interfaces_from.get(interface_name)
+        interface_to = interfaces_to.get(interface_name)
+        if interface_to is None:
+            assert interface_from is not None
+            yield {"interface": interface_name, "delete_interface": True}
+        elif interface_from is None:
+            assert interface_to is not None
+            yield interface_to
+        elif interface_to != interface_from:
+            yield interface_to
+        else:
+            pass  # No change.
 
 
 # Preseed data to send to cloud-init.  We set this as MAAS_PRESEED in

@@ -161,9 +161,7 @@ class TestInterfaceDeltas(TestCase):
         mac_addresses_desired = ["12:34:56:78:90:12"]
         expected = [
             {"interface": "eth0",
-             "mac_address": "12:34:56:78:90:12"},
-            # The desired DNS name is set on the lowest-numbered interface.
-            {"interface": "eth0",
+             "mac_address": "12:34:56:78:90:12",
              "dns_name": dns_name_desired},
             ]
         observed = list(
@@ -183,12 +181,11 @@ class TestInterfaceDeltas(TestCase):
             "11:11:11:11:11:11", "22:22:22:22:22:22"]
         expected = [
             {"interface": "eth0",
-             "mac_address": "11:11:11:11:11:11"},
-            {"interface": "eth1",
-             "mac_address": "22:22:22:22:22:22"},
-            # The desired DNS name is set on the lowest-numbered interface.
-            {"interface": "eth0",
+             "mac_address": "11:11:11:11:11:11",
              "dns_name": dns_name_desired},
+            {"interface": "eth1",
+             "mac_address": "22:22:22:22:22:22",
+             "dns_name": ""},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
@@ -210,10 +207,10 @@ class TestInterfaceDeltas(TestCase):
         mac_addresses_desired = ["22:22:22:22:22:22"]
         expected = [
             {"interface": "eth0",
-             "delete_interface": True},
-            # The existing DNS name is moved to the lowest-numbered interface.
+             "mac_address": "22:22:22:22:22:22",
+             "dns_name": "lifesblood"},
             {"interface": "eth1",
-             "dns_name": dns_name},
+             "delete_interface": True},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
@@ -232,14 +229,10 @@ class TestInterfaceDeltas(TestCase):
             }
         dns_name_desired = "necrophagist"
         mac_addresses_desired = [
-            "22:22:22:22:22:22", "33:33:33:33:33:33"]
+            "33:33:33:33:33:33", "22:22:22:22:22:22"]
         expected = [
             {"interface": "eth0",
-             "delete_interface": True},
-            {"interface": "eth0",
-             "mac_address": "33:33:33:33:33:33"},
-            # The existing DNS name is set on the lowest-numbered interface.
-            {"interface": "eth0",
+             "mac_address": "33:33:33:33:33:33",
              "dns_name": dns_name_desired},
             ]
         observed = list(
