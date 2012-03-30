@@ -240,8 +240,16 @@ class NodeTest(TestCase):
         nodes = {
             status: factory.make_node(status=status)
             for status in unacceptable_states}
-        for node in nodes.values():
-            self.assertRaises(NodeStateViolation, node.accept_enlistment)
+
+        exceptions = {status: False for status in unacceptable_states}
+        for status, node in nodes.items():
+            try:
+                node.accept_enlistment()
+            except NodeStateViolation:
+                exceptions[status] = True
+
+        self.assertEqual(
+            {status: True for status in unacceptable_states}, exceptions)
         self.assertEqual(
             {status: status for status in unacceptable_states},
             {status: node.status for status, node in nodes.items()})

@@ -489,8 +489,14 @@ class NodesHandler(BaseHandler):
         Enlistments can be accepted en masse, by passing multiple nodes to
         this call.  Accepting an already accepted node is not an error, but
         accepting one that is already allocated, broken, etc. is.
+
+        :param nodes: system_ids of the nodes whose enlistment is to be
+            accepted.  (An empty list is acceptable).
+        :return: The system_ids of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are
+            excluded from the result.
         """
-        system_ids = set(request.POST.getlist('node'))
+        system_ids = set(request.POST.getlist('nodes'))
         nodes = Node.objects.filter(system_id__in=system_ids)
         found_ids = set(node.system_id for node in nodes)
         if len(nodes) < len(system_ids):
