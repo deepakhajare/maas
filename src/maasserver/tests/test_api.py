@@ -957,28 +957,6 @@ class TestNodesAPI(APITestCase):
             (response.status_code, accepted_ids))
         self.assertEqual(target_state, reload_object(node).status)
 
-    def test_POST_accept_ignores_nodes_that_are_already_accepted(self):
-        accepted_states = [
-            NODE_STATUS.COMMISSIONING,
-            NODE_STATUS.READY,
-            ]
-        nodes = {
-            status: factory.make_node(status=status)
-            for status in accepted_states}
-        response = self.client.post(
-            self.get_uri('nodes/'), {
-                'op': 'accept',
-                'node': [node.system_id for node in nodes.values()],
-                })
-        # The request is accepted without complaints.
-        self.assertEqual(httplib.OK, response.status_code)
-        # The nodes remain in their existing, accepted states.
-        self.assertEqual(
-            {status: status for status in accepted_states},
-            {
-                status: reload_object(node).status
-                for status, node in nodes.items()})
-
     def test_POST_accept_rejects_impossible_state_changes(self):
         acceptable_states = set([
             NODE_STATUS.DECLARED,
@@ -1003,12 +981,6 @@ class TestNodesAPI(APITestCase):
             {
                 status: responses[status].status_code
                 for status in unacceptable_states})
-        # All of these nodes remain in their original states.
-        self.assertEqual(
-            {status: status for status in unacceptable_states},
-            {
-                status: reload_object(node).status
-                for status, node in nodes.items()})
         # Each error describes the problem.
         for response in responses.values():
             self.assertIn("Cannot accept node enlistment", response.content)

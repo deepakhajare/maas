@@ -23,6 +23,7 @@ from django.core.exceptions import ValidationError
 from fixtures import TestWithFixtures
 from maasserver.exceptions import (
     CannotDeleteUserException,
+    NodeStateViolation,
     PermissionDenied,
     )
 from maasserver.models import (
@@ -154,6 +155,61 @@ class NodeTest(TestCase):
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
         node.release()
         self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
+
+    def test_accept_enlistment_gets_node_out_of_declared_state(self):
+        # If called on a node in Declared state, accept_enlistment()
+        # changes the node's status, and returns the node.
+
+        # This will change when we add commissioning.  Until then,
+        # acceptance gets a node straight to Ready state.
+        target_state = NODE_STATUS.READY
+
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        return_value = node.accept_enlistment()
+        self.assertEqual((node, target_state), (return_value, node.status))
+
+    def test_accept_enlistment_does_nothing_if_already_accepted(self):
+        # If a node has already been accepted, but not assigned a role
+        # yet, calling accept_enlistment on it is meaningless but not an
+        # error.  The method returns None in this case.
+        accepted_states = [
+            NODE_STATUS.COMMISSIONING,
+            NODE_STATUS.READY,
+            ]
+        nodes = {
+            status: factory.make_node(status=status)
+            for status in accepted_states}
+
+        return_values = {
+            status: node.accept_enlistment()
+            for status, node in nodes.items()}
+
+        self.assertEqual(
+            {status: None for status in accepted_states}, return_values)
+        self.assertEqual(
+            {status: status for status in accepted_states},
+            {status: node.status for status, node in nodes.items()})
+
+    def test_accept_enlistment_rejects_bad_state_change(self):
+        # If a node is neither Declared nor in one of the "accepted"
+        # states where acceptance is a safe no-op, accept_enlistment
+        # raises a node state violation and leaves the node's state
+        # unchanged.
+        all_states = map_enum(NODE_STATUS).values()
+        acceptable_states = [
+            NODE_STATUS.DECLARED,
+            NODE_STATUS.COMMISSIONING,
+            NODE_STATUS.READY,
+            ]
+        unacceptable_states = set(all_states) - set(acceptable_states)
+        nodes = {
+            status: factory.make_node(status=status)
+            for status in unacceptable_states}
+        for node in nodes.values():
+            self.assertRaises(NodeStateViolation, node.accept_enlistment)
+        self.assertEqual(
+            {status: status for status in unacceptable_states},
+            {status: node.status for status, node in nodes.items()})
 
 
 class NodeManagerTest(TestCase):
