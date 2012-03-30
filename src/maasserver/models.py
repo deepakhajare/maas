@@ -150,53 +150,91 @@ NODE_STATUS_CHOICES = (
 NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
-NODE_TRANSITIONS = {
+# Information about valid node status transitions and optional associated
+# transition methods.
+# The format is:
+# {
+#  old_status1: [
+#      [new_status11, {
+#          'name': transition_name11,
+#          'method': method_name11,   # Name of the method to call on Node
+#                                     # to perform that transition.
+#          'permission': permission_required11
+#      }],
+#      [new_status12, {
+#       'name': transition_name12,
+#       'method': method_name12,
+#       'permission': permission_required12
+#      }],
+#      [new_status13],  # Having a transition method is optional.
+#      [new_status14],
+# ...
+#  old_status2: [
+# ...
+# }
+NODE_TRANSITIONS_INFO = {
     None: [
-        NODE_STATUS.DECLARED,
-        NODE_STATUS.MISSING,
-        NODE_STATUS.RETIRED,
+        [NODE_STATUS.DECLARED],  # Anonymous enlistment.
+        [NODE_STATUS.READY],  # Authenticated enlistement.
+        [NODE_STATUS.MISSING],
+        [NODE_STATUS.RETIRED],
         ],
     NODE_STATUS.DECLARED: [
-        NODE_STATUS.COMMISSIONING,
-        NODE_STATUS.MISSING,
-        NODE_STATUS.READY,
-        NODE_STATUS.RETIRED,
+        [NODE_STATUS.COMMISSIONING],
+        [NODE_STATUS.MISSING],
+        [NODE_STATUS.READY, {
+            'name':"Enlist node", 'method': 'accept_enlistment',
+            'permission':'admin'}],
+        [NODE_STATUS.RETIRED],
         ],
     NODE_STATUS.COMMISSIONING: [
-        NODE_STATUS.FAILED_TESTS,
-        NODE_STATUS.READY,
-        NODE_STATUS.RETIRED,
-        NODE_STATUS.MISSING,
+        [NODE_STATUS.FAILED_TESTS],
+        [NODE_STATUS.READY],
+        [NODE_STATUS.RETIRED],
+        [NODE_STATUS.MISSING],
         ],
     NODE_STATUS.READY: [
-        NODE_STATUS.ALLOCATED,
-        NODE_STATUS.RESERVED,
-        NODE_STATUS.RETIRED,
-        NODE_STATUS.MISSING,
+        [NODE_STATUS.ALLOCATED],
+        [NODE_STATUS.RESERVED],
+        [NODE_STATUS.RETIRED],
+        [NODE_STATUS.MISSING],
         ],
     NODE_STATUS.RESERVED: [
-        NODE_STATUS.READY,
-        NODE_STATUS.ALLOCATED,
-        NODE_STATUS.RETIRED,
-        NODE_STATUS.MISSING,
+        [NODE_STATUS.READY],
+        [NODE_STATUS.ALLOCATED],
+        [NODE_STATUS.RETIRED],
+        [NODE_STATUS.MISSING],
         ],
     NODE_STATUS.ALLOCATED: [
-        NODE_STATUS.READY,
-        NODE_STATUS.RETIRED,
-        NODE_STATUS.MISSING,
+        [NODE_STATUS.READY],
+        [NODE_STATUS.RETIRED],
+        [NODE_STATUS.MISSING],
         ],
     NODE_STATUS.MISSING: [
-        NODE_STATUS.DECLARED,
-        NODE_STATUS.READY,
-        NODE_STATUS.ALLOCATED,
-        NODE_STATUS.COMMISSIONING,
+        [NODE_STATUS.DECLARED],
+        [NODE_STATUS.READY],
+        [NODE_STATUS.ALLOCATED],
+        [NODE_STATUS.COMMISSIONING],
         ],
     NODE_STATUS.RETIRED: [
-        NODE_STATUS.DECLARED,
-        NODE_STATUS.READY,
-        NODE_STATUS.MISSING,
+        [NODE_STATUS.DECLARED],
+        [NODE_STATUS.READY],
+        [NODE_STATUS.MISSING],
         ],
     }
+
+
+# Valid node status transitions:
+# The format is:
+# {
+#     old_status1: [new_status11, new_status12, ...],
+#     old_status2: [new_status21, new_status22, ...],
+# ...
+# }
+NODE_TRANSITIONS = dict(
+    (old_status, [info[0] for info in new_statuses_infos])
+    for old_status, new_statuses_infos in NODE_TRANSITIONS_INFO.items()
+    )
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -516,6 +554,30 @@ class Node(CommonInfo):
             self.full_clean()
         return super(Node, self).save(*args, **kwargs)
 
+    def available_transition_methods(self, user):
+        """Return the transitions that this user is allowed to perform on
+        this node.
+
+        :param user: The user used to perform the permission checks.  Only the
+            transitions available to this user will be returned.
+        :type user: :class:`django.contrib.auth.models.User`
+        :return: A list of transition dicts (each dict contains 3 values:
+            'name': the name of the transition, 'permission': the permission
+            required to perform this transition, 'method': the name of the
+            method to execute on the node to perform the transition).
+        :rtype: Sequence
+        """
+        valid_transitions = []
+        node_transitions = NODE_TRANSITIONS_INFO.get(self.status, ())
+        for node_transition in node_transitions:
+            if len(node_transition) == 2:
+                # The transition has a method associated with it.
+                new_status, transition_info = node_transition
+                if user.has_perm(transition_info['permission'], self):
+                    # The user can perform the transition.
+                    valid_transitions.append(transition_info)
+        return valid_transitions
+
     def display_status(self):
         """Return status text as displayed to the user.
 
@@ -536,7 +598,7 @@ class Node(CommonInfo):
         """Add a new MAC Address to this `Node`.
 
         :param mac_address: The MAC Address to be added.
-        :type mac_address: str
+        :type mac_address: basestring
         :raises: django.core.exceptions.ValidationError_
 
         .. _django.core.exceptions.ValidationError: https://
@@ -1176,6 +1238,9 @@ class MAASAuthorizationBackend(ModelBackend):
             return obj.owner in (None, user)
         elif perm == 'edit':
             return obj.owner == user
+        elif perm == 'admin':
+            # 'admin' permission is solely granted to superusers.
+            return False
         else:
             raise NotImplementedError(
                 'Invalid permission check (invalid permission name).')
