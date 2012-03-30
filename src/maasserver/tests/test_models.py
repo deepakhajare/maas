@@ -683,6 +683,17 @@ class GetHTMLDisplayForKeyTest(TestCase):
         self.assertEqual(
             '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS), display)
 
+    def test_display_escapes_commentless_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the key has no comment, and is
+        # brief enough to fit into the allotted space.
+        self.assertEqual(
+            "&lt;type&gt; &lt;text&gt;",
+            get_html_display_for_key("<type> <text>", 100))
+
     def test_display_escapes_short_key_for_html(self):
         # The key's comment may contain characters that are not safe for
         # including in HTML, and so get_html_display_for_key escapes the
