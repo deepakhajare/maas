@@ -159,6 +159,7 @@ NODE_TRANSITIONS = {
     NODE_STATUS.DECLARED: [
         NODE_STATUS.COMMISSIONING,
         NODE_STATUS.MISSING,
+        NODE_STATUS.READY,
         NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.COMMISSIONING: [
@@ -181,8 +182,12 @@ NODE_TRANSITIONS = {
     NODE_STATUS.MISSING: [
         NODE_STATUS.DECLARED,
         NODE_STATUS.READY,
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.COMMISSIONING,
         ],
     NODE_STATUS.RETIRED: [
+        NODE_STATUS.DECLARED,
+        NODE_STATUS.READY,
         NODE_STATUS.MISSING,
         ],
     }
@@ -479,16 +484,27 @@ class Node(CommonInfo):
         else:
             return self.system_id
 
+    def clean_status(self):
+        """Check a node's status transition against the node-status FSM."""
+        old_status = get_db_state(self, 'status')
+        if self.status == old_status:
+            # No transition is always a safe transition.
+            pass
+        elif self.status in NODE_TRANSITIONS[old_status]:
+            # Valid transition.
+            pass
+        else:
+            # Transition not permitted.
+            error_text = "Invalid transition: %s -> %s." % (
+                NODE_STATUS_CHOICES_DICT[old_status],
+                NODE_STATUS_CHOICES_DICT[self.status],
+                )
+            raise ValidationError({'status': error_text})
+
     def clean(self, *args, **kwargs):
         super(Node, self).clean(*args, **kwargs)
         # Check that the status transition (if any) is valid.
-        old_status = get_db_state(self, 'status')
-        if self.status != old_status:
-            if self.status not in NODE_TRANSITIONS[old_status]:
-                raise ValidationError(
-                    {'status': "Invalid transition: %s -> %s" % (
-                        NODE_STATUS_CHOICES_DICT[old_status],
-                        NODE_STATUS_CHOICES_DICT[self.status])})
+        self.clean_status()
 
     def display_status(self):
         """Return status text as displayed to the user.

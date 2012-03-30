@@ -54,7 +54,7 @@ class Factory(maastesting.factory.Factory):
         :return: The "id" portion of a random choice out of `choices`.
         """
         if but_not is None:
-            but_not = []
+            but_not = ()
         return random.choice(
             [choice for choice in choices if choice[0] not in but_not])[0]
 

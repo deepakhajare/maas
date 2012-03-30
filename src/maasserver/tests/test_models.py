@@ -197,13 +197,22 @@ class NodeTest(TestCase):
         node.status = NODE_STATUS.READY
         self.assertRaisesRegexp(
             ValidationError,
-            str({'status': u'Invalid transition: Retired -> Ready'}),
+            str({'status': u'Invalid transition: Retired -> Ready.'}),
             node.full_clean)
 
     def test_full_clean_passes_if_status_unchanged(self):
         status = factory.getRandomChoice(NODE_STATUS_CHOICES)
         node = factory.make_node(status=status)
         node.status = status
+        node.full_clean()
+        # No ValidationError.
+
+    def test_full_clean_passes_if_status_valid_transition(self):
+        # NODE_STATUS.READY -> NODE_STATUS.ALLOCATED is a valid
+        # transition.
+        status = NODE_STATUS.READY
+        node = factory.make_node(status=status)
+        node.status = NODE_STATUS.ALLOCATED
         node.full_clean()
         # No ValidationError.
 
