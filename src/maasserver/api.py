@@ -412,10 +412,7 @@ def create_node(request):
     """
     form = NodeWithMACAddressesForm(request.data)
     if form.is_valid():
-        node = form.save()
-        node.status = NODE_STATUS.DECLARED
-        node.save()
-        return node
+        return form.save()
     else:
         return HttpResponseBadRequest(
             form.errors, content_type='application/json')
