@@ -68,7 +68,7 @@ class Factory(maastesting.factory.Factory):
         node = Node(
             hostname=hostname, status=status, architecture=architecture,
             **kwargs)
-        node.save()
+        node.save(skip_check=True)
         return node
 
     def make_mac_address(self, address):

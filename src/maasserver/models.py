@@ -174,6 +174,12 @@ NODE_TRANSITIONS = {
         NODE_STATUS.RETIRED,
         NODE_STATUS.MISSING,
         ],
+    NODE_STATUS.RESERVED: [
+        NODE_STATUS.READY,
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
+        ],
     NODE_STATUS.ALLOCATED: [
         NODE_STATUS.READY,
         NODE_STATUS.RETIRED,
@@ -490,21 +496,25 @@ class Node(CommonInfo):
         if self.status == old_status:
             # No transition is always a safe transition.
             pass
-        elif self.status in NODE_TRANSITIONS[old_status]:
+        elif self.status in NODE_TRANSITIONS.get(old_status, ()):
             # Valid transition.
             pass
         else:
             # Transition not permitted.
             error_text = "Invalid transition: %s -> %s." % (
-                NODE_STATUS_CHOICES_DICT[old_status],
-                NODE_STATUS_CHOICES_DICT[self.status],
+                NODE_STATUS_CHOICES_DICT.get(old_status, "Unknown"),
+                NODE_STATUS_CHOICES_DICT.get(self.status, "Unknown"),
                 )
             raise ValidationError({'status': error_text})
 
     def clean(self, *args, **kwargs):
         super(Node, self).clean(*args, **kwargs)
-        # Check that the status transition (if any) is valid.
         self.clean_status()
+
+    def save(self, skip_check=False, *args, **kwargs):
+        if not skip_check:
+            self.full_clean()
+        return super(Node, self).save(*args, **kwargs)
 
     def display_status(self):
         """Return status text as displayed to the user.

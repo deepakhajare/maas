@@ -191,13 +191,13 @@ class NodeTest(TestCase):
         self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
 
     def test_full_clean_checks_status_transition_and_raises_if_invalid(self):
-        # RETIRED -> READY is an invalid transition.
+        # RETIRED -> ALLOCATED is an invalid transition.
         node = factory.make_node(
             status=NODE_STATUS.RETIRED, owner=factory.make_user())
-        node.status = NODE_STATUS.READY
+        node.status = NODE_STATUS.ALLOCATED
         self.assertRaisesRegexp(
             ValidationError,
-            str({'status': u'Invalid transition: Retired -> Ready.'}),
+            str({'status': u'Invalid transition: Retired -> Allocated.'}),
             node.full_clean)
 
     def test_full_clean_passes_if_status_unchanged(self):
@@ -214,6 +214,24 @@ class NodeTest(TestCase):
         node = factory.make_node(status=status)
         node.status = NODE_STATUS.ALLOCATED
         node.full_clean()
+        # No ValidationError.
+
+    def test_save_checks_status_transition_and_raises_if_invalid(self):
+        # RETIRED -> ALLOCATED is an invalid transition.
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=factory.make_user())
+        node.status = NODE_STATUS.ALLOCATED
+        self.assertRaisesRegexp(
+            ValidationError,
+            str({'status': u'Invalid transition: Retired -> Allocated.'}),
+            node.save)
+
+    def test_save_does_not_check_status_transition_if_skip_check(self):
+        # RETIRED -> ALLOCATED is an invalid transition.
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=factory.make_user())
+        node.status = NODE_STATUS.ALLOCATED
+        node.save(skip_check=True)
         # No ValidationError.
 
 
