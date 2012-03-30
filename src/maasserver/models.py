@@ -18,6 +18,7 @@ __all__ = [
     "Config",
     "FileStorage",
     "NODE_STATUS",
+    "NODE_TRANSITIONS_INFO",
     "Node",
     "MACAddress",
     "SSHKey",
