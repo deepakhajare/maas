@@ -49,7 +49,7 @@ class Factory(maastesting.factory.Factory):
                 ('choice_id_1', "Choice name 1"),
                 ('choice_id_2', "Choice name 2"),
             ]
-        :param but_not: A list of choices'ids to exclude.
+        :param but_not: A list of choices' IDs to exclude.
         :type but_not: Sequence.
         :return: The "id" portion of a random choice out of `choices`.
         """
