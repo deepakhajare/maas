@@ -399,8 +399,10 @@ class NodeHandler(BaseHandler):
         return node
 
 
-def create_node(request, initial_status):
+def create_node(request):
     """Service an http request to create a node.
+
+    The node will be in the Declared state.
 
     :param request: The http request for this node to be created.
     :param initial_status: The state the new node should be in.
@@ -413,7 +415,7 @@ def create_node(request, initial_status):
     form = NodeWithMACAddressesForm(request.data)
     if form.is_valid():
         node = form.save()
-        node.status = initial_status
+        node.status = NODE_STATUS.DECLARED
         node.save()
         return node
     else:
@@ -436,7 +438,7 @@ class AnonNodesHandler(AnonymousBaseHandler):
         therefore, the node is held in the "Declared" state for approval by a
         MAAS user.
         """
-        return create_node(request, NODE_STATUS.DECLARED)
+        return create_node(request)
 
     @api_exported('accept', 'POST')
     def accept(self, request):
@@ -476,7 +478,9 @@ class NodesHandler(BaseHandler):
         When a node has been added to MAAS by a logged-in MAAS user, it is
         ready for allocation to services running on the MAAS.
         """
-        return create_node(request, NODE_STATUS.READY)
+        node = create_node(request)
+        node.accept_enlistment()
+        return node
 
     @api_exported('accept', 'POST')
     def accept(self, request):
