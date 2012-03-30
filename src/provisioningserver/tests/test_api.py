@@ -168,10 +168,9 @@ class TestInterfaceDeltas(TestCase):
              "mac_address": mac_addresses[0],
              "dns_name": hostname},
             ]
-        observed = list(
-            gen_cobbler_interface_deltas(
-                current_interfaces, hostname, mac_addresses))
-        self.assertEqual(expected, observed)
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
     def test_gen_cobbler_interface_deltas_set_2_macs(self):
         # Specifying multiple MAC addresses results in deltas to configure a
@@ -196,10 +195,9 @@ class TestInterfaceDeltas(TestCase):
              "mac_address": mac_addresses[1],
              "dns_name": ""},
             ]
-        observed = list(
-            gen_cobbler_interface_deltas(
-                current_interfaces, hostname, mac_addresses))
-        self.assertEqual(expected, observed)
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
     def test_gen_cobbler_interface_deltas_remove_first_mac(self):
         # Removing the first MAC address causes the MAC addressese of
@@ -225,10 +223,9 @@ class TestInterfaceDeltas(TestCase):
             {"interface": "eth1",
              "delete_interface": True},
             ]
-        observed = list(
-            gen_cobbler_interface_deltas(
-                current_interfaces, dns_name, mac_addresses))
-        self.assertEqual(expected, observed)
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, dns_name, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
     def test_gen_cobbler_interface_deltas_remove_last_mac(self):
         # Removing the last MAC address causes the last interface to be
@@ -250,10 +247,9 @@ class TestInterfaceDeltas(TestCase):
             {"interface": "eth1",
              "delete_interface": True},
             ]
-        observed = list(
-            gen_cobbler_interface_deltas(
-                current_interfaces, dns_name, mac_addresses))
-        self.assertEqual(expected, observed)
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, dns_name, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
     def test_gen_cobbler_interface_deltas_modify_first_mac(self):
         # Changing the first MAC address modifies the eth0 interface.
@@ -275,10 +271,9 @@ class TestInterfaceDeltas(TestCase):
              "mac_address": mac_addresses[0],
              "dns_name": hostname},
             ]
-        observed = list(
-            gen_cobbler_interface_deltas(
-                current_interfaces, hostname, mac_addresses))
-        self.assertEqual(expected, observed)
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
 
 class ProvisioningAPITests:
