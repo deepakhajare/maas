@@ -642,6 +642,25 @@ class SSHKeyValidatorTest(TestCase):
 class GetHTMLDisplayForKeyTest(TestCase):
     """Testing for the method `get_html_display_for_key`."""
 
+    def make_key(self, type_len=7, key_len=360, comment_len=None):
+        """Produce a fake ssh public key containing arbitrary data.
+
+        :param type_len: The length of the "key type" field.  (Default is
+            sized for the real-life "ssh-rsa").
+        :param key_len: Length of the key text.  (With a roughly realistic
+            default).
+        :param comment_len: Length of the comment field.  The comment may
+            contain spaces.  Leave it None to omit the comment.
+        :return: A string representing the combined key-file contents.
+        """
+        fields = [
+            factory.getRandomString(type_len),
+            factory.getRandomString(key_len),
+            ]
+        if comment_len is not None:
+            fields.append(factory.getRandomString(comment_len, spaces=True))
+        return " ".join(fields)
+
     def test_display_returns_unchanged_if_unknown_and_small(self):
         # If the key does not look like a normal key (with three parts
         # separated by spaces, it's returned unchanged if its size is <=
@@ -663,13 +682,16 @@ class GetHTMLDisplayForKeyTest(TestCase):
         self.assertEqual(
             '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS), display)
 
+    def test_display_escapes_comment_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        self.fail("TEST THIS")
+
     def test_display_limits_size_with_large_comment(self):
         # If the key has a large 'comment' part, the key is simply
         # cropped and HELLIPSIS appended to it.
-        key_type = factory.getRandomString(10)
-        key_string = factory.getRandomString(10)
-        comment = factory.getRandomString(100, spaces=True)
-        key = '%s %s %s' % (key_type, key_string, comment)
+        key = self.make_key(10, 10, 100)
         display = get_html_display_for_key(key, 50)
         self.assertEqual(50, len(display))
         self.assertEqual(
@@ -678,10 +700,7 @@ class GetHTMLDisplayForKeyTest(TestCase):
     def test_display_limits_size_with_large_key_type(self):
         # If the key has a large 'key_type' part, the key is simply
         # cropped and HELLIPSIS appended to it.
-        key_type = factory.getRandomString(100)
-        key_string = factory.getRandomString(10)
-        comment = factory.getRandomString(10, spaces=True)
-        key = '%s %s %s' % (key_type, key_string, comment)
+        key = self.make_key(100, 10, 10)
         display = get_html_display_for_key(key, 50)
         self.assertEqual(50, len(display))
         self.assertEqual(
@@ -731,7 +750,7 @@ class SSHKeyTest(TestCase):
         self.assertEqual(
             'ssh-rsa AAAAB3NzaC1yc2E&hellip; ubuntu@server-7476', display)
 
-    def test_sshkey_display_is_safe(self):
+    def test_sshkey_display_is_marked_as_HTML_safe(self):
         key_string = get_data('data/test_rsa.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
