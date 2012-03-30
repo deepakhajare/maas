@@ -62,6 +62,7 @@ from piston.models import (
     )
 from provisioningserver.enum import POWER_TYPE
 from testtools.matchers import (
+    EndsWith,
     GreaterThan,
     LessThan,
     )
@@ -682,11 +683,41 @@ class GetHTMLDisplayForKeyTest(TestCase):
         self.assertEqual(
             '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS), display)
 
-    def test_display_escapes_comment_for_html(self):
+    def test_display_escapes_short_key_for_html(self):
         # The key's comment may contain characters that are not safe for
         # including in HTML, and so get_html_display_for_key escapes the
         # text.
-        self.fail("TEST THIS")
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the whole key is short enough to
+        # fit completely into the output.
+        key = "<type> <text> <comment>"
+        display = get_html_display_for_key(key, 100)
+        # This also verifies that the entire key fits into the string.
+        # Otherwise we might accidentally get one of the other cases.
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
+        # And of course the check also implies that the text is
+        # HTML-escaped:
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+
+    def test_display_escapes_long_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the comment is short enough to fit
+        # completely into the output.
+        key = "<type> %s <comment>" % ("<&>" * 50)
+        display = get_html_display_for_key(key, 50)
+        # This verifies that we are indeed getting an abbreviated
+        # display.  Otherwise we might accidentally get one of the other
+        # cases.
+        self.assertIn("&hellip;", display)
+        self.assertIn("comment", display)
+        # And now, on to checking that the text is HTML-safe.
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
 
     def test_display_limits_size_with_large_comment(self):
         # If the key has a large 'comment' part, the key is simply
