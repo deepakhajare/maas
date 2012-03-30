@@ -119,11 +119,12 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
     mac_addresses_to_add = set(
         mac_addresses).difference(interface_names_by_mac_address)
 
-    # The following generator will lazily return interface names that can be
-    # used when adding MAC addresses.
+    # The interface_names_unused generator will lazily return interface names
+    # that can be used when adding MAC addresses.
+    eth_names = ("eth%d" % num for num in count(0))
     interface_names_unused = (
-        "eth%d" % num for num in count(0)
-        if "eth%d" % num not in interfaces)
+        eth_name for eth_name in eth_names
+        if eth_name not in interfaces)
 
     # Create a delta to remove an interface in Cobbler. We sort the MAC
     # addresses to provide stability in this function's output (which
@@ -143,10 +144,8 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
     # testing).
     for mac_address in sorted(mac_addresses_to_add):
         interface_name = next(interface_names_unused)
-        # Allocate this interface name in our records; it's not actually
-        # necessary (interface_names_unused will never go backwards) but we do
-        # it defensively in case of later additions to this function, and
-        # because it has a satifying symmetry.
+        # Allocate this interface name in our records; it may be needed when
+        # setting dns_name later.
         interface = {
             "interface": interface_name,
             "mac_address": mac_address,
@@ -155,7 +154,10 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
         yield interface
 
     # Set dns_name to `hostname` for the first interface, and to the empty
-    # string for the rest.
+    # string for the rest. Cobbler will complain (in its default config) if a
+    # dns_name is duplicated. Setting the dns_name for only a single interface
+    # and keeping dns_name on the first interface at all times also makes this
+    # easier to reason about.
     interface_names = sorted(interfaces)  # Lowest-numbered first.
     dns_names = chain([hostname], repeat(""))
     for interface_name, dns_name in izip(interface_names, dns_names):
