@@ -19,15 +19,12 @@ from abc import (
     abstractmethod,
     )
 from base64 import b64decode
-from itertools import (
-    count,
-    islice,
-    )
-from random import randint
+from itertools import count
 from time import time
 from unittest import skipIf
 
 from maasserver.testing.enum import map_enum
+from maastesting.factory import factory
 from provisioningserver.api import (
     cobbler_to_papi_distro,
     cobbler_to_papi_node,
@@ -53,15 +50,6 @@ from zope.interface.verify import verifyObject
 
 
 names = ("test%d" % num for num in count(int(time())))
-
-random_octet = lambda: randint(0, 255)
-random_octets = iter(random_octet, None)
-
-
-def fake_mac_address():
-    """Return a random MAC address."""
-    octets = islice(random_octets, 6)
-    return ":".join(format(octet, "02x") for octet in octets)
 
 
 def fake_name():
@@ -455,7 +443,7 @@ class ProvisioningAPITests:
     def test_modify_nodes_set_mac_addresses(self):
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
-        mac_address = fake_mac_address()
+        mac_address = factory.getRandomMACAddress()
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": [mac_address]}})
         values = yield papi.get_nodes_by_name([node_name])
@@ -466,8 +454,8 @@ class ProvisioningAPITests:
     def test_modify_nodes_remove_mac_addresses(self):
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
-        mac_address1 = fake_mac_address()
-        mac_address2 = fake_mac_address()
+        mac_address1 = factory.getRandomMACAddress()
+        mac_address2 = factory.getRandomMACAddress()
         mac_addresses_from = [mac_address1, mac_address2]
         mac_addresses_to = [mac_address2]
         yield papi.modify_nodes(
