@@ -835,7 +835,7 @@ def get_html_display_for_key(key, size):
     if len(key) > size:
         return '%.*s%s' % (size - len(HELLIPSIS), escape(key), HELLIPSIS)
     else:
-        return key
+        return escape(key)
 
 
 MAX_KEY_DISPLAY = 50
