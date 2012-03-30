@@ -14,13 +14,18 @@ __all__ = []
 import random
 
 from django import forms
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.http import QueryDict
 from maasserver.forms import (
     ConfigForm,
     EditUserForm,
+    get_transition_form,
     HostnameFormField,
     NewUserCreationForm,
+    NodeTransitionForm,
     NodeWithMACAddressesForm,
     ProfileForm,
     UIAdminNodeEditForm,
@@ -32,6 +37,7 @@ from maasserver.models import (
     Config,
     DEFAULT_CONFIG,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODE_STATUS,
     POWER_TYPE_CHOICES,
     )
 from maasserver.testing.factory import factory
@@ -249,6 +255,66 @@ class NodeEditForms(TestCase):
         user_ids = [choice[0] for choice in form.fields['owner'].choices]
 
         self.assertItemsEqual(['', user.id], user_ids)
+
+
+class TestNodeTransitionForm(TestCase):
+
+    def test_get_transition_form_creates_form_class_with_attributes(self):
+        user = factory.make_admin()
+        form_class = get_transition_form(user)
+
+        self.assertEqual(user, form_class.user)
+
+    def test_get_transition_form_creates_form_instance(self):
+        user = factory.make_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(user)(node)
+
+        self.assertIsInstance(form, NodeTransitionForm)
+        self.assertEqual(node, form.node)
+
+    def test_get_transition_form_for_admin(self):
+        admin = factory.make_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(admin)(node)
+
+        self.assertItemsEqual(
+            {"Enlist node": ('accept_enlistment', 'admin')},
+            form.transition_dict)
+
+    def test_get_transition_form_for_user(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(user)(node)
+
+        self.assertIsInstance(form, NodeTransitionForm)
+        self.assertEqual(node, form.node)
+        self.assertItemsEqual({}, form.transition_dict)
+
+    def test_get_transition_form_node_for_admin_save(self):
+        admin = factory.make_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(admin)(
+            node, {NodeTransitionForm.input_name: "Enlist node"})
+        form.save()
+
+        self.assertEqual(NODE_STATUS.READY, node.status)
+
+    def test_get_transition_form_for_user_save(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(user)(
+            node, {NodeTransitionForm.input_name: "Enlist node"})
+
+        self.assertRaises(PermissionDenied, form.save)
+
+    def test_get_transition_form_for_user_save_unknown_trans(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(user)(
+            node, {NodeTransitionForm.input_name: factory.getRandomString()})
+
+        self.assertRaises(PermissionDenied, form.save)
 
 
 class TestHostnameFormField(TestCase):

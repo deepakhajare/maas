@@ -72,6 +72,7 @@ from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
     EditUserForm,
+    get_transition_form,
     MAASAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
@@ -101,7 +102,7 @@ def logout(request):
     return dj_logout(request, next_page=reverse('login'))
 
 
-class NodeView(DetailView):
+class NodeView(UpdateView):
 
     template_name = 'maasserver/node_view.html'
 
@@ -111,11 +112,17 @@ class NodeView(DetailView):
         id = self.kwargs.get('id', None)
         return get_object_or_404(Node, id=id)
 
+    def get_form_class(self):
+        return get_transition_form(self.request.user)
+
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
         node = self.get_object()
         context['can_edit'] = self.request.user.has_perm('edit', node)
         return context
+
+    def get_success_url(self):
+        return reverse('node-view', args=[self.get_object().id])
 
 
 class NodeEdit(UpdateView):

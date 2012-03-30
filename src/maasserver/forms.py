@@ -11,10 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "CommissioningForm",
+    "get_transition_form",
     "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
     "MAASAndNetworkForm",
+    "NodeTransitionForm",
     "SSHKeyForm",
     "UbuntuForm",
     "UIAdminNodeEditForm",
@@ -26,8 +28,14 @@ from django.contrib.auth.forms import (
     UserChangeForm,
     UserCreationForm,
     )
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.contrib.auth.models import (
+    AnonymousUser,
+    User,
+    )
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.core.validators import URLValidator
 from django.forms import (
     CharField,
@@ -182,6 +190,42 @@ class NodeWithMACAddressesForm(NodeForm):
         if self.cleaned_data['hostname'] == "":
             node.set_mac_based_hostname(self.cleaned_data['mac_addresses'][0])
         return node
+
+
+class NodeTransitionForm(forms.Form):
+
+    user = AnonymousUser()
+
+    # The name of the input button used with this form.
+    input_name = 'node_transition'
+
+    def __init__(self, instance, *args, **kwargs):
+        super(NodeTransitionForm, self).__init__(*args, **kwargs)
+        self.node = instance
+        self.transitions = self.node.available_transition_methods(
+            self.user)
+        self.transition_dict = dict(
+            [(transition['name'],
+             (transition['method'], transition['permission']))
+            for transition in self.transitions])
+
+    def save(self):
+        transition_name = self.data.get(self.input_name)
+        method_name, permission = self.transition_dict.get(
+            transition_name, (None, None))
+        if method_name is not None:
+            if not self.user.has_perm(permission, self.node):
+                raise PermissionDenied()
+            method = getattr(self.node, method_name)
+            method()
+        else:
+            raise PermissionDenied()
+
+
+def get_transition_form(user):
+    return type(
+        str("SpecificNodeTransitionForm"), (NodeTransitionForm,),
+        {'user': user})
 
 
 class ProfileForm(ModelForm):
