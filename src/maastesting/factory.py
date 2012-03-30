@@ -60,7 +60,7 @@ class Factory:
 
     def getRandomMACAddress(self):
         octets = islice(self.random_octets, 6)
-        return ":".join(format(octet, "02x") for octet in octets)
+        return b":".join(format(octet, b"02x") for octet in octets)
 
 
 # Create factory singleton.
