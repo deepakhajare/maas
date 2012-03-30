@@ -826,16 +826,19 @@ def get_html_display_for_key(key, size):
             size - (len(key_type) + len(comment) + len(HELLIPSIS) + 2))
         if room_for_key > 0:
             return '%s %.*s%s %s' % (
-                escape(key_type),
+                escape(key_type, quote=True),
                 room_for_key,
-                escape(key_string),
+                escape(key_string, quote=True),
                 HELLIPSIS,
-                escape(comment))
+                escape(comment, quote=True))
 
     if len(key) > size:
-        return '%.*s%s' % (size - len(HELLIPSIS), escape(key), HELLIPSIS)
+        return '%.*s%s' % (
+            size - len(HELLIPSIS),
+            escape(key, quote=True),
+            HELLIPSIS)
     else:
-        return escape(key)
+        return escape(key, quote=True)
 
 
 MAX_KEY_DISPLAY = 50
