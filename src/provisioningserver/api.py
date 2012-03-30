@@ -97,8 +97,8 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
     generates the operations required to transform it into a list of
     interfaces containing exactly `mac_addresses`.
 
-    :param hostname: The hostname of the system.
     :param interfaces: A dict of interface-names -> interface-configurations.
+    :param hostname: The hostname of the system.
     :param mac_addresses: A collection of desired MAC addresses.
     """
     # A lazy list of ethernet interface names, used for constructing the
