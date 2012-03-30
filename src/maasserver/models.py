@@ -506,7 +506,7 @@ class Node(CommonInfo):
                 NODE_STATUS_CHOICES_DICT.get(old_status, "Unknown"),
                 NODE_STATUS_CHOICES_DICT.get(self.status, "Unknown"),
                 )
-            raise ValidationError({'status': error_text})
+            raise NodeStateViolation(error_text)
 
     def clean(self, *args, **kwargs):
         super(Node, self).clean(*args, **kwargs)

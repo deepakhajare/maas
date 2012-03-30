@@ -252,8 +252,8 @@ class NodeTest(TestCase):
             status=NODE_STATUS.RETIRED, owner=factory.make_user())
         node.status = NODE_STATUS.ALLOCATED
         self.assertRaisesRegexp(
-            ValidationError,
-            str({'status': u'Invalid transition: Retired -> Allocated.'}),
+            NodeStateViolation,
+            "Invalid transition: Retired -> Allocated.",
             node.full_clean)
 
     def test_full_clean_passes_if_status_unchanged(self):
@@ -261,7 +261,8 @@ class NodeTest(TestCase):
         node = factory.make_node(status=status)
         node.status = status
         node.full_clean()
-        # No ValidationError.
+        # The test is that this does not raise an error.
+        pass
 
     def test_full_clean_passes_if_status_valid_transition(self):
         # NODE_STATUS.READY -> NODE_STATUS.ALLOCATED is a valid
@@ -270,16 +271,17 @@ class NodeTest(TestCase):
         node = factory.make_node(status=status)
         node.status = NODE_STATUS.ALLOCATED
         node.full_clean()
-        # No ValidationError.
+        # The test is that this does not raise an error.
+        pass
 
-    def test_save_checks_status_transition_and_raises_if_invalid(self):
+    def test_save_raises_node_state_violation_on_bad_transition(self):
         # RETIRED -> ALLOCATED is an invalid transition.
         node = factory.make_node(
             status=NODE_STATUS.RETIRED, owner=factory.make_user())
         node.status = NODE_STATUS.ALLOCATED
         self.assertRaisesRegexp(
-            ValidationError,
-            str({'status': u'Invalid transition: Retired -> Allocated.'}),
+            NodeStateViolation,
+            "Invalid transition: Retired -> Allocated.",
             node.save)
 
     def test_save_does_not_check_status_transition_if_skip_check(self):
@@ -288,7 +290,8 @@ class NodeTest(TestCase):
             status=NODE_STATUS.RETIRED, owner=factory.make_user())
         node.status = NODE_STATUS.ALLOCATED
         node.save(skip_check=True)
-        # No ValidationError.
+        # The test is that this does not raise an error.
+        pass
 
 
 class GetDbStateTest(TestCase):
