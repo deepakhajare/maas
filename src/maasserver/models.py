@@ -594,7 +594,6 @@ class Node(CommonInfo):
 
     def acquire(self, token):
         """Mark commissioned node as acquired by the given user's token."""
-        assert self.status == NODE_STATUS.READY
         assert self.owner is None
         self.status = NODE_STATUS.ALLOCATED
         self.owner = token.user
@@ -602,11 +601,6 @@ class Node(CommonInfo):
 
     def release(self):
         """Mark allocated or reserved node as available again."""
-        assert self.status in [
-            NODE_STATUS.READY,
-            NODE_STATUS.ALLOCATED,
-            NODE_STATUS.RESERVED,
-            ]
         self.status = NODE_STATUS.READY
         self.owner = None
         self.token = None
