@@ -358,7 +358,7 @@ def create_node(request, initial_status):
 
     :param request: The http request for this node to be created.
     :param initial_status: The state the new node should be in.
-    :type initial_status: :class:`NODE_STATUS`
+    :type initial_status: A value from enum :class:`NODE_STATUS`.
     :return: A suitable return value for the handler receiving the "new"
         request that this implements.
     :rtype: :class:`maasserver.models.Node` or
