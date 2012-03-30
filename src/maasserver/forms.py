@@ -193,6 +193,11 @@ class NodeWithMACAddressesForm(NodeForm):
 
 
 class NodeTransitionForm(forms.Form):
+    """A form used to perform a status change on a Node.
+
+    That form class should not be used directly but through subclasses
+    created using `get_transition_form`.
+    """
 
     user = AnonymousUser()
 
@@ -223,6 +228,14 @@ class NodeTransitionForm(forms.Form):
 
 
 def get_transition_form(user):
+    """Return a class derived from NodeTransitionForm for a specific user.
+
+    :param user: The user for which to build a form derived from
+        NodeTransitionForm.
+    :type user: :class:`django.contrib.auth.models.User`
+    :return: A form class derived from NodeTransitionForm.
+    :rtype: class:`django.forms.Form`
+    """
     return type(
         str("SpecificNodeTransitionForm"), (NodeTransitionForm,),
         {'user': user})
