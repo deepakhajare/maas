@@ -957,6 +957,11 @@ class TestNodesAPI(APITestCase):
             (response.status_code, accepted_ids))
         self.assertEqual(target_state, reload_object(node).status)
 
+    def test_POST_quietly_accepts_empty_set(self):
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'accept'})
+        self.assertEqual(
+            (httplib.OK, "[]"), (response.status_code, response.content))
+
     def test_POST_accept_rejects_impossible_state_changes(self):
         acceptable_states = set([
             NODE_STATUS.DECLARED,
