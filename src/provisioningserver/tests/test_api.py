@@ -150,50 +150,61 @@ class TestFunctions(TestCase):
 
 class TestInterfaceDeltas(TestCase):
 
-    def test_gen_cobbler_interface_deltas_set_1(self):
+    def test_gen_cobbler_interface_deltas_set_1_mac(self):
+        # Specifying a single MAC address results in a delta to configure
+        # eth0. The dns_name of the interface is also updated.
         current_interfaces = {
             "eth0": {
                 "mac_address": "",
                 "dns_name": "colony",
                 },
             }
-        dns_name_desired = "clayman"
-        mac_addresses_desired = ["12:34:56:78:90:12"]
+        hostname = "clayman"
+        mac_addresses = [
+            "12:34:56:78:90:12",
+            ]
         expected = [
             {"interface": "eth0",
-             "mac_address": "12:34:56:78:90:12",
-             "dns_name": dns_name_desired},
+             "mac_address": mac_addresses[0],
+             "dns_name": hostname},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
-                current_interfaces, dns_name_desired,
-                mac_addresses_desired))
+                current_interfaces, hostname, mac_addresses))
         self.assertEqual(expected, observed)
 
-    def test_gen_cobbler_interface_deltas_set_2(self):
+    def test_gen_cobbler_interface_deltas_set_2_macs(self):
+        # Specifying multiple MAC addresses results in deltas to configure a
+        # corresponding number of interfaces. The dns_name of the first
+        # interface is updated to the given hostname; subsequent interfaces
+        # have an empty dns_name.
         current_interfaces = {
             "eth0": {
                 "mac_address": "",
                 },
             }
-        dns_name_desired = "crowbar"
-        mac_addresses_desired = [
-            "11:11:11:11:11:11", "22:22:22:22:22:22"]
+        hostname = "crowbar"
+        mac_addresses = [
+            "11:11:11:11:11:11",
+            "22:22:22:22:22:22",
+            ]
         expected = [
             {"interface": "eth0",
-             "mac_address": "11:11:11:11:11:11",
-             "dns_name": dns_name_desired},
+             "mac_address": mac_addresses[0],
+             "dns_name": hostname},
             {"interface": "eth1",
-             "mac_address": "22:22:22:22:22:22",
+             "mac_address": mac_addresses[1],
              "dns_name": ""},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
-                current_interfaces, dns_name_desired,
-                mac_addresses_desired))
+                current_interfaces, hostname, mac_addresses))
         self.assertEqual(expected, observed)
 
-    def test_gen_cobbler_interface_deltas_remove_1(self):
+    def test_gen_cobbler_interface_deltas_remove_first_mac(self):
+        # Removing the first MAC address causes the MAC addressese of
+        # subsequent interfaces to be shifted down (i.e. eth1's mac --> eth0),
+        # and the last interface to be deleted.
         dns_name = "lifesblood"
         current_interfaces = {
             "eth0": {
@@ -204,21 +215,48 @@ class TestInterfaceDeltas(TestCase):
                 "mac_address": "22:22:22:22:22:22",
                 },
             }
-        mac_addresses_desired = ["22:22:22:22:22:22"]
+        mac_addresses = [
+            current_interfaces["eth1"]["mac_address"],
+            ]
         expected = [
             {"interface": "eth0",
-             "mac_address": "22:22:22:22:22:22",
+             "mac_address": mac_addresses[0],
              "dns_name": "lifesblood"},
             {"interface": "eth1",
              "delete_interface": True},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
-                current_interfaces, dns_name,
-                mac_addresses_desired))
+                current_interfaces, dns_name, mac_addresses))
         self.assertEqual(expected, observed)
 
-    def test_gen_cobbler_interface_deltas_set_1_remove_1(self):
+    def test_gen_cobbler_interface_deltas_remove_last_mac(self):
+        # Removing the last MAC address causes the last interface to be
+        # deleted.
+        dns_name = "lifesblood"
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                "dns_name": dns_name,
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        mac_addresses = [
+            current_interfaces["eth0"]["mac_address"],
+            ]
+        expected = [
+            {"interface": "eth1",
+             "delete_interface": True},
+            ]
+        observed = list(
+            gen_cobbler_interface_deltas(
+                current_interfaces, dns_name, mac_addresses))
+        self.assertEqual(expected, observed)
+
+    def test_gen_cobbler_interface_deltas_modify_first_mac(self):
+        # Changing the first MAC address modifies the eth0 interface.
         current_interfaces = {
             "eth0": {
                 "mac_address": "11:11:11:11:11:11",
@@ -227,18 +265,19 @@ class TestInterfaceDeltas(TestCase):
                 "mac_address": "22:22:22:22:22:22",
                 },
             }
-        dns_name_desired = "necrophagist"
-        mac_addresses_desired = [
-            "33:33:33:33:33:33", "22:22:22:22:22:22"]
+        hostname = "necrophagist"
+        mac_addresses = [
+            "33:33:33:33:33:33",
+            current_interfaces["eth1"]["mac_address"],
+            ]
         expected = [
             {"interface": "eth0",
-             "mac_address": "33:33:33:33:33:33",
-             "dns_name": dns_name_desired},
+             "mac_address": mac_addresses[0],
+             "dns_name": hostname},
             ]
         observed = list(
             gen_cobbler_interface_deltas(
-                current_interfaces, dns_name_desired,
-                mac_addresses_desired))
+                current_interfaces, hostname, mac_addresses))
         self.assertEqual(expected, observed)
 
 
