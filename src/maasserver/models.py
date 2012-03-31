@@ -159,9 +159,7 @@ NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 #      new_status11,
 #      new_status12,
 #      new_status13,
-#      ]
-# ...
-#  old_status2: [
+#      ],
 # ...
 # }
 #
