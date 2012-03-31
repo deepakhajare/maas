@@ -49,7 +49,8 @@ from maasserver.models import (
     SYSTEM_USERS,
     UserProfile,
     validate_ssh_public_key,
-    NODE_TRANSITIONS_INFO,
+    NODE_TRANSITIONS,
+    NODE_TRANSITIONS_METHODS,
     )
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import get_data
@@ -324,43 +325,41 @@ class NodeTest(TestCase):
 
 
 class NodeTransitionsInfoTests(TestCase):
-    """Test the structure of NODE_TRANSITIONS_INFO."""
+    """Test the structure of NODE_TRANSITIONS and NODE_TRANSITIONS_METHODS."""
 
-    def test_NODE_TRANSITIONS_INFO_initial_states(self):
-        for initial_state in NODE_TRANSITIONS_INFO:
+    def test_NODE_TRANSITIONS_initial_states(self):
+        for initial_state in NODE_TRANSITIONS:
             self.assertIn(
                 initial_state, NODE_STATUS_CHOICES_DICT.keys() + [None])
 
-    def test_NODE_TRANSITIONS_INFO_destination_state(self):
-        for transitions in NODE_TRANSITIONS_INFO.values():
-            for transition in transitions:
-                destination_state = transition[0]
+    def test_NODE_TRANSITIONS_destination_state(self):
+        for transitions in NODE_TRANSITIONS.values():
+            for destination_state in transitions:
                 self.assertIn(
                     destination_state, NODE_STATUS_CHOICES_DICT.keys())
 
-    def test_NODE_TRANSITIONS_INFO_transitions(self):
+    def test_NODE_TRANSITION_METHODS_initial_states(self):
+        for state in NODE_TRANSITIONS_METHODS:
+            self.assertIn(
+                state, NODE_STATUS_CHOICES_DICT.keys() + [None])
+
+    def test_NODE_TRANSITIONS_METHODS_transitions(self):
         node = factory.make_node()
-        for transitions in NODE_TRANSITIONS_INFO.values():
+        for transitions in NODE_TRANSITIONS_METHODS.values():
             for transition in transitions:
-                has_method_transition = len(transition) == 2
-                if has_method_transition:
-                    method_transition = transition[1]
-                    self.assertItemsEqual(
-                        ['name', 'method', 'permission'],
-                        method_transition.keys())
-                    # The 'method' corresponds to the name of a method
-                    # on a Node.
-                    self.assertTrue(hasattr(node, method_transition['method']))
-                    self.assertTrue(
-                        inspect.ismethod(
-                            getattr(node, method_transition['method'])))
-                    # The 'permission' is a valid Node permission.
-                    self.assertIn(
-                        method_transition['permission'],
-                        ['edit', 'view', 'admin'])
-                    # The 'name' is a basestring.
-                    self.assertIsInstance(
-                        method_transition['name'], basestring)
+                self.assertItemsEqual(
+                    ['name', 'method', 'permission'], transition.keys())
+                # The 'method' corresponds to the name of a method
+                # on a Node.
+                self.assertTrue(hasattr(node, transition['method']))
+                self.assertTrue(
+                    inspect.ismethod(
+                        getattr(node, transition['method'])))
+                # The 'permission' is a valid Node permission.
+                self.assertIn(
+                    transition['permission'], ['edit', 'view', 'admin'])
+                # The 'name' is a basestring.
+                self.assertIsInstance(transition['name'], basestring)
 
 
 class GetDbStateTest(TestCase):
