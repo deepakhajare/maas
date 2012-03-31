@@ -18,7 +18,8 @@ __all__ = [
     "Config",
     "FileStorage",
     "NODE_STATUS",
-    "NODE_TRANSITIONS_INFO",
+    "NODE_TRANSITIONS",
+    "NODE_TRANSITIONS_METHODS",
     "Node",
     "MACAddress",
     "SSHKey",
@@ -151,91 +152,96 @@ NODE_STATUS_CHOICES = (
 NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
-# Information about valid node status transitions and optional associated
-# transition methods.
+# Information about valid node status transitions.
 # The format is:
 # {
 #  old_status1: [
-#      [new_status11, {
-#          'name': transition_name11,
-#          'method': method_name11,   # Name of the method to call on Node
-#                                     # to perform that transition.
-#          'permission': permission_required11
-#      }],
-#      [new_status12, {
-#       'name': transition_name12,
-#       'method': method_name12,
-#       'permission': permission_required12
-#      }],
-#      [new_status13],  # Having a transition method is optional.
-#      [new_status14],
+#      new_status11,
+#      new_status12,
+#      new_status13,
+#      ]
 # ...
 #  old_status2: [
 # ...
 # }
-NODE_TRANSITIONS_INFO = {
+#
+NODE_TRANSITIONS = {
     None: [
-        [NODE_STATUS.DECLARED],  # Anonymous enlistment.
-        [NODE_STATUS.READY],  # Authenticated enlistement.
-        [NODE_STATUS.MISSING],
-        [NODE_STATUS.RETIRED],
+        NODE_STATUS.DECLARED,  # Anonymous enlistment.
+        NODE_STATUS.READY,  # Authenticated enlistement.
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.DECLARED: [
-        [NODE_STATUS.COMMISSIONING],
-        [NODE_STATUS.MISSING],
-        [NODE_STATUS.READY, {
-            'name':"Enlist node", 'method': 'accept_enlistment',
-            'permission':'admin'}],
-        [NODE_STATUS.RETIRED],
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.READY,
+        NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.COMMISSIONING: [
-        [NODE_STATUS.FAILED_TESTS],
-        [NODE_STATUS.READY],
-        [NODE_STATUS.RETIRED],
-        [NODE_STATUS.MISSING],
+        NODE_STATUS.FAILED_TESTS,
+        NODE_STATUS.READY,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
         ],
     NODE_STATUS.READY: [
-        [NODE_STATUS.ALLOCATED],
-        [NODE_STATUS.RESERVED],
-        [NODE_STATUS.RETIRED],
-        [NODE_STATUS.MISSING],
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.RESERVED,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
         ],
     NODE_STATUS.RESERVED: [
-        [NODE_STATUS.READY],
-        [NODE_STATUS.ALLOCATED],
-        [NODE_STATUS.RETIRED],
-        [NODE_STATUS.MISSING],
+        NODE_STATUS.READY,
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
         ],
     NODE_STATUS.ALLOCATED: [
-        [NODE_STATUS.READY],
-        [NODE_STATUS.RETIRED],
-        [NODE_STATUS.MISSING],
+        NODE_STATUS.READY,
+        NODE_STATUS.RETIRED,
+        NODE_STATUS.MISSING,
         ],
     NODE_STATUS.MISSING: [
-        [NODE_STATUS.DECLARED],
-        [NODE_STATUS.READY],
-        [NODE_STATUS.ALLOCATED],
-        [NODE_STATUS.COMMISSIONING],
+        NODE_STATUS.DECLARED,
+        NODE_STATUS.READY,
+        NODE_STATUS.ALLOCATED,
+        NODE_STATUS.COMMISSIONING,
         ],
     NODE_STATUS.RETIRED: [
-        [NODE_STATUS.DECLARED],
-        [NODE_STATUS.READY],
-        [NODE_STATUS.MISSING],
+        NODE_STATUS.DECLARED,
+        NODE_STATUS.READY,
+        NODE_STATUS.MISSING,
         ],
     }
 
-
-# Valid node status transitions:
+# Node transitions methods.
 # The format is:
 # {
-#     old_status1: [new_status11, new_status12, ...],
-#     old_status2: [new_status21, new_status22, ...],
+#     old_status1: [
+#         {
+#             'name': transition_name11,
+#             'method': method_name11,   # Name of the method to call on Node
+#                                        # to perform that transition.
+#             'permission': permission_required11,
+#         },
+#         {
+#             'name': transition_name12,
+#             'method': method_name12,   # Name of the method to call on Node
+#                                        # to perform that transition.
+#             'permission': permission_required12,
+#         },
+#     ]
 # ...
-# }
-NODE_TRANSITIONS = dict(
-    (old_status, [info[0] for info in new_statuses_infos])
-    for old_status, new_statuses_infos in NODE_TRANSITIONS_INFO.items()
-    )
+#
+NODE_TRANSITIONS_METHODS = {
+    NODE_STATUS.DECLARED: [
+        {
+            'name': "Enlist node",
+            'method': 'accept_enlistment',
+            'permission': 'admin'
+        }
+    ],
+}
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -569,14 +575,11 @@ class Node(CommonInfo):
         :rtype: Sequence
         """
         valid_transitions = []
-        node_transitions = NODE_TRANSITIONS_INFO.get(self.status, ())
+        node_transitions = NODE_TRANSITIONS_METHODS.get(self.status, ())
         for node_transition in node_transitions:
-            if len(node_transition) == 2:
-                # The transition has a method associated with it.
-                new_status, transition_info = node_transition
-                if user.has_perm(transition_info['permission'], self):
-                    # The user can perform the transition.
-                    valid_transitions.append(transition_info)
+            if user.has_perm(node_transition['permission'], self):
+                # The user can perform the transition.
+                valid_transitions.append(node_transition)
         return valid_transitions
 
     def display_status(self):
