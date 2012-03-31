@@ -167,8 +167,7 @@ NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 #
 NODE_TRANSITIONS = {
     None: [
-        NODE_STATUS.DECLARED,  # Anonymous enlistment.
-        NODE_STATUS.READY,  # Authenticated enlistement.
+        NODE_STATUS.DECLARED,
         NODE_STATUS.MISSING,
         NODE_STATUS.RETIRED,
         ],
