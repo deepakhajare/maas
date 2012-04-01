@@ -13,7 +13,6 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
-import inspect
 import os
 import random
 import urllib2
@@ -254,17 +253,12 @@ class NodeTransitionsMethodsTests(TestCase):
                 state, NODE_STATUS_CHOICES_DICT.keys() + [None])
 
     def test_NODE_TRANSITIONS_METHODS_transitions(self):
-        node = factory.make_node()
         for transitions in NODE_TRANSITIONS_METHODS.values():
             for transition in transitions:
                 self.assertItemsEqual(
-                    ['name', 'method', 'permission'], transition.keys())
-                # The 'method' corresponds to the name of a method
-                # on a Node.
-                self.assertTrue(hasattr(node, transition['method']))
-                self.assertTrue(
-                    inspect.ismethod(
-                        getattr(node, transition['method'])))
+                    ['name', 'display', 'permission'], transition.keys())
+                # The 'display' is a basestring.
+                self.assertIsInstance(transition['display'], basestring)
                 # The 'permission' is a valid Node permission.
                 self.assertIn(
                     transition['permission'], ['edit', 'view', 'admin'])
@@ -281,8 +275,8 @@ class AvailableTransitionsMethodsTests(TestCase):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         self.assertItemsEqual(
             [{
-                'method': 'accept_enlistment',
-                'name': 'Enlist node',
+                'display': 'Enlist node',
+                'name': 'accept_enlistment_action',
                 'permission': 'admin',
             }],
             available_transition_methods(node, admin))
