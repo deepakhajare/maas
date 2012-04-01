@@ -19,7 +19,6 @@ __all__ = [
     "FileStorage",
     "NODE_STATUS",
     "NODE_TRANSITIONS",
-    "NODE_TRANSITIONS_METHODS",
     "Node",
     "MACAddress",
     "SSHKey",
@@ -210,35 +209,6 @@ NODE_TRANSITIONS = {
         NODE_STATUS.MISSING,
         ],
     }
-
-# Node transitions methods.
-# The format is:
-# {
-#     old_status1: [
-#         {
-#             'name': transition_name11,
-#             'method': method_name11,   # Name of the method to call on Node
-#                                        # to perform that transition.
-#             'permission': permission_required11,
-#         },
-#         {
-#             'name': transition_name12,
-#             'method': method_name12,   # Name of the method to call on Node
-#                                        # to perform that transition.
-#             'permission': permission_required12,
-#         },
-#     ]
-# ...
-#
-NODE_TRANSITIONS_METHODS = {
-    NODE_STATUS.DECLARED: [
-        {
-            'name': "Enlist node",
-            'method': 'accept_enlistment',
-            'permission': 'admin'
-        }
-    ],
-}
 
 
 class NODE_AFTER_COMMISSIONING_ACTION:
@@ -557,27 +527,6 @@ class Node(CommonInfo):
         if not skip_check:
             self.full_clean()
         return super(Node, self).save(*args, **kwargs)
-
-    def available_transition_methods(self, user):
-        """Return the transitions that this user is allowed to perform on
-        this node.
-
-        :param user: The user used to perform the permission checks.  Only the
-            transitions available to this user will be returned.
-        :type user: :class:`django.contrib.auth.models.User`
-        :return: A list of transition dicts (each dict contains 3 values:
-            'name': the name of the transition, 'permission': the permission
-            required to perform this transition, 'method': the name of the
-            method to execute on the node to perform the transition).
-        :rtype: Sequence
-        """
-        valid_transitions = []
-        node_transitions = NODE_TRANSITIONS_METHODS.get(self.status, ())
-        for node_transition in node_transitions:
-            if user.has_perm(node_transition['permission'], self):
-                # The user can perform the transition.
-                valid_transitions.append(node_transition)
-        return valid_transitions
 
     def display_status(self):
         """Return status text as displayed to the user.
