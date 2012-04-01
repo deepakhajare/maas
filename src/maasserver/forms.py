@@ -205,9 +205,9 @@ class NodeTransitionForm(forms.Form):
     input_name = 'node_transition'
 
     def __init__(self, instance, *args, **kwargs):
+        super(NodeTransitionForm, self).__init__(*args, **kwargs)
         # Circular imports.
         from maasserver.views import available_transition_methods
-        super(NodeTransitionForm, self).__init__(*args, **kwargs)
         self.node = instance
         self.transitions = available_transition_methods(self.node, self.user)
         self.transition_dict = dict(
