@@ -28,7 +28,6 @@ from maasserver.exceptions import (
     NodeStateViolation,
     PermissionDenied,
     )
-import inspect
 from maasserver.models import (
     Config,
     create_auth_token,
@@ -45,12 +44,11 @@ from maasserver.models import (
     NODE_STATUS,
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
+    NODE_TRANSITIONS,
     SSHKey,
     SYSTEM_USERS,
     UserProfile,
     validate_ssh_public_key,
-    NODE_TRANSITIONS,
-    NODE_TRANSITIONS_METHODS,
     )
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import get_data
@@ -304,28 +302,9 @@ class NodeTest(TestCase):
         # The test is that this does not raise an error.
         pass
 
-    def test_available_transition_methods_for_declared_node_admin(self):
-        # An admin has access to the "Enlist node" transition for a
-        # 'Declared' node.
-        admin = factory.make_admin()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        self.assertItemsEqual(
-            [{
-                'method': 'accept_enlistment',
-                'name': 'Enlist node',
-                'permission': 'admin',
-            }],
-            node.available_transition_methods(admin))
 
-    def test_available_transition_methods_for_declared_node_simple_user(self):
-        # A simple user sees not transition for a 'Declared' node.
-        user = factory.make_user()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        self.assertItemsEqual([], node.available_transition_methods(user))
-
-
-class NodeTransitionsInfoTests(TestCase):
-    """Test the structure of NODE_TRANSITIONS and NODE_TRANSITIONS_METHODS."""
+class NodeTransitionsTests(TestCase):
+    """Test the structure of NODE_TRANSITIONS."""
 
     def test_NODE_TRANSITIONS_initial_states(self):
         for initial_state in NODE_TRANSITIONS:
@@ -337,29 +316,6 @@ class NodeTransitionsInfoTests(TestCase):
             for destination_state in transitions:
                 self.assertIn(
                     destination_state, NODE_STATUS_CHOICES_DICT.keys())
-
-    def test_NODE_TRANSITION_METHODS_initial_states(self):
-        for state in NODE_TRANSITIONS_METHODS:
-            self.assertIn(
-                state, NODE_STATUS_CHOICES_DICT.keys() + [None])
-
-    def test_NODE_TRANSITIONS_METHODS_transitions(self):
-        node = factory.make_node()
-        for transitions in NODE_TRANSITIONS_METHODS.values():
-            for transition in transitions:
-                self.assertItemsEqual(
-                    ['name', 'method', 'permission'], transition.keys())
-                # The 'method' corresponds to the name of a method
-                # on a Node.
-                self.assertTrue(hasattr(node, transition['method']))
-                self.assertTrue(
-                    inspect.ismethod(
-                        getattr(node, transition['method'])))
-                # The 'permission' is a valid Node permission.
-                self.assertIn(
-                    transition['permission'], ['edit', 'view', 'admin'])
-                # The 'name' is a basestring.
-                self.assertIsInstance(transition['name'], basestring)
 
 
 class GetDbStateTest(TestCase):
