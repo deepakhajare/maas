@@ -95,6 +95,8 @@ from maasserver.models import (
 # {
 #     old_status1: [
 #         {
+#             'display': display_string11,  # The name of the transition
+#                                           # (to be displayed in the UI).
 #             'name': transition_name11,  # The name of the transition.
 #             'permission': permission_required11,
 #         },
@@ -104,7 +106,8 @@ from maasserver.models import (
 NODE_TRANSITIONS_METHODS = {
     NODE_STATUS.DECLARED: [
         {
-            'name': "Enlist node",
+            'display': "Enlist node",
+            'name': "accept_enlistment_action",
             'permission': 'admin'
         },
     ],

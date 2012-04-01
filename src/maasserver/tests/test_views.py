@@ -256,12 +256,14 @@ class NodeTransitionsMethodsTests(TestCase):
         for transitions in NODE_TRANSITIONS_METHODS.values():
             for transition in transitions:
                 self.assertItemsEqual(
-                    ['name', 'permission'], transition.keys())
+                    ['display', 'name', 'permission'], transition.keys())
                 # The 'permission' is a valid Node permission.
                 self.assertIn(
                     transition['permission'], ['edit', 'view', 'admin'])
                 # The 'name' is a basestring.
                 self.assertIsInstance(transition['name'], basestring)
+                # The 'display' is a basestring.
+                self.assertIsInstance(transition['display'], basestring)
 
 
 class AvailableTransitionsMethodsTests(TestCase):
@@ -273,7 +275,8 @@ class AvailableTransitionsMethodsTests(TestCase):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         self.assertItemsEqual(
             [{
-                'name': 'Enlist node',
+                'display': 'Enlist node',
+                'name': 'accept_enlistment_action',
                 'permission': 'admin',
             }],
             available_transition_methods(node, admin))
