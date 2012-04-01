@@ -96,16 +96,9 @@ from maasserver.models import (
 # {
 #     old_status1: [
 #         {
-#             'name': transition_name11,
-#             'method': method_name11,   # Name of the method to call on Node
-#                                        # to perform that transition.
+#             'display': transition_name11,  # The name to display.
+#             'name': name11,  # A key to identify the action.
 #             'permission': permission_required11,
-#         },
-#         {
-#             'name': transition_name12,
-#             'method': method_name12,   # Name of the method to call on Node
-#                                        # to perform that transition.
-#             'permission': permission_required12,
 #         },
 #     ]
 # ...
@@ -113,10 +106,10 @@ from maasserver.models import (
 NODE_TRANSITIONS_METHODS = {
     NODE_STATUS.DECLARED: [
         {
-            'name': "Enlist node",
-            'method': 'accept_enlistment',
+            'display': "Enlist node",
+            'name': 'accept_enlistment_action',
             'permission': 'admin'
-        }
+        },
     ],
 }
 
