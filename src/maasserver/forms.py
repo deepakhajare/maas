@@ -211,19 +211,19 @@ class NodeTransitionForm(forms.Form):
         self.node = instance
         self.transitions = available_transition_methods(self.node, self.user)
         self.transition_dict = dict(
-            [(transition['name'],
-             (transition['method'], transition['permission']))
+            [(transition['display'],
+             (transition['name'], transition['permission']))
             for transition in self.transitions])
 
     def save(self):
         transition_name = self.data.get(self.input_name)
-        method_name, permission = self.transition_dict.get(
+        action_name, permission = self.transition_dict.get(
             transition_name, (None, None))
-        if method_name is not None:
+        if action_name is not None:
             if not self.user.has_perm(permission, self.node):
                 raise PermissionDenied()
-            method = getattr(self.node, method_name)
-            method()
+            if action_name == 'accept_enlistment_action':
+                self.node.accept_enlistment()
         else:
             raise PermissionDenied()
 

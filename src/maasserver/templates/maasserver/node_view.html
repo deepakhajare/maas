@@ -19,8 +19,8 @@
         {% if forloop.first %}<br /><br /><h4>Actions</h4>{% endif %}
         <input class="secondary"
                type="submit"
-               name={{ form.input_name }}
-               value="{{ transition.name }}" />
+               name="{{ form.input_name }}"
+               value="{{ transition.display }}" />
         {% if not forloop.last %}<br /><br />{% endif %}
       {% endfor %}
       </form>
