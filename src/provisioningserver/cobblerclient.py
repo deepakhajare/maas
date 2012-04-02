@@ -405,9 +405,10 @@ class CobblerObject:
             return attribute_name
 
         attribute_name = attribute_name.replace('-', '_')
-        assert attribute_name in attributes, (
-            "Unknown attribute for %s: %s."
-            % (cls.object_type, attribute_name))
+        if attribute_name not in attributes:
+            raise AssertionError(
+                "Unknown attribute for %s: %s." % (
+                    cls.object_type, attribute_name))
         return attribute_name
 
     @classmethod
@@ -719,10 +720,12 @@ class CobblerSystem(CobblerObject):
         'profile',
         ]
     modification_attributes = [
+        'hostname',
         'delete_interface',
         'interface',  # Required for mac_address and delete_interface.
         'mac_address',
         'profile',
+        'dns_name',
         ]
 
     @classmethod

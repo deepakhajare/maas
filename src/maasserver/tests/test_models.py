@@ -14,15 +14,18 @@ __all__ = []
 import codecs
 from io import BytesIO
 import os
+import random
 import shutil
 from socket import gethostname
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils.safestring import SafeUnicode
 from fixtures import TestWithFixtures
 from maasserver.exceptions import (
     CannotDeleteUserException,
+    NodeStateViolation,
     PermissionDenied,
     )
 from maasserver.models import (
@@ -32,16 +35,22 @@ from maasserver.models import (
     FileStorage,
     GENERIC_CONSUMER,
     get_auth_tokens,
+    get_db_state,
     get_default_config,
+    get_html_display_for_key,
+    HELLIPSIS,
     MACAddress,
     Node,
     NODE_STATUS,
+    NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
     SSHKey,
     SYSTEM_USERS,
     UserProfile,
+    validate_ssh_public_key,
     )
 from maasserver.provisioning import get_provisioning_api_proxy
+from maasserver.testing import get_data
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -54,6 +63,7 @@ from piston.models import (
     )
 from provisioningserver.enum import POWER_TYPE
 from testtools.matchers import (
+    EndsWith,
     GreaterThan,
     LessThan,
     )
@@ -111,7 +121,34 @@ class NodeTest(TestCase):
         self.assertRaises(
             MACAddress.DoesNotExist, MACAddress.objects.get, id=mac.id)
 
-    def test_set_mac_based_hostname(self):
+    def test_set_mac_based_hostname_default_enlistment_domain(self):
+        # The enlistment domain defaults to `local`.
+        node = factory.make_node()
+        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
+        hostname = 'node-aabbccddeeff.local'
+        self.assertEqual(hostname, node.hostname)
+
+    def test_set_mac_based_hostname_alt_enlistment_domain(self):
+        # A non-default enlistment domain can be specified.
+        Config.objects.set_config("enlistment_domain", "example.com")
+        node = factory.make_node()
+        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
+        hostname = 'node-aabbccddeeff.example.com'
+        self.assertEqual(hostname, node.hostname)
+
+    def test_set_mac_based_hostname_cleaning_enlistment_domain(self):
+        # Leading and trailing dots and whitespace are cleaned from the
+        # configured enlistment domain before it's joined to the hostname.
+        Config.objects.set_config("enlistment_domain", " .example.com. ")
+        node = factory.make_node()
+        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
+        hostname = 'node-aabbccddeeff.example.com'
+        self.assertEqual(hostname, node.hostname)
+
+    def test_set_mac_based_hostname_no_enlistment_domain(self):
+        # The enlistment domain can be set to the empty string and
+        # set_mac_based_hostname sets a hostname with no domain.
+        Config.objects.set_config("enlistment_domain", "")
         node = factory.make_node()
         node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
         hostname = 'node-aabbccddeeff'
@@ -154,6 +191,128 @@ class NodeTest(TestCase):
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
         node.release()
         self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
+
+    def test_accept_enlistment_gets_node_out_of_declared_state(self):
+        # If called on a node in Declared state, accept_enlistment()
+        # changes the node's status, and returns the node.
+
+        # This will change when we add commissioning.  Until then,
+        # acceptance gets a node straight to Ready state.
+        target_state = NODE_STATUS.READY
+
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        return_value = node.accept_enlistment()
+        self.assertEqual((node, target_state), (return_value, node.status))
+
+    def test_accept_enlistment_does_nothing_if_already_accepted(self):
+        # If a node has already been accepted, but not assigned a role
+        # yet, calling accept_enlistment on it is meaningless but not an
+        # error.  The method returns None in this case.
+        accepted_states = [
+            NODE_STATUS.COMMISSIONING,
+            NODE_STATUS.READY,
+            ]
+        nodes = {
+            status: factory.make_node(status=status)
+            for status in accepted_states}
+
+        return_values = {
+            status: node.accept_enlistment()
+            for status, node in nodes.items()}
+
+        self.assertEqual(
+            {status: None for status in accepted_states}, return_values)
+        self.assertEqual(
+            {status: status for status in accepted_states},
+            {status: node.status for status, node in nodes.items()})
+
+    def test_accept_enlistment_rejects_bad_state_change(self):
+        # If a node is neither Declared nor in one of the "accepted"
+        # states where acceptance is a safe no-op, accept_enlistment
+        # raises a node state violation and leaves the node's state
+        # unchanged.
+        all_states = map_enum(NODE_STATUS).values()
+        acceptable_states = [
+            NODE_STATUS.DECLARED,
+            NODE_STATUS.COMMISSIONING,
+            NODE_STATUS.READY,
+            ]
+        unacceptable_states = set(all_states) - set(acceptable_states)
+        nodes = {
+            status: factory.make_node(status=status)
+            for status in unacceptable_states}
+
+        exceptions = {status: False for status in unacceptable_states}
+        for status, node in nodes.items():
+            try:
+                node.accept_enlistment()
+            except NodeStateViolation:
+                exceptions[status] = True
+
+        self.assertEqual(
+            {status: True for status in unacceptable_states}, exceptions)
+        self.assertEqual(
+            {status: status for status in unacceptable_states},
+            {status: node.status for status, node in nodes.items()})
+
+    def test_full_clean_checks_status_transition_and_raises_if_invalid(self):
+        # RETIRED -> ALLOCATED is an invalid transition.
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=factory.make_user())
+        node.status = NODE_STATUS.ALLOCATED
+        self.assertRaisesRegexp(
+            NodeStateViolation,
+            "Invalid transition: Retired -> Allocated.",
+            node.full_clean)
+
+    def test_full_clean_passes_if_status_unchanged(self):
+        status = factory.getRandomChoice(NODE_STATUS_CHOICES)
+        node = factory.make_node(status=status)
+        node.status = status
+        node.full_clean()
+        # The test is that this does not raise an error.
+        pass
+
+    def test_full_clean_passes_if_status_valid_transition(self):
+        # NODE_STATUS.READY -> NODE_STATUS.ALLOCATED is a valid
+        # transition.
+        status = NODE_STATUS.READY
+        node = factory.make_node(status=status)
+        node.status = NODE_STATUS.ALLOCATED
+        node.full_clean()
+        # The test is that this does not raise an error.
+        pass
+
+    def test_save_raises_node_state_violation_on_bad_transition(self):
+        # RETIRED -> ALLOCATED is an invalid transition.
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=factory.make_user())
+        node.status = NODE_STATUS.ALLOCATED
+        self.assertRaisesRegexp(
+            NodeStateViolation,
+            "Invalid transition: Retired -> Allocated.",
+            node.save)
+
+    def test_save_does_not_check_status_transition_if_skip_check(self):
+        # RETIRED -> ALLOCATED is an invalid transition.
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=factory.make_user())
+        node.status = NODE_STATUS.ALLOCATED
+        node.save(skip_check=True)
+        # The test is that this does not raise an error.
+        pass
+
+
+class GetDbStateTest(TestCase):
+    """Testing for the method `get_db_state`."""
+
+    def test_get_db_state_returns_db_state(self):
+        status = factory.getRandomChoice(NODE_STATUS_CHOICES)
+        node = factory.make_node(status=status)
+        another_status = factory.getRandomChoice(
+            NODE_STATUS_CHOICES, but_not=[status])
+        node.status = another_status
+        self.assertEqual(status, get_db_state(node, 'status'))
 
 
 class NodeManagerTest(TestCase):
@@ -520,8 +679,208 @@ class UserProfileTest(TestCase):
         self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
 
 
+class SSHKeyValidatorTest(TestCase):
+
+    def test_validates_rsa_public_key(self):
+        key_string = get_data('data/test_rsa.pub')
+        validate_ssh_public_key(key_string)
+        # No ValidationError.
+
+    def test_validates_dsa_public_key(self):
+        key_string = get_data('data/test_dsa.pub')
+        validate_ssh_public_key(key_string)
+        # No ValidationError.
+
+    def test_does_not_validate_random_data(self):
+        key_string = factory.getRandomString()
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
+
+    def test_does_not_validate_rsa_private_key(self):
+        key_string = get_data('data/test_rsa')
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
+
+    def test_does_not_validate_dsa_private_key(self):
+        key_string = get_data('data/test_dsa')
+        self.assertRaises(
+            ValidationError, validate_ssh_public_key, key_string)
+
+
+class GetHTMLDisplayForKeyTest(TestCase):
+    """Testing for the method `get_html_display_for_key`."""
+
+    def make_comment(self, length):
+        """Create a comment of the desired length.
+
+        The comment may contain spaces, but not begin or end in them.  It
+        will be of the desired length both before and after stripping.
+        """
+        return ''.join([
+            factory.getRandomString(1),
+            factory.getRandomString(max([length - 2, 0]), spaces=True),
+            factory.getRandomString(1),
+            ])[:length]
+
+    def make_key(self, type_len=7, key_len=360, comment_len=None):
+        """Produce a fake ssh public key containing arbitrary data.
+
+        :param type_len: The length of the "key type" field.  (Default is
+            sized for the real-life "ssh-rsa").
+        :param key_len: Length of the key text.  (With a roughly realistic
+            default).
+        :param comment_len: Length of the comment field.  The comment may
+            contain spaces.  Leave it None to omit the comment.
+        :return: A string representing the combined key-file contents.
+        """
+        fields = [
+            factory.getRandomString(type_len),
+            factory.getRandomString(key_len),
+            ]
+        if comment_len is not None:
+            fields.append(self.make_comment(comment_len))
+        return " ".join(fields)
+
+    def test_display_returns_unchanged_if_unknown_and_small(self):
+        # If the key does not look like a normal key (with three parts
+        # separated by spaces, it's returned unchanged if its size is <=
+        # size.
+        size = random.randint(101, 200)
+        key = factory.getRandomString(size - 100)
+        display = get_html_display_for_key(key, size)
+        self.assertTrue(len(display) < size)
+        self.assertEqual(key, display)
+
+    def test_display_returns_cropped_if_unknown_and_large(self):
+        # If the key does not look like a normal key (with three parts
+        # separated by spaces, it's returned cropped if its size is >
+        # size.
+        size = random.randint(20, 100)  # size cannot be < len(HELLIPSIS).
+        key = factory.getRandomString(size + 1)
+        display = get_html_display_for_key(key, size)
+        self.assertEqual(size, len(display))
+        self.assertEqual(
+            '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS), display)
+
+    def test_display_escapes_commentless_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the key has no comment, and is
+        # brief enough to fit into the allotted space.
+        self.assertEqual(
+            "&lt;type&gt; &lt;text&gt;",
+            get_html_display_for_key("<type> <text>", 100))
+
+    def test_display_escapes_short_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the whole key is short enough to
+        # fit completely into the output.
+        key = "<type> <text> <comment>"
+        display = get_html_display_for_key(key, 100)
+        # This also verifies that the entire key fits into the string.
+        # Otherwise we might accidentally get one of the other cases.
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
+        # And of course the check also implies that the text is
+        # HTML-escaped:
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+
+    def test_display_escapes_long_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the comment is short enough to fit
+        # completely into the output.
+        key = "<type> %s <comment>" % ("<&>" * 50)
+        display = get_html_display_for_key(key, 50)
+        # This verifies that we are indeed getting an abbreviated
+        # display.  Otherwise we might accidentally get one of the other
+        # cases.
+        self.assertIn("&hellip;", display)
+        self.assertIn("comment", display)
+        # And now, on to checking that the text is HTML-safe.
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
+
+    def test_display_limits_size_with_large_comment(self):
+        # If the key has a large 'comment' part, the key is simply
+        # cropped and HELLIPSIS appended to it.
+        key = self.make_key(10, 10, 100)
+        display = get_html_display_for_key(key, 50)
+        self.assertEqual(50, len(display))
+        self.assertEqual(
+            '%.*s%s' % (50 - len(HELLIPSIS), key, HELLIPSIS), display)
+
+    def test_display_limits_size_with_large_key_type(self):
+        # If the key has a large 'key_type' part, the key is simply
+        # cropped and HELLIPSIS appended to it.
+        key = self.make_key(100, 10, 10)
+        display = get_html_display_for_key(key, 50)
+        self.assertEqual(50, len(display))
+        self.assertEqual(
+            '%.*s%s' % (50 - len(HELLIPSIS), key, HELLIPSIS), display)
+
+    def test_display_cropped_key(self):
+        # If the key has a small key_type, a small comment and a large
+        # key_string (which is the 'normal' case), the key_string part
+        # gets cropped.
+        type_len = 10
+        comment_len = 10
+        key = self.make_key(type_len, 100, comment_len)
+        key_type, key_string, comment = key.split(' ', 2)
+        display = get_html_display_for_key(key, 50)
+        self.assertEqual(50, len(display))
+        self.assertEqual(
+            '%s %.*s%s %s' % (
+                key_type,
+                50 - (type_len + len(HELLIPSIS) + comment_len + 2),
+                key_string, HELLIPSIS, comment),
+            display)
+
+
+class SSHKeyTest(TestCase):
+    """Testing for the :class:`SSHKey`."""
+
+    def test_sshkey_validation_with_valid_key(self):
+        key_string = get_data('data/test_rsa.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        key.full_clean()
+        # No ValidationError.
+
+    def test_sshkey_validation_fails_if_key_is_invalid(self):
+        key_string = factory.getRandomString()
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        self.assertRaises(
+            ValidationError, key.full_clean)
+
+    def test_sshkey_display_with_real_life_key(self):
+        # With a real-life ssh-rsa key, the key_string part is cropped.
+        key_string = get_data('data/test_rsa.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        display = key.display_html()
+        self.assertEqual(
+            'ssh-rsa AAAAB3NzaC1yc2E&hellip; ubuntu@server-7476', display)
+
+    def test_sshkey_display_is_marked_as_HTML_safe(self):
+        key_string = get_data('data/test_rsa.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        display = key.display_html()
+        self.assertIsInstance(display, SafeUnicode)
+
+
 class SSHKeyManagerTest(TestCase):
-    """Testing for the :class `SSHKeyManager` model manager."""
+    """Testing for the :class:`SSHKeyManager` model manager."""
 
     def test_get_keys_for_user_no_keys(self):
         user = factory.make_user()

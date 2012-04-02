@@ -1,7 +1,50 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""API."""
+"""Restful MAAS API.
+
+This is the documentation for the API that lets you control and query MAAS.
+The API is "Restful", which means that you access it through normal HTTP
+requests.
+
+
+API versions
+------------
+
+At any given time, MAAS may support multiple versions of its API.  The version
+number is included in the API's URL, e.g. /api/1.0/
+
+For now, 1.0 is the only supported version.
+
+
+HTTP methods and parameter-passing
+----------------------------------
+
+The following HTTP methods are available for accessing the API:
+ * GET (for information retrieval and queries),
+ * POST (for asking the system to do things),
+ * PUT (for updating objects), and
+ * DELETE (for deleting objects).
+
+All methods except DELETE may take parameters, but they are not all passed in
+the same way.  GET parameters are passed in the URL, as is normal with a GET:
+"/item/?foo=bar" passes parameter "foo" with value "bar".
+
+POST and PUT are different.  Your request should have MIME type
+"multipart/form-data"; each part represents one parameter (for POST) or
+attribute (for PUT).  Each part is named after the parameter or attribute it
+contains, and its contents are the conveyed value.
+
+All parameters are in text form.  If you need to submit binary data to the
+API, don't send it as any MIME binary format; instead, send it as a plain text
+part containing base64-encoded data.
+
+Most resources offer a choice of GET or POST operations.  In those cases these
+methods will take one special parameter, called `op`, to indicate what it is
+you want to do.
+
+For example, to list all nodes, you might GET "/api/1.0/nodes/?op=list".
+"""
 
 from __future__ import (
     print_function,
@@ -11,6 +54,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "api_doc",
+    "api_doc_title",
     "extract_oauth_key",
     "generate_api_doc",
     "AccountHandler",
@@ -26,6 +70,7 @@ from base64 import b64decode
 import httplib
 import json
 import sys
+from textwrap import dedent
 import types
 
 from django.core.exceptions import ValidationError
@@ -47,6 +92,7 @@ from maasserver.exceptions import (
     NodesNotAvailable,
     NodeStateViolation,
     PermissionDenied,
+    Unauthorized,
     )
 from maasserver.fields import validate_mac
 from maasserver.forms import NodeWithMACAddressesForm
@@ -354,10 +400,19 @@ class NodeHandler(BaseHandler):
 
 
 def create_node(request):
+    """Service an http request to create a node.
+
+    The node will be in the Declared state.
+
+    :param request: The http request for this node to be created.
+    :return: A suitable return value for the handler receiving the "new"
+        request that this implements.
+    :rtype: :class:`maasserver.models.Node` or
+        :class:`django.http.HttpResponseBadRequest`.
+    """
     form = NodeWithMACAddressesForm(request.data)
     if form.is_valid():
-        node = form.save()
-        return node
+        return form.save()
     else:
         return HttpResponseBadRequest(
             form.errors, content_type='application/json')
@@ -371,8 +426,19 @@ class AnonNodesHandler(AnonymousBaseHandler):
 
     @api_exported('new', 'POST')
     def new(self, request):
-        """Create a new Node."""
+        """Create a new Node.
+
+        Adding a server to a MAAS puts it on a path that will wipe its disks
+        and re-install its operating system.  In anonymous enlistment,
+        therefore, the node is held in the "Declared" state for approval by a
+        MAAS user.
+        """
         return create_node(request)
+
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept a node's enlistment: not allowed to anonymous users."""
+        raise Unauthorized("You must be logged in to accept nodes.")
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -402,8 +468,41 @@ class NodesHandler(BaseHandler):
 
     @api_exported('new', 'POST')
     def new(self, request):
-        """Create a new Node."""
-        return create_node(request)
+        """Create a new Node.
+
+        When a node has been added to MAAS by a logged-in MAAS user, it is
+        ready for allocation to services running on the MAAS.
+        """
+        node = create_node(request)
+        node.accept_enlistment()
+        return node
+
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously, as opposed to by a
+        logged-in user, at the nodes' own request.  These nodes are held in
+        the Declared state; a MAAS user must first verify the authenticity of
+        these enlistments, and accept them.
+
+        Enlistments can be accepted en masse, by passing multiple nodes to
+        this call.  Accepting an already accepted node is not an error, but
+        accepting one that is already allocated, broken, etc. is.
+
+        :param nodes: system_ids of the nodes whose enlistment is to be
+            accepted.  (An empty list is acceptable).
+        :return: The system_ids of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are
+            excluded from the result.
+        """
+        system_ids = set(request.POST.getlist('nodes'))
+        nodes = Node.objects.filter(system_id__in=system_ids)
+        found_ids = set(node.system_id for node in nodes)
+        if len(nodes) < len(system_ids):
+            raise MAASAPIBadRequest(
+                "Unknown node(s): %s" % ', '.join(system_ids - found_ids))
+        return filter(None, [node.accept_enlistment() for node in nodes])
 
     @api_exported('list', 'GET')
     def list(self, request):
@@ -665,7 +764,26 @@ class MAASHandler(BaseHandler):
         return HttpResponse(json.dumps(value), content_type='application/json')
 
 
-def generate_api_doc(add_title=False):
+# Title section for the API documentation.  Matches in style, format,
+# etc. whatever generate_api_doc() produces, so that you can concatenate
+# the two.
+api_doc_title = dedent("""
+    ========
+    MAAS API
+    ========
+    """.lstrip('\n'))
+
+
+def generate_api_doc():
+    """Generate ReST documentation for the REST API.
+
+    This module's docstring forms the head of the documentation; details of
+    the API methods follow.
+
+    :return: Documentation, in ReST, for the API.
+    :rtype: :class:`unicode`
+    """
+
     # Fetch all the API Handlers (objects with the class
     # HandlerMetaClass).
     module = sys.modules[__name__]
@@ -683,21 +801,21 @@ def generate_api_doc(add_title=False):
 
     docs = [generate_doc(handler) for handler in handlers]
 
-    messages = []
-    if add_title:
-        messages.extend([
-            '**********************\n',
-            'MAAS API documentation\n',
-            '**********************\n',
-            '\n\n']
-            )
+    messages = [
+        __doc__.strip(),
+        '',
+        '',
+        'Operations',
+        '----------',
+        '',
+        ]
     for doc in docs:
         for method in doc.get_methods():
             messages.append(
-                "%s %s\n  %s\n\n" % (
+                "%s %s\n  %s\n" % (
                     method.http_name, doc.resource_uri_template,
                     method.doc))
-    return ''.join(messages)
+    return '\n'.join(messages)
 
 
 def reST_to_html_fragment(a_str):

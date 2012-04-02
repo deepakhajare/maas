@@ -26,6 +26,7 @@ from maasserver.models import (
     NODE_STATUS,
     SSHKey,
     )
+from maasserver.testing import get_data
 from maasserver.testing.enum import map_enum
 import maastesting.factory
 
@@ -40,7 +41,7 @@ class Factory(maastesting.factory.Factory):
         """
         return random.choice(list(map_enum(enum).values()))
 
-    def getRandomChoice(self, choices):
+    def getRandomChoice(self, choices, but_not=None):
         """Pick a random item from `choices`.
 
         :param choices: A sequence of choices in Django form choices format:
@@ -48,9 +49,14 @@ class Factory(maastesting.factory.Factory):
                 ('choice_id_1', "Choice name 1"),
                 ('choice_id_2', "Choice name 2"),
             ]
+        :param but_not: A list of choices' IDs to exclude.
+        :type but_not: Sequence.
         :return: The "id" portion of a random choice out of `choices`.
         """
-        return random.choice(choices)[0]
+        if but_not is None:
+            but_not = ()
+        return random.choice(
+            [choice for choice in choices if choice[0] not in but_not])[0]
 
     def make_node(self, hostname='', set_hostname=False, status=None,
                   architecture=ARCHITECTURE.i386, **kwargs):
@@ -62,7 +68,7 @@ class Factory(maastesting.factory.Factory):
         node = Node(
             hostname=hostname, status=status, architecture=architecture,
             **kwargs)
-        node.save()
+        node.save(skip_check=True)
         return node
 
     def make_mac_address(self, address):
@@ -82,6 +88,12 @@ class Factory(maastesting.factory.Factory):
             password = 'test'
         return User.objects.create_user(
             username=username, password=password, email=email)
+
+    def make_sshkey(self, user):
+        key_string = get_data('data/test_rsa.pub')
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        return key
 
     def make_user_with_keys(self, n_keys=2, **kwargs):
         """Create a user with n `SSHKey`.

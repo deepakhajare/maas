@@ -40,11 +40,11 @@ To get the API key:
    page`_ and choose *Preferences* from the drop-down menu that
    appears when clicking your username at the top-right of the page.
 
-.. _MAAS preferences page: http://localhost:5240/account/prefs/
-.. _MAAS home page: http://localhost:5240/
-
 #. Optionally add a new MAAS key. Do this if you're setting up another
    environment within the same MAAS cluster.
+
+.. _MAAS preferences page: http://localhost:5240/account/prefs/
+.. _MAAS home page: http://localhost:5240/
 
 
 Creating environments.yaml
@@ -127,16 +127,16 @@ up with something a bit more interesting:
 
 Now it's possible to deploy a charm::
 
-  juju deploy --repository /usr/share/doc/juju/examples local:mysql
-  juju status
+  $ juju deploy --repository /usr/share/doc/juju/examples local:mysql
+  $ juju status
 
 If you have another node free you can finish off the canonical and by
 now familiar example::
 
-  juju deploy --repository /usr/share/doc/juju/examples local:wordpress
-  juju add-relation wordpress mysql
-  juju expose wordpress
-  juju status
+  $ juju deploy --repository /usr/share/doc/juju/examples local:wordpress
+  $ juju add-relation wordpress mysql
+  $ juju expose wordpress
+  $ juju status
 
 Note that each charm runs on its own host, so each deployment will
 actually take as long as it took to bootstrap. Have a beer, drown your
