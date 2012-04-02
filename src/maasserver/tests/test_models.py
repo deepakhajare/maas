@@ -20,13 +20,15 @@ from socket import gethostname
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.utils.safestring import SafeUnicode
 from fixtures import TestWithFixtures
 from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
-    PermissionDenied,
     )
 from maasserver.models import (
     Config,
@@ -64,6 +66,7 @@ from piston.models import (
     )
 from provisioningserver.enum import POWER_TYPE
 from testtools.matchers import (
+    EndsWith,
     GreaterThan,
     LessThan,
     )
@@ -425,20 +428,20 @@ class NodeManagerTest(TestCase):
             Node.objects.get_editable_nodes(user, ids=ids[wanted_slice]))
 
     def test_get_visible_node_or_404_ok(self):
-        """get_visible_node_or_404 fetches nodes by system_id."""
+        """get_node_or_404 fetches nodes by system_id."""
         user = factory.make_user()
         node = self.make_node(user)
         self.assertEqual(
-            node, Node.objects.get_visible_node_or_404(node.system_id, user))
+            node, Node.objects.get_node_or_404(node.system_id, user))
 
     def test_get_visible_node_or_404_raises_PermissionDenied(self):
-        """get_visible_node_or_404 raises PermissionDenied if the provided
-        user cannot access the returned node."""
+        """get_node_or_404 raises PermissionDenied if the provided
+        user has not the right permission on the returned node."""
         user_node = self.make_node(factory.make_user())
         self.assertRaises(
             PermissionDenied,
-            Node.objects.get_visible_node_or_404,
-            user_node.system_id, factory.make_user())
+            Node.objects.get_node_or_404,
+            user_node.system_id, factory.make_user(), 'access')
 
     def test_get_available_node_for_acquisition_finds_available_node(self):
         user = factory.make_user()
@@ -727,6 +730,37 @@ class SSHKeyValidatorTest(TestCase):
 class GetHTMLDisplayForKeyTest(TestCase):
     """Testing for the method `get_html_display_for_key`."""
 
+    def make_comment(self, length):
+        """Create a comment of the desired length.
+
+        The comment may contain spaces, but not begin or end in them.  It
+        will be of the desired length both before and after stripping.
+        """
+        return ''.join([
+            factory.getRandomString(1),
+            factory.getRandomString(max([length - 2, 0]), spaces=True),
+            factory.getRandomString(1),
+            ])[:length]
+
+    def make_key(self, type_len=7, key_len=360, comment_len=None):
+        """Produce a fake ssh public key containing arbitrary data.
+
+        :param type_len: The length of the "key type" field.  (Default is
+            sized for the real-life "ssh-rsa").
+        :param key_len: Length of the key text.  (With a roughly realistic
+            default).
+        :param comment_len: Length of the comment field.  The comment may
+            contain spaces.  Leave it None to omit the comment.
+        :return: A string representing the combined key-file contents.
+        """
+        fields = [
+            factory.getRandomString(type_len),
+            factory.getRandomString(key_len),
+            ]
+        if comment_len is not None:
+            fields.append(self.make_comment(comment_len))
+        return " ".join(fields)
+
     def test_display_returns_unchanged_if_unknown_and_small(self):
         # If the key does not look like a normal key (with three parts
         # separated by spaces, it's returned unchanged if its size is <=
@@ -748,13 +782,57 @@ class GetHTMLDisplayForKeyTest(TestCase):
         self.assertEqual(
             '%.*s%s' % (size - len(HELLIPSIS), key, HELLIPSIS), display)
 
+    def test_display_escapes_commentless_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the key has no comment, and is
+        # brief enough to fit into the allotted space.
+        self.assertEqual(
+            "&lt;type&gt; &lt;text&gt;",
+            get_html_display_for_key("<type> <text>", 100))
+
+    def test_display_escapes_short_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the whole key is short enough to
+        # fit completely into the output.
+        key = "<type> <text> <comment>"
+        display = get_html_display_for_key(key, 100)
+        # This also verifies that the entire key fits into the string.
+        # Otherwise we might accidentally get one of the other cases.
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
+        # And of course the check also implies that the text is
+        # HTML-escaped:
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+
+    def test_display_escapes_long_key_for_html(self):
+        # The key's comment may contain characters that are not safe for
+        # including in HTML, and so get_html_display_for_key escapes the
+        # text.
+        # There are several code paths in get_html_display_for_key; this
+        # test is for the case where the comment is short enough to fit
+        # completely into the output.
+        key = "<type> %s <comment>" % ("<&>" * 50)
+        display = get_html_display_for_key(key, 50)
+        # This verifies that we are indeed getting an abbreviated
+        # display.  Otherwise we might accidentally get one of the other
+        # cases.
+        self.assertIn("&hellip;", display)
+        self.assertIn("comment", display)
+        # And now, on to checking that the text is HTML-safe.
+        self.assertNotIn("<", display)
+        self.assertNotIn(">", display)
+        self.assertThat(display, EndsWith("&lt;comment&gt;"))
+
     def test_display_limits_size_with_large_comment(self):
         # If the key has a large 'comment' part, the key is simply
         # cropped and HELLIPSIS appended to it.
-        key_type = factory.getRandomString(10)
-        key_string = factory.getRandomString(10)
-        comment = factory.getRandomString(100, spaces=True)
-        key = '%s %s %s' % (key_type, key_string, comment)
+        key = self.make_key(10, 10, 100)
         display = get_html_display_for_key(key, 50)
         self.assertEqual(50, len(display))
         self.assertEqual(
@@ -763,10 +841,7 @@ class GetHTMLDisplayForKeyTest(TestCase):
     def test_display_limits_size_with_large_key_type(self):
         # If the key has a large 'key_type' part, the key is simply
         # cropped and HELLIPSIS appended to it.
-        key_type = factory.getRandomString(100)
-        key_string = factory.getRandomString(10)
-        comment = factory.getRandomString(10, spaces=True)
-        key = '%s %s %s' % (key_type, key_string, comment)
+        key = self.make_key(100, 10, 10)
         display = get_html_display_for_key(key, 50)
         self.assertEqual(50, len(display))
         self.assertEqual(
@@ -776,16 +851,16 @@ class GetHTMLDisplayForKeyTest(TestCase):
         # If the key has a small key_type, a small comment and a large
         # key_string (which is the 'normal' case), the key_string part
         # gets cropped.
-        key_type = factory.getRandomString(10)
-        key_string = factory.getRandomString(100)
-        comment = factory.getRandomString(10, spaces=True)
-        key = '%s %s %s' % (key_type, key_string, comment)
+        type_len = 10
+        comment_len = 10
+        key = self.make_key(type_len, 100, comment_len)
+        key_type, key_string, comment = key.split(' ', 2)
         display = get_html_display_for_key(key, 50)
         self.assertEqual(50, len(display))
         self.assertEqual(
             '%s %.*s%s %s' % (
                 key_type,
-                50 - (len(key_type) + len(HELLIPSIS) + len(comment) + 2),
+                50 - (type_len + len(HELLIPSIS) + comment_len + 2),
                 key_string, HELLIPSIS, comment),
             display)
 
@@ -816,7 +891,7 @@ class SSHKeyTest(TestCase):
         self.assertEqual(
             'ssh-rsa AAAAB3NzaC1yc2E&hellip; ubuntu@server-7476', display)
 
-    def test_sshkey_display_is_safe(self):
+    def test_sshkey_display_is_marked_as_HTML_safe(self):
         key_string = get_data('data/test_rsa.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
