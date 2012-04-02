@@ -36,6 +36,26 @@ AddNodeWidget.ATTRS = {
             return this.get(
                 'srcNode').all('input[name=mac_addresses]').size();
         }
+    },
+
+    /**
+     * The DOM node to be morphed from.
+     *
+     * @attribute targetNode
+     * @type string
+     */
+    targetNode: {
+        value: null
+    },
+
+   /**
+    * Set the panel to fade in/out or just appear/disappear
+    *
+    * @attribute animate
+    * @type boolean
+    */
+    animate: {
+        value: true
     }
 };
 
@@ -175,7 +195,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
     initializer: function(cfg) {
         this.get('srcNode').addClass('hidden');
         this.morpher = new Y.maas.morph.Morph(
-            {srcNode: cfg.srcNode, targetNode: cfg.targetNode});
+            {srcNode: cfg.srcNode, targetNode: this.get('targetNode')});
     },
 
     renderUI: function() {
@@ -196,10 +216,16 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     showWidget: function() {
-        this.morpher.morph();
-        this.morpher.on('morphed', function(e, widget) {
-            widget.get('srcNode').one('input[type=text]').focus();
-        }, null, this);
+        if (this.get('animate')) {
+            this.morpher.morph();
+            this.morpher.on('morphed', function(e, widget) {
+                widget.get('srcNode').one('input[type=text]').focus();
+            }, null, this);
+        }
+        else {
+            Y.one(this.get('targetNode')).addClass('hidden');
+            this.get('srcNode').removeClass('hidden');
+        }
     },
 
     /**
@@ -208,10 +234,16 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     hideWidget: function() {
-        this.morpher.morph('reverse');
-        this.morpher.on('morphed', function(e, widget) {
-            widget.destroy();
-        }, null, this);
+        if (this.get('animate')) {
+            this.morpher.morph('reverse');
+            this.morpher.on('morphed', function(e, widget) {
+                widget.destroy();
+            }, null, this);
+        }
+        else {
+            this.get('srcNode').addClass('hidden');
+            Y.one(this.get('targetNode')).removeClass('hidden');
+        }
     },
 
     /**
