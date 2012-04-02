@@ -235,7 +235,7 @@ class NodeTransitionForm(forms.Form):
         self.transition_buttons = self.available_transition_methods(
             self.node, self.user)
         # Create a convenient dict to fetch the transition name and
-        # permission to be checked from the button name.
+        # the permission to be checked from the button name.
         self.transition_dict = dict(
             [(transition['display'],
              (transition['name'], transition['permission']))
