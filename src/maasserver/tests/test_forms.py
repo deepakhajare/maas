@@ -44,6 +44,10 @@ from maasserver.models import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from testtools.matchers import (
+    AllMatch,
+    Equals,
+    )
 
 
 class NodeWithMACAddressesFormTest(TestCase):
@@ -267,6 +271,15 @@ class NodeTransitionsMethodsTests(TestCase):
 
         self.assertTrue(set(NODE_TRANSITIONS_METHODS.keys()) <= allowed_states)
 
+    def test_NODE_TRANSITION_METHODS_dict(self):
+        transitions = []
+        for transition_list in NODE_TRANSITIONS_METHODS.values():
+            transitions.extend(transition_list)
+
+        self.assertThat(
+            [sorted(transition.keys()) for transition in transitions],
+            AllMatch(Equals(sorted(['permission', 'display', 'name']))))
+
 
 class TestNodeTransitionForm(TestCase):
 
@@ -285,7 +298,7 @@ class TestNodeTransitionForm(TestCase):
             form.available_transition_methods(node, admin))
 
     def test_available_transition_methods_for_declared_node_simple_user(self):
-        # A simple user sees not transition for a 'Declared' node.
+        # A simple user sees no transitions for a 'Declared' node.
         user = factory.make_user()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_transition_form(user)(node)
@@ -298,7 +311,7 @@ class TestNodeTransitionForm(TestCase):
 
         self.assertEqual(user, form_class.user)
 
-    def test_get_transition_form_creates_form_instance(self):
+    def test_get_transition_form_creates_form_class(self):
         user = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_transition_form(user)(node)

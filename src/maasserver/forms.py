@@ -236,10 +236,11 @@ class NodeTransitionForm(forms.Form):
             self.node, self.user)
         # Create a convenient dict to fetch the transition name and
         # the permission to be checked from the button name.
-        self.transition_dict = dict(
-            [(transition['display'],
-             (transition['name'], transition['permission']))
-            for transition in self.transition_buttons])
+        self.transition_dict = {
+            transition['display']: (
+                transition['name'], transition['permission'])
+            for transition in self.transition_buttons
+        }
 
     def available_transition_methods(self, node, user):
         """Return the transitions that this user is allowed to perform on
@@ -256,13 +257,10 @@ class NodeTransitionForm(forms.Form):
             method to execute on the node to perform the transition).
         :rtype: Sequence
         """
-        valid_transitions = []
         node_transitions = NODE_TRANSITIONS_METHODS.get(node.status, ())
-        for node_transition in node_transitions:
-            if user.has_perm(node_transition['permission'], node):
-                # The user can perform the transition.
-                valid_transitions.append(node_transition)
-        return valid_transitions
+        return [
+            node_transition for node_transition in node_transitions
+            if user.has_perm(node_transition['permission'], node)]
 
     def save(self):
         transition_name = self.data.get(self.input_name)
