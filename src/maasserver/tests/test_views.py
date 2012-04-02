@@ -490,13 +490,13 @@ class NodeViewsTest(LoggedInTestCase):
         node_edit_link = reverse('node-edit', args=[node.system_id])
         self.assertIn(node_edit_link, get_content_links(response))
 
-    def test_user_cannot_view_someonelses_node(self):
+    def test_user_cannot_view_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
         node_view_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_view_link)
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
-    def test_user_cannot_edit_someonelses_node(self):
+    def test_user_cannot_edit_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
         node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.get(node_edit_link)

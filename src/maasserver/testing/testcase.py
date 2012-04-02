@@ -43,8 +43,3 @@ class LoggedInTestCase(TestCase):
         """Promote the logged-in user to admin."""
         self.logged_in_user.is_superuser = True
         self.logged_in_user.save()
-        self.addCleanup(self.become_simpleuser)
-
-    def become_simpleuser(self):
-        self.logged_in_user.is_superuser = False
-        self.logged_in_user.save()

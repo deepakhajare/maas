@@ -1200,7 +1200,7 @@ class MACAddressAPITest(APITestCase):
 
     def test_macs_DELETE_forbidden(self):
         # When deleting a MAC Address, the api returns a 'Forbidden'
-        # (403) error if the user has not the 'edit' permission on the
+        # (403) error if the user does not have the 'edit' permission on the
         # node.
         node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(
