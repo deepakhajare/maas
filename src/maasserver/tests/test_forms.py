@@ -278,7 +278,7 @@ class TestNodeTransitionForm(TestCase):
         form = get_transition_form(admin)(node)
         self.assertItemsEqual(
             [{
-                'display': 'Enlist node',
+                'display': "Accept Enlisted node",
                 'name': 'accept_enlistment_action',
                 'permission': 'admin',
             }],
@@ -312,7 +312,7 @@ class TestNodeTransitionForm(TestCase):
         form = get_transition_form(admin)(node)
 
         self.assertItemsEqual(
-            {"Enlist node": ('accept_enlistment', 'admin')},
+            {"Accept Enlisted node": ('accept_enlistment', 'admin')},
             form.transition_dict)
 
     def test_get_transition_form_for_user(self):
@@ -328,7 +328,7 @@ class TestNodeTransitionForm(TestCase):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_transition_form(admin)(
-            node, {NodeTransitionForm.input_name: "Enlist node"})
+            node, {NodeTransitionForm.input_name: "Accept Enlisted node"})
         form.save()
 
         self.assertEqual(NODE_STATUS.READY, node.status)

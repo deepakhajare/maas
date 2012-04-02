@@ -209,7 +209,7 @@ class NodeWithMACAddressesForm(NodeForm):
 NODE_TRANSITIONS_METHODS = {
     NODE_STATUS.DECLARED: [
         {
-            'display': "Enlist node",
+            'display': "Accept Enlisted node",
             'name': "accept_enlistment_action",
             'permission': 'admin'
         },

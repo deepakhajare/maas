@@ -542,7 +542,7 @@ class NodeViewsTest(LoggedInTestCase):
             if input.name == NodeTransitionForm.input_name]
 
         self.assertSequenceEqual(
-            ['Enlist node'], [input.value for input in inputs])
+            ["Accept Enlisted node"], [input.value for input in inputs])
 
     def test_view_node_POST_admin_can_enlist_node(self):
         self.logged_in_user.is_superuser = True
@@ -552,7 +552,7 @@ class NodeViewsTest(LoggedInTestCase):
         response = self.client.post(
             node_link,
             data={
-                NodeTransitionForm.input_name: 'Enlist node',
+                NodeTransitionForm.input_name: "Accept Enlisted node",
             })
 
         self.assertEqual(httplib.FOUND, response.status_code)
