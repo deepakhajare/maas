@@ -333,7 +333,8 @@ class NodeManager(models.Manager):
 
     def get_node_or_404(self, system_id, user, perm='access'):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
-        this system_id exist or if the provided user cannot see this `Node`.
+        this system_id exist or if the provided user has not the required
+        permission on this `Node`.
 
         :param name: The system_id.
         :type name: str
