@@ -32,7 +32,6 @@ from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
-    NODE_STATUS_CHOICES_DICT,
     POWER_TYPE_CHOICES,
     SSHKey,
     UserProfile,
@@ -51,10 +50,8 @@ from maasserver.urls import (
     make_path_relative,
     )
 from maasserver.views import (
-    available_transition_methods,
     get_longpoll_context,
     get_yui_location,
-    NODE_TRANSITIONS_METHODS,
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
@@ -243,50 +240,6 @@ class TestComboLoaderView(TestCase):
         response = self.client.get('/combo/?file.wrongextension')
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual("Invalid file type requested.", response.content)
-
-
-class NodeTransitionsMethodsTests(TestCase):
-    """Test the structure of NODE_TRANSITIONS_METHODS."""
-
-    def test_NODE_TRANSITION_METHODS_initial_states(self):
-        for state in NODE_TRANSITIONS_METHODS:
-            self.assertIn(
-                state, NODE_STATUS_CHOICES_DICT.keys() + [None])
-
-    def test_NODE_TRANSITIONS_METHODS_transitions(self):
-        for transitions in NODE_TRANSITIONS_METHODS.values():
-            for transition in transitions:
-                self.assertItemsEqual(
-                    ['display', 'name', 'permission'], transition.keys())
-                # The 'permission' is a valid Node permission.
-                self.assertIn(
-                    transition['permission'], ['edit', 'view', 'admin'])
-                # The 'name' is a basestring.
-                self.assertIsInstance(transition['name'], basestring)
-                # The 'display' is a basestring.
-                self.assertIsInstance(transition['display'], basestring)
-
-
-class AvailableTransitionsMethodsTests(TestCase):
-
-    def test_available_transition_methods_for_declared_node_admin(self):
-        # An admin has access to the "Enlist node" transition for a
-        # 'Declared' node.
-        admin = factory.make_admin()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        self.assertItemsEqual(
-            [{
-                'display': 'Enlist node',
-                'name': 'accept_enlistment_action',
-                'permission': 'admin',
-            }],
-            available_transition_methods(node, admin))
-
-    def test_available_transition_methods_for_declared_node_simple_user(self):
-        # A simple user sees not transition for a 'Declared' node.
-        user = factory.make_user()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        self.assertItemsEqual([], available_transition_methods(node, user))
 
 
 class TestUtilities(TestCase):

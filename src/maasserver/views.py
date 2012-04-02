@@ -14,11 +14,9 @@ __all__ = [
     "AccountsDelete",
     "AccountsEdit",
     "AccountsView",
-    "available_transition_methods",
     "combo_view",
     "login",
     "logout",
-    "NODE_TRANSITIONS_METHODS",
     "NodeListView",
     "NodesCreateView",
     "NodeView",
@@ -86,57 +84,9 @@ from maasserver.forms import (
 from maasserver.messages import messaging
 from maasserver.models import (
     Node,
-    NODE_STATUS,
     SSHKey,
     UserProfile,
     )
-
-# Node transitions methods.
-# The format is:
-# {
-#     old_status1: [
-#         {
-#             'display': display_string11,  # The name of the transition
-#                                           # (to be displayed in the UI).
-#             'name': transition_name11,  # The name of the transition.
-#             'permission': permission_required11,
-#         },
-#     ]
-# ...
-#
-NODE_TRANSITIONS_METHODS = {
-    NODE_STATUS.DECLARED: [
-        {
-            'display': "Enlist node",
-            'name': "accept_enlistment_action",
-            'permission': 'admin'
-        },
-    ],
-}
-
-
-def available_transition_methods(node, user):
-    """Return the transitions that this user is allowed to perform on
-    a node.
-
-    :param node: The node for which the check should be performed.
-    :type node: :class:`maasserver.models.Node`
-    :param user: The user used to perform the permission checks.  Only the
-        transitions available to this user will be returned.
-    :type user: :class:`django.contrib.auth.models.User`
-    :return: A list of transition dicts (each dict contains 3 values:
-        'name': the name of the transition, 'permission': the permission
-        required to perform this transition, 'method': the name of the
-        method to execute on the node to perform the transition).
-    :rtype: Sequence
-    """
-    valid_transitions = []
-    node_transitions = NODE_TRANSITIONS_METHODS.get(node.status, ())
-    for node_transition in node_transitions:
-        if user.has_perm(node_transition['permission'], node):
-            # The user can perform the transition.
-            valid_transitions.append(node_transition)
-    return valid_transitions
 
 
 def login(request):

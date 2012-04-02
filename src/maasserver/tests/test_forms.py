@@ -25,6 +25,7 @@ from maasserver.forms import (
     get_transition_form,
     HostnameFormField,
     NewUserCreationForm,
+    NODE_TRANSITIONS_METHODS,
     NodeTransitionForm,
     NodeWithMACAddressesForm,
     ProfileForm,
@@ -38,6 +39,7 @@ from maasserver.models import (
     DEFAULT_CONFIG,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     POWER_TYPE_CHOICES,
     )
 from maasserver.testing.factory import factory
@@ -257,7 +259,38 @@ class NodeEditForms(TestCase):
         self.assertItemsEqual(['', user.id], user_ids)
 
 
+class NodeTransitionsMethodsTests(TestCase):
+    """Test the structure of NODE_TRANSITIONS_METHODS."""
+
+    def test_NODE_TRANSITION_METHODS_initial_states(self):
+        allowed_states = set(NODE_STATUS_CHOICES_DICT.keys() + [None])
+
+        self.assertTrue(set(NODE_TRANSITIONS_METHODS.keys()) <= allowed_states)
+
+
 class TestNodeTransitionForm(TestCase):
+
+    def test_available_transition_methods_for_declared_node_admin(self):
+        # An admin has access to the "Enlist node" transition for a
+        # 'Declared' node.
+        admin = factory.make_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(admin)(node)
+        self.assertItemsEqual(
+            [{
+                'display': 'Enlist node',
+                'name': 'accept_enlistment_action',
+                'permission': 'admin',
+            }],
+            form.available_transition_methods(node, admin))
+
+    def test_available_transition_methods_for_declared_node_simple_user(self):
+        # A simple user sees not transition for a 'Declared' node.
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_transition_form(user)(node)
+        self.assertItemsEqual(
+            [], form.available_transition_methods(node, user))
 
     def test_get_transition_form_creates_form_class_with_attributes(self):
         user = factory.make_admin()

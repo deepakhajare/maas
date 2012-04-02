@@ -307,15 +307,17 @@ class NodeTransitionsTests(TestCase):
     """Test the structure of NODE_TRANSITIONS."""
 
     def test_NODE_TRANSITIONS_initial_states(self):
-        for initial_state in NODE_TRANSITIONS:
-            self.assertIn(
-                initial_state, NODE_STATUS_CHOICES_DICT.keys() + [None])
+        allowed_states = set(NODE_STATUS_CHOICES_DICT.keys() + [None])
+
+        self.assertTrue(set(NODE_TRANSITIONS.keys()) <= allowed_states)
 
     def test_NODE_TRANSITIONS_destination_state(self):
-        for transitions in NODE_TRANSITIONS.values():
-            for destination_state in transitions:
-                self.assertIn(
-                    destination_state, NODE_STATUS_CHOICES_DICT.keys())
+        all_destination_states = []
+        for destination_states in NODE_TRANSITIONS.values():
+            all_destination_states.extend(destination_states)
+        allowed_states = set(NODE_STATUS_CHOICES_DICT.keys())
+
+        self.assertTrue(set(all_destination_states) <= allowed_states)
 
 
 class GetDbStateTest(TestCase):

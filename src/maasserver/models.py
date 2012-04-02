@@ -1173,6 +1173,9 @@ class MAASAuthorizationBackend(ModelBackend):
     supports_object_permissions = True
 
     def has_perm(self, user, perm, obj=None):
+        # Note that a check for a superuser will never reach this code
+        # because Django will return True (as an optimization) for every
+        # permission check performed on a superuser.
         if not user.is_active:
             # Deactivated users, and in particular the node-init user,
             # are prohibited from accessing maasserver services.

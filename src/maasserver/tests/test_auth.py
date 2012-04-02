@@ -124,7 +124,8 @@ class TestMAASAuthorizationBackend(TestCase):
         self.assertTrue(backend.has_perm(
             user, 'edit', make_allocated_node(owner=user)))
 
-    def test_user_has_not_admin_permission_on_node(self):
+    def test_user_has_no_admin_permission_on_node(self):
+        # 'admin' permission on nodes is granted to super users only.
         backend = MAASAuthorizationBackend()
         user = factory.make_user()
         self.assertFalse(backend.has_perm(user, 'admin', factory.make_node()))

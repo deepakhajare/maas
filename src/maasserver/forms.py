@@ -51,6 +51,7 @@ from maasserver.models import (
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODE_STATUS,
     SSHKey,
     UserProfile,
     )
@@ -192,6 +193,30 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
+# Node transitions methods.
+# The format is:
+# {
+#     old_status1: [
+#         {
+#             'display': display_string11,  # The name of the transition
+#                                           # (to be displayed in the UI).
+#             'name': transition_name11,  # The name of the transition.
+#             'permission': permission_required11,
+#         },
+#     ]
+# ...
+#
+NODE_TRANSITIONS_METHODS = {
+    NODE_STATUS.DECLARED: [
+        {
+            'display': "Enlist node",
+            'name': "accept_enlistment_action",
+            'permission': 'admin'
+        },
+    ],
+}
+
+
 class NodeTransitionForm(forms.Form):
     """A form used to perform a status change on a Node.
 
@@ -206,14 +231,38 @@ class NodeTransitionForm(forms.Form):
 
     def __init__(self, instance, *args, **kwargs):
         super(NodeTransitionForm, self).__init__(*args, **kwargs)
-        # Circular imports.
-        from maasserver.views import available_transition_methods
         self.node = instance
-        self.transitions = available_transition_methods(self.node, self.user)
+        self.transition_buttons = self.available_transition_methods(
+            self.node, self.user)
+        # Create a convenient dict to fetch the transition name and
+        # permission to be checked from the button name.
         self.transition_dict = dict(
             [(transition['display'],
              (transition['name'], transition['permission']))
-            for transition in self.transitions])
+            for transition in self.transition_buttons])
+
+    def available_transition_methods(self, node, user):
+        """Return the transitions that this user is allowed to perform on
+        a node.
+
+        :param node: The node for which the check should be performed.
+        :type node: :class:`maasserver.models.Node`
+        :param user: The user used to perform the permission checks.  Only the
+            transitions available to this user will be returned.
+        :type user: :class:`django.contrib.auth.models.User`
+        :return: A list of transition dicts (each dict contains 3 values:
+            'name': the name of the transition, 'permission': the permission
+            required to perform this transition, 'method': the name of the
+            method to execute on the node to perform the transition).
+        :rtype: Sequence
+        """
+        valid_transitions = []
+        node_transitions = NODE_TRANSITIONS_METHODS.get(node.status, ())
+        for node_transition in node_transitions:
+            if user.has_perm(node_transition['permission'], node):
+                # The user can perform the transition.
+                valid_transitions.append(node_transition)
+        return valid_transitions
 
     def save(self):
         transition_name = self.data.get(self.input_name)
