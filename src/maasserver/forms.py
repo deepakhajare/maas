@@ -210,8 +210,8 @@ NODE_TRANSITIONS_METHODS = {
     NODE_STATUS.DECLARED: [
         {
             'display': "Accept Enlisted node",
-            'name': "accept_enlistment_action",
-            'permission': 'admin'
+            'permission': 'admin',
+            'execute': lambda node, user: Node.accept_enlistment(node),
         },
     ],
 }
@@ -238,7 +238,7 @@ class NodeTransitionForm(forms.Form):
         # the permission to be checked from the button name.
         self.transition_dict = {
             transition['display']: (
-                transition['name'], transition['permission'])
+                transition['permission'], transition['execute'])
             for transition in self.transition_buttons
         }
 
@@ -264,13 +264,12 @@ class NodeTransitionForm(forms.Form):
 
     def save(self):
         transition_name = self.data.get(self.input_name)
-        action_name, permission = self.transition_dict.get(
+        permission, execute = self.transition_dict.get(
             transition_name, (None, None))
-        if action_name is not None:
+        if execute is not None:
             if not self.user.has_perm(permission, self.node):
                 raise PermissionDenied()
-            if action_name == 'accept_enlistment_action':
-                self.node.accept_enlistment()
+            execute(self.node, self.user)
         else:
             raise PermissionDenied()
 

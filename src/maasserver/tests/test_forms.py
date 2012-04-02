@@ -278,7 +278,7 @@ class NodeTransitionsMethodsTests(TestCase):
 
         self.assertThat(
             [sorted(transition.keys()) for transition in transitions],
-            AllMatch(Equals(sorted(['permission', 'display', 'name']))))
+            AllMatch(Equals(sorted(['permission', 'display', 'execute']))))
 
 
 class TestNodeTransitionForm(TestCase):
@@ -289,13 +289,13 @@ class TestNodeTransitionForm(TestCase):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_transition_form(admin)(node)
-        self.assertItemsEqual(
-            [{
-                'display': "Accept Enlisted node",
-                'name': 'accept_enlistment_action',
-                'permission': 'admin',
-            }],
-            form.available_transition_methods(node, admin))
+        transitions = form.available_transition_methods(node, admin)
+        self.assertEqual(
+            ["Accept Enlisted node"],
+            [transition['display'] for transition in transitions])
+        self.assertEqual(
+            ['admin'],
+            [transition['permission'] for transition in transitions])
 
     def test_available_transition_methods_for_declared_node_simple_user(self):
         # A simple user sees no transitions for a 'Declared' node.
