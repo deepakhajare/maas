@@ -146,9 +146,9 @@ class ExceptionMiddleware:
                     unicode(''.join(exception.messages)).encode(encoding),
                     mimetype=b"text/plain; charset=%s" % encoding)
         elif isinstance(exception, PermissionDenied):
-                return HttpResponseForbidden(
-                    content=unicode(exception).encode(encoding),
-                    mimetype=b"text/plain; charset=%s" % encoding)
+            return HttpResponseForbidden(
+                content=unicode(exception).encode(encoding),
+                mimetype=b"text/plain; charset=%s" % encoding)
         else:
             # Return an API-readable "Internal Server Error" response.
             return HttpResponse(
