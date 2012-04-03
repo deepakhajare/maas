@@ -487,8 +487,8 @@ class NodesHandler(BaseHandler):
 
         Nodes can be enlisted in the MAAS anonymously or by non-admin users,
         as opposed to by an admin.  These nodes are held in the Declared
-        state; a MAAS admin must first verify the authenticity of
-        these enlistments, and accept them.
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
 
         Enlistments can be accepted en masse, by passing multiple nodes to
         this call.  Accepting an already accepted node is not an error, but
