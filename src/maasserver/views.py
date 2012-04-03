@@ -130,7 +130,7 @@ class NodeView(UpdateView):
         context['can_edit'] = self.request.user.has_perm(
             NODE_PERMISSION.EDIT, node)
         context['can_delete'] = self.request.user.has_perm(
-            NODE_PERMISSIONS.ADMIN, node)
+            NODE_PERMISSION.ADMIN, node)
         return context
 
     def get_success_url(self):
@@ -168,7 +168,7 @@ class NodeDelete(DeleteView):
         system_id = self.kwargs.get('system_id', None)
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=self.request.user,
-            perm=NODE_PERMISSIONS.ADMIN)
+            perm=NODE_PERMISSION.ADMIN)
         return node
 
     def get_next_url(self):
