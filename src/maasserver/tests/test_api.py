@@ -1148,7 +1148,8 @@ class MACAddressAPITest(APITestCase):
             MACAddress.objects.filter(node=node).count())
 
     def test_macs_POST_add_mac_without_edit_perm(self):
-        # Adding a MAC Address to a node requires the 'edit_node' permission.
+        # Adding a MAC Address to a node requires the NODE_PERMISSIONS.EDIT
+        # permission.
         node = factory.make_node()
         response = self.client.post(
             self.get_uri('nodes/%s/macs/') % node.system_id,
