@@ -432,9 +432,9 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """Create a new Node.
 
         Adding a server to a MAAS puts it on a path that will wipe its disks
-        and re-install its operating system.  In anonymous enlistment,
-        therefore, the node is held in the "Declared" state for approval by a
-        MAAS admin.
+        and re-install its operating system.  In anonymous enlistment and when
+        the enlistment is done by a non-admin, the node is held in the
+        "Declared" state for approval by a MAAS admin.
         """
         return create_node(request)
 
