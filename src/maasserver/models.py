@@ -18,12 +18,14 @@ __all__ = [
     "Config",
     "FileStorage",
     "NODE_STATUS",
+    "NODE_TRANSITIONS",
     "Node",
     "MACAddress",
     "SSHKey",
     "UserProfile",
     ]
 
+import binascii
 from cgi import escape
 from collections import (
     defaultdict,
@@ -44,7 +46,10 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
 from django.db import models
@@ -54,7 +59,6 @@ from django.utils.safestring import mark_safe
 from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
-    PermissionDenied,
     )
 from maasserver.fields import (
     JSONObjectField,
@@ -151,6 +155,17 @@ NODE_STATUS_CHOICES = (
 NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
+# Information about valid node status transitions.
+# The format is:
+# {
+#  old_status1: [
+#      new_status11,
+#      new_status12,
+#      new_status13,
+#      ],
+# ...
+# }
+#
 NODE_TRANSITIONS = {
     None: [
         NODE_STATUS.DECLARED,
@@ -329,14 +344,17 @@ class NodeManager(models.Manager):
             visible_nodes = self.filter(owner=user)
         return self.filter_by_ids(visible_nodes, ids)
 
-    def get_visible_node_or_404(self, system_id, user):
+    def get_node_or_404(self, system_id, user, perm='access'):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
-        this system_id exist or if the provided user cannot see this `Node`.
+        this system_id exist or if the provided user has not the required
+        permission on this `Node`.
 
         :param name: The system_id.
         :type name: str
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
+        :param perm: The permission to assert that the user has on the node.
+        :type perm: basestring
         :raises: django.http.Http404_,
             :class:`maasserver.exceptions.PermissionDenied`.
 
@@ -345,10 +363,10 @@ class NodeManager(models.Manager):
            #the-http404-exception
         """
         node = get_object_or_404(Node, system_id=system_id)
-        if user.has_perm('access', node):
+        if user.has_perm(perm, node):
             return node
         else:
-            raise PermissionDenied
+            raise PermissionDenied()
 
     def get_available_node_for_acquisition(self, for_user, constraints=None):
         """Find a `Node` to be acquired by the given user.
@@ -537,7 +555,7 @@ class Node(CommonInfo):
         """Add a new MAC Address to this `Node`.
 
         :param mac_address: The MAC Address to be added.
-        :type mac_address: str
+        :type mac_address: basestring
         :raises: django.core.exceptions.ValidationError_
 
         .. _django.core.exceptions.ValidationError: https://
@@ -818,7 +836,7 @@ def validate_ssh_public_key(value):
         if not key.isPublic():
             raise ValidationError(
                 "Invalid SSH public key (this key is a private key).")
-    except BadKeyError:
+    except (BadKeyError, binascii.Error):
         raise ValidationError("Invalid SSH public key.")
 
 
@@ -1170,6 +1188,9 @@ class MAASAuthorizationBackend(ModelBackend):
     supports_object_permissions = True
 
     def has_perm(self, user, perm, obj=None):
+        # Note that a check for a superuser will never reach this code
+        # because Django will return True (as an optimization) for every
+        # permission check performed on a superuser.
         if not user.is_active:
             # Deactivated users, and in particular the node-init user,
             # are prohibited from accessing maasserver services.
@@ -1185,9 +1206,13 @@ class MAASAuthorizationBackend(ModelBackend):
             return obj.owner in (None, user)
         elif perm == 'edit':
             return obj.owner == user
+        elif perm == 'admin':
+            # 'admin' permission is solely granted to superusers.
+            return False
         else:
             raise NotImplementedError(
-                'Invalid permission check (invalid permission name).')
+                'Invalid permission check (invalid permission name: %s).' %
+                    perm)
 
 
 # 'provisioning' is imported so that it can register its signal handlers early

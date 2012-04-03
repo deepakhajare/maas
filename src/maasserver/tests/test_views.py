@@ -27,9 +27,11 @@ from maasserver import (
     views,
     )
 from maasserver.exceptions import NoRabbit
+from maasserver.forms import NodeTransitionForm
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
+    NODE_STATUS,
     POWER_TYPE_CHOICES,
     SSHKey,
     UserProfile,
@@ -479,13 +481,13 @@ class NodeViewsTest(LoggedInTestCase):
     def test_node_list_contains_link_to_node_view(self):
         node = factory.make_node()
         response = self.client.get(reverse('node-list'))
-        node_link = reverse('node-view', args=[node.id])
+        node_link = reverse('node-view', args=[node.system_id])
         self.assertIn(node_link, get_content_links(response))
 
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
         node = factory.make_node()
-        node_link = reverse('node-view', args=[node.id])
+        node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
@@ -494,33 +496,46 @@ class NodeViewsTest(LoggedInTestCase):
 
     def test_view_node_displays_link_to_edit_if_user_owns_node(self):
         node = factory.make_node(owner=self.logged_in_user)
-        node_link = reverse('node-view', args=[node.id])
+        node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
-        node_edit_link = reverse('node-edit', args=[node.id])
+        node_edit_link = reverse('node-edit', args=[node.system_id])
         self.assertIn(node_edit_link, get_content_links(response))
 
-    def test_view_node_no_link_to_edit_someonelses_node(self):
+    def test_user_cannot_view_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
-        node_link = reverse('node-view', args=[node.id])
-        response = self.client.get(node_link)
-        node_edit_link = reverse('node-edit', args=[node.id])
-        self.assertNotIn(node_edit_link, get_content_links(response))
+        node_view_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_view_link)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
-    def test_user_cannot_edit_someonelses_node(self):
+    def test_user_cannot_edit_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
-        node_edit_link = reverse('node-edit', args=[node.id])
+        node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.get(node_edit_link)
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def test_admin_can_view_someonelses_node(self):
+        self.become_admin()
+        node = factory.make_node(owner=factory.make_user())
+        node_view_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_view_link)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_admin_can_edit_someonelses_node(self):
+        self.become_admin()
+        node = factory.make_node(owner=factory.make_user())
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        response = self.client.get(node_edit_link)
+        self.assertEqual(httplib.OK, response.status_code)
+
     def test_user_can_access_the_edition_page_for_his_nodes(self):
         node = factory.make_node(owner=self.logged_in_user)
-        node_edit_link = reverse('node-edit', args=[node.id])
+        node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.get(node_edit_link)
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_user_can_edit_his_nodes(self):
         node = factory.make_node(owner=self.logged_in_user)
-        node_edit_link = reverse('node-edit', args=[node.id])
+        node_edit_link = reverse('node-edit', args=[node.system_id])
         params = {
             'hostname': factory.getRandomString(),
             'after_commissioning_action': factory.getRandomEnum(
@@ -532,12 +547,50 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertAttributes(node, params)
 
+    def test_view_node_admin_has_button_to_accept_enlistement(self):
+        self.logged_in_user.is_superuser = True
+        self.logged_in_user.save()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        inputs = [
+            input for input in doc.cssselect('form#node_actions input')
+            if input.name == NodeTransitionForm.input_name]
+
+        self.assertSequenceEqual(
+            ["Accept Enlisted node"], [input.value for input in inputs])
+
+    def test_view_node_POST_admin_can_enlist_node(self):
+        self.logged_in_user.is_superuser = True
+        self.logged_in_user.save()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.post(
+            node_link,
+            data={
+                NodeTransitionForm.input_name: "Accept Enlisted node",
+            })
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.READY, reload_object(node).status)
+
+    def test_view_node_has_button_to_accept_enlistement_for_user(self):
+        # A simple user can't see the button to enlist a declared node.
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+
+        self.assertEqual(0, len(doc.cssselect('form#node_actions input')))
+
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
 
     def test_admin_can_edit_nodes(self):
         node = factory.make_node(owner=factory.make_user())
-        node_edit_link = reverse('node-edit', args=[node.id])
+        node_edit_link = reverse('node-edit', args=[node.system_id])
         owner = random.choice([factory.make_user() for i in range(5)])
         params = {
             'hostname': factory.getRandomString(),

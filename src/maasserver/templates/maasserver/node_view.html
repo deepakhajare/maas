@@ -6,14 +6,28 @@
 {% block layout-modifiers %}sidebar{% endblock %}
 
 {% block sidebar %}
-  <div class="block size3">
-    {% if can_edit %}
+  {% if can_edit %}
+    <div class="block size3">
       <h4>Node details</h4>
-      <a href="{% url 'node-edit' node.id %}" class="button secondary">
+      <a href="{% url 'node-edit' node.system_id %}" class="button secondary">
         Edit node
       </a>
-    {% endif%}
-  </div>
+    </div>
+  {% endif %}
+  {% if form.transition_buttons %}
+    {% for transition in form.transition_buttons %}
+      {% if forloop.first %}
+      <div class="block size3">
+        <h4>Actions</h4>
+        <form id="node_actions" method="post" action=".">
+      {% endif %}
+      <input class="secondary {% if not forloop.first %}space-top{% endif %}"
+             type="submit"
+             name="{{ form.input_name }}"
+             value="{{ transition.display }}" />
+      {% if forloop.last %}</form></div>{% endif %}
+    {% endfor %}
+  {% endif %}
 {% endblock %}
 
 {% block content %}

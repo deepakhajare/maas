@@ -47,7 +47,6 @@ from django.contrib.auth.views import (
     login as dj_login,
     logout as dj_logout,
     )
-from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
@@ -78,6 +77,7 @@ from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
     EditUserForm,
+    get_transition_form,
     MAASAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
@@ -107,15 +107,20 @@ def logout(request):
     return dj_logout(request, next_page=reverse('login'))
 
 
-class NodeView(DetailView):
+class NodeView(UpdateView):
 
     template_name = 'maasserver/node_view.html'
 
     context_object_name = 'node'
 
     def get_object(self):
-        id = self.kwargs.get('id', None)
-        return get_object_or_404(Node, id=id)
+        system_id = self.kwargs.get('system_id', None)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=self.request.user, perm='access')
+        return node
+
+    def get_form_class(self):
+        return get_transition_form(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
@@ -123,16 +128,18 @@ class NodeView(DetailView):
         context['can_edit'] = self.request.user.has_perm('edit', node)
         return context
 
+    def get_success_url(self):
+        return reverse('node-view', args=[self.get_object().system_id])
+
 
 class NodeEdit(UpdateView):
 
     template_name = 'maasserver/node_edit.html'
 
     def get_object(self):
-        id = self.kwargs.get('id', None)
-        node = get_object_or_404(Node, id=id)
-        if not self.request.user.has_perm('edit', node):
-            raise PermissionDenied()
+        system_id = self.kwargs.get('system_id', None)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=self.request.user, perm='edit')
         return node
 
     def get_form_class(self):
@@ -142,7 +149,7 @@ class NodeEdit(UpdateView):
             return UINodeEditForm
 
     def get_success_url(self):
-        return reverse('node-view', args=[self.get_object().id])
+        return reverse('node-view', args=[self.get_object().system_id])
 
 
 def get_longpoll_context():
