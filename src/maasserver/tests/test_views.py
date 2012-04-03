@@ -56,6 +56,18 @@ from maastesting.rabbit import uses_rabbit_fixture
 
 
 def get_prefixed_form_data(prefix, data):
+    """Prefix entries in a dict of form parameters with a form prefix.
+
+    Also, add a parameter "<prefix>_submit" to indicate that the form with
+    the given prefix is being submitted.
+
+    Use this to construct a form submission if the form uses a prefix (as it
+    would if there are multiple forms on the page).
+
+    :param prefix: Form prefix string.
+    :param data: A dict of form parameters.
+    :return: A new dict of prefixed form parameters.
+    """
     result = {'%s-%s' % (prefix, key): value for key, value in data.items()}
     result.update({'%s_submit' % prefix: 1})
     return result
@@ -334,19 +346,16 @@ class UserPrefsViewTest(LoggedInTestCase):
     def test_prefs_POST_profile(self):
         # The preferences page allows the user the update its profile
         # information.
+        params = {
+            'last_name': 'John Doe',
+            'email': 'jon@example.com',
+        }
         response = self.client.post(
-            '/account/prefs/',
-            get_prefixed_form_data(
-                'profile',
-                {
-                    'last_name': 'John Doe',
-                    'email': 'jon@example.com',
-                }))
+            '/account/prefs/', get_prefixed_form_data('profile', params))
 
         self.assertEqual(httplib.FOUND, response.status_code)
         user = User.objects.get(id=self.logged_in_user.id)
-        self.assertEqual('John Doe', user.last_name)
-        self.assertEqual('jon@example.com', user.email)
+        self.assertAttributes(user, params)
 
     def test_prefs_POST_password(self):
         # The preferences page allows the user to change his password.
@@ -512,21 +521,16 @@ class NodeViewsTest(LoggedInTestCase):
     def test_user_can_edit_his_nodes(self):
         node = factory.make_node(owner=self.logged_in_user)
         node_edit_link = reverse('node-edit', args=[node.id])
-        hostname = factory.getRandomString()
-        after_commissioning_action = factory.getRandomEnum(
-            NODE_AFTER_COMMISSIONING_ACTION)
-        response = self.client.post(
-            node_edit_link,
-            data={
-                'hostname': hostname,
-                'after_commissioning_action': after_commissioning_action
-            })
+        params = {
+            'hostname': factory.getRandomString(),
+            'after_commissioning_action': factory.getRandomEnum(
+                NODE_AFTER_COMMISSIONING_ACTION),
+        }
+        response = self.client.post(node_edit_link, params)
 
         node = reload_object(node)
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertEqual(hostname, node.hostname)
-        self.assertEqual(
-            after_commissioning_action, node.after_commissioning_action)
+        self.assertAttributes(node, params)
 
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
@@ -534,27 +538,20 @@ class AdminNodeViewsTest(AdminLoggedInTestCase):
     def test_admin_can_edit_nodes(self):
         node = factory.make_node(owner=factory.make_user())
         node_edit_link = reverse('node-edit', args=[node.id])
-        hostname = factory.getRandomString()
-        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
-        after_commissioning_action = factory.getRandomEnum(
-            NODE_AFTER_COMMISSIONING_ACTION)
         owner = random.choice([factory.make_user() for i in range(5)])
-        response = self.client.post(
-            node_edit_link,
-            data={
-                'hostname': hostname,
-                'after_commissioning_action': after_commissioning_action,
-                'power_type': power_type,
-                'owner': owner.id,
-            })
+        params = {
+            'hostname': factory.getRandomString(),
+            'after_commissioning_action': factory.getRandomEnum(
+                NODE_AFTER_COMMISSIONING_ACTION),
+            'power_type': factory.getRandomChoice(POWER_TYPE_CHOICES),
+            'owner': owner.id,
+        }
+        response = self.client.post(node_edit_link, params)
 
         node = reload_object(node)
+        params['owner'] = owner
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertEqual(hostname, node.hostname)
-        self.assertEqual(owner, node.owner)
-        self.assertEqual(power_type, node.power_type)
-        self.assertEqual(
-            after_commissioning_action, node.after_commissioning_action)
+        self.assertAttributes(node, params)
 
 
 class SettingsTest(AdminLoggedInTestCase):
@@ -680,30 +677,6 @@ class SettingsTest(AdminLoggedInTestCase):
             new_choices)
 
 
-def prefix_form_param(param, prefix=None):
-    """Prefix form parameter with form prefix, if given."""
-    if prefix is None:
-        return param
-    else:
-        return '%s-%s' % (prefix, param)
-
-
-def prefix_form_params(params, prefix=None):
-    """Prefix a dict of form parameters with form prefix, if given.
-
-    If a prefix is given, a "*_submit" parameter is added to indicate that
-    the form with this prefix has been submitted..
-    """
-    if prefix is None:
-        return params
-    else:
-        params = {
-            prefix_form_param(key, prefix): value
-            for key, value in params.items()}
-        params['%s_submit' % prefix] = '1'
-        return params
-
-
 # Settable attributes on User.
 user_attributes = [
     'email',
@@ -733,14 +706,12 @@ def make_password_params(password):
     }
 
 
-def get_dict_items(input_dict, keys):
-    """List values from a dict, in the given keys' order."""
-    return [input_dict[key] for key in keys]
+def subset_dict(input_dict, keys_subset):
+    """Return a subset of `input_dict` restricted to `keys_subset`.
 
-
-def get_obj_attrs(input_object, attrs):
-    """List attributes of an object, in the given order."""
-    return [getattr(input_object, attr) for attr in attrs]
+    All keys in `keys_subset` must be in `input_dict`.
+    """
+    return {key: input_dict[key] for key in keys_subset}
 
 
 class UserManagementTest(AdminLoggedInTestCase):
@@ -758,9 +729,7 @@ class UserManagementTest(AdminLoggedInTestCase):
         response = self.client.post(reverse('accounts-add'), params)
         self.assertEqual(httplib.FOUND, response.status_code)
         user = User.objects.get(username=params['username'])
-        self.assertEqual(
-            get_dict_items(params, user_attributes),
-            get_obj_attrs(user, user_attributes))
+        self.assertAttributes(user, subset_dict(params, user_attributes))
         self.assertTrue(user.check_password(password))
 
     def test_edit_user_POST_profile_updates_attributes(self):
@@ -775,13 +744,11 @@ class UserManagementTest(AdminLoggedInTestCase):
 
         response = self.client.post(
             reverse('accounts-edit', args=[user.username]),
-            prefix_form_params(params, 'profile'))
+            get_prefixed_form_data('profile', params))
 
         self.assertEqual(httplib.FOUND, response.status_code)
-        user = reload_object(user)
-        self.assertEqual(
-            get_dict_items(params, user_attributes),
-            get_obj_attrs(user, user_attributes))
+        self.assertAttributes(
+            reload_object(user), subset_dict(params, user_attributes))
 
     def test_edit_user_POST_updates_password(self):
         user = factory.make_user()
@@ -789,7 +756,7 @@ class UserManagementTest(AdminLoggedInTestCase):
         params = make_password_params(new_password)
         response = self.client.post(
             reverse('accounts-edit', args=[user.username]),
-            prefix_form_params(params, 'password'))
+            get_prefixed_form_data('password', params))
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertTrue(reload_object(user).check_password(new_password))
 
@@ -816,13 +783,9 @@ class UserManagementTest(AdminLoggedInTestCase):
         user = factory.make_user()
         user_id = user.id
         del_link = reverse('accounts-del', args=[user.username])
-        response = self.client.post(
-            del_link,
-            {
-                'post': 'yes',
-            })
+        response = self.client.post(del_link, {'post': 'yes'})
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertFalse(User.objects.filter(id=user_id).exists())
+        self.assertItemsEqual([], User.objects.filter(id=user_id))
 
     def test_view_user(self):
         # The user page feature the basic information about the user.
