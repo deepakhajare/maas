@@ -22,13 +22,16 @@ A few assumptions are made:
   ``PYTHONPATH`` carefully to ensure you use the code in the branch.
 
 
-Your API key and environments.yaml
-----------------------------------
+Your API key, SSH key, and environments.yaml
+--------------------------------------------
 
 You'll need an API key from MAAS so that the Juju client can access
 it. Each user account in MAAS can have as many API keys as desired.
 One hard and fast rule is that you'll need to use a different API key
 for each Juju *environment* you set up within a single MAAS cluster.
+
+You'll also need to add an SSH key to MAAS so that you, and Juju, can
+SSH into freshly provisioned machines.
 
 
 Getting a key
@@ -45,6 +48,15 @@ To get the API key:
 
 .. _MAAS preferences page: http://localhost:5240/account/prefs/
 .. _MAAS home page: http://localhost:5240/
+
+
+Adding an SSH key
+^^^^^^^^^^^^^^^^^
+
+While you're still on the `MAAS preferences page`_, add your SSH key
+by clicking *Add SSH key*. Use the public half of your SSH key, the
+content of ``~/.ssh/id_rsa.pub`` for example; don't paste the private
+half.
 
 
 Creating environments.yaml
