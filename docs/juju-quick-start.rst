@@ -118,12 +118,15 @@ makes it easy to follow on progress::
   the Juju master node.
 
 Once the master node has been installed a status command should come
-up with something a bit more interesting:
+up with something a bit more interesting::
 
-  **XXX** `Bug 965101
-  <https://bugs.launchpad.net/maas/+bug/965101>`_ - *MAAS provider
-  does not raise an exception when get_machines(...)  does not find
-  the requested machines* - prevented capturing of output here.
+  machines:
+    0:
+      agent-state: running
+      dns-name: odev-node02
+      instance-id: /api/1.0/nodes/odev-node02/
+      instance-state: unknown
+  services: {}
 
 Now it's possible to deploy a charm::
 
