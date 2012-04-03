@@ -315,7 +315,7 @@ class NodeManager(models.Manager):
                 nodes = self.none()
             else:
                 raise NotImplementedError(
-                'Invalid permission check (invalid permission name: %s).' %
+                    "Invalid permission check (invalid permission name: %s)." %
                     perm)
 
         return self.filter_by_ids(nodes, ids)
