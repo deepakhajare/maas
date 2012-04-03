@@ -352,7 +352,7 @@ class AccountsEdit(TemplateView, ModelFormMixin,
             })
 
     def get(self, request, *args, **kwargs):
-        """Called by `TemplateView`: handle a POST request."""
+        """Called by `TemplateView`: handle a GET request."""
         self.object = user = self.get_object()
         profile_form = EditUserForm(instance=user, prefix='profile')
         password_form = AdminPasswordChangeForm(user=user, prefix='password')
