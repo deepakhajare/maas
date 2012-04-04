@@ -197,8 +197,16 @@ class NodeWithMACAddressesForm(NodeForm):
 # Node actions per status.
 #
 # This maps each NODE_STATUS to a list of actions applicable to a node
-# in that state.  The actions show up in the user interface as buttons
-# on the node page.
+# in that state:
+#
+# {
+#     NODE_STATUS.<statusX>: [action1, action2],
+#     NODE_STATUS.<statusY>: [action1],
+#     NODE_STATUS.<statusZ>: [action1, action2, action3],
+# }
+#
+# The available actions (insofar as the user has privileges to use them)
+# show up in the user interface as buttons on the node page.
 #
 # Each action is a dict:
 #
