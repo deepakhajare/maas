@@ -17,6 +17,7 @@ from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
 from maasserver.models import NODE_STATUS
+from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
@@ -276,6 +277,20 @@ class TestViews(TestCase):
             self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_success_restores_node_profile(self):
+        papi = get_provisioning_api_proxy()
+        commissioning_profile = self.add_profile(papi)
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        original_profile = papi.get_nodes_by_name([node.system_id])['profile']
+        papi.modify_nodes({node.system_id: commissioning_profile})
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            original_profile,
+            papi.get_nodes_by_name([node.system_id])['profile'])
 
     def test_signaling_commissioning_success_is_idempotent(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
