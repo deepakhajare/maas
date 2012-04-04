@@ -22,6 +22,7 @@ from maasserver.api import (
     api_exported,
     api_operations,
     extract_oauth_key,
+    get_mandatory_param,
     )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
@@ -31,6 +32,7 @@ from maasserver.exceptions import (
     )
 from maasserver.models import (
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     SSHKey,
     )
 from metadataserver.models import (
@@ -141,11 +143,11 @@ class VersionIndexHandler(MetadataViewHandler):
         node = get_node_for_request(request)
         status = request.POST.get('status', None)
 
-        if status is None:
-            raise MAASAPIBadRequest("No status specified.")
+        status = get_mandatory_param(request.POST, 'status')
         if node.status not in self.signalable_states:
             raise NodeStateViolation(
-                "Node wasn't commissioning (status is %s)" % node.status)
+                "Node wasn't commissioning (status is %s)"
+                % NODE_STATUS_CHOICES_DICT[node.status])
 
         if status not in self.signaling_statuses:
             raise MAASAPIBadRequest(

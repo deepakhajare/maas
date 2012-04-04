@@ -271,6 +271,18 @@ class TestViews(TestCase, ProvisioningFakeFactory):
             {'op': 'signal', 'status': factory.getRandomString()})
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
+    def test_signaling_refuses_if_node_in_unexpected_state(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node wasn't commissioning (status is Declared)",
+            ),
+            (response.status_code, response.content))
+
     def test_signaling_accepts_WORKING_status(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
