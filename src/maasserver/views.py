@@ -77,7 +77,7 @@ from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
     EditUserForm,
-    get_transition_form,
+    get_action_form,
     MAASAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
@@ -122,7 +122,7 @@ class NodeView(UpdateView):
         return node
 
     def get_form_class(self):
-        return get_transition_form(self.request.user)
+        return get_action_form(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
@@ -201,7 +201,8 @@ class NodeListView(ListView):
     context_object_name = "node_list"
 
     def get_queryset(self):
-        return Node.objects.get_visible_nodes(user=self.request.user)
+        return Node.objects.get_nodes(
+            user=self.request.user, perm=NODE_PERMISSION.VIEW)
 
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)
