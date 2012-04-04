@@ -321,6 +321,8 @@ def get_action_form(user, request=None):
     :param user: The user for which to build a form derived from
         NodeActionForm.
     :type user: :class:`django.contrib.auth.models.User`
+    :param request: An optional request object to publish action messages.
+    :type request: django.http.HttpRequest
     :return: A form class derived from NodeActionForm.
     :rtype: class:`django.forms.Form`
     """
