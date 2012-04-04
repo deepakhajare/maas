@@ -73,7 +73,10 @@ import sys
 from textwrap import dedent
 import types
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -91,7 +94,6 @@ from maasserver.exceptions import (
     MAASAPINotFound,
     NodesNotAvailable,
     NodeStateViolation,
-    PermissionDenied,
     Unauthorized,
     )
 from maasserver.fields import validate_mac
@@ -101,6 +103,7 @@ from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
+    NODE_PERMISSION,
     NODE_STATUS,
     )
 from piston.doc import generate_doc
@@ -317,23 +320,23 @@ class NodeHandler(BaseHandler):
 
     def read(self, request, system_id):
         """Read a specific Node."""
-        return Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        return Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.VIEW)
 
     def update(self, request, system_id):
         """Update a specific Node."""
-        node = Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         for key, value in request.data.items():
             setattr(node, key, value)
-        node.full_clean()
         node.save()
         return node
 
     def delete(self, request, system_id):
         """Delete a specific Node."""
-        node = Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user,
+            perm=NODE_PERMISSION.ADMIN)
         node.delete()
         return rc.DELETED
 
@@ -383,8 +386,8 @@ class NodeHandler(BaseHandler):
     @api_exported('release', 'POST')
     def release(self, request, system_id):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
-        node = Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         if node.status == NODE_STATUS.READY:
             # Nothing to do.  This may be a redundant retry, and the
             # postcondition is achieved, so call this success.
@@ -429,9 +432,9 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """Create a new Node.
 
         Adding a server to a MAAS puts it on a path that will wipe its disks
-        and re-install its operating system.  In anonymous enlistment,
-        therefore, the node is held in the "Declared" state for approval by a
-        MAAS user.
+        and re-install its operating system.  In anonymous enlistment and when
+        the enlistment is done by a non-admin, the node is held in the
+        "Declared" state for approval by a MAAS admin.
         """
         return create_node(request)
 
@@ -470,21 +473,22 @@ class NodesHandler(BaseHandler):
     def new(self, request):
         """Create a new Node.
 
-        When a node has been added to MAAS by a logged-in MAAS user, it is
+        When a node has been added to MAAS by an admin MAAS user, it is
         ready for allocation to services running on the MAAS.
         """
         node = create_node(request)
-        node.accept_enlistment()
+        if request.user.is_superuser:
+            node.accept_enlistment()
         return node
 
     @api_exported('accept', 'POST')
     def accept(self, request):
         """Accept declared nodes into the MAAS.
 
-        Nodes can be enlisted in the MAAS anonymously, as opposed to by a
-        logged-in user, at the nodes' own request.  These nodes are held in
-        the Declared state; a MAAS user must first verify the authenticity of
-        these enlistments, and accept them.
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
 
         Enlistments can be accepted en masse, by passing multiple nodes to
         this call.  Accepting an already accepted node is not an error, but
@@ -497,11 +501,21 @@ class NodesHandler(BaseHandler):
             excluded from the result.
         """
         system_ids = set(request.POST.getlist('nodes'))
-        nodes = Node.objects.filter(system_id__in=system_ids)
-        found_ids = set(node.system_id for node in nodes)
-        if len(nodes) < len(system_ids):
+        # Check the existence of these nodes first.
+        existing_ids = set(Node.objects.filter().values_list(
+            'system_id', flat=True))
+        if len(existing_ids) < len(system_ids):
             raise MAASAPIBadRequest(
-                "Unknown node(s): %s" % ', '.join(system_ids - found_ids))
+                "Unknown node(s): %s." % ', '.join(system_ids - existing_ids))
+        # Make sure that the user has the required permission.
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN, ids=system_ids)
+        ids = set(node.system_id for node in nodes)
+        if len(nodes) < len(system_ids):
+            raise PermissionDenied(
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % (
+                    ', '.join(system_ids - ids)))
         return filter(None, [node.accept_enlistment() for node in nodes])
 
     @api_exported('list', 'GET')
@@ -510,7 +524,8 @@ class NodesHandler(BaseHandler):
         match_ids = request.GET.getlist('id')
         if match_ids == []:
             match_ids = None
-        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        nodes = Node.objects.get_nodes(
+            request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         return nodes.order_by('id')
 
     @api_exported('list_allocated', 'GET')
@@ -564,20 +579,17 @@ class NodeMacsHandler(BaseHandler):
 
     def read(self, request, system_id):
         """Read all MAC Addresses related to a Node."""
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
         return MACAddress.objects.filter(node=node).order_by('id')
 
     def create(self, request, system_id):
         """Create a MAC Address for a specified Node."""
-        try:
-            node = Node.objects.get_visible_node_or_404(
-                user=request.user, system_id=system_id)
-            mac = node.add_mac_address(request.data.get('mac_address', None))
-            return mac
-        except ValidationError as e:
-            return HttpResponseBadRequest(e.message_dict)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
+        mac = node.add_mac_address(request.data.get('mac_address', None))
+        return mac
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -592,8 +604,8 @@ class NodeMacHandler(BaseHandler):
 
     def read(self, request, system_id, mac_address):
         """Read a MAC Address related to a Node."""
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
         validate_mac(mac_address)
         return get_object_or_404(
@@ -602,8 +614,8 @@ class NodeMacHandler(BaseHandler):
     def delete(self, request, system_id, mac_address):
         """Delete a specific MAC Address for the specified Node."""
         validate_mac(mac_address)
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
 
         mac = get_object_or_404(MACAddress, node=node, mac_address=mac_address)
         mac.delete()

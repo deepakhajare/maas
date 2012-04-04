@@ -11,10 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "CommissioningForm",
+    "get_action_form",
     "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
     "MAASAndNetworkForm",
+    "NodeActionForm",
     "SSHKeyForm",
     "UbuntuForm",
     "UIAdminNodeEditForm",
@@ -26,8 +28,14 @@ from django.contrib.auth.forms import (
     UserChangeForm,
     UserCreationForm,
     )
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.contrib.auth.models import (
+    AnonymousUser,
+    User,
+    )
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.core.validators import URLValidator
 from django.forms import (
     CharField,
@@ -43,8 +51,9 @@ from maasserver.models import (
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODE_PERMISSION,
+    NODE_STATUS,
     SSHKey,
-    UserProfile,
     )
 
 
@@ -100,13 +109,11 @@ class UINodeEditForm(ModelForm):
 class UIAdminNodeEditForm(ModelForm):
     after_commissioning_action = forms.ChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
-    owner = forms.ModelChoiceField(
-        queryset=UserProfile.objects.all_users(), required=False)
 
     class Meta:
         model = Node
         fields = (
-            'hostname', 'after_commissioning_action', 'power_type', 'owner')
+            'hostname', 'after_commissioning_action', 'power_type')
 
 
 class MACAddressForm(ModelForm):
@@ -182,6 +189,133 @@ class NodeWithMACAddressesForm(NodeForm):
         if self.cleaned_data['hostname'] == "":
             node.set_mac_based_hostname(self.cleaned_data['mac_addresses'][0])
         return node
+
+
+def start_node(node, user):
+    """Start a node from the UI.  It will have no meta_data."""
+    # TODO: Provide some kind of feedback to the user.  Starting a node
+    # is fire-and-forget.  From the user's point of view, it's as if all
+    # that happens is the page reloading.
+    Node.objects.start_nodes([node.system_id], user)
+
+
+# Node actions per status.
+#
+# This maps each NODE_STATUS to a list of actions applicable to a node
+# in that state:
+#
+# {
+#     NODE_STATUS.<statusX>: [action1, action2],
+#     NODE_STATUS.<statusY>: [action1],
+#     NODE_STATUS.<statusZ>: [action1, action2, action3],
+# }
+#
+# The available actions (insofar as the user has privileges to use them)
+# show up in the user interface as buttons on the node page.
+#
+# Each action is a dict:
+#
+# {
+#     # Action's display name; will be shown in the button.
+#     'display': "Paint node",
+#     # Permission required to perform action.
+#     'permission': NODE_PERMISSION.EDIT,
+#     # Callable that performs action.  Takes parameters (node, user).
+#     'execute': lambda node, user: paint_node(
+#                    node, favourite_colour(user)),
+# }
+#
+NODE_ACTIONS = {
+    NODE_STATUS.DECLARED: [
+        {
+            'display': "Accept Enlisted node",
+            'permission': NODE_PERMISSION.ADMIN,
+            'execute': lambda node, user: Node.accept_enlistment(node),
+        },
+        {
+            'display': "Commission node",
+            'permission': NODE_PERMISSION.ADMIN,
+            'execute': lambda node, user: Node.start_commissioning(node, user),
+        },
+    ],
+    NODE_STATUS.READY: [
+        {
+            'display': "Start node",
+            'permission': NODE_PERMISSION.EDIT,
+            'execute': start_node,
+        },
+    ],
+    NODE_STATUS.ALLOCATED: [
+        {
+            'display': "Start node",
+            'permission': NODE_PERMISSION.EDIT,
+            'execute': start_node,
+        },
+    ],
+}
+
+
+class NodeActionForm(forms.Form):
+    """Base form for performing a node action.
+
+    This form class should not be used directly but through subclasses
+    created using `get_action_form`.
+    """
+
+    user = AnonymousUser()
+
+    # The name of the input button used with this form.
+    input_name = 'node_action'
+
+    def __init__(self, instance, *args, **kwargs):
+        super(NodeActionForm, self).__init__(*args, **kwargs)
+        self.node = instance
+        self.action_buttons = self.available_action_methods(
+            self.node, self.user)
+        # Create a convenient dict to fetch the action's name and
+        # the permission to be checked from the button name.
+        self.action_dict = {
+            action['display']: (action['permission'], action['execute'])
+            for action in self.action_buttons
+        }
+
+    def available_action_methods(self, node, user):
+        """Return the actions that this user is allowed to perform on a node.
+
+        :param node: The node for which the check should be performed.
+        :type node: :class:`maasserver.models.Node`
+        :param user: The user who would be performing the action.  Only the
+            actions available to this user will be returned.
+        :type user: :class:`django.contrib.auth.models.User`
+        :return: Any applicable action dicts, as found in NODE_ACTIONS.
+        :rtype: Sequence
+        """
+        return [
+            action for action in NODE_ACTIONS.get(node.status, ())
+            if user.has_perm(action['permission'], node)]
+
+    def save(self):
+        action_name = self.data.get(self.input_name)
+        permission, execute = self.action_dict.get(action_name, (None, None))
+        if execute is not None:
+            if not self.user.has_perm(permission, self.node):
+                raise PermissionDenied()
+            execute(self.node, self.user)
+        else:
+            raise PermissionDenied()
+
+
+def get_action_form(user):
+    """Return a class derived from NodeActionForm for a specific user.
+
+    :param user: The user for which to build a form derived from
+        NodeActionForm.
+    :type user: :class:`django.contrib.auth.models.User`
+    :return: A form class derived from NodeActionForm.
+    :rtype: class:`django.forms.Form`
+    """
+    return type(
+        str("SpecificNodeActionForm"), (NodeActionForm,), {'user': user})
 
 
 class ProfileForm(ModelForm):

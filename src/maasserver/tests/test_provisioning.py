@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from abc import ABCMeta
 from urlparse import parse_qs
 from xmlrpclib import Fault
 
@@ -19,6 +20,7 @@ from maasserver import provisioning
 from maasserver.exceptions import MAASAPIException
 from maasserver.models import (
     ARCHITECTURE,
+    ARCHITECTURE_CHOICES,
     Config,
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -40,13 +42,18 @@ from provisioningserver.enum import (
     POWER_TYPE,
     PSERV_FAULT,
     )
+from provisioningserver.testing.factory import ProvisioningFakeFactory
+from testtools.deferredruntest import AsynchronousDeferredRunTest
 from testtools.testcase import ExpectedException
+from twisted.internet.defer import inlineCallbacks
 
 
 class ProvisioningTests:
     """Tests for the Provisioning API as maasserver sees it."""
 
-    # Must be defined in concrete subclasses.
+    __metaclass__ = ABCMeta
+
+    # Must be set to the provisioning server API proxy to test against.
     papi = None
 
     def make_node_without_saving(self, arch=ARCHITECTURE.i386):
@@ -57,20 +64,6 @@ class ProvisioningTests:
             status=NODE_STATUS.DEFAULT_STATUS, after_commissioning_action=(
                 NODE_AFTER_COMMISSIONING_ACTION.DEFAULT),
             architecture=arch)
-
-    def make_papi_profile(self):
-        """Create a new profile on the provisioning API."""
-        # Kernel and initrd are irrelevant here, but must be real files
-        # for Cobbler's benefit.  Cobbler may not be running locally, so
-        # just feed it some filenames that it's sure to have (and won't
-        # be allowed accidentally to overwrite).
-        shared_name = factory.getRandomString()
-        distro_name = 'distro-%s' % shared_name
-        fake_initrd = '/etc/cobbler/settings'
-        fake_kernel = '/etc/cobbler/version'
-        distro = self.papi.add_distro(distro_name, fake_initrd, fake_kernel)
-        profile_name = 'profile-%s' % shared_name
-        return self.papi.add_profile(profile_name, distro)
 
     def test_name_arch_in_cobbler_style_converts_architecture_names(self):
         self.assertSequenceEqual(
@@ -87,12 +80,13 @@ class ProvisioningTests:
     def test_name_arch_in_cobbler_returns_unicode(self):
         self.assertIsInstance(name_arch_in_cobbler_style(b'amd64'), unicode)
 
+    @inlineCallbacks
     def test_select_profile_for_node_ignores_previously_chosen_profile(self):
         node = factory.make_node(architecture='i386')
-        self.papi.modify_nodes(
-            {node.system_id: {'profile': self.make_papi_profile()}})
+        profile = yield self.add_profile(self.papi)
+        yield self.papi.modify_nodes({node.system_id: {'profile': profile}})
         self.assertEqual(
-            'maas-precise-i386', select_profile_for_node(node, self.papi))
+            'maas-precise-i386', select_profile_for_node(node))
 
     def test_select_profile_for_node_selects_Precise_and_right_arch(self):
         nodes = {
@@ -102,14 +96,23 @@ class ProvisioningTests:
                 'maas-precise-%s' % name_arch_in_cobbler_style(arch)
                 for arch in nodes.keys()],
             [
-                select_profile_for_node(node, self.papi)
+                select_profile_for_node(node)
                 for node in nodes.values()])
 
     def test_select_profile_for_node_converts_architecture_name(self):
         node = factory.make_node(architecture='amd64')
-        profile = select_profile_for_node(node, self.papi)
+        profile = select_profile_for_node(node)
         self.assertNotIn('amd64', profile)
         self.assertIn('x86_64', profile)
+
+    def test_select_profile_for_node_works_for_commissioning(self):
+        # A special profile is chosen for nodes in the commissioning
+        # state.
+        arch = ARCHITECTURE.i386
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, architecture=arch)
+        profile = select_profile_for_node(node)
+        self.assertEqual('maas-precise-%s-commissioning' % arch, profile)
 
     def test_provision_post_save_Node_create(self):
         # The handler for Node's post-save signal registers the node in
@@ -324,8 +327,11 @@ class ProvisioningTests:
         self.assertIsNone(present_user_friendly_fault(Fault(9999, "!!!")))
 
 
-class TestProvisioningWithFake(ProvisioningTests, TestCase):
+class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
+                               TestCase):
     """Tests for the Provisioning API using a fake."""
+
+    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
     def setUp(self):
         super(TestProvisioningWithFake, self).setUp()

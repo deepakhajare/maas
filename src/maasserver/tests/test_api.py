@@ -507,11 +507,18 @@ class TestNodeAPI(APITestCase):
         self.assertIs(None, node.token)
 
     def test_POST_release_does_nothing_for_unowned_node(self):
-        node = factory.make_node(status=NODE_STATUS.READY)
+        node = factory.make_node(
+            status=NODE_STATUS.READY, owner=self.logged_in_user)
         response = self.client.post(
             self.get_node_uri(node), {'op': 'release'})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_POST_release_forbidden_if_user_cannot_edit_node(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_POST_release_fails_for_other_node_states(self):
         releasable_statuses = [
@@ -577,7 +584,7 @@ class TestNodeAPI(APITestCase):
 
     def test_PUT_updates_node(self):
         # The api allows the updating of a Node.
-        node = factory.make_node(hostname='diane')
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'francis'})
         parsed_result = json.loads(response.content)
@@ -590,7 +597,7 @@ class TestNodeAPI(APITestCase):
     def test_resource_uri_points_back_at_node(self):
         # When a Node is returned by the API, the field 'resource_uri'
         # provides the URI for this Node.
-        node = factory.make_node(hostname='diane')
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'francis'})
         parsed_result = json.loads(response.content)
@@ -602,7 +609,7 @@ class TestNodeAPI(APITestCase):
     def test_PUT_rejects_invalid_data(self):
         # If the data provided to update a node is invalid, a 'Bad request'
         # response is returned.
-        node = factory.make_node(hostname='diane')
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'too long' * 100})
         parsed_result = json.loads(response.content)
@@ -633,12 +640,40 @@ class TestNodeAPI(APITestCase):
 
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
-        node = factory.make_node(set_hostname=True)
+        self.become_admin()
+        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
         system_id = node.system_id
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(204, response.status_code)
         self.assertItemsEqual([], Node.objects.filter(system_id=system_id))
+
+    def test_DELETE_cannot_delete_allocated_node(self):
+        # The api allows to delete a Node.
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.ALLOCATED)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(
+            (httplib.CONFLICT,
+                "Cannot delete node %s: node is in state %s." % (
+                    node.system_id,
+                    NODE_STATUS_CHOICES_DICT[NODE_STATUS.ALLOCATED])),
+            (response.status_code, response.content))
+
+    def test_DELETE_deletes_node_fails_if_not_admin(self):
+        # Only superusers can delete nodes.
+        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_DELETE_forbidden_without_edit_permission(self):
+        # A user without the edit permission cannot delete a Node.
+        node = factory.make_node(set_hostname=True)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_refuses_to_delete_invisible_node(self):
         # The request to delete a single node is denied if the node isn't
@@ -668,7 +703,7 @@ class TestNodesAPI(APITestCase):
             self.get_uri('nodes/'),
             {
                 'op': 'new',
-                'hostname': 'diane',
+                'hostname': factory.getRandomString(),
                 'architecture': architecture,
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
@@ -676,10 +711,28 @@ class TestNodesAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_POST_new_when_logged_in_creates_node_in_ready_state(self):
-        # When a logged-in user enlists a node, it goes into the Ready
-        # state.
+    def test_POST_new_when_logged_in_creates_node_in_declared_state(self):
+        # When a user enlists a node, it goes into the Declared state.
         # This will change once we start doing proper commissioning.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.DECLARED,
+            Node.objects.get(system_id=system_id).status)
+
+    def test_POST_new_when_admin_creates_node_in_ready_state(self):
+        # When an admin user enlists a node, it goes into the Ready state.
+        # This will change once we start doing proper commissioning.
+        self.become_admin()
         response = self.client.post(
             self.get_uri('nodes/'),
             {
@@ -943,6 +996,7 @@ class TestNodesAPI(APITestCase):
     def test_POST_accept_gets_node_out_of_declared_state(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
+        self.become_admin()
         target_state = NODE_STATUS.READY
 
         node = factory.make_node(status=NODE_STATUS.DECLARED)
@@ -963,6 +1017,7 @@ class TestNodesAPI(APITestCase):
             (httplib.OK, "[]"), (response.status_code, response.content))
 
     def test_POST_accept_rejects_impossible_state_changes(self):
+        self.become_admin()
         acceptable_states = set([
             NODE_STATUS.DECLARED,
             NODE_STATUS.COMMISSIONING,
@@ -997,16 +1052,29 @@ class TestNodesAPI(APITestCase):
             self.assertIn(NODE_STATUS_CHOICES_DICT[status], response.content)
 
     def test_POST_accept_fails_if_node_does_not_exist(self):
+        self.become_admin()
         node_id = factory.getRandomString()
         response = self.client.post(
             self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
         self.assertEqual(
-            (httplib.BAD_REQUEST, "Unknown node(s): %s" % node_id),
+            (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
+            (response.status_code, response.content))
+
+    def test_POST_accept_fails_if_not_admin(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {'op': 'accept', 'nodes': [node.system_id]})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % node.system_id),
             (response.status_code, response.content))
 
     def test_POST_accept_accepts_multiple_nodes(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
+        self.become_admin()
         target_state = NODE_STATUS.READY
 
         nodes = [
@@ -1023,6 +1091,7 @@ class TestNodesAPI(APITestCase):
             [reload_object(node).status for node in nodes])
 
     def test_POST_accept_returns_actually_accepted_nodes(self):
+        self.become_admin()
         acceptable_nodes = [
             factory.make_node(status=NODE_STATUS.DECLARED)
             for counter in range(2)
@@ -1043,8 +1112,8 @@ class TestNodesAPI(APITestCase):
 
 class MACAddressAPITest(APITestCase):
 
-    def createNodeWithMacs(self):
-        node = factory.make_node()
+    def createNodeWithMacs(self, owner=None):
+        node = factory.make_node(owner=owner)
         mac1 = node.add_mac_address('aa:bb:cc:dd:ee:ff')
         mac2 = node.add_mac_address('22:bb:cc:dd:aa:ff')
         return node, mac1, mac2
@@ -1112,7 +1181,7 @@ class MACAddressAPITest(APITestCase):
 
     def test_macs_POST_add_mac(self):
         # The api allows to add a MAC Address to an existing node.
-        node = factory.make_node()
+        node = factory.make_node(owner=self.logged_in_user)
         nb_macs = MACAddress.objects.filter(node=node).count()
         response = self.client.post(
             self.get_uri('nodes/%s/macs/') % node.system_id,
@@ -1125,10 +1194,20 @@ class MACAddressAPITest(APITestCase):
             nb_macs + 1,
             MACAddress.objects.filter(node=node).count())
 
+    def test_macs_POST_add_mac_without_edit_perm(self):
+        # Adding a MAC Address to a node requires the NODE_PERMISSION.EDIT
+        # permission.
+        node = factory.make_node()
+        response = self.client.post(
+            self.get_uri('nodes/%s/macs/') % node.system_id,
+            {'mac_address': '01:BB:CC:DD:EE:FF'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
     def test_macs_POST_add_mac_invalid(self):
         # A 'Bad Request' response is returned if one tries to add an invalid
         # MAC Address to a node.
-        node = self.createNodeWithMacs()[0]
+        node = self.createNodeWithMacs(self.logged_in_user)[0]
         response = self.client.post(
             self.get_uri('nodes/%s/macs/') % node.system_id,
             {'mac_address': 'invalid-mac'})
@@ -1142,7 +1221,7 @@ class MACAddressAPITest(APITestCase):
 
     def test_macs_DELETE_mac(self):
         # The api allows to delete a MAC Address.
-        node, mac1, mac2 = self.createNodeWithMacs()
+        node, mac1, mac2 = self.createNodeWithMacs(self.logged_in_user)
         nb_macs = node.macaddress_set.count()
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
@@ -1168,7 +1247,18 @@ class MACAddressAPITest(APITestCase):
     def test_macs_DELETE_not_found(self):
         # When deleting a MAC Address, the api returns a 'Not Found' (404)
         # error if no existing MAC Address is found.
-        node = factory.make_node()
+        node = factory.make_node(owner=self.logged_in_user)
+        response = self.client.delete(
+            self.get_uri('nodes/%s/macs/%s/') % (
+                node.system_id, '00-aa-22-cc-44-dd'))
+
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_macs_DELETE_forbidden(self):
+        # When deleting a MAC Address, the api returns a 'Forbidden'
+        # (403) error if the user does not have the 'edit' permission on the
+        # node.
+        node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
                 node.system_id, '00-aa-22-cc-44-dd'))

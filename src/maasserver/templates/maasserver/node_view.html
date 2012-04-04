@@ -6,14 +6,34 @@
 {% block layout-modifiers %}sidebar{% endblock %}
 
 {% block sidebar %}
-  <div class="block size3">
-    {% if can_edit %}
+  {% if can_edit %}
+    <div class="block size3">
       <h4>Node details</h4>
-      <a href="{% url 'node-edit' node.id %}" class="button secondary">
+      <a href="{% url 'node-edit' node.system_id %}" class="button secondary">
         Edit node
       </a>
-    {% endif%}
-  </div>
+    </div>
+  {% endif %}
+  {% if form.action_buttons or can_delete %}
+    <div class="block size3">
+    <h4>Actions</h4>
+    {% if can_delete %}
+      <a href="{% url 'node-delete' node.system_id %}" class="button secondary">
+        Delete node
+      </a>
+    {% endif %}
+    {% for action in form.action_buttons %}
+      {% if forloop.first %}
+        <form id="node_actions" method="post" action=".">
+      {% endif %}
+      <input class="secondary {% if not forloop.first or can_delete %}space-top{% endif %}"
+             type="submit"
+             name="{{ form.input_name }}"
+             value="{{ action.display }}" />
+      {% if forloop.last %}</form>{% endif %}
+    {% endfor %}
+    </div>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -36,6 +56,12 @@
           {{ node.display_status }}
       </span>
     </li>
+    {% if node.owner %}
+    <li class="block size2 first">
+      <h4>Owner</h4>
+      <span>{{ node.owner }}</span>
+    </li>
+    {% endif %}
   </ul>
 {% endblock %}
 

@@ -18,12 +18,15 @@ __all__ = [
     "Config",
     "FileStorage",
     "NODE_STATUS",
+    "NODE_PERMISSION",
+    "NODE_TRANSITIONS",
     "Node",
     "MACAddress",
     "SSHKey",
     "UserProfile",
     ]
 
+import binascii
 from cgi import escape
 from collections import (
     defaultdict,
@@ -44,7 +47,10 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
 from django.db import models
@@ -54,7 +60,6 @@ from django.utils.safestring import mark_safe
 from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
-    PermissionDenied,
     )
 from maasserver.fields import (
     JSONObjectField,
@@ -151,6 +156,17 @@ NODE_STATUS_CHOICES = (
 NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
+# Information about valid node status transitions.
+# The format is:
+# {
+#  old_status1: [
+#      new_status11,
+#      new_status12,
+#      new_status13,
+#      ],
+# ...
+# }
+#
 NODE_TRANSITIONS = {
     None: [
         NODE_STATUS.DECLARED,
@@ -272,11 +288,13 @@ class NodeManager(models.Manager):
         else:
             return query.filter(system_id__in=ids)
 
-    def get_visible_nodes(self, user, ids=None):
-        """Fetch Nodes visible by a User_.
+    def get_nodes(self, user, perm, ids=None):
+        """Fetch Nodes on which the User_ has the given permission.
 
         :param user: The user that should be used in the permission check.
         :type user: User_
+        :param perm: The permission to check.
+        :type perm: a permission string from NODE_PERMISSION
         :param ids: If given, limit result to nodes with these system_ids.
         :type ids: Sequence.
 
@@ -286,11 +304,21 @@ class NodeManager(models.Manager):
 
         """
         if user.is_superuser:
-            visible_nodes = self.all()
+            nodes = self.all()
         else:
-            visible_nodes = self.filter(
-                models.Q(owner__isnull=True) | models.Q(owner=user))
-        return self.filter_by_ids(visible_nodes, ids)
+            if perm == NODE_PERMISSION.VIEW:
+                nodes = self.filter(
+                    models.Q(owner__isnull=True) | models.Q(owner=user))
+            elif perm == NODE_PERMISSION.EDIT:
+                nodes = self.filter(owner=user)
+            elif perm == NODE_PERMISSION.ADMIN:
+                nodes = self.none()
+            else:
+                raise NotImplementedError(
+                    "Invalid permission check (invalid permission name: %s)." %
+                    perm)
+
+        return self.filter_by_ids(nodes, ids)
 
     def get_allocated_visible_nodes(self, token, ids):
         """Fetch Nodes that were allocated to the User_/oauth token.
@@ -313,30 +341,17 @@ class NodeManager(models.Manager):
             nodes = self.filter(token=token, system_id__in=ids)
         return nodes
 
-    def get_editable_nodes(self, user, ids=None):
-        """Fetch Nodes a User_ has ownership privileges on.
-
-        An admin has ownership privileges on all nodes.
-
-        :param user: The user that should be used in the permission check.
-        :type user: User_
-        :param ids: If given, limit result to nodes with these system_ids.
-        :type ids: Sequence.
-        """
-        if user.is_superuser:
-            visible_nodes = self.all()
-        else:
-            visible_nodes = self.filter(owner=user)
-        return self.filter_by_ids(visible_nodes, ids)
-
-    def get_visible_node_or_404(self, system_id, user):
+    def get_node_or_404(self, system_id, user, perm):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
-        this system_id exist or if the provided user cannot see this `Node`.
+        this system_id exist or if the provided user has not the required
+        permission on this `Node`.
 
         :param name: The system_id.
         :type name: str
         :param user: The user that should be used in the permission check.
         :type user: django.contrib.auth.models.User
+        :param perm: The permission to assert that the user has on the node.
+        :type perm: basestring
         :raises: django.http.Http404_,
             :class:`maasserver.exceptions.PermissionDenied`.
 
@@ -345,10 +360,10 @@ class NodeManager(models.Manager):
            #the-http404-exception
         """
         node = get_object_or_404(Node, system_id=system_id)
-        if user.has_perm('access', node):
+        if user.has_perm(perm, node):
             return node
         else:
-            raise PermissionDenied
+            raise PermissionDenied()
 
     def get_available_node_for_acquisition(self, for_user, constraints=None):
         """Find a `Node` to be acquired by the given user.
@@ -363,7 +378,7 @@ class NodeManager(models.Manager):
         if constraints is None:
             constraints = {}
         available_nodes = (
-            self.get_visible_nodes(for_user)
+            self.get_nodes(for_user, NODE_PERMISSION.VIEW)
                 .filter(status=NODE_STATUS.READY))
 
         if constraints.get('name'):
@@ -389,7 +404,7 @@ class NodeManager(models.Manager):
         :return: Those Nodes for which shutdown was actually requested.
         :rtype: list
         """
-        nodes = self.get_editable_nodes(by_user, ids=ids)
+        nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
         get_papi().stop_nodes([node.system_id for node in nodes])
         return nodes
 
@@ -410,12 +425,19 @@ class NodeManager(models.Manager):
         :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
+        # TODO: File structure needs sorting out to avoid this circular
+        # import dance.
         from metadataserver.models import NodeUserData
-        nodes = self.get_editable_nodes(by_user, ids=ids)
-        if user_data is not None:
-            for node in nodes:
-                NodeUserData.objects.set_user_data(node, user_data)
-        get_papi().start_nodes([node.system_id for node in nodes])
+        from maasserver.provisioning import select_profile_for_node
+        nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
+        profiles = {}
+        for node in nodes:
+            NodeUserData.objects.set_user_data(node, user_data)
+            profiles[node.system_id] = {
+                'profile': select_profile_for_node(node)}
+        papi = get_papi()
+        papi.modify_nodes(profiles)
+        papi.start_nodes([node.system_id for node in nodes])
         return nodes
 
 
@@ -432,6 +454,12 @@ def get_db_state(instance, field_name):
             instance.__class__.objects.get(pk=instance.pk), field_name)
     except instance.DoesNotExist:
         return None
+
+
+class NODE_PERMISSION:
+    VIEW = 'view_node'
+    EDIT = 'edit_node'
+    ADMIN = 'admin_node'
 
 
 class Node(CommonInfo):
@@ -464,7 +492,7 @@ class Node(CommonInfo):
         default=NODE_STATUS.DEFAULT_STATUS)
 
     owner = models.ForeignKey(
-        User, default=None, blank=True, null=True, editable=True)
+        User, default=None, blank=True, null=True, editable=False)
 
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -537,7 +565,7 @@ class Node(CommonInfo):
         """Add a new MAC Address to this `Node`.
 
         :param mac_address: The MAC Address to be added.
-        :type mac_address: str
+        :type mac_address: basestring
         :raises: django.core.exceptions.ValidationError_
 
         .. _django.core.exceptions.ValidationError: https://
@@ -589,9 +617,23 @@ class Node(CommonInfo):
         self.save()
         return self
 
+    def start_commissioning(self, user):
+        """Install OS and self-test a new node."""
+        self.status = NODE_STATUS.COMMISSIONING
+        self.owner = user
+        self.save()
+        # The commissioning profile is handled in start_nodes.
+        Node.objects.start_nodes(
+            [self.system_id], user, user_data=None)
+
     def delete(self):
         # Delete the related mac addresses first.
         self.macaddress_set.all().delete()
+        # Allocated nodes can't be deleted.
+        if self.status == NODE_STATUS.ALLOCATED:
+            raise NodeStateViolation(
+                "Cannot delete node %s: node is in state %s."
+                % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
         super(Node, self).delete()
 
     def set_mac_based_hostname(self, mac_address):
@@ -818,7 +860,7 @@ def validate_ssh_public_key(value):
         if not key.isPublic():
             raise ValidationError(
                 "Invalid SSH public key (this key is a private key).")
-    except BadKeyError:
+    except (BadKeyError, binascii.Error):
         raise ValidationError("Invalid SSH public key.")
 
 
@@ -1170,6 +1212,9 @@ class MAASAuthorizationBackend(ModelBackend):
     supports_object_permissions = True
 
     def has_perm(self, user, perm, obj=None):
+        # Note that a check for a superuser will never reach this code
+        # because Django will return True (as an optimization) for every
+        # permission check performed on a superuser.
         if not user.is_active:
             # Deactivated users, and in particular the node-init user,
             # are prohibited from accessing maasserver services.
@@ -1181,13 +1226,17 @@ class MAASAuthorizationBackend(ModelBackend):
             raise NotImplementedError(
                 'Invalid permission check (invalid object type).')
 
-        if perm == 'access':
+        if perm == NODE_PERMISSION.VIEW:
             return obj.owner in (None, user)
-        elif perm == 'edit':
+        elif perm == NODE_PERMISSION.EDIT:
             return obj.owner == user
+        elif perm == NODE_PERMISSION.ADMIN:
+            # 'admin_node' permission is solely granted to superusers.
+            return False
         else:
             raise NotImplementedError(
-                'Invalid permission check (invalid permission name).')
+                'Invalid permission check (invalid permission name: %s).' %
+                    perm)
 
 
 # 'provisioning' is imported so that it can register its signal handlers early
