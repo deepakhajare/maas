@@ -294,7 +294,7 @@ class NodeManager(models.Manager):
         :param user: The user that should be used in the permission check.
         :type user: User_
         :param perm: The permission to check.
-        :type perm: basestring.
+        :type perm: basestring (a permission string from NODE_PERMISSION).
         :param ids: If given, limit result to nodes with these system_ids.
         :type ids: Sequence.
 
