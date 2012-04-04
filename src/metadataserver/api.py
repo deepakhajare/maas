@@ -18,7 +18,11 @@ __all__ = [
 
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
-from maasserver.api import extract_oauth_key
+from maasserver.api import (
+    api_exported,
+    api_operations,
+    extract_oauth_key,
+    )
 from maasserver.exceptions import (
     MAASAPINotFound,
     Unauthorized,
@@ -82,9 +86,10 @@ class IndexHandler(MetadataViewHandler):
     fields = ('latest', '2012-03-01')
 
 
+@api_operations
 class VersionIndexHandler(MetadataViewHandler):
     """Listing for a given metadata version."""
-
+    allowed_methods = ('GET', 'POST')
     fields = ('meta-data', 'user-data')
 
     def read(self, request, version):
@@ -95,6 +100,11 @@ class VersionIndexHandler(MetadataViewHandler):
             shown_fields = list(self.fields)
             shown_fields.remove('user-data')
         return make_list_response(sorted(shown_fields))
+
+    @api_exported('signal', 'POST')
+    def signal(self, request, version=None):
+# TODO: Implement
+        return
 
 
 class MetaDataHandler(VersionIndexHandler):
