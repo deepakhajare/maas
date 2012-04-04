@@ -35,6 +35,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.testing.factory import ProvisioningFakeFactory
 
 
 class TestHelpers(TestCase):
@@ -80,7 +81,7 @@ class TestHelpers(TestCase):
             get_node_for_request, self.fake_request())
 
 
-class TestViews(TestCase):
+class TestViews(TestCase, ProvisioningFakeFactory):
     """Tests for the API views."""
 
     def make_node_client(self, node=None):
@@ -282,15 +283,15 @@ class TestViews(TestCase):
         papi = get_provisioning_api_proxy()
         commissioning_profile = self.add_profile(papi)
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        original_profile = papi.get_nodes_by_name([node.system_id])['profile']
-        papi.modify_nodes({node.system_id: commissioning_profile})
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        original_profile = node_data['profile']
+        papi.modify_nodes({node.system_id: {'profile': commissioning_profile}})
         client = self.make_node_client(node=node)
         response = client.post(
             self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(
-            original_profile,
-            papi.get_nodes_by_name([node.system_id])['profile'])
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        self.assertEqual(original_profile, node_data['profile'])
 
     def test_signaling_commissioning_success_is_idempotent(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
