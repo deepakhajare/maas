@@ -34,6 +34,15 @@ Morph.ATTRS = {
 };
 
 Y.extend(Morph, Y.Widget, {
+    initializer: function(cfg) {
+        if (Y.Lang.isValue(cfg.animate)) {
+            this._animate = cfg.animate;
+        }
+        else {
+            this._animate = true;
+        }
+    },
+
     morph: function(reverse) {
         if (reverse){
             var srcNode = this.get('targetNode');
@@ -43,40 +52,46 @@ Y.extend(Morph, Y.Widget, {
             var srcNode = this.get('srcNode');
             var targetNode = this.get('targetNode');
         }
-        var target_height = targetNode.getComputedStyle('height');
-        var fade_out = new Y.Anim({
-            node: targetNode,
-            to: {opacity: 0},
-            duration: 0.2,
-            easing: 'easeOut'
-            });
-        var self = this;
-        fade_out.on('end', function () {
-            targetNode.addClass('hidden');
-            srcNode.setStyle('opacity', 0);
-            srcNode.removeClass('hidden');
-            src_height = srcNode.getComputedStyle('height').replace('px', '');
-            srcNode.setStyle('height', target_height);
-            var fade_in = new Y.Anim({
-                node: srcNode,
-                to: {opacity: 1},
-                duration: 1,
-                easing: 'easeIn'
-                });
-            var resize = new Y.Anim({
-                node: srcNode,
-                to: {height: src_height},
-                duration: 0.5,
+        if (this._animate) {
+            var target_height = targetNode.getComputedStyle('height');
+            var fade_out = new Y.Anim({
+                node: targetNode,
+                to: {opacity: 0},
+                duration: 0.2,
                 easing: 'easeOut'
                 });
-            resize.on('end', function () {
-                srcNode.setStyle('height', 'auto');
-                self.fire('morphed');
+            var self = this;
+            fade_out.on('end', function () {
+                targetNode.addClass('hidden');
+                srcNode.setStyle('opacity', 0);
+                srcNode.removeClass('hidden');
+                src_height = srcNode.getComputedStyle('height').replace('px', '');
+                srcNode.setStyle('height', target_height);
+                var fade_in = new Y.Anim({
+                    node: srcNode,
+                    to: {opacity: 1},
+                    duration: 1,
+                    easing: 'easeIn'
+                    });
+                var resize = new Y.Anim({
+                    node: srcNode,
+                    to: {height: src_height},
+                    duration: 0.5,
+                    easing: 'easeOut'
+                    });
+                resize.on('end', function () {
+                    srcNode.setStyle('height', 'auto');
+                    self.fire('morphed');
+                });
+                fade_in.run();
+                resize.run();
             });
-            fade_in.run();
-            resize.run();
-        });
-        fade_out.run();
+            fade_out.run();
+        }
+        else {
+            targetNode.addClass('hidden');
+            srcNode.removeClass('hidden');
+        }
     }
 });
 

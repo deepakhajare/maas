@@ -190,8 +190,11 @@ Y.extend(AddNodeWidget, Y.Widget, {
             this._animate = true;
         }
         this.get('srcNode').addClass('hidden');
-        this.morpher = new Y.maas.morph.Morph(
-            {srcNode: cfg.srcNode, targetNode: this.get('targetNode')});
+        this.morpher = new Y.maas.morph.Morph({
+            srcNode: cfg.srcNode,
+            targetNode: this.get('targetNode'),
+            animate: this._animate
+            });
     },
 
     renderUI: function() {
@@ -212,16 +215,10 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     showWidget: function() {
-        if (this._animate) {
-            this.morpher.morph();
-            this.morpher.on('morphed', function(e, widget) {
-                widget.get('srcNode').one('input[type=text]').focus();
-            }, null, this);
-        }
-        else {
-            Y.one(this.get('targetNode')).addClass('hidden');
-            this.get('srcNode').removeClass('hidden');
-        }
+        this.morpher.morph();
+        this.morpher.on('morphed', function(e, widget) {
+            widget.get('srcNode').one('input[type=text]').focus();
+        }, null, this);
     },
 
     /**
@@ -230,16 +227,10 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     hideWidget: function() {
-        if (this._animate) {
-            this.morpher.morph('reverse');
-            this.morpher.on('morphed', function(e, widget) {
-                widget.destroy();
-            }, null, this);
-        }
-        else {
-            this.get('srcNode').addClass('hidden');
-            Y.one(this.get('targetNode')).removeClass('hidden');
-        }
+        this.morpher.morph(true);
+        this.morpher.on('morphed', function(e, widget) {
+            widget.destroy();
+        }, null, this);
     },
 
     /**
