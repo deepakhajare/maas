@@ -624,6 +624,24 @@ class NodeViewsTest(LoggedInTestCase):
 
         self.assertEqual(0, len(doc.cssselect('form#node_actions input')))
 
+    def test_view_node_shows_no_error_if_no_error_set(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertNotIn("Error output", content_text)
+
+    def test_view_node_shows_error_if_set(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, error=factory.getRandomString())
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertIn("Error output", content_text)
+        self.assertIn(node.error, content_text)
+
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
 
