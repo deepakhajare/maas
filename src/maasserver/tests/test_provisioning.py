@@ -19,6 +19,7 @@ from maasserver import provisioning
 from maasserver.exceptions import MAASAPIException
 from maasserver.models import (
     ARCHITECTURE,
+    ARCHITECTURE_CHOICES,
     Config,
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -114,10 +115,11 @@ class ProvisioningTests:
     def test_select_profile_for_node_works_for_commissioning(self):
         # A special profile is chosen for nodes in the commissioning
         # state.
+        arch = ARCHITECTURE.i386
         node = factory.make_node(
-            status=NODE_STATUS.COMMISSIONING, architecture='i386')
+            status=NODE_STATUS.COMMISSIONING, architecture=arch)
         profile = select_profile_for_node(node)
-        self.assertEqual('maas-precise-i386-commissioning', profile)
+        self.assertEqual('maas-precise-%s-commissioning' % arch, profile)
 
     def test_provision_post_save_Node_create(self):
         # The handler for Node's post-save signal registers the node in

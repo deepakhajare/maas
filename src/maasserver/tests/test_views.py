@@ -624,6 +624,21 @@ class NodeViewsTest(LoggedInTestCase):
 
         self.assertEqual(0, len(doc.cssselect('form#node_actions input')))
 
+    def test_view_node_POST_admin_can_start_commissioning_node(self):
+        self.logged_in_user.is_superuser = True
+        self.logged_in_user.save()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.post(
+            node_link,
+            data={
+                NodeActionForm.input_name: "Commission node",
+            })
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
 
