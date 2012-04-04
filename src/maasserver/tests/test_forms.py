@@ -285,17 +285,18 @@ class NodeTransitionsMethodsTests(TestCase):
 class TestNodeTransitionForm(TestCase):
 
     def test_available_transition_methods_for_declared_node_admin(self):
-        # An admin has access to the "Enlist node" transition for a
+        # Check which transitions are available for an admin on a
         # 'Declared' node.
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_transition_form(admin)(node)
         transitions = form.available_transition_methods(node, admin)
         self.assertEqual(
-            ["Accept Enlisted node"],
+            ["Accept Enlisted node", "Commission node"],
             [transition['display'] for transition in transitions])
+        # All permissions should be ADMIN.
         self.assertEqual(
-            [NODE_PERMISSION.ADMIN],
+            [NODE_PERMISSION.ADMIN] * len(transitions),
             [transition['permission'] for transition in transitions])
 
     def test_available_transition_methods_for_declared_node_simple_user(self):
@@ -327,7 +328,10 @@ class TestNodeTransitionForm(TestCase):
 
         self.assertItemsEqual(
             {"Accept Enlisted node": (
-                'accept_enlistment', NODE_PERMISSION.ADMIN)},
+                'accept_enlistment', NODE_PERMISSION.ADMIN),
+             "Commission node": (
+                'start_commissioning', NODE_PERMISSION.ADMIN),
+            },
             form.transition_dict)
 
     def test_get_transition_form_for_user(self):
