@@ -41,6 +41,7 @@ from maasserver.models import (
     NODE_STATUS_CHOICES_DICT,
     POWER_TYPE_CHOICES,
     )
+from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from testtools.matchers import (
@@ -249,18 +250,19 @@ class NodeActionsTests(TestCase):
 class TestNodeActionForm(TestCase):
 
     def test_available_action_methods_for_declared_node_admin(self):
-        # An admin has access to the "Accept Enlisted node" action for a
+        # Check which transitions are available for an admin on a
         # 'Declared' node.
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(admin)(node)
         actions = form.available_action_methods(node, admin)
         self.assertEqual(
-            ["Accept Enlisted node"],
+            ["Accept Enlisted node", "Commission node"],
             [action['display'] for action in actions])
+        # All permissions should be ADMIN.
         self.assertEqual(
-            [NODE_PERMISSION.ADMIN],
-            [action['permission'] for action in actions])
+            [NODE_PERMISSION.ADMIN] * len(actions),
+            [action['permission'] for actions in actions])
 
     def test_available_action_methods_for_declared_node_simple_user(self):
         # A simple user sees no actions for a 'Declared' node.
@@ -291,7 +293,10 @@ class TestNodeActionForm(TestCase):
 
         self.assertItemsEqual(
             {"Accept Enlisted node": (
-                'accept_enlistment', NODE_PERMISSION.ADMIN)},
+                'accept_enlistment', NODE_PERMISSION.ADMIN),
+             "Commission node": (
+                'start_commissioning', NODE_PERMISSION.ADMIN),
+            },
             form.action_dict)
 
     def test_get_action_form_for_user(self):
@@ -327,6 +332,25 @@ class TestNodeActionForm(TestCase):
             node, {NodeActionForm.input_name: factory.getRandomString()})
 
         self.assertRaises(PermissionDenied, form.save)
+
+    def test_start_action_starts_ready_node_for_admin(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        form = get_action_form(factory.make_admin())(
+            node, {NodeActionForm.input_name: "Start node"})
+        form.save()
+
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('start', power_status.get(node.system_id))
+
+    def test_start_action_starts_allocated_node_for_owner(self):
+        node = factory.make_node(
+            status=NODE_STATUS.READY, owner=factory.make_user())
+        form = get_action_form(node.owner)(
+            node, {NodeActionForm.input_name: "Start node"})
+        form.save()
+
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('start', power_status.get(node.system_id))
 
 
 class TestHostnameFormField(TestCase):
