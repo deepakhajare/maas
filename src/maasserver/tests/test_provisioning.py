@@ -111,6 +111,14 @@ class ProvisioningTests:
         self.assertNotIn('amd64', profile)
         self.assertIn('x86_64', profile)
 
+    def test_select_profile_for_node_works_for_commissioning(self):
+        # A special profile is chosen for nodes in the commissioning
+        # state.
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, architecture='i386')
+        profile = select_profile_for_node(node, self.papi)
+        self.assertEqual('maas-precise-i386-commissioning', profile)
+
     def test_provision_post_save_Node_create(self):
         # The handler for Node's post-save signal registers the node in
         # its current state with the provisioning server.
