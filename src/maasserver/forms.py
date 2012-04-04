@@ -191,10 +191,6 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
-def start_node_for_user(node, user):
-    pass
-
-
 # Node actions per status.
 #
 # This maps each NODE_STATUS to a list of actions applicable to a node
@@ -233,7 +229,8 @@ NODE_ACTIONS = {
         {
             'display': "Start node",
             'permission': NODE_PERMISSION.EDIT,
-            'execute': start_node_for_user,
+            'execute': lambda node, user: Node.objects.start_nodes(
+                [node.system_id], user)
         },
     ],
 }
