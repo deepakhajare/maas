@@ -626,14 +626,11 @@ class Node(CommonInfo):
         Node.objects.start_nodes(
             [self.system_id], user, user_data=None)
 
-    def can_be_deleted(self):
-        return self.status != NODE_STATUS.ALLOCATED
-
     def delete(self):
         # Delete the related mac addresses first.
         self.macaddress_set.all().delete()
         # Allocated nodes can't be deleted.
-        if not self.can_be_deleted():
+        if self.status == NODE_STATUS.ALLOCATED:
             raise NodeStateViolation(
                 "Cannot delete node: node %s is in state %s."
                 % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
