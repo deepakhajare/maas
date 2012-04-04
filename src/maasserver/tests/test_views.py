@@ -610,8 +610,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertAttributes(node, params)
 
     def test_view_node_admin_has_button_to_accept_enlistement(self):
-        self.logged_in_user.is_superuser = True
-        self.logged_in_user.save()
+        self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
@@ -624,8 +623,7 @@ class NodeViewsTest(LoggedInTestCase):
             "Accept Enlisted node", [input.value for input in inputs])
 
     def test_view_node_POST_admin_can_enlist_node(self):
-        self.logged_in_user.is_superuser = True
-        self.logged_in_user.save()
+        self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.post(
@@ -637,6 +635,21 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
             NODE_STATUS.READY, reload_object(node).status)
+
+    def test_view_node_POST_admin_enlist_node_sees_message(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        self.client.post(
+            node_link,
+            data={
+                NodeActionForm.input_name: "Accept Enlisted node",
+            })
+        response = self.client.get(node_link)
+
+        self.assertEqual(
+            ['Node accepted into the pool.'],
+            [message.message for message in response.context['messages']])
 
     def test_view_node_has_button_to_accept_enlistement_for_user(self):
         # A simple user can't see the button to enlist a declared node.

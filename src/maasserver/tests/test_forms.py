@@ -242,9 +242,10 @@ class NodeActionsTests(TestCase):
 
     def test_NODE_ACTIONS_dict(self):
         actions = sum(NODE_ACTIONS.values(), [])
+        keys = ['permission', 'display', 'execute', 'message']
         self.assertThat(
             [sorted(action.keys()) for action in actions],
-            AllMatch(Equals(sorted(['permission', 'display', 'execute']))))
+            AllMatch(Equals(sorted(keys))))
 
 
 class TestNodeActionForm(TestCase):
@@ -292,11 +293,7 @@ class TestNodeActionForm(TestCase):
         form = get_action_form(admin)(node)
 
         self.assertItemsEqual(
-            {"Accept Enlisted node": (
-                'accept_enlistment', NODE_PERMISSION.ADMIN),
-             "Commission node": (
-                'start_commissioning', NODE_PERMISSION.ADMIN),
-            },
+            ["Accept Enlisted node", "Commission node"],
             form.action_dict)
 
     def test_get_action_form_for_user(self):
@@ -311,7 +308,7 @@ class TestNodeActionForm(TestCase):
     def test_get_action_form_node_for_admin_save(self):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
-        form = get_action_form(admin)(
+        form = get_action_form(admin, self.client.request)(
             node, {NodeActionForm.input_name: "Accept Enlisted node"})
         form.save()
 
