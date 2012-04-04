@@ -229,7 +229,7 @@ def name_arch_in_cobbler_style(architecture):
     return conversions.get(architecture, architecture)
 
 
-def select_profile_for_node(node, papi):
+def select_profile_for_node(node):
     """Select which profile a node should be configured for."""
     assert node.architecture, "Node's architecture is not known."
     cobbler_arch = name_arch_in_cobbler_style(node.architecture)
@@ -243,7 +243,7 @@ def select_profile_for_node(node, papi):
 def provision_post_save_Node(sender, instance, created, **kwargs):
     """Create or update nodes in the provisioning server."""
     papi = get_provisioning_api_proxy()
-    profile = select_profile_for_node(instance, papi)
+    profile = select_profile_for_node(instance)
     power_type = instance.get_effective_power_type()
     metadata = compose_metadata(instance)
     papi.add_node(

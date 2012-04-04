@@ -524,6 +524,30 @@ class NodeManagerTest(TestCase):
         power_status = get_provisioning_api_proxy().power_status
         self.assertEqual('start', power_status[node.system_id])
 
+    def test_start_nodes_sets_commissioning_profile(self):
+        # Starting up a node should always set a profile. Here we test
+        # that a commissioning profile was set for nodes in the
+        # commissioning status.
+        user = factory.make_user()
+        node = factory.make_node(
+            set_hostname=True, status=NODE_STATUS.COMMISSIONING, owner=user)
+        output = Node.objects.start_nodes([node.system_id], user)
+
+        self.assertItemsEqual([node], output)
+        profile = get_provisioning_api_proxy().nodes[node.system_id]['profile']
+        self.assertEqual('maas-precise-i386-commissioning', profile)
+
+    def test_start_nodes_doesnt_set_commissioning_profile(self):
+        # Starting up a node should always set a profile. Complement the
+        # above test to show that a different profile can be set.
+        user = factory.make_user()
+        node = self.make_node(user)
+        output = Node.objects.start_nodes([node.system_id], user)
+
+        self.assertItemsEqual([node], output)
+        profile = get_provisioning_api_proxy().nodes[node.system_id]['profile']
+        self.assertEqual('maas-precise-i386', profile)
+
     def test_start_nodes_ignores_uneditable_nodes(self):
         nodes = [self.make_node(factory.make_user()) for counter in range(3)]
         ids = [node.system_id for node in nodes]

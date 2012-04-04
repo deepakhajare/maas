@@ -92,7 +92,7 @@ class ProvisioningTests:
         self.papi.modify_nodes(
             {node.system_id: {'profile': self.make_papi_profile()}})
         self.assertEqual(
-            'maas-precise-i386', select_profile_for_node(node, self.papi))
+            'maas-precise-i386', select_profile_for_node(node))
 
     def test_select_profile_for_node_selects_Precise_and_right_arch(self):
         nodes = {
@@ -102,12 +102,12 @@ class ProvisioningTests:
                 'maas-precise-%s' % name_arch_in_cobbler_style(arch)
                 for arch in nodes.keys()],
             [
-                select_profile_for_node(node, self.papi)
+                select_profile_for_node(node)
                 for node in nodes.values()])
 
     def test_select_profile_for_node_converts_architecture_name(self):
         node = factory.make_node(architecture='amd64')
-        profile = select_profile_for_node(node, self.papi)
+        profile = select_profile_for_node(node)
         self.assertNotIn('amd64', profile)
         self.assertIn('x86_64', profile)
 
@@ -116,7 +116,7 @@ class ProvisioningTests:
         # state.
         node = factory.make_node(
             status=NODE_STATUS.COMMISSIONING, architecture='i386')
-        profile = select_profile_for_node(node, self.papi)
+        profile = select_profile_for_node(node)
         self.assertEqual('maas-precise-i386-commissioning', profile)
 
     def test_provision_post_save_Node_create(self):
