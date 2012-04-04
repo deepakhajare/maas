@@ -588,8 +588,8 @@ class NodeViewsTest(LoggedInTestCase):
             input for input in doc.cssselect('form#node_actions input')
             if input.name == NodeTransitionForm.input_name]
 
-        self.assertSequenceEqual(
-            ["Accept Enlisted node"], [input.value for input in inputs])
+        self.assertIn(
+            "Accept Enlisted node", [input.value for input in inputs])
 
     def test_view_node_POST_admin_can_enlist_node(self):
         self.logged_in_user.is_superuser = True

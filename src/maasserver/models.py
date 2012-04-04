@@ -629,7 +629,7 @@ class Node(CommonInfo):
         self.owner = user
         self.save()
         # The commissioning profile is handled in start_nodes.
-        nodes = Node.objects.start_nodes(
+        Node.objects.start_nodes(
             [self.system_id], user, user_data=None)
 
     def delete(self):
