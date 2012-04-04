@@ -46,16 +46,6 @@ AddNodeWidget.ATTRS = {
      */
     targetNode: {
         value: null
-    },
-
-   /**
-    * Set the panel to fade in/out or just appear/disappear
-    *
-    * @attribute animate
-    * @type boolean
-    */
-    animate: {
-        value: true
     }
 };
 
@@ -193,6 +183,12 @@ Y.extend(AddNodeWidget, Y.Widget, {
     },
 
     initializer: function(cfg) {
+        if (Y.Lang.isValue(cfg.animate)) {
+            this._animate = cfg.animate;
+        }
+        else {
+            this._animate = true;
+        }
         this.get('srcNode').addClass('hidden');
         this.morpher = new Y.maas.morph.Morph(
             {srcNode: cfg.srcNode, targetNode: this.get('targetNode')});
@@ -216,7 +212,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     showWidget: function() {
-        if (this.get('animate')) {
+        if (this._animate) {
             this.morpher.morph();
             this.morpher.on('morphed', function(e, widget) {
                 widget.get('srcNode').one('input[type=text]').focus();
@@ -234,7 +230,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
      * @method showWidget
      */
     hideWidget: function() {
-        if (this.get('animate')) {
+        if (this._animate) {
             this.morpher.morph('reverse');
             this.morpher.on('morphed', function(e, widget) {
                 widget.destroy();
