@@ -58,7 +58,7 @@ def cobbler_to_papi_node(data):
         "mac_addresses": [
             mac_address.strip()
             for mac_address in mac_addresses
-            if not mac_address.isspace()
+            if mac_address and not mac_address.isspace()
             ],
         "power_type": data["power_type"],
         }

@@ -69,6 +69,9 @@ class TestFunctions(TestCase):
             "hostname": "dystopia",
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
+                "eth1": {"mac_address": "  "},
+                "eth2": {"mac_address": ""},
+                "eth3": {"mac_address": None},
                 },
             "power_type": "virsh",
             "ju": "nk",
