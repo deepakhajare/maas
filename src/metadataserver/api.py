@@ -125,7 +125,19 @@ class VersionIndexHandler(MetadataViewHandler):
 
     @api_exported('signal', 'POST')
     def signal(self, request, version=None):
-        """Signal commissioning status."""
+        """Signal commissioning status.
+
+        A commissioning node can call this to report progress of the
+        commissioning process to the metadata server.
+
+        Calling this from a node that is not Commissioning, Ready, or
+        Failed Tests is an error.  Signaling completion more than once is not
+        an error; all but the first successful call are ignored.
+
+        :param status: A commissioning status code.  This can be "OK" (to
+            signal that commissioning has completed successfully), or "FAILED"
+            (to signal failure), or "WORKING" (for progress reports).
+        """
         node = get_node_for_request(request)
         status = request.POST.get('status', None)
 
