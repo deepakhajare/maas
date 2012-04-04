@@ -65,7 +65,8 @@ Y.extend(Morph, Y.Widget, {
                 targetNode.addClass('hidden');
                 srcNode.setStyle('opacity', 0);
                 srcNode.removeClass('hidden');
-                src_height = srcNode.getComputedStyle('height').replace('px', '');
+                src_height = srcNode.getComputedStyle('height')
+                    .replace('px', '');
                 srcNode.setStyle('height', target_height);
                 var fade_in = new Y.Anim({
                     node: srcNode,
