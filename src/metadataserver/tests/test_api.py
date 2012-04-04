@@ -16,6 +16,8 @@ import httplib
 from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
+from maasserver.models import NODE_STATUS
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maastesting.testcase import TestCase
@@ -87,6 +89,19 @@ class TestViews(TestCase):
         token = NodeKey.objects.get_token_for_node(node)
         return OAuthAuthenticatedClient(get_node_init_user(), token)
 
+    def make_url(self, path):
+        """Create an absolute URL for `path` on the metadata API.
+
+        :param path: Path within the metadata API to access.  Should start
+            with a slash.
+        :return: An absolute URL for the given path within the metadata
+            service tree.
+        """
+        assert path.startswith('/'), "Give absolute metadata API path."
+        # Root of the metadata API service.
+        metadata_root = "/metadata"
+        return metadata_root + path
+
     def get(self, path, client=None):
         """GET a resource from the metadata API.
 
@@ -97,12 +112,9 @@ class TestViews(TestCase):
         :return: A response to the GET request.
         :rtype: django.http.HttpResponse
         """
-        assert path.startswith('/'), "Give absolute metadata API path."
         if client is None:
             client = self.client
-        # Root of the metadata API service.
-        metadata_root = "/metadata"
-        return client.get(metadata_root + path)
+        return client.get(self.make_url(path))
 
     def test_no_anonymous_access(self):
         self.assertEqual(httplib.UNAUTHORIZED, self.get('/').status_code)
@@ -223,3 +235,39 @@ class TestViews(TestCase):
             ssh-rsa KEY my-user-key-1"""),
             response.content.decode('ascii'))
         self.assertIn('text/plain', response['Content-Type'])
+
+    def test_other_user_than_node_cannot_signal_commissioning_result(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        response = self.client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def test_signaling_commissioning_result_does_not_affect_other_node(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(
+            node=factory.make_node(status=NODE_STATUS.COMMISSIONING))
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def test_signaling_commissioning_success_makes_node_Ready(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_success_is_idempotent(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        url = self.make_url('/latest/')
+        success_params = {'op': 'signal', 'status': 'OK'}
+        client.post(url, success_params)
+        response = client.post(url, success_params)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
