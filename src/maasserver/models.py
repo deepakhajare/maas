@@ -632,7 +632,7 @@ class Node(CommonInfo):
         # Allocated nodes can't be deleted.
         if self.status == NODE_STATUS.ALLOCATED:
             raise NodeStateViolation(
-                "Cannot delete node: node %s is in state %s."
+                "Cannot delete node %s: node is in state %s."
                 % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
         super(Node, self).delete()
 

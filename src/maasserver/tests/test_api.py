@@ -656,7 +656,7 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(
             (httplib.CONFLICT,
-                "Cannot delete node: node %s is in state %s." % (
+                "Cannot delete node %s: node is in state %s." % (
                     node.system_id,
                     NODE_STATUS_CHOICES_DICT[NODE_STATUS.ALLOCATED])),
             (response.status_code, response.content))
