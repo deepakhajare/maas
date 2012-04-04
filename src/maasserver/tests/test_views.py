@@ -540,7 +540,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertFalse(User.objects.filter(id=node.id).exists())
 
-    def test_allocated_node_cannot_be_deleted(self):
+    def test_allocated_node_view_page_says_node_cannot_be_deleted(self):
         self.become_admin()
         node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
@@ -553,6 +553,15 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(
             "You cannot delete this node because it's in use.",
             response.content)
+
+    def test_allocated_node_cannot_be_deleted(self):
+        self.become_admin()
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        node_delete_link = reverse('node-delete', args=[node.system_id])
+        response = self.client.get(node_delete_link)
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_user_cannot_view_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
