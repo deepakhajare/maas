@@ -80,6 +80,6 @@ Y.extend(Morph, Y.Widget, {
     }
 });
 
-module.Morph = Morph
+module.Morph = Morph;
 
 }, '0.1', {'requires': ['widget', 'node', 'anim']});

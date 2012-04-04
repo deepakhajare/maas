@@ -303,7 +303,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
                     self.hideWidget();
                 },
                 failure: function(id, out) {
-                    Y.log("Adding a node failed.  Response object follows.")
+                    Y.log("Adding a node failed.  Response object follows.");
                     Y.log(out);
                     if (out.status === 400) {
                         try {
@@ -375,10 +375,9 @@ module.showAddNodeWidget = function(cfg) {
         module._add_node_singleton.destroy();
     }
 
-    var add_node_id = 'add-node-widget';
-    cfg.srcNode = '#' + add_node_id
     var srcNode = Y.Node.create('<div />')
-        .set('id', add_node_id);
+        .set('id', 'add-node-widget');
+    cfg.srcNode = srcNode;
     Y.one(cfg.targetNode).insert(srcNode, 'after');
     module._add_node_singleton = new AddNodeWidget(cfg);
     module._add_node_singleton.render();
