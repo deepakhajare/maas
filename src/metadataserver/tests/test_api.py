@@ -238,7 +238,8 @@ class TestViews(TestCase):
 
     def test_other_user_than_node_cannot_signal_commissioning_result(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        response = self.client.post(
+        client = OAuthAuthenticatedClient(factory.make_user())
+        response = client.post(
             self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
         self.assertEqual(
