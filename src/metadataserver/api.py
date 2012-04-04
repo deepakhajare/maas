@@ -24,10 +24,15 @@ from maasserver.api import (
     extract_oauth_key,
     )
 from maasserver.exceptions import (
+    MAASAPIBadRequest,
     MAASAPINotFound,
+    NodeStateViolation,
     Unauthorized,
     )
-from maasserver.models import SSHKey
+from maasserver.models import (
+    NODE_STATUS,
+    SSHKey,
+    )
 from metadataserver.models import (
     NodeKey,
     NodeUserData,
@@ -92,6 +97,23 @@ class VersionIndexHandler(MetadataViewHandler):
     allowed_methods = ('GET', 'POST')
     fields = ('meta-data', 'user-data')
 
+    # States in which a node is allowed to signal commissioning
+    # completion.  (Only in Commissioning state, however, will it have
+    # any effect.)
+    signalable_states = [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.READY,
+        NODE_STATUS.FAILED_TESTS,
+        ]
+
+    # Statuses that a commissioning node may signal, and the state
+    # transition they trigger on the node.
+    signaling_statuses = {
+        'OK': NODE_STATUS.READY,
+        'FAILED': NODE_STATUS.FAILED_TESTS,
+        'WORKING': None,
+    }
+
     def read(self, request, version):
         check_version(version)
         if NodeUserData.objects.has_user_data(get_node_for_request(request)):
@@ -103,8 +125,21 @@ class VersionIndexHandler(MetadataViewHandler):
 
     @api_exported('signal', 'POST')
     def signal(self, request, version=None):
-# TODO: Implement
-        return
+        node = get_node_for_request(request)
+        status = request.POST.get('status', None)
+        if status is None:
+            raise MAASAPIBadRequest("No status specified.")
+        if node.status not in self.signalable_states:
+            raise NodeStateViolation(
+                "Node wasn't commissioning (status is %s)" % node.status)
+        target_status = self.signaling_statuses.get(status)
+        if target_status is None:
+            raise MAASAPIBadRequest(
+                "Unknown commissioning status: '%s'" % status)
+        if node.status == NODE_STATUS.COMMISSIONING:
+            if target_status not in (None, node.status):
+                node.status = target_status
+                node.save()
 
 
 class MetaDataHandler(VersionIndexHandler):

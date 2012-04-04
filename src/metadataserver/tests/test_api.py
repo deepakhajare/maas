@@ -255,6 +255,20 @@ class TestViews(TestCase):
         self.assertEqual(
             NODE_STATUS.COMMISSIONING, reload_object(node).status)
 
+    def test_signaling_requires_status_code(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(self.make_url('/latest/'), {'op': 'signal'})
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
+    def test_signaling_rejects_unknown_status_code(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'),
+            {'op': 'signal', 'status': factory.getRandomString()})
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
     def test_signaling_commissioning_success_makes_node_Ready(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
