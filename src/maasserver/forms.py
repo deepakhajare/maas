@@ -191,6 +191,10 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
+def start_node_for_user(node, user):
+    pass
+
+
 # Node actions per status.
 #
 # This maps each NODE_STATUS to a list of actions applicable to a node
@@ -223,6 +227,13 @@ NODE_ACTIONS = {
             'display': "Accept Enlisted node",
             'permission': NODE_PERMISSION.ADMIN,
             'execute': lambda node, user: Node.accept_enlistment(node),
+        },
+    ],
+    NODE_STATUS.READY: [
+        {
+            'display': "Start node",
+            'permission': NODE_PERMISSION.EDIT,
+            'execute': start_node_for_user,
         },
     ],
 }
