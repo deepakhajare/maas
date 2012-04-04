@@ -422,6 +422,19 @@ class ProvisioningAPITests(ProvisioningFakeFactory):
             [mac_address2], values[node_name]["mac_addresses"])
 
     @inlineCallbacks
+    def test_modify_nodes_remove_all_mac_addresses(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        mac_address = factory.getRandomMACAddress()
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": [mac_address]}})
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": []}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual(
+            [], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
     def test_delete_distros_by_name(self):
         # Create a distro via the Provisioning API.
         papi = self.get_provisioning_api()
