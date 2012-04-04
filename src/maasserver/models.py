@@ -623,6 +623,15 @@ class Node(CommonInfo):
         self.save()
         return self
 
+    def start_commissioning(self, user):
+        """Install OS and self-test a new node."""
+        self.status = NODE_STATUS.COMMISSIONING
+        self.owner = user
+        self.save()
+        # The commissioning profile is handled in start_nodes.
+        nodes = Node.objects.start_nodes(
+            [self.system_id], user, user_data=None)
+
     def delete(self):
         # Delete the related mac addresses first.
         self.macaddress_set.all().delete()

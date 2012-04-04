@@ -259,6 +259,19 @@ class NodeTest(TestCase):
             {status: status for status in unacceptable_states},
             {status: node.status for status, node in nodes.items()})
 
+    def test_start_commissioning_changes_status_and_starts_node(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node.start_commissioning(user)
+
+        expected_attrs = {
+            'status': NODE_STATUS.COMMISSIONING,
+            'owner': user,
+        }
+        self.assertAttributes(node, expected_attrs)
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('start', power_status[node.system_id])
+
     def test_full_clean_checks_status_transition_and_raises_if_invalid(self):
         # RETIRED -> ALLOCATED is an invalid transition.
         node = factory.make_node(
