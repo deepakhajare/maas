@@ -257,6 +257,31 @@ class TestInterfaceDeltas(TestCase):
             current_interfaces, hostname, mac_addresses)
         self.assertItemsEqual(expected, observed)
 
+    def test_gen_cobbler_interface_deltas_remove_all_macs(self):
+        # Removing all MAC addresses results in a delta to remove all but the
+        # first interface. The first interface is instead deconfigured; this
+        # is necessary to satisfy the Cobbler data model.
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        hostname = "empiricism"
+        mac_addresses = []
+        expected = [
+            {"interface": "eth0",
+             "mac_address": "",
+             "dns_name": ""},
+            {"interface": "eth1",
+             "delete_interface": True},
+            ]
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
+
 
 class ProvisioningAPITests(ProvisioningFakeFactory):
     """Tests for `provisioningserver.api.ProvisioningAPI`.
