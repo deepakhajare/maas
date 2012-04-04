@@ -355,3 +355,12 @@ class TestViews(TestCase, ProvisioningFakeFactory):
             })
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(error_text, reload_object(node).error)
+
+    def test_signaling_no_error_clears_existing_error(self):
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, error=factory.getRandomString())
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual('', reload_object(node).error)
