@@ -40,6 +40,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from piston.handler import BaseHandler
+from piston.utils import rc
 
 
 class UnknownMetadataVersion(MAASAPINotFound):
@@ -154,12 +155,15 @@ class VersionIndexHandler(MetadataViewHandler):
                 "Unknown commissioning status: '%s'" % status)
 
         if node.status != NODE_STATUS.COMMISSIONING:
-            return "Thank you."
+            # Already registered.  Nothing to be done.
+            return rc.ALL_OK
 
         target_status = self.signaling_statuses.get(status)
         if target_status not in (None, node.status):
             node.status = target_status
             node.save()
+
+        return rc.ALL_OK
 
 
 class MetaDataHandler(VersionIndexHandler):
