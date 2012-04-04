@@ -97,17 +97,16 @@ class VersionIndexHandler(MetadataViewHandler):
     allowed_methods = ('GET', 'POST')
     fields = ('meta-data', 'user-data')
 
-    # States in which a node is allowed to signal commissioning
-    # completion.  (Only in Commissioning state, however, will it have
-    # any effect.)
+    # States in which a node is allowed to signal commissioning status.
+    # (Only in Commissioning state, however, will it have any effect.)
     signalable_states = [
         NODE_STATUS.COMMISSIONING,
         NODE_STATUS.READY,
         NODE_STATUS.FAILED_TESTS,
         ]
 
-    # Statuses that a commissioning node may signal, and the state
-    # transition they trigger on the node.
+    # Statuses that a commissioning node may signal, and the respective
+    # state transitions that they trigger on the node.
     signaling_statuses = {
         'OK': NODE_STATUS.READY,
         'FAILED': NODE_STATUS.FAILED_TESTS,
@@ -115,6 +114,7 @@ class VersionIndexHandler(MetadataViewHandler):
     }
 
     def read(self, request, version):
+        """Read the metadata index for this version."""
         check_version(version)
         if NodeUserData.objects.has_user_data(get_node_for_request(request)):
             shown_fields = self.fields
@@ -125,8 +125,10 @@ class VersionIndexHandler(MetadataViewHandler):
 
     @api_exported('signal', 'POST')
     def signal(self, request, version=None):
+        """Signal commissioning status."""
         node = get_node_for_request(request)
         status = request.POST.get('status', None)
+
         if status is None:
             raise MAASAPIBadRequest("No status specified.")
         if node.status not in self.signalable_states:
@@ -136,10 +138,13 @@ class VersionIndexHandler(MetadataViewHandler):
         if target_status is None:
             raise MAASAPIBadRequest(
                 "Unknown commissioning status: '%s'" % status)
-        if node.status == NODE_STATUS.COMMISSIONING:
-            if target_status not in (None, node.status):
-                node.status = target_status
-                node.save()
+
+        if node.status != NODE_STATUS.COMMISSIONING:
+            return "Thank you."
+
+        if target_status not in (None, node.status):
+            node.status = target_status
+            node.save()
 
 
 class MetaDataHandler(VersionIndexHandler):
