@@ -164,7 +164,7 @@ class VersionIndexHandler(MetadataViewHandler):
             return rc.ALL_OK
 
         node.status = target_status
-        node.error = request.POST.get('error', None) or ''
+        node.error = request.POST.get('error', '')
         node.save()
 
         return rc.ALL_OK
