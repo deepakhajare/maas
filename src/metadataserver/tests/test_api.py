@@ -341,3 +341,17 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         response = client.post(url, failure_params)
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.FAILED_TESTS, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_sets_node_error(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        error_text = factory.getRandomString()
+        response = client.post(
+            self.make_url('/latest/'),
+            {
+                'op': 'signal',
+                'status': 'FAILED',
+                'error': error_text,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(error_text, reload_object(node).error)

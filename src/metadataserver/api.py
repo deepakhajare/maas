@@ -159,9 +159,15 @@ class VersionIndexHandler(MetadataViewHandler):
             return rc.ALL_OK
 
         target_status = self.signaling_statuses.get(status)
-        if target_status not in (None, node.status):
-            node.status = target_status
-            node.save()
+        if target_status in (None, node.status):
+            # No status change.  Nothing to be done.
+            return rc.ALL_OK
+
+        node.status = target_status
+        error = request.POST.get('error', None)
+        if error is not None:
+            node.error = error
+        node.save()
 
         return rc.ALL_OK
 
