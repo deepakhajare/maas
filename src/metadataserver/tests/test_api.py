@@ -271,6 +271,15 @@ class TestViews(TestCase, ProvisioningFakeFactory):
             {'op': 'signal', 'status': factory.getRandomString()})
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
+    def test_signaling_accepts_WORKING_status(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'WORKING'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
     def test_signaling_commissioning_success_makes_node_Ready(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)

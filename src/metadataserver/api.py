@@ -146,14 +146,15 @@ class VersionIndexHandler(MetadataViewHandler):
         if node.status not in self.signalable_states:
             raise NodeStateViolation(
                 "Node wasn't commissioning (status is %s)" % node.status)
-        target_status = self.signaling_statuses.get(status)
-        if target_status is None:
+
+        if status not in self.signaling_statuses:
             raise MAASAPIBadRequest(
                 "Unknown commissioning status: '%s'" % status)
 
         if node.status != NODE_STATUS.COMMISSIONING:
             return "Thank you."
 
+        target_status = self.signaling_statuses.get(status)
         if target_status not in (None, node.status):
             node.status = target_status
             node.save()
