@@ -286,3 +286,21 @@ class TestViews(TestCase):
         response = client.post(url, success_params)
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_makes_node_Failed_Tests(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'FAILED'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_is_idempotent(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        url = self.make_url('/latest/')
+        failure_params = {'op': 'signal', 'status': 'FAILED'}
+        client.post(url, failure_params)
+        response = client.post(url, failure_params)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, reload_object(node).status)
