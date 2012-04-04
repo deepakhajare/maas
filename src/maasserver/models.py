@@ -431,9 +431,8 @@ class NodeManager(models.Manager):
         """
         from metadataserver.models import NodeUserData
         nodes = self.get_editable_nodes(by_user, ids=ids)
-        if user_data is not None:
-            for node in nodes:
-                NodeUserData.objects.set_user_data(node, user_data)
+        for node in nodes:
+            NodeUserData.objects.set_user_data(node, user_data)
         get_papi().start_nodes([node.system_id for node in nodes])
         return nodes
 
