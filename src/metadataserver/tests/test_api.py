@@ -17,6 +17,7 @@ from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
 from maasserver.models import NODE_STATUS
+from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
@@ -34,6 +35,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.testing.factory import ProvisioningFakeFactory
 
 
 class TestHelpers(TestCase):
@@ -79,7 +81,7 @@ class TestHelpers(TestCase):
             get_node_for_request, self.fake_request())
 
 
-class TestViews(TestCase):
+class TestViews(TestCase, ProvisioningFakeFactory):
     """Tests for the API views."""
 
     def make_node_client(self, node=None):
@@ -269,6 +271,27 @@ class TestViews(TestCase):
             {'op': 'signal', 'status': factory.getRandomString()})
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
+    def test_signaling_refuses_if_node_in_unexpected_state(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node wasn't commissioning (status is Declared)",
+            ),
+            (response.status_code, response.content))
+
+    def test_signaling_accepts_WORKING_status(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'WORKING'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
     def test_signaling_commissioning_success_makes_node_Ready(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
@@ -276,6 +299,20 @@ class TestViews(TestCase):
             self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_success_restores_node_profile(self):
+        papi = get_provisioning_api_proxy()
+        commissioning_profile = self.add_profile(papi)
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        original_profile = node_data['profile']
+        papi.modify_nodes({node.system_id: {'profile': commissioning_profile}})
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        self.assertEqual(original_profile, node_data['profile'])
 
     def test_signaling_commissioning_success_is_idempotent(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
