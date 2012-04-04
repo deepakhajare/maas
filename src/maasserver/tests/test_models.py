@@ -125,6 +125,19 @@ class NodeTest(TestCase):
         self.assertRaises(
             MACAddress.DoesNotExist, MACAddress.objects.get, id=mac.id)
 
+    def test_can_be_deleted_returns_true_for_unallocated_node(self):
+        nodes = [
+            factory.make_node(status=status)
+            for status in NODE_STATUS_CHOICES_DICT
+            if status != NODE_STATUS.ALLOCATED]
+        self.assertItemsEqual(
+            [True] * len(nodes),
+            [node.can_be_deleted() for node in nodes])
+
+    def test_can_be_deleted_returns_false_for_allocated_node(self):
+        node = factory.make_node(status=NODE_STATUS.ALLOCATED)
+        self.assertFalse(node.can_be_deleted())
+
     def test_cannot_delete_allocated_node(self):
         node = factory.make_node(status=NODE_STATUS.ALLOCATED)
         self.assertRaises(NodeStateViolation, node.delete)
