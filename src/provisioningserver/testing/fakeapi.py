@@ -92,7 +92,6 @@ class FakeProvisioningAPIBase:
         self.nodes[name]["hostname"] = hostname
         self.nodes[name]["profile"] = profile
         self.nodes[name]["mac_addresses"] = []
-        self.nodes[name]["netboot_enabled"] = True
         self.nodes[name]["metadata"] = metadata
         self.nodes[name]["power_type"] = power_type
         return name
