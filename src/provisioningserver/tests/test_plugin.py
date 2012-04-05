@@ -21,14 +21,22 @@ from provisioningserver.plugin import (
     Config,
     Options,
     ProvisioningServiceMaker,
+    SingleUsernamePasswordChecker,
     )
 from testtools import TestCase
+from testtools.deferredruntest import (
+    assert_fails_with,
+    AsynchronousDeferredRunTest,
+    )
 from testtools.matchers import (
     MatchesException,
     Raises,
     )
 from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
+from twisted.cred.credentials import UsernamePassword
+from twisted.cred.error import UnauthorizedLogin
+from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import UsageError
 from twisted.web.guard import HTTPAuthSessionWrapper
 import yaml
@@ -196,3 +204,22 @@ class TestProvisioningServiceMaker(TestCase):
         self.assertIn("api", site.resource.listStaticNames())
         api = site.resource.getStaticEntity("api")
         self.assertIsInstance(api, HTTPAuthSessionWrapper)
+
+
+class TestSingleUsernamePasswordChecker(TestCase):
+    """Tests for `SingleUsernamePasswordChecker`."""
+
+    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
+
+    @inlineCallbacks
+    def test_requestAvatarId_okay(self):
+        credentials = UsernamePassword("frank", "zappa")
+        checker = SingleUsernamePasswordChecker("frank", "zappa")
+        avatar = yield checker.requestAvatarId(credentials)
+        self.assertEqual("frank", avatar)
+
+    def test_requestAvatarId_bad(self):
+        credentials = UsernamePassword("frank", "zappa")
+        checker = SingleUsernamePasswordChecker("zap", "franka")
+        d = checker.requestAvatarId(credentials)
+        return assert_fails_with(d, UnauthorizedLogin)
