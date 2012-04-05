@@ -235,7 +235,7 @@ NODE_ACTIONS = {
             'display': "Commission node",
             'permission': NODE_PERMISSION.ADMIN,
             'execute': lambda node, user: Node.start_commissioning(node, user),
-            'message': "Node commissioned."
+            'message': "Node commissioning started."
         },
     ],
     NODE_STATUS.READY: [

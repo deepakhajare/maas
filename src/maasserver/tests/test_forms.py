@@ -308,7 +308,7 @@ class TestNodeActionForm(TestCase):
     def test_get_action_form_node_for_admin_save(self):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
-        form = get_action_form(admin, self.client.request)(
+        form = get_action_form(admin)(
             node, {NodeActionForm.input_name: "Accept Enlisted node"})
         form.save()
 
