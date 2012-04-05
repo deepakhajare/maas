@@ -49,6 +49,61 @@ from twisted.internet.defer import inlineCallbacks
 import yaml
 
 
+class TestHelpers(TestCase):
+    """Tests for helpers that don't actually need any kind of pserv."""
+
+    def test_metadata_server_url_refers_to_own_metadata_service(self):
+        self.assertEqual(
+            "%s/metadata/"
+            % Config.objects.get_config('maas_url').rstrip('/'),
+            get_metadata_server_url())
+
+    def test_metadata_server_url_includes_script_name(self):
+        self.patch(settings, "FORCE_SCRIPT_NAME", "/MAAS")
+        self.assertEqual(
+            "%s/MAAS/metadata/"
+            % Config.objects.get_config('maas_url').rstrip('/'),
+            get_metadata_server_url())
+
+    def test_compose_preseed_for_commissioning_node_produces_yaml(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        self.assertIn('datasource', preseed)
+        self.assertIn('MAAS', preseed['datasource'])
+        self.assertThat(
+            preseed['datasource']['MAAS'],
+            KeysEqual(
+                'metadata_url', 'consumer_key', 'token_key', 'token_secret'))
+
+    def test_compose_preseed_includes_metadata_url(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        self.assertIn(get_metadata_server_url(), compose_preseed(node))
+
+    def test_compose_preseed_for_commissioning_includes_metadata_url(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        self.assertEqual(
+            get_metadata_server_url(),
+            preseed['datasource']['MAAS']['metadata_url'])
+
+    def test_compose_preseed_includes_node_oauth_token(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        preseed = compose_preseed(node)
+        token = NodeKey.objects.get_token_for_node(node)
+        self.assertIn('oauth_consumer_key=%s' % token.consumer.key, preseed)
+        self.assertIn('oauth_token_key=%s' % token.key, preseed)
+        self.assertIn('oauth_token_secret=%s' % token.secret, preseed)
+
+    def test_compose_preseed_for_commissioning_includes_auth_token(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        maas_dict = preseed['datasource']['MAAS']
+        token = NodeKey.objects.get_token_for_node(node)
+        self.assertEqual(token.consumer.key, maas_dict['consumer_key'])
+        self.assertEqual(token.key, maas_dict['token_key'])
+        self.assertEqual(token.secret, maas_dict['token_secret'])
+
+
 class ProvisioningTests:
     """Tests for the Provisioning API as maasserver sees it."""
 
@@ -217,57 +272,6 @@ class ProvisioningTests:
         node_model.remove_mac_address("12:34:56:78:90:12")
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
         self.assertEqual([], node["mac_addresses"])
-
-    def test_metadata_server_url_refers_to_own_metadata_service(self):
-        self.assertEqual(
-            "%s/metadata/"
-            % Config.objects.get_config('maas_url').rstrip('/'),
-            get_metadata_server_url())
-
-    def test_metadata_server_url_includes_script_name(self):
-        self.patch(settings, "FORCE_SCRIPT_NAME", "/MAAS")
-        self.assertEqual(
-            "%s/MAAS/metadata/"
-            % Config.objects.get_config('maas_url').rstrip('/'),
-            get_metadata_server_url())
-
-    def test_compose_preseed_for_commissioning_node_produces_yaml(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        preseed = yaml.load(compose_preseed(node))
-        self.assertIn('datasource', preseed)
-        self.assertIn('MAAS', preseed['datasource'])
-        self.assertThat(
-            preseed['datasource']['MAAS'],
-            KeysEqual(
-                'metadata_url', 'consumer_key', 'token_key', 'token_secret'))
-
-    def test_compose_preseed_includes_metadata_url(self):
-        node = factory.make_node(status=NODE_STATUS.READY)
-        self.assertIn(get_metadata_server_url(), compose_preseed(node))
-
-    def test_compose_preseed_for_commissioning_includes_metadata_url(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        preseed = yaml.load(compose_preseed(node))
-        self.assertEqual(
-            get_metadata_server_url(),
-            preseed['datasource']['MAAS']['metadata_url'])
-
-    def test_compose_preseed_includes_node_oauth_token(self):
-        node = factory.make_node(status=NODE_STATUS.READY)
-        preseed = compose_preseed(node)
-        token = NodeKey.objects.get_token_for_node(node)
-        self.assertIn('oauth_consumer_key=%s' % token.consumer.key, preseed)
-        self.assertIn('oauth_token_key=%s' % token.key, preseed)
-        self.assertIn('oauth_token_secret=%s' % token.secret, preseed)
-
-    def test_compose_preseed_for_commissioning_includes_auth_token(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        preseed = yaml.load(compose_preseed(node))
-        maas_dict = preseed['datasource']['MAAS']
-        token = NodeKey.objects.get_token_for_node(node)
-        self.assertEqual(token.consumer.key, maas_dict['consumer_key'])
-        self.assertEqual(token.key, maas_dict['token_key'])
-        self.assertEqual(token.secret, maas_dict['token_secret'])
 
     def test_papi_xmlrpc_faults_are_reported_helpfully(self):
 
