@@ -2,4 +2,5 @@
 --exclude=*-min.js
 --exclude=*-debug.js
 --extra=+f
---links=no
+--links=yes
+--exclude=src/maasserver/static/jslibs
