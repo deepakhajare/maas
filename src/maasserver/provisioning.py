@@ -249,6 +249,9 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
     papi.add_node(
         instance.system_id, instance.hostname,
         profile, power_type, metadata)
+    if instance.status != NODE_STATUS.ALLOCATED:
+        deltas = {instance.system_id: {"netboot_enabled": True}}
+        papi.modify_nodes(deltas)
 
 
 def set_node_mac_addresses(node):
