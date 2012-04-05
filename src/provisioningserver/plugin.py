@@ -90,13 +90,15 @@ class SingleUsernamePasswordChecker:
 class ProvisioningRealm:
     """The `IRealm` for the Provisioning API."""
 
+    noop = staticmethod(lambda: None)
+
     def __init__(self, resource):
         super(ProvisioningRealm, self).__init__()
         self.resource = resource
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:
-            return (IResource, self.resource, lambda: None)
+            return (IResource, self.resource, self.noop)
         raise NotImplementedError()
 
 

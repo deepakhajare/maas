@@ -20,6 +20,7 @@ import formencode
 from provisioningserver.plugin import (
     Config,
     Options,
+    ProvisioningRealm,
     ProvisioningServiceMaker,
     SingleUsernamePasswordChecker,
     )
@@ -39,6 +40,7 @@ from twisted.cred.error import UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import UsageError
 from twisted.web.guard import HTTPAuthSessionWrapper
+from twisted.web.resource import IResource
 import yaml
 
 
@@ -223,3 +225,23 @@ class TestSingleUsernamePasswordChecker(TestCase):
         checker = SingleUsernamePasswordChecker("zap", "franka")
         d = checker.requestAvatarId(credentials)
         return assert_fails_with(d, UnauthorizedLogin)
+
+
+class TestProvisioningRealm(TestCase):
+    """Tests for `ProvisioningRealm`."""
+
+    def test_requestAvatar_okay(self):
+        resource = object()
+        realm = ProvisioningRealm(resource)
+        avatar = realm.requestAvatar(
+            "irrelevant", "also irrelevant", IResource)
+        self.assertEqual((IResource, resource, realm.noop), avatar)
+
+    def test_requestAvatar_bad(self):
+        # If IResource is not amongst the interfaces passed to requestAvatar,
+        # NotImplementedError is raised.
+        resource = object()
+        realm = ProvisioningRealm(resource)
+        self.assertRaises(
+            NotImplementedError, realm.requestAvatar,
+            "irrelevant", "also irrelevant")
