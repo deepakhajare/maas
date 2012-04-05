@@ -67,7 +67,7 @@ from zope.interface import implementer
 
 @implementer(ICredentialsChecker)
 class SingleUsernamePasswordChecker:
-    """TODO."""
+    """An `ICredentialsChecker` for a single username and password."""
 
     credentialInterfaces = [IUsernamePassword]
 
@@ -88,7 +88,7 @@ class SingleUsernamePasswordChecker:
 
 @implementer(IRealm)
 class ProvisioningRealm:
-    """TODO."""
+    """The `IRealm` for the Provisioning API."""
 
     def __init__(self, resource):
         super(ProvisioningRealm, self).__init__()
