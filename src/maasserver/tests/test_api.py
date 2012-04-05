@@ -333,7 +333,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
 class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
 
     def test_is_registered_returns_True_if_node_registered(self):
-        mac_address = 'aa:bb:cc:dd:ee:ff'
+        mac_address = factory.getRandomMACAddress()
         factory.make_mac_address(mac_address)
         response = self.client.get(
             self.get_uri('nodes/'),
@@ -343,7 +343,7 @@ class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
             (response.status_code, response.content))
 
     def test_is_registered_normalizes_mac_address(self):
-        # Those two non-normalized MAC Address are the same.
+        # Those two non-normalized MAC Addresses are the same.
         non_normalized_mac_address = 'AA-bb-cc-dd-ee-ff'
         non_normalized_mac_address2 = 'aabbccddeeff'
         factory.make_mac_address(non_normalized_mac_address)
@@ -358,7 +358,7 @@ class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
             (response.status_code, response.content))
 
     def test_is_registered_returns_False_if_node_not_registered(self):
-        mac_address = 'aa:bb:cc:dd:ee:ff'
+        mac_address = factory.getRandomMACAddress()
         response = self.client.get(
             self.get_uri('nodes/'),
             {'op': 'is_registered', 'mac_address': mac_address})
