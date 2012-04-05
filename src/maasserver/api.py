@@ -441,7 +441,7 @@ class AnonNodesHandler(AnonymousBaseHandler):
     @api_exported('is_registered', 'GET')
     def is_registered(self, request):
         """Returns whether or not the given MAC Address is registered within
-        this MAAS.
+        this MAAS (and attached to a non-retired node).
 
         :param mac_address: The mac address to be checked.
         :type mac_address: basestring
@@ -449,7 +449,9 @@ class AnonNodesHandler(AnonymousBaseHandler):
         :rtype: basestring
         """
         mac_address = get_mandatory_param(request.GET, 'mac_address')
-        return MACAddress.objects.filter(mac_address=mac_address).exists()
+        return MACAddress.objects.filter(
+            mac_address=mac_address).exclude(
+                node__status=NODE_STATUS.RETIRED).exists()
 
     @api_exported('accept', 'POST')
     def accept(self, request):

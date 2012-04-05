@@ -342,8 +342,20 @@ class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
             (httplib.OK, "true"),
             (response.status_code, response.content))
 
+    def test_is_registered_returns_False_if_mac_registered_node_retired(self):
+        mac_address = factory.getRandomMACAddress()
+        mac = factory.make_mac_address(mac_address)
+        mac.node.status = NODE_STATUS.RETIRED
+        mac.node.save()
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "false"),
+            (response.status_code, response.content))
+
     def test_is_registered_normalizes_mac_address(self):
-        # Those two non-normalized MAC Addresses are the same.
+        # These two non-normalized MAC Addresses are the same.
         non_normalized_mac_address = 'AA-bb-cc-dd-ee-ff'
         non_normalized_mac_address2 = 'aabbccddeeff'
         factory.make_mac_address(non_normalized_mac_address)
