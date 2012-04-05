@@ -340,7 +340,9 @@ class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
     def test_provision_post_save_Node_set_netboot_enabled(self):
         # When a node is under MAAS's control - i.e. not allocated and not
         # retired - it is always configured for netbooting. When the node is
-        # allocated, netbooting is left alone. When the node is retired
+        # allocated, netbooting is left alone; its state may change in
+        # response to interactions between the node and the provisioning
+        # server and MAAS ought to leave that alone. When the node is retired
         # netbooting is disabled.
         expected = {
             NODE_STATUS.DECLARED: True,
