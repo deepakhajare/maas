@@ -370,10 +370,11 @@ class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
 class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
     def test_anon_nodes_GET(self):
-        # Anonymous requests to the API are denied.
+        # Anonymous requests to the API without a specified operation
+        # get a "Bad Request" response.
         response = self.client.get(self.get_uri('nodes/'))
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
