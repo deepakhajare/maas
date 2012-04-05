@@ -608,7 +608,7 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
         return ProvisioningAPI(make_fake_cobbler_session())
 
     @inlineCallbacks
-    def test_add_node_preseeds_metadata(self):
+    def test_add_node_provides_preseed(self):
         papi = self.get_provisioning_api()
         preseed_data = factory.getRandomString()
         node_name = yield self.add_node(papi, preseed_data=preseed_data)
