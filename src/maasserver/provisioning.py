@@ -250,7 +250,12 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
         instance.system_id, instance.hostname,
         profile, power_type, metadata)
     if instance.status != NODE_STATUS.ALLOCATED:
-        deltas = {instance.system_id: {"netboot_enabled": True}}
+        deltas = {
+            instance.system_id: {
+                "netboot_enabled":
+                    instance.status != NODE_STATUS.RETIRED,
+                }
+            }
         papi.modify_nodes(deltas)
 
 
