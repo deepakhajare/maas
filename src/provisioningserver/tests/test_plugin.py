@@ -36,6 +36,10 @@ class TestConfig(TestCase):
     """Tests for `provisioningserver.plugin.Config`."""
 
     def test_defaults(self):
+        mandatory = {
+            'username': 'killing',
+            'password': 'joke',
+            }
         expected = {
             'broker': {
                 'host': 'localhost',
@@ -56,12 +60,17 @@ class TestConfig(TestCase):
                 },
             'port': 5241,
             }
-        observed = Config.to_python({})
+        expected.update(mandatory)
+        observed = Config.to_python(mandatory)
         self.assertEqual(expected, observed)
 
     def test_parse(self):
         # Configuration can be parsed from a snippet of YAML.
-        observed = Config.parse(b'logfile: "/some/where.log"')
+        observed = Config.parse(
+            b'logfile: "/some/where.log"\n'
+            b'username: "black"\n'
+            b'password: "sabbath"\n'
+            )
         self.assertEqual("/some/where.log", observed["logfile"])
 
     def test_load(self):
@@ -69,7 +78,9 @@ class TestConfig(TestCase):
         filename = os.path.join(
             self.useFixture(TempDir()).path, "config.yaml")
         with open(filename, "wb") as stream:
-            stream.write(b'logfile: "/some/where.log"')
+            stream.write(b'logfile: "/some/where.log"\n')
+            stream.write(b'username: "mega"\n')
+            stream.write(b'password: "deth"\n')
         observed = Config.load(filename)
         self.assertEqual("/some/where.log", observed["logfile"])
 
@@ -122,6 +133,8 @@ class TestProvisioningServiceMaker(TestCase):
         self.tempdir = self.useFixture(TempDir()).path
 
     def write_config(self, config):
+        config.setdefault("username", "coheed")
+        config.setdefault("password", "cambria")
         config_filename = os.path.join(self.tempdir, "config.yaml")
         with open(config_filename, "wb") as stream:
             yaml.dump(config, stream)
