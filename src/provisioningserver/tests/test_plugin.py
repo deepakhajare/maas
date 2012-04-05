@@ -27,8 +27,10 @@ from testtools.matchers import (
     MatchesException,
     Raises,
     )
+from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
 from twisted.python.usage import UsageError
+from twisted.web.guard import HTTPAuthSessionWrapper
 import yaml
 
 
@@ -178,3 +180,19 @@ class TestProvisioningServiceMaker(TestCase):
         self.assertEqual(
             len(service.namedServices), len(service.services),
             "Not all services are named.")
+
+    def test_makeService_api_requires_credentials(self):
+        """
+        The site service's /api resource requires credentials from clients.
+        """
+        options = Options()
+        options["config-file"] = self.write_config({})
+        service_maker = ProvisioningServiceMaker("Harry", "Hill")
+        service = service_maker.makeService(options)
+        self.assertIsInstance(service, MultiService)
+        site_service = service.getServiceNamed("site")
+        self.assertIsInstance(site_service, TCPServer)
+        port, site = site_service.args
+        self.assertIn("api", site.resource.listStaticNames())
+        api = site.resource.getStaticEntity("api")
+        self.assertIsInstance(api, HTTPAuthSessionWrapper)
