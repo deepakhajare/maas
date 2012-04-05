@@ -469,7 +469,7 @@ class NODE_PERMISSION:
 commissioning_user_data = dedent("""
     #!/bin/sh
     echo "Hello world"
-    """.lstrip('\n'))
+    """.lstrip('\n')).encode('ascii')
 
 
 class Node(CommonInfo):
@@ -636,7 +636,7 @@ class Node(CommonInfo):
         self.save()
         # The commissioning profile is handled in start_nodes.
         Node.objects.start_nodes(
-            [self.system_id], user, user_data=None)
+            [self.system_id], user, user_data=commissioning_user_data)
 
     def delete(self):
         # Delete the related mac addresses first.
