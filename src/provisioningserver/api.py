@@ -58,7 +58,7 @@ def cobbler_to_papi_node(data):
         "mac_addresses": [
             mac_address.strip()
             for mac_address in mac_addresses
-            if not mac_address.isspace()
+            if mac_address and not mac_address.isspace()
             ],
         "netboot_enabled": data.get("netboot_enabled"),
         "power_type": data["power_type"],
@@ -134,6 +134,15 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
         for interface_name, mac_address, dns_name
         in izip(eth_names, mac_addresses, dns_names)
         }
+
+    # If we're removing all MAC addresses, we need to leave one unconfigured
+    # interface behind to satisfy Cobbler's data model constraints.
+    if len(mac_addresses) == 0:
+        interfaces_to["eth0"] = {
+            "interface": "eth0",
+            "mac_address": "",
+            "dns_name": "",
+            }
 
     # Go through interfaces, generating deltas from `interfaces_from` to
     # `interfaces_to`. This is done in sorted order to make testing easier.
