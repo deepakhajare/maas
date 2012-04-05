@@ -234,10 +234,17 @@ def compose_commissioning_preseed(token):
 def compose_preseed(node):
     """Put together preseed data for `node`.
 
+    This produces preseed data in different formats depending on the node's
+    state: if it's Commissioning, it boots into commissioning mode with its
+    own profile, its own user_data, and also its own preseed format.  It's
+    basically a network boot.
+    Otherwise, it will get a different format that feeds directly into the
+    installer.
+
     :param node: The node to compose preseed data for.
     :type node: Node
     :return: Preseed data containing the information the node needs in order
-        to acces the metadata service: its URL and auth token.
+        to access the metadata service: its URL and auth token.
     """
     # Circular import.
     from metadataserver.models import NodeKey
