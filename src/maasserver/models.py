@@ -40,6 +40,7 @@ import os
 import re
 from socket import gethostname
 from string import whitespace
+from textwrap import dedent
 import time
 from uuid import uuid1
 
@@ -460,6 +461,15 @@ class NODE_PERMISSION:
     VIEW = 'view_node'
     EDIT = 'edit_node'
     ADMIN = 'admin_node'
+
+
+# For the commissioning process, a node receives a minimal script as its
+# user_data through the metadata service.  This is the content of that
+# script.
+commissioning_user_data = dedent("""
+    #!/bin/sh
+    echo "Hello world"
+    """.lstrip('\n'))
 
 
 class Node(CommonInfo):
