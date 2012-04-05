@@ -43,8 +43,10 @@ from provisioningserver.enum import (
     )
 from provisioningserver.testing.factory import ProvisioningFakeFactory
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from testtools.matchers import KeysEqual
 from testtools.testcase import ExpectedException
 from twisted.internet.defer import inlineCallbacks
+import yaml
 
 
 class ProvisioningTests:
@@ -229,15 +231,26 @@ class ProvisioningTests:
             % Config.objects.get_config('maas_url').rstrip('/'),
             get_metadata_server_url())
 
+    def test_compose_preseed_for_commissioning_node_produces_yaml(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        self.assertIn('datasource', preseed)
+        self.assertIn('MAAS', preseed['datasource'])
+        self.assertThat(
+            preseed['datasource']['MAAS'],
+            KeysEqual(
+                'metadata_url', 'consumer_key', 'token_key', 'token_secret'))
+
     def test_compose_preseed_includes_metadata_url(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         self.assertIn(get_metadata_server_url(), compose_preseed(node))
 
     def test_compose_preseed_for_commissioning_includes_metadata_url(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        self.assertIn(
-            'metadata_url: %s\n' % get_metadata_server_url(),
-            compose_preseed(node))
+        preseed = yaml.load(compose_preseed(node))
+        self.assertEqual(
+            get_metadata_server_url(),
+            preseed['datasource']['MAAS']['metadata_url'])
 
     def test_compose_preseed_includes_node_oauth_token(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -249,11 +262,12 @@ class ProvisioningTests:
 
     def test_compose_preseed_for_commissioning_includes_auth_token(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        preseed = compose_preseed(node)
+        preseed = yaml.load(compose_preseed(node))
+        maas_dict = preseed['datasource']['MAAS']
         token = NodeKey.objects.get_token_for_node(node)
-        self.assertIn('consumer_key: %s\n' % token.consumer.key, preseed)
-        self.assertIn('token_key: %s\n' % token.key, preseed)
-        self.assertIn('token_secret: %s\n' % token.secret, preseed)
+        self.assertEqual(token.consumer.key, maas_dict['consumer_key'])
+        self.assertEqual(token.key, maas_dict['token_key'])
+        self.assertEqual(token.secret, maas_dict['token_secret'])
 
     def test_papi_xmlrpc_faults_are_reported_helpfully(self):
 
