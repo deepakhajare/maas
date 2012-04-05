@@ -71,6 +71,7 @@ class TestFunctions(TestCase):
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
                 },
             "power_type": "virsh",
+            "netboot_enabled": False,
             "ju": "nk",
             }
         expected = {
@@ -78,6 +79,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "dystopia",
             "mac_addresses": ["12:34:56:78:9a:bc"],
+            "netboot_enabled": False,
             "power_type": "virsh",
             }
         observed = cobbler_to_papi_node(data)
@@ -89,6 +91,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "power_type": "ether_wake",
+            "netboot_enabled": True,
             "ju": "nk",
             }
         expected = {
@@ -96,6 +99,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "mac_addresses": [],
+            "netboot_enabled": True,
             "power_type": "ether_wake",
             }
         observed = cobbler_to_papi_node(data)
@@ -392,6 +396,17 @@ class ProvisioningAPITests(ProvisioningFakeFactory):
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(
             [mac_address2], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
+    def test_modify_nodes_set_netboot_enabled(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        yield papi.modify_nodes({node_name: {"netboot_enabled": False}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertFalse(values[node_name]["netboot_enabled"])
+        yield papi.modify_nodes({node_name: {"netboot_enabled": True}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertTrue(values[node_name]["netboot_enabled"])
 
     @inlineCallbacks
     def test_delete_distros_by_name(self):
