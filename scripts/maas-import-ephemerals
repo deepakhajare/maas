@@ -26,6 +26,7 @@ EPH_KOPTS_CONSOLE="console=$CONSOLE"
 EPH_KOPTS_ISCSI="ip=dhcp iscsi_target_name=@@iscsi_target@@ iscsi_target_ip=@@iscsi_target_ip@@ iscsi_target_port=3260"
 EPH_KOPTS_ROOT="root=cloudimg-rootfs ro"
 EPH_KOPTS_LOGGING="log_host=@@server_ip@@ log_port=514"
+EPH_UPDATE_CMD=""
 TARGET_NAME_PREFIX="iqn.2004-05.com.ubuntu:maas:"
 DATA_DIR="/var/lib/maas/ephemeral"
 CONFIG="/etc/maas/import_ephemerals"
@@ -213,23 +214,44 @@ EOF
 		tar -Sxzf - -C  "$exdir" < "$tarball" ||
 		{ error "failed to extract tarball from $furl"; return 1; }
 
-	local img="" x=""
+	local x="" img="" kernel="" initrd=""
 	for x in "$exdir/"*.img; do
 		[ -f "$x" ] && img="$x" && break
+	done
+
+	for x in "$exdir/kernel" "$exdir/"*-vmlinuz*; do
+		[ -f "$x" ] && kernel="$x" && break
+	done
+
+	for x in "$exdir/initrd" "$exdir/"*-initrd*; do
+		[ -f "$x" ] && initrd="$x" && break
 	done
 
 	[ -n "$img" ] || { error "failed to find image in $furl"; return 1; }
 	mv "$img" "$wd/disk.img" ||
 		{ error "failed to move extracted image to $wd/disk.img"; return 1; }
 
+	[ -z "$kernel" ] || mv "$kernel" "$wd/kernel" ||
+		{ error "failed to move extracted kernel to $wd/kernel"; return 1; }
+
+	[ -z "$initrd" ] || mv "$initrd" "$wd/initrd" ||
+		{ error "failed to move extracted kernel to $wd/initrd"; return 1; }
+
 	rm -Rf "$exdir" || { error "failed to cleanup extract dir"; return 1; }
 	{ [ -z "$rmtar" ] || rm "$rmtar"; } ||
 		{ error "failed to remove temporary tarball $rmtar"; return 1; }
 
-	# update
-	mount_callback_umount "$wd/disk.img" apply_updates \
-		"$wd/kernel" "$wd/initrd" ||
-		{ error "failed to apply updates to $img"; return 1; }
+	if [ -n "$EPH_UPDATE_CMD" ]; then
+		# update
+		mount_callback_umount "$wd/disk.img" apply_updates \
+			"$wd/kernel" "$wd/initrd" ||
+			{ error "failed to apply updates to $img"; return 1; }
+	else
+		[ -n "$kernel" -a -n "$initrd" ] || {
+			error "missing kernel or initrd in tarball. set \$EPH_UPDATE_CMD";
+			return 1;
+		}
+	fi
 
 	return 0
 }
