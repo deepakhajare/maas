@@ -473,6 +473,8 @@ if [ $check -eq 1 ]; then
 	exit 0
 fi
 
+cobbler sync
+
 ## cleanup
 # here, go through anything non-current,
 #   * remove the tgt config
