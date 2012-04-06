@@ -22,8 +22,13 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import (
+    components,
     messages,
     views,
+    )
+from maasserver.components import (
+    PERSISTENT_COMPONENTS_ERRORS,
+    register_persistent_error,
     )
 from maasserver.exceptions import NoRabbit
 from maasserver.forms import NodeActionForm
@@ -54,6 +59,10 @@ from maasserver.views import (
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
+from testtools.matchers import (
+    Contains,
+    MatchesAll,
+    )
 
 
 def get_prefixed_form_data(prefix, data):
@@ -983,3 +992,24 @@ class UserManagementTest(AdminLoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(user.username, content_text)
         self.assertIn(user.email, content_text)
+
+
+class PermanentErrorDisplayTest(LoggedInTestCase):
+
+    def test_permanent_error_displayed(self):
+        self.patch(components, '_PERSISTENT_ERRORS', set())
+        errors = PERSISTENT_COMPONENTS_ERRORS.keys()
+        for error in errors:
+            register_persistent_error(error)
+        links = [
+            reverse('index'),
+            reverse('node-list'),
+            reverse('prefs'),
+        ]
+        for link in links:
+            response = self.client.get(link)
+            self.assertThat(
+                response.content,
+                MatchesAll(
+                    *[Contains(PERSISTENT_COMPONENTS_ERRORS[error])
+                     for error in errors]))
