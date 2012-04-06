@@ -35,6 +35,7 @@ ARCHES="amd64 i386"
 STREAM="server"
 KSDIR="/var/lib/cobbler/kickstarts"
 KICKSTART="$KSDIR/maas-commissioning.preseed"
+SYS_TGT_CONF="/etc/tgt/targets.conf""
 
 # DATA_DIR layout is like:
 #   tgt.conf
@@ -431,9 +432,9 @@ for release in $RELEASES; do
 		ln -sf "$rel_tgt" "${tgt_conf_d}/${name}.conf" ||
 			fail "failed to symlink ${name}.conf into place"
 
-		tgt-admin --conf "${tgt_conf_d}/${name}.conf" --execute || {
+		tgt-admin --conf "$SYS_TGT_CONF" --update "${target_name}" || {
 			mv "${fpfinal_d}/info" "${fpfinal_d}/info.failed"
-			tgt-admin --delete "$target_name"
+			tgt-admin --conf "$SYS_TGT_CONF" --delete "$target_name"
 			rm "${tgt_conf_d}/${name}.conf"
 			fail "failed tgt-admin add for $name"
 		}
@@ -458,7 +459,7 @@ for release in $RELEASES; do
 		cobbler_add_update "$distro" "$profile" "$release" "${arch_c}" \
 			"$kernel" "$initrd" "$kopts" "$KICKSTART" || {
 				mv "${fpfinal_d}/info" "${fpfinal_d}/info.failed"
-				tgt-admin --delete "$target_name"
+				tgt-admin --conf "$SYS_TGT_CONF" --delete "$target_name"
 				rm "${tgt_conf_d}/${name}.conf";
 				fail "failed to update cobbler for $profile/$distro"
 			}
