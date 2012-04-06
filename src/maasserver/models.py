@@ -92,7 +92,7 @@ logger = getLogger('maasserver')
 
 class CommonInfo(models.Model):
     """A base model which:
-    - calls full_clean before saving the model by default.
+    - calls full_clean before saving the model (by default).
     - records the creation date and the last modification date.
 
     :ivar created: The creation date.
