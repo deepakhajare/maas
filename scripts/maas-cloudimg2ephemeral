@@ -427,6 +427,7 @@ EOF
 	LC_ALL=C apt_opts=${apt_opts} chroot "$dir" sh -c '
 		mkdir -p /etc/iscsi && touch /etc/iscsi/iscsi.initramfs &&
 		apt-get -q ${apt_opts} update &&
+		apt-get remove "linux.*virtual" --assume-yes &&
 		apt-get ${apt_opts} install -q -y linux-server open-iscsi ||
 			exit
 		k=""
