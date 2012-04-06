@@ -421,13 +421,15 @@ EOF
     	eval $out && [ -n "$prox" ] &&
 		apt_opts="--option=Acquire::HTTP::Proxy=${prox}"
 
+	apt_opts="${apt_opts} --option=Dpkg::Options::=--force-confold"
 	[ -n "${apt_opts}" ] &&
 		debug 1 "using apt options ${apt_opts} for install"
 
-	LC_ALL=C apt_opts=${apt_opts} chroot "$dir" sh -c '
+	LC_ALL=C DEBIAN_FRONTEND=noninteractive \
+		apt_opts="${apt_opts}" chroot "$dir" sh -c '
 		mkdir -p /etc/iscsi && touch /etc/iscsi/iscsi.initramfs &&
 		apt-get -q ${apt_opts} update &&
-		apt-get remove "linux.*virtual" --assume-yes &&
+		apt-get remove "linux.*virtual" ${apt_opts} --assume-yes &&
 		apt-get ${apt_opts} install -q -y linux-server open-iscsi ||
 			exit
 		k=""
