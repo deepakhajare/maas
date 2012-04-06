@@ -11,4 +11,4 @@
 ### smoser
 #SERVER_IP=192.168.1.131
 #CLOUD_IMAGES_MIRROR="http://nelson/mirrors/uec"
-#TARBALL_CACHE_D="/home/ubuntu/tarballs"
+TARBALL_CACHE_D="/home/ubuntu/tarballs"

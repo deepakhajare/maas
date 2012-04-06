@@ -100,7 +100,7 @@ arch2cob() {
 		amd64) _RET=x86_64;;
 	esac
 }
-query_cloudimg() {
+query_remote() {
 	# query /query data at CLOUD_IMAGES_MIRROR
 	# returns 7 values prefixed with 'r_'
 	local iarch=$1 irelease=$2 istream=$3 out=""
@@ -116,13 +116,11 @@ query_cloudimg() {
 	r_release=""; r_stream=""; r_label=""; r_serial="";
 	r_arch=""; r_url=""; r_name=""
 
-	cp "$target"  /tmp/target
 	out=$(awk '-F\t' '$1 == release && $2 == stream && $5 == arch { print $3, $4, $6, $7 }' \
 		"arch=$iarch" "release=$irelease" "stream=$istream" \
 		"$target") && [ -n "$out" ] ||
 		return 1
 
-	echo "out=${out}"
 	set -- ${out}
 	r_release=$irelease
 	r_stream=$istream
@@ -587,7 +585,6 @@ apply_updates() {
 	# update directory given, and pull out kernel and initramfs
 	# to given locations
 	local dir=$1 kernel_out=$2 initrd_out=$3
-	touch $kernel_out $initrd_out; return; ### smoser
 	if [ -f "$dir/etc/resolv.conf" ]; then
 		mv "$dir/etc/resolv.conf" "$dir/etc/resolv.conf.dist" || return 1
 	fi
@@ -646,21 +643,34 @@ EOF
 	return 0
 }
 cobbler_has() {
-	return 0
 	local noun="$1" name="$2" out=""
-	out=$(cobbler "$noun" find --name "$name") && [ "$out" = "$name" ]
+
+	out=$(cobbler "$noun" find "--name=$name" 2>/dev/null) &&
+		[ "$out" = "$name" ]
 }
 
 cobbler_add_update() {
-	# cobbler_add_update(profile_name, cobbler-add-args ... )
-	# Skip if cobbler already has this distro/arch profile
-	local name="$1" op="update"
-	shift;
+	# cobbler_add_update(distro_name, profile_name, 
+	#					 release, arch, kopts, kickstart,
+	#                    kernel, initrd)
+	local distro="$1" profile="$2" release="$3" arch="$4"
+	local kernel="$5" initrd="$6" kopts="$7" kickstart="$8" 
+	local op
 	
-	cobbler_has profile "$name" || op="add"
+	cobbler_has distro "$distro" && op="edit" || op="add"
+	
+	cobbler distro "$op" "--name=$distro" --breed=ubuntu \
+		"--os-version=$release" "--arch=$arch" \
+		"--kernel=$kernel" "--initrd=$initrd" ||
+		{ error "failed to $op $distro"; return 1; }
 
-	cobbler profile "$op" "--name=${name}" "$@" ||
-			return 1
+	cobbler_has profile "$profile" && op="edit" || op="add"
+
+	cobbler profile "$op" "--name=$profile" "--distro=$distro" \
+		--kopts="$kopts" "--kickstart=$kickstart" ||
+		{ error "failed to $op $profile"; return 1; }
+
+	return 0
 }
 
 replace() {
@@ -674,8 +684,8 @@ replace() {
 	_RET=${input}
 }
 
-short_opts="hv"
-long_opts="help,verbose"
+short_opts="hciuv"
+long_opts="help,import,update,update-check,verbose"
 getopt_out=$(getopt --name "${0##*/}" \
 	--options "${short_opts}" --long "${long_opts}" -- "$@") &&
 	eval set -- "${getopt_out}" ||
@@ -683,6 +693,7 @@ getopt_out=$(getopt --name "${0##*/}" \
 
 check=0
 import=0
+update=0
 
 while [ $# -ne 0 ]; do
 	cur=${1}; next=${2};
@@ -691,29 +702,35 @@ while [ $# -ne 0 ]; do
 		-v|--verbose) VERBOSITY=$((${VERBOSITY}+1));;
 		-i|--import) import=1;;
 		-c|--update-check) check=1;;
+		-u|--update) update=1;;
 		--) shift; break;;
 	esac
 	shift;
 done
 
-[ $import -eq 0 -a $check -eq 0 ] && import=1
+[ $import -eq 0 -a $check -eq 0 -a $update -eq 0 ] && import=1
+[ $(($import + $check + $update)) -eq 0 ] && import=1
 
-[ $check -eq 1 -a $import -eq 1 ] &&
-	bad_Usage "--update-check incompatible with --import"
+[ $(($import + $check + $update)) -eq 1 ] ||
+	bad_Usage "only one of --update-check, --update, --import may be given"
 
 [ ! -f "$CONFIG" ] || . "$CONFIG"
-[ ! -f "./${CONFIG##*/}" ] || . "./${CONFIG##*/}"
+[ ! -f ".${CONFIG}" ] || . ".${CONFIG}"
 
 # get default server ip
 [ -n "$SERVER_IP" ] ||
-	_ip=$(awk '$1 = "server:" { print $2 }' /etc/cobbler/settings) ||
+	_ip=$(awk '$1 == "server:" { print $2 }' /etc/cobbler/settings) ||
 	fail "must set SERVER_IP to cobbler server"
 
-SERVER_IP=${SERVER_IP:-${ip}}
+SERVER_IP=${SERVER_IP:-${_ip}}
 [ -n "${SERVER_IP}" ] &&
 	KOPTS="$KOPTS log_host=$SERVER_IP log_port=514"
 
 ISCSI_TARGET_IP=${ISCSI_TARGET_IP:-${SERVER_IP}}
+[ -n "$ISCSI_TARGET_IP" ] || fail "ISCSI_TARGET_IP must have a value"
+
+[ -f "$KICKSTART" ] ||
+	fail "kickstart $KICKSTART is not a file"
 
 mkdir -p "$DATA_DIR" "$DATA_DIR/.working" ||
 	fail "failed to make $DATA_DIR"
@@ -723,19 +740,11 @@ TEMP_D=$(mktemp -d "$DATA_DIR/.working/${0##*/}.XXXXXX") ||
 
 trap cleanup EXIT
 
-for release in $RELEASES; do
-	for arch in $ARCHES; do
-		arch2cob "$arch";
-		arch_c=${_RET};
-		cobbler_has profile "$release-$arch" ||
-			fail "no $release-${arch_c} profile. run maas-import-isos first"
-	done
-done
-
 tgt_conf_d="$DATA_DIR/tgt.conf.d"
 tgt_conf="${DATA_DIR}/tgt.conf"
+
 mkdir -p "$tgt_conf_d" ||
-	fail "failed to make $tgt_conf_d"
+	fail "failed to make directories"
 if [ ! -f "${tgt_conf}" ]; then
 	cat > "${tgt_conf}" <<EOF
 include tgt.conf.d/*.conf
@@ -751,48 +760,61 @@ for release in $RELEASES; do
 
 		query_local "$arch_u" "$release" "$STREAM" ||
 			fail "failed to query local for $release/$arch"
-		echo "$l_serial"
-		query_cloudimg "$arch_u" "$release" "$STREAM" ||
+		query_remote "$arch_u" "$release" "$STREAM" ||
 			fail "remote query of $CLOUD_IMAGES_MIRROR failed"
 
-		serial_gt "$r_serial" "$l_serial" || {
-			debug 1 "$release-${arch_u} in ${l_dir} is up to date";
-			continue;
-		}
+		if [ $update -eq 0 ]; then
+			serial_gt "$r_serial" "$l_serial" || {
+				debug 1 "$release-${arch_u} in ${l_dir} is up to date";
+				continue;
+			}
 
-		# an update is needed remote serial is newer than local
-		updates=$(($updates+1))
+			# an update is needed remote serial is newer than local
+			updates=$(($updates+1))
 
-		# check only
-		[ $check -eq 0 ] || continue
+			# check only
+			[ $check -eq 0 ] || continue
 
-		debug 1 "updating $release-$arch ($l_name => $r_name)"
-		wd="${TEMP_D}/$release/$arch"
-		prep_dir "$wd" \
-			"$r_release" "$r_stream" "$r_label" \
-			"$r_serial" "$r_arch" "$r_url" "$r_name" ||
-			fail "failed to prepare image for $release/$arch"
+			debug 1 "updating $release-$arch ($l_name => $r_name)"
+			wd="${TEMP_D}/$release/$arch"
+			prep_dir "$wd" \
+				"$r_release" "$r_stream" "$r_label" \
+				"$r_serial" "$r_arch" "$r_url" "$r_name" ||
+				fail "failed to prepare image for $release/$arch"
 
-		final_d="${r_arch}/${r_release}/${r_stream}/${r_serial}"
-		fpfinal_d="${DATA_DIR}/${final_d}"
+			target_name="${TARGET_NAME_PREFIX}${r_name}"
+
+			final_d="${r_arch}/${r_release}/${r_stream}/${r_serial}"
+			fpfinal_d="${DATA_DIR}/${final_d}"
+			mkdir -p "${fpfinal_d}"
+
+			mv "$wd/"* "${fpfinal_d}/" ||
+				fail "failed to move contents to final directory ${fpfinal_d}"
+			name="${r_name}"
+		else
+			fpfinal_d="${l_dir}"
+			final_d="${l_arch}/${l_release}/${l_stream}/${l_serial}"
+
+			name="${l_name}"
+			target_name="${TARGET_NAME_PREFIX}${name}"
+			debug 1 "updating ${release}-${arch} $final_d"
+		fi
+
 		rel_tgt="../${final_d}/tgt.conf"
-		mkdir -p "${fpfinal_d}"
 
 		# iscsi_update
-		target_name="${TARGET_NAME_PREFIX}${r_name}"
-		write_tgt_conf "$wd/tgt.conf" "$target_name" "${fpfinal_d}/disk.img" ||
+		write_tgt_conf "${fpfinal_d}/tgt.conf" "$target_name" \
+			"${fpfinal_d}/disk.img" ||
 			fail "failed to write tgt.conf for $release/$arch"
 
-		mv "$wd/"* "${fpfinal_d}/" ||
-			fail "failed to move contents to final directory ${fpfinal_d}"
-		ln -sf "$rel_tgt" "${tgt_conf_d}/${r_name}.conf" ||
-			fail "failed to symlink ${r_name}.conf into place"
+		ln -sf "$rel_tgt" "${tgt_conf_d}/${name}.conf" ||
+			fail "failed to symlink ${name}.conf into place"
 
-		tgt-admin --conf "${tgt_conf}" --execute --verbose || {
+		tgt-admin --conf "${tgt_conf}" --execute || {
 			mv "${fpfinal_d}/info" "${fpfinal_d}/info.failed"
-			rm "${tgt_conf_d}/${r_name}.conf"
-			tgt-admin --conf "${tgt_conf}" --execute --verbose
-			fail "failed tgt-admin add for $r_name"
+			tgt-admin --conf "${tgt_conf}" --delete "$target_name"
+			rm "${tgt_conf_d}/${name}.conf"
+			fail "failed tgt-admin add for $name"
 		}
 
 		# cobbler_update
@@ -802,15 +824,22 @@ for release in $RELEASES; do
 			"@@iscsi_target@@" "${target_name}" \
 			"@@iscsi_target_ip@@" "${ISCSI_TARGET_IP}"
 		kopts=$_RET
+		echo kopts=${kopts}
+		continue
 
-		debug 1 "kopts=${kopts}"
-		echo cobbler_add_update "maas-$release-${arch_c}-commissioning" \
-			"--parent=maas-$release-${arch_c}" "--kopts=$kopts" \
-			"--kickstart=$KICKSTART" || {
+		distro="$release-${arch_c}-maas-ephemeral"
+		profile="maas-${release}-${arch_c}-commissioning"
+		kernel="$fpfinal_d/kernel"
+		initrd="$fpfinal_d/initrd"
+		debug 1 "updating profile $profile, distro $distro kopts:${kopts}"
+		debug 2 cobbler_add_update "$distro" "$profile" "$release" "${arch_c}" \
+			"$kernel" "$initrd" "$kopts" "$KICKSTART"
+		cobbler_add_update "$distro" "$profile" "$release" "${arch_c}" \
+			"$kernel" "$initrd" "$kopts" "$KICKSTART" || {
 				mv "${fpfinal_d}/info" "${fpfinal_d}/info.failed"
-				rm "${tgt_conf_d}/${r_name}.conf";
-				tgt-admin --conf "${tgt_conf}" --execute --verbose;
-				fail "failed to update cobbler for $release-$arch"
+				tgt-admin --conf "${tgt_conf}" --delete "$target_name"
+				rm "${tgt_conf_d}/${name}.conf";
+				fail "failed to update cobbler for $profile/$distro"
 			}
 
 		# clean up old references?
