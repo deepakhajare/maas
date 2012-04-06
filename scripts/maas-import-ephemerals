@@ -41,15 +41,15 @@ KICKSTART="$KSDIR/maas-commissioning.preseed"
 #   tgt.conf
 #   tgt.conf.d/
 #     <name>.conf ->
-#        ../arch/release/stream/serial.conf
-#   arch/
-#     release/
-#       stream/
-#          serial/
-#            kernel
-#            disk.img
-#            initrd
-#            my.conf
+#        ../release/stream/arch/serial.conf
+#   release/
+#     stream/
+#       arch/
+#         serial/
+#           kernel
+#           disk.img
+#           initrd
+#           my.conf
 
 error() { echo "$@" 1>&2; }
 errorp() { printf "$@" 1>&2; }
@@ -138,7 +138,7 @@ query_local() {
 	local label="" name="" serial="" url=""
 
 	local found=""
-	for i in "${DATA_DIR}/"$iarch/$irelease/$istream/*/info; do
+	for i in "${DATA_DIR}/"$irelease/$istream/$iarch/*/info; do
 		[ -f "$i" ] && found=$i
 	done
 
@@ -768,7 +768,7 @@ mkdir -p "$tgt_conf_d" ||
 	fail "failed to make directories"
 if [ ! -f "${tgt_conf}" ]; then
 	cat > "${tgt_conf}" <<EOF
-include tgt.conf.d/*.conf
+include ${DATA_DIR}/tgt.conf.d/*.conf
 default-driver iscsi
 EOF
 fi
@@ -784,7 +784,7 @@ for release in $RELEASES; do
 		query_remote "$arch_u" "$release" "$STREAM" ||
 			fail "remote query of $CLOUD_IMAGES_MIRROR failed"
 
-		if [ $update -eq 0 ]; then
+		if [ $update -eq 0 -o -z "$l_dir" ]; then
 			serial_gt "$r_serial" "$l_serial" || {
 				debug 1 "$release-${arch_u} in ${l_dir} is up to date";
 				continue;
@@ -805,7 +805,7 @@ for release in $RELEASES; do
 
 			target_name="${TARGET_NAME_PREFIX}${r_name}"
 
-			final_d="${r_arch}/${r_release}/${r_stream}/${r_serial}"
+			final_d="${r_release}/${r_stream}/${r_arch}/${r_serial}"
 			fpfinal_d="${DATA_DIR}/${final_d}"
 			mkdir -p "${fpfinal_d}"
 
@@ -814,7 +814,7 @@ for release in $RELEASES; do
 			name="${r_name}"
 		else
 			fpfinal_d="${l_dir}"
-			final_d="${l_arch}/${l_release}/${l_stream}/${l_serial}"
+			final_d="${l_release}/${l_stream}/${l_arch}/${l_serial}"
 
 			name="${l_name}"
 			target_name="${TARGET_NAME_PREFIX}${name}"
@@ -862,8 +862,6 @@ for release in $RELEASES; do
 				rm "${tgt_conf_d}/${name}.conf";
 				fail "failed to update cobbler for $profile/$distro"
 			}
-
-		# clean up old references?
 	done
 done
 
@@ -873,5 +871,8 @@ if [ $check -eq 1 ]; then
 	# if updates are needed, exit 0
 	exit 0
 fi
+
+## cleanup
+# here, go through anything non-current
 
 # vi: ts=4 noexpandtab
