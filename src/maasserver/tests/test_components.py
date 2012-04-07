@@ -22,6 +22,7 @@ from maasserver.components import (
     persistent_error_sensor,
     register_persistent_error,
     )
+from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
 
@@ -70,7 +71,22 @@ class PersistentErrorsUtilitiesTest(TestCase):
             [unicode] * len(errors),
             [type(error_message) for error_message in error_messages])
 
-    def test_error_sensor_registers_error_if_exception_raised(self):
+    def test_error_sensor_does_not_modify_method(self):
+        # The decorator @persistent_error_sensor does not modify the
+        # decorated method's behaviour.
+        error = get_random_error()
+        message = factory.getRandomString()
+
+        @persistent_error_sensor(NotImplementedError, error)
+        def test_method():
+            return message
+
+        self.assertEquals(message, test_method())
+
+    def test_error_sensor_does_not_modify_method_if_exception(self):
+        # The decorator @persistent_error_sensor does not modify the
+        # decorated method's behaviour (when the method raises the
+        # decorator's exception).
         error = get_random_error()
 
         @persistent_error_sensor(NotImplementedError, error)
@@ -78,6 +94,32 @@ class PersistentErrorsUtilitiesTest(TestCase):
             raise NotImplementedError
 
         self.assertRaises(NotImplementedError, test_method)
+
+    def test_error_sensor_does_not_modify_method_if_other_exception(self):
+        # The decorator @persistent_error_sensor does not modify the
+        # decorated method's behaviour (when the method raises an
+        # unknown exception).
+        error = get_random_error()
+
+        @persistent_error_sensor(NotImplementedError, error)
+        def test_method():
+            raise ValueError
+
+        self.assertRaises(ValueError, test_method)
+
+    def test_error_sensor_registers_error_if_exception_raised(self):
+        # The decorator @persistent_error_sensor does not modify the
+        # decorated method's behaviour.
+        error = get_random_error()
+
+        @persistent_error_sensor(NotImplementedError, error)
+        def test_method():
+            raise NotImplementedError
+
+        try:
+            test_method()
+        except NotImplementedError:
+            pass
         self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
 
     def test_error_sensor_registers_does_not_register_unknown_error(self):
@@ -87,7 +129,10 @@ class PersistentErrorsUtilitiesTest(TestCase):
         def test_method():
             raise ValueError
 
-        self.assertRaises(ValueError, test_method)
+        try:
+            test_method()
+        except ValueError:
+            pass
         self.assertItemsEqual([], self._PERSISTENT_ERRORS)
 
     def test_error_sensor_discards_error_if_method_runs_successfully(self):
@@ -109,5 +154,8 @@ class PersistentErrorsUtilitiesTest(TestCase):
         def test_method():
             raise NotImplementedError
 
-        self.assertRaises(NotImplementedError, test_method)
+        try:
+            test_method()
+        except NotImplementedError:
+            pass
         self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
