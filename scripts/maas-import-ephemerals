@@ -32,7 +32,8 @@ DATA_DIR="/var/lib/maas/ephemeral"
 CONFIG="/etc/maas/import_ephemerals"
 RELEASES="precise"
 ARCHES="amd64 i386"
-STREAM="server"
+BUILD_NAME="server"
+STREAM="released"
 KSDIR="/var/lib/cobbler/kickstarts"
 KICKSTART="$KSDIR/maas-commissioning.preseed"
 SYS_TGT_CONF="/etc/tgt/targets.conf"
@@ -103,7 +104,7 @@ query_remote() {
 	# returns 7 values prefixed with 'r_'
 	local iarch=$1 irelease=$2 istream=$3 out=""
 	local burl="${REMOTE_IMAGES_MIRROR}/query"
-	local url="$burl/$irelease/$istream/released-dl.current.txt"
+	local url="$burl/$irelease/$istream/${STREAM}-dl.current.txt"
 	mkdir -p "$TEMP_D/query"
 	local target="$TEMP_D/query/$release.$stream"
 	if [ ! -f "$TEMP_D/query/$release.$stream" ]; then
@@ -380,9 +381,9 @@ for release in $RELEASES; do
 		arch2cob "$arch"; arch_c=$_RET
 		arch2u "$arch"; arch_u=$_RET
 
-		query_local "$arch_u" "$release" "$STREAM" ||
+		query_local "$arch_u" "$release" "$BUILD_NAME" ||
 			fail "failed to query local for $release/$arch"
-		query_remote "$arch_u" "$release" "$STREAM" ||
+		query_remote "$arch_u" "$release" "$BUILD_NAME" ||
 			fail "remote query of $REMOTE_IMAGES_MIRROR failed"
 
 		if [ $update -eq 0 -o -z "$l_dir" ]; then
