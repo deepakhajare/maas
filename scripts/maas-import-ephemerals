@@ -449,7 +449,7 @@ for release in $RELEASES; do
 		}
 
 		# cobbler_update
-		kopts_in="$EPH_KOPTS $EPH_KOPTS_ISCSI $EPH_KOPTS_ROOT $EPH_KOPTS_LOGGING"
+		kopts_in="$EPH_CONSOLE_KOPTS $EPH_KOPTS_ISCSI $EPH_KOPTS_ROOT $EPH_KOPTS_LOGGING"
 		replace "${kopts_in}" \
 			"@@server_ip@@" "$SERVER_IP" \
 			"@@iscsi_target@@" "${target_name}" \
