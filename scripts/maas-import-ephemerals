@@ -35,7 +35,7 @@ ARCHES="amd64 i386"
 STREAM="server"
 KSDIR="/var/lib/cobbler/kickstarts"
 KICKSTART="$KSDIR/maas-commissioning.preseed"
-SYS_TGT_CONF="/etc/tgt/targets.conf""
+SYS_TGT_CONF="/etc/tgt/targets.conf"
 
 # DATA_DIR layout is like:
 #   tgt.conf
