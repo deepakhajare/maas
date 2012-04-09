@@ -139,6 +139,11 @@ query_local() {
 	for i in "${DATA_DIR}/"$irelease/$istream/$iarch/*/info; do
 		[ -f "$i" ] && found=$i
 	done
+	found=$(LC_ALL=C;
+		cd "${DATA_DIR}/$irelease/$istream/$iarch" 2>/dev/null || exit 0;
+		for d in [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*; do
+			[ -f "$d/info" ] && f=$d; done;
+		[ -n "$f" ] && echo "$PWD/$f/info")
 
 	l_release=""; l_stream=""; l_label=""; l_serial="";
 	l_arch=""; l_url=""; l_name=""
