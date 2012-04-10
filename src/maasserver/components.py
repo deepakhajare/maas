@@ -12,58 +12,57 @@ __metaclass__ = type
 __all__ = [
     "discard_persistent_error",
     "get_persistent_errors",
-    "PERSISTENT_COMPONENTS_ERRORS",
-    "persistent_error_sensor",
+    "persistent_errors",
     "register_persistent_error",
     ]
 
 from collections import Sequence
 import threading
 
+from maasserver.provisioning import present_user_friendly_fault
 
-PERSISTENT_COMPONENTS_ERRORS = {
-    'provisioning_server_error': """
-        The provisioning server is failing.
-        """,
-    'cobbler_server_error': """
-        Cobbler is failing.
-        """,
-    'maas-import-isos_error': """
-        The maas-import-isos script appears not to have been run.
-        """,
-}
+
+class COMPONENT:
+    COBBLER = 'cobbler server'
+    PSERV = 'provisioning server'
+    IMPORT_ISOS = 'maas-import-isos script'
+
 
 # Persistent errors are global to a MAAS instance.
-_PERSISTENT_ERRORS = set()
+# This is a mapping: component -> error message.
+_PERSISTENT_ERRORS = {}
 
 
 _PERSISTENT_ERRORS_LOCK = threading.Lock()
 
 
-def register_persistent_error(error_code):
-    with _PERSISTENT_ERRORS_LOCK:
-        global _PERSISTENT_ERRORS
-        _PERSISTENT_ERRORS.add(error_code)
+def _display_fault(error):
+    return present_user_friendly_fault(error)
 
 
-def discard_persistent_error(error_code):
+def register_persistent_error(component, error):
     with _PERSISTENT_ERRORS_LOCK:
         global _PERSISTENT_ERRORS
-        _PERSISTENT_ERRORS.discard(error_code)
+        error_message = _display_fault(error)
+        _PERSISTENT_ERRORS[component] = error_message
+
+
+def discard_persistent_error(component):
+    with _PERSISTENT_ERRORS_LOCK:
+        global _PERSISTENT_ERRORS
+        _PERSISTENT_ERRORS.pop(component, None)
 
 
 def get_persistent_errors():
-    for error_code in _PERSISTENT_ERRORS:
-        yield PERSISTENT_COMPONENTS_ERRORS[error_code]
+    return _PERSISTENT_ERRORS.values()
 
 
-def persistent_error_sensor(exceptions, error_code):
+def persistent_errors(exceptions, component):
     """A method decorator used to report if the decorated method ran
-    successfully or raised an exception.  In case of success,
-    the permanent error corresponding to error_code will be discarded if it
-    was previously registered; if one of the exceptions in 'exceptions' is
-    raised, the permanent error corresponding to error_code will be
-    registered.
+    successfully or raised an exception.  If one of the provided exception
+    is raised by the decorated method, the component is marked as failing.
+    If the method runs successfully, the component is maked as working (
+    if any error has been previously reported for this component).
     """
     if not isinstance(exceptions, Sequence):
         exceptions = (exceptions, )
@@ -72,10 +71,10 @@ def persistent_error_sensor(exceptions, error_code):
         def _wrapper(*args, **kwargs):
             try:
                 res = func(*args, **kwargs)
-                discard_persistent_error(error_code)
+                discard_persistent_error(component)
                 return res
-            except exceptions:
-                register_persistent_error(error_code)
+            except exceptions, e:
+                register_persistent_error(component, e)
                 raise
         return _wrapper
     return wrapper
