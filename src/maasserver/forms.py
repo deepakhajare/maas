@@ -154,8 +154,9 @@ class SSHKeyForm(ModelForm):
         try:
             self.instance.validate_unique(exclude=exclude)
         except ValidationError, e:
-            # Publish this error as a 'key' error rather than an 'general'
-            # error.
+            # Publish this error as a 'key' error rather than a 'general'
+            # error because only the 'key' errors are displayed on the
+            # 'add key' form.
             error = e.message_dict.pop('__all__')
             e.message_dict['key'] = error
             self._update_errors(e.message_dict)
