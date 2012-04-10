@@ -44,7 +44,6 @@ from twisted.cred.portal import (
     )
 from twisted.internet.defer import (
     inlineCallbacks,
-    maybeDeferred,
     returnValue,
     )
 from twisted.plugin import IPlugin
@@ -79,8 +78,7 @@ class SingleUsernamePasswordChecker:
     @inlineCallbacks
     def requestAvatarId(self, credentials):
         if credentials.username == self.username:
-            matched = yield maybeDeferred(
-                credentials.checkPassword, self.password)
+            matched = yield credentials.checkPassword(self.password)
             if matched:
                 returnValue(credentials.username)
         raise UnauthorizedLogin(credentials.username)
