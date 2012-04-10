@@ -11,9 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import base64
 from functools import partial
 from getpass import getuser
 import os
+from StringIO import StringIO
+import xmlrpclib
 
 from fixtures import TempDir
 import formencode
@@ -42,6 +45,8 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import UsageError
 from twisted.web.guard import HTTPAuthSessionWrapper
 from twisted.web.resource import IResource
+from twisted.web.server import NOT_DONE_YET
+from twisted.web.test.test_web import DummyRequest
 import yaml
 
 
@@ -140,6 +145,8 @@ class TestOptions(TestCase):
 class TestProvisioningServiceMaker(TestCase):
     """Tests for `provisioningserver.plugin.ProvisioningServiceMaker`."""
 
+    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
+
     def setUp(self):
         super(TestProvisioningServiceMaker, self).setUp()
         self.tempdir = self.useFixture(TempDir()).path
@@ -206,6 +213,35 @@ class TestProvisioningServiceMaker(TestCase):
         api = site.resource.getStaticEntity("api")
         # HTTPAuthSessionWrapper demands credentials from an HTTP request.
         self.assertIsInstance(api, HTTPAuthSessionWrapper)
+
+    @inlineCallbacks
+    def test_makeService_api_accepts_credentials(self):
+        """
+        The site service's /api resource accepts a single set of credentials.
+        """
+        options = Options()
+        options["config-file"] = self.write_config(
+            {"username": "orange", "password": "goblin"})
+        service_maker = ProvisioningServiceMaker("Morecombe", "Wise")
+        service = service_maker.makeService(options)
+        port, site = service.getServiceNamed("site").args
+        api = site.resource.getStaticEntity("api")
+        # Create an XML-RPC request with valid credentials.
+        request = DummyRequest([])
+        request.method = "POST"
+        request.content = StringIO(xmlrpclib.dumps((), "get_nodes"))
+        request.prepath = ["api"]
+        request.headers["authorization"] = (
+            "Basic %s" % base64.b64encode("orange:goblin"))
+        # The credential check and resource rendering is deferred, but
+        # NOT_DONE_YET is returned from render(). The request signals
+        # completion with the aid of notifyFinish().
+        finished = request.notifyFinish()
+        self.assertEqual(NOT_DONE_YET, api.render(request))
+        yield finished
+        # A valid XML-RPC response has been written.
+        self.assertEqual(None, request.responseCode)  # None implies 200.
+        xmlrpclib.loads(b"".join(request.written))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
