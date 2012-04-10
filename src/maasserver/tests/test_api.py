@@ -96,6 +96,10 @@ class TestModuleHelpers(TestCase):
 
 
 class EnlistmentAPITest(APIv10TestMixin):
+    # This is a mixin containing enlistement tests.  We will run this for:
+    # an anonymous user, a simple (non-admin) user and an admin user.
+    # XXX: rvb 2012-04-10 bug=978035: It would be better to use
+    # testscenarios for this.
 
     def test_POST_new_creates_node(self):
         # The API allows a Node to be created.
@@ -283,9 +287,10 @@ class EnlistmentAPITest(APIv10TestMixin):
 
 
 class NonAdminEnlistmentAPITest(EnlistmentAPITest):
+    # This is a mixin containing enlistement tests for non-admin users.
 
-    def test_POST_new_anonymous_creates_node_in_declared_state(self):
-        # Upon anonymous enlistment, a node goes into the Declared
+    def test_POST_non_admin_creates_node_in_declared_state(self):
+        # Upon non-admin enlistment, a node goes into the Declared
         # state.  Deliberate approval is required before we start
         # reinstalling the system, wiping its disks etc.
         response = self.client.post(
@@ -305,7 +310,8 @@ class NonAdminEnlistmentAPITest(EnlistmentAPITest):
 
 
 class AnonymousEnlistmentAPITest(NonAdminEnlistmentAPITest, TestCase):
-    # Nodes can be enlisted anonymously.
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin and adds enlistement tests specific to anonymous users.
 
     def test_POST_accept_not_allowed(self):
         # An anonymous user is not allowed to accept an anonymously
@@ -339,10 +345,11 @@ class AnonymousEnlistmentAPITest(NonAdminEnlistmentAPITest, TestCase):
 
 class SimpleUserLoggedInEnlistmentAPITest(NonAdminEnlistmentAPITest,
                                           LoggedInTestCase):
-    # Nodes can be enlisted when logged-in.
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin plus enlistement tests specific to simple (non-admin) users.
 
     def test_POST_accept_not_allowed(self):
-        # An anonymous user is not allowed to accept an anonymously
+        # An non-admin user is not allowed to accept an anonymously
         # enlisted node.  That would defeat the whole purpose of holding
         # those nodes for approval.
         node_id = factory.make_node(status=NODE_STATUS.DECLARED).system_id
@@ -375,7 +382,8 @@ class SimpleUserLoggedInEnlistmentAPITest(NonAdminEnlistmentAPITest,
 
 class AdminLoggedInEnlistmentAPITest(EnlistmentAPITest,
                                      AdminLoggedInTestCase):
-    # Nodes can be enlisted when logged-in as an admin user.
+    # This is an actual test case that uses the EnlistmentAPITest mixin
+    # and adds enlistement tests specific to admin users.
 
     def test_POST_admin_creates_node_in_ready_state(self):
         # When an admin user enlists a node, it goes into the Ready state.
