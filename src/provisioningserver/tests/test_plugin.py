@@ -17,6 +17,7 @@ import os
 
 from fixtures import TempDir
 import formencode
+from maastesting.factory import factory
 from provisioningserver.plugin import (
     Config,
     Options,
@@ -144,7 +145,7 @@ class TestProvisioningServiceMaker(TestCase):
         self.tempdir = self.useFixture(TempDir()).path
 
     def write_config(self, config):
-        config.setdefault("password", "evile")
+        config.setdefault("password", factory.getRandomString())
         config_filename = os.path.join(self.tempdir, "config.yaml")
         with open(config_filename, "wb") as stream:
             yaml.dump(config, stream)
