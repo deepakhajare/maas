@@ -981,7 +981,7 @@ class SSHKeyTest(TestCase):
             ValidationError, key2.full_clean)
 
     def test_sshkey_user_and_key_unique_together_db_level(self):
-        key_string = get_data('data/test_rsa0.pub')
+        key_string = get_data('data/test_rsa.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
         key.save()
