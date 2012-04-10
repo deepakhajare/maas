@@ -34,10 +34,7 @@ from provisioningserver.api import (
 from provisioningserver.cobblerclient import CobblerSystem
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.interfaces import IProvisioningAPI
-from provisioningserver.testing.factory import (
-    fake_node_metadata,
-    ProvisioningFakeFactory,
-    )
+from provisioningserver.testing.factory import ProvisioningFakeFactory
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from provisioningserver.testing.realcobbler import RealCobbler
@@ -69,8 +66,12 @@ class TestFunctions(TestCase):
             "hostname": "dystopia",
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
+                "eth1": {"mac_address": "  "},
+                "eth2": {"mac_address": ""},
+                "eth3": {"mac_address": None},
                 },
             "power_type": "virsh",
+            "netboot_enabled": False,
             "ju": "nk",
             }
         expected = {
@@ -78,6 +79,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "dystopia",
             "mac_addresses": ["12:34:56:78:9a:bc"],
+            "netboot_enabled": False,
             "power_type": "virsh",
             }
         observed = cobbler_to_papi_node(data)
@@ -89,6 +91,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "power_type": "ether_wake",
+            "netboot_enabled": True,
             "ju": "nk",
             }
         expected = {
@@ -96,6 +99,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "mac_addresses": [],
+            "netboot_enabled": True,
             "power_type": "ether_wake",
             }
         observed = cobbler_to_papi_node(data)
@@ -257,6 +261,31 @@ class TestInterfaceDeltas(TestCase):
             current_interfaces, hostname, mac_addresses)
         self.assertItemsEqual(expected, observed)
 
+    def test_gen_cobbler_interface_deltas_remove_all_macs(self):
+        # Removing all MAC addresses results in a delta to remove all but the
+        # first interface. The first interface is instead deconfigured; this
+        # is necessary to satisfy the Cobbler data model.
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        hostname = "empiricism"
+        mac_addresses = []
+        expected = [
+            {"interface": "eth0",
+             "mac_address": "",
+             "dns_name": ""},
+            {"interface": "eth1",
+             "delete_interface": True},
+            ]
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
+
 
 class ProvisioningAPITests(ProvisioningFakeFactory):
     """Tests for `provisioningserver.api.ProvisioningAPI`.
@@ -392,6 +421,30 @@ class ProvisioningAPITests(ProvisioningFakeFactory):
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(
             [mac_address2], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
+    def test_modify_nodes_set_netboot_enabled(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        yield papi.modify_nodes({node_name: {"netboot_enabled": False}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertFalse(values[node_name]["netboot_enabled"])
+        yield papi.modify_nodes({node_name: {"netboot_enabled": True}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertTrue(values[node_name]["netboot_enabled"])
+
+    @inlineCallbacks
+    def test_modify_nodes_remove_all_mac_addresses(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        mac_address = factory.getRandomMACAddress()
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": [mac_address]}})
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": []}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual(
+            [], values[node_name]["mac_addresses"])
 
     @inlineCallbacks
     def test_delete_distros_by_name(self):
@@ -545,6 +598,15 @@ class ProvisioningAPITestsWithCobbler:
         self.assertItemsEqual(
             dict(zip(power_types, power_types)), cobbler_power_types)
 
+    @inlineCallbacks
+    def test_add_node_provides_preseed(self):
+        papi = self.get_provisioning_api()
+        preseed_data = factory.getRandomString()
+        node_name = yield self.add_node(papi, preseed_data=preseed_data)
+        attrs = yield CobblerSystem(papi.session, node_name).get_values()
+        self.assertEqual(
+            preseed_data, b64decode(attrs['ks_meta']['MAAS_PRESEED']))
+
 
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
@@ -568,17 +630,6 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
     def get_provisioning_api(self):
         """Return a real ProvisioningAPI, but using a fake Cobbler session."""
         return ProvisioningAPI(make_fake_cobbler_session())
-
-    @inlineCallbacks
-    def test_add_node_preseeds_metadata(self):
-        papi = self.get_provisioning_api()
-        metadata = fake_node_metadata()
-        node_name = yield self.add_node(papi, metadata=metadata)
-        attrs = yield CobblerSystem(papi.session, node_name).get_values()
-        preseed = attrs['ks_meta']['MAAS_PRESEED']
-        preseed = b64decode(preseed)
-        self.assertIn(metadata['maas-metadata-url'], preseed)
-        self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
 class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,

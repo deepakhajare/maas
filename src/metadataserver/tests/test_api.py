@@ -13,9 +13,14 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
-from textwrap import dedent
 
 from maasserver.exceptions import Unauthorized
+from maasserver.models import (
+    NODE_STATUS,
+    SSHKey,
+    )
+from maasserver.provisioning import get_provisioning_api_proxy
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maastesting.testcase import TestCase
@@ -32,6 +37,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.testing.factory import ProvisioningFakeFactory
 
 
 class TestHelpers(TestCase):
@@ -77,7 +83,7 @@ class TestHelpers(TestCase):
             get_node_for_request, self.fake_request())
 
 
-class TestViews(TestCase):
+class TestViews(TestCase, ProvisioningFakeFactory):
     """Tests for the API views."""
 
     def make_node_client(self, node=None):
@@ -86,6 +92,19 @@ class TestViews(TestCase):
             node = factory.make_node()
         token = NodeKey.objects.get_token_for_node(node)
         return OAuthAuthenticatedClient(get_node_init_user(), token)
+
+    def make_url(self, path):
+        """Create an absolute URL for `path` on the metadata API.
+
+        :param path: Path within the metadata API to access.  Should start
+            with a slash.
+        :return: An absolute URL for the given path within the metadata
+            service tree.
+        """
+        assert path.startswith('/'), "Give absolute metadata API path."
+        # Root of the metadata API service.
+        metadata_root = "/metadata"
+        return metadata_root + path
 
     def get(self, path, client=None):
         """GET a resource from the metadata API.
@@ -97,12 +116,9 @@ class TestViews(TestCase):
         :return: A response to the GET request.
         :rtype: django.http.HttpResponse
         """
-        assert path.startswith('/'), "Give absolute metadata API path."
         if client is None:
             client = self.client
-        # Root of the metadata API service.
-        metadata_root = "/metadata"
-        return client.get(metadata_root + path)
+        return client.get(self.make_url(path))
 
     def test_no_anonymous_access(self):
         self.assertEqual(httplib.UNAUTHORIZED, self.get('/').status_code)
@@ -137,7 +153,7 @@ class TestViews(TestCase):
 
     def test_meta_data_view_lists_fields(self):
         # Some fields only are returned if there is data related to them.
-        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        user, _ = factory.make_user_with_keys(n_keys=2, username='my-user')
         node = factory.make_node(owner=user)
         client = self.make_node_client(node=node)
         response = self.get('/latest/meta-data/', client)
@@ -200,7 +216,7 @@ class TestViews(TestCase):
             'public-keys', response.content.decode('ascii').split('\n'))
 
     def test_public_keys_listed_for_node_with_public_keys(self):
-        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        user, _ = factory.make_user_with_keys(n_keys=2, username='my-user')
         node = factory.make_node(owner=user)
         response = self.get(
             '/latest/meta-data/', self.make_node_client(node=node))
@@ -213,13 +229,143 @@ class TestViews(TestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_public_keys_for_node_returns_list_of_keys(self):
-        user = factory.make_user_with_keys(n_keys=2, username='my-user')
+        user, _ = factory.make_user_with_keys(n_keys=2, username='my-user')
         node = factory.make_node(owner=user)
         response = self.get(
             '/latest/meta-data/public-keys', self.make_node_client(node=node))
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEquals(dedent("""\
-            ssh-rsa KEY my-user-key-0
-            ssh-rsa KEY my-user-key-1"""),
+        keys = SSHKey.objects.filter(user=user).values_list('key', flat=True)
+        expected_response = '\n'.join(keys)
+        self.assertItemsEqual(
+            expected_response,
             response.content.decode('ascii'))
         self.assertIn('text/plain', response['Content-Type'])
+
+    def test_other_user_than_node_cannot_signal_commissioning_result(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = OAuthAuthenticatedClient(factory.make_user())
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def test_signaling_commissioning_result_does_not_affect_other_node(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(
+            node=factory.make_node(status=NODE_STATUS.COMMISSIONING))
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def test_signaling_requires_status_code(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(self.make_url('/latest/'), {'op': 'signal'})
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
+    def test_signaling_rejects_unknown_status_code(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'),
+            {'op': 'signal', 'status': factory.getRandomString()})
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+
+    def test_signaling_refuses_if_node_in_unexpected_state(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node wasn't commissioning (status is Declared)",
+            ),
+            (response.status_code, response.content))
+
+    def test_signaling_accepts_WORKING_status(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'WORKING'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def test_signaling_commissioning_success_makes_node_Ready(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_success_restores_node_profile(self):
+        papi = get_provisioning_api_proxy()
+        commissioning_profile = self.add_profile(papi)
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        original_profile = node_data['profile']
+        node.status = NODE_STATUS.COMMISSIONING
+        node.save()
+        papi.modify_nodes({node.system_id: {'profile': commissioning_profile}})
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
+        self.assertEqual(original_profile, node_data['profile'])
+
+    def test_signaling_commissioning_success_is_idempotent(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        url = self.make_url('/latest/')
+        success_params = {'op': 'signal', 'status': 'OK'}
+        client.post(url, success_params)
+        response = client.post(url, success_params)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_makes_node_Failed_Tests(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'FAILED'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_is_idempotent(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        url = self.make_url('/latest/')
+        failure_params = {'op': 'signal', 'status': 'FAILED'}
+        client.post(url, failure_params)
+        response = client.post(url, failure_params)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, reload_object(node).status)
+
+    def test_signaling_commissioning_failure_sets_node_error(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        error_text = factory.getRandomString()
+        response = client.post(
+            self.make_url('/latest/'),
+            {
+                'op': 'signal',
+                'status': 'FAILED',
+                'error': error_text,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(error_text, reload_object(node).error)
+
+    def test_signaling_no_error_clears_existing_error(self):
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, error=factory.getRandomString())
+        client = self.make_node_client(node=node)
+        response = client.post(
+            self.make_url('/latest/'), {'op': 'signal', 'status': 'OK'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual('', reload_object(node).error)

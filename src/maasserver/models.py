@@ -40,6 +40,7 @@ import os
 import re
 from socket import gethostname
 from string import whitespace
+from textwrap import dedent
 import time
 from uuid import uuid1
 
@@ -90,8 +91,9 @@ logger = getLogger('maasserver')
 
 
 class CommonInfo(models.Model):
-    """A base model which records the creation date and the last modification
-    date.
+    """A base model which:
+    - calls full_clean before saving the model (by default).
+    - records the creation date and the last modification date.
 
     :ivar created: The creation date.
     :ivar updated: The last modification date.
@@ -103,11 +105,13 @@ class CommonInfo(models.Model):
     class Meta:
         abstract = True
 
-    def save(self, *args, **kwargs):
+    def save(self, skip_check=False, *args, **kwargs):
         if not self.id:
             self.created = datetime.date.today()
         self.updated = datetime.datetime.today()
-        super(CommonInfo, self).save(*args, **kwargs)
+        if not skip_check:
+            self.full_clean()
+        return super(CommonInfo, self).save(*args, **kwargs)
 
 
 def generate_node_system_id():
@@ -428,16 +432,10 @@ class NodeManager(models.Manager):
         # TODO: File structure needs sorting out to avoid this circular
         # import dance.
         from metadataserver.models import NodeUserData
-        from maasserver.provisioning import select_profile_for_node
         nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
-        profiles = {}
         for node in nodes:
             NodeUserData.objects.set_user_data(node, user_data)
-            profiles[node.system_id] = {
-                'profile': select_profile_for_node(node)}
-        papi = get_papi()
-        papi.modify_nodes(profiles)
-        papi.start_nodes([node.system_id for node in nodes])
+        get_papi().start_nodes([node.system_id for node in nodes])
         return nodes
 
 
@@ -460,6 +458,15 @@ class NODE_PERMISSION:
     VIEW = 'view_node'
     EDIT = 'edit_node'
     ADMIN = 'admin_node'
+
+
+# For the commissioning process, a node receives a minimal script as its
+# user_data through the metadata service.  This is the content of that
+# script.
+commissioning_user_data = dedent("""
+    #!/bin/sh
+    echo "Hello world"
+    """.lstrip('\n')).encode('ascii')
 
 
 class Node(CommonInfo):
@@ -511,6 +518,8 @@ class Node(CommonInfo):
     token = models.ForeignKey(
         Token, db_index=True, null=True, editable=False, unique=False)
 
+    error = models.CharField(max_length=255, blank=True, default='')
+
     objects = NodeManager()
 
     def __unicode__(self):
@@ -539,11 +548,6 @@ class Node(CommonInfo):
     def clean(self, *args, **kwargs):
         super(Node, self).clean(*args, **kwargs)
         self.clean_status()
-
-    def save(self, skip_check=False, *args, **kwargs):
-        if not skip_check:
-            self.full_clean()
-        return super(Node, self).save(*args, **kwargs)
 
     def display_status(self):
         """Return status text as displayed to the user.
@@ -574,7 +578,6 @@ class Node(CommonInfo):
         """
 
         mac = MACAddress(mac_address=mac_address, node=self)
-        mac.full_clean()
         mac.save()
         return mac
 
@@ -624,7 +627,7 @@ class Node(CommonInfo):
         self.save()
         # The commissioning profile is handled in start_nodes.
         Node.objects.start_nodes(
-            [self.system_id], user, user_data=None)
+            [self.system_id], user, user_data=commissioning_user_data)
 
     def delete(self):
         # Delete the related mac addresses first.
@@ -922,15 +925,22 @@ class SSHKey(CommonInfo):
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
     """
-    class Meta:
-        verbose_name_plural = "SSH keys"
-
     objects = SSHKeyManager()
 
     user = models.ForeignKey(User, null=False, editable=False)
 
     key = models.TextField(
         null=False, editable=True, validators=[validate_ssh_public_key])
+
+    class Meta:
+        verbose_name_plural = "SSH keys"
+        unique_together = ('user', 'key')
+
+    def unique_error_message(self, model_class, unique_check):
+        if unique_check == ('user', 'key'):
+                return "This key has already been added for this user."
+        return super(
+            SSHKey, self).unique_error_message(model_class, unique_check)
 
     def __unicode__(self):
         return self.key

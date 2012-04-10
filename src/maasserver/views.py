@@ -47,6 +47,7 @@ from django.contrib.auth.views import (
     login as dj_login,
     logout as dj_logout,
     )
+from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
@@ -90,6 +91,7 @@ from maasserver.messages import messaging
 from maasserver.models import (
     Node,
     NODE_PERMISSION,
+    NODE_STATUS,
     SSHKey,
     UserProfile,
     )
@@ -122,7 +124,7 @@ class NodeView(UpdateView):
         return node
 
     def get_form_class(self):
-        return get_action_form(self.request.user)
+        return get_action_form(self.request.user, self.request)
 
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
@@ -169,6 +171,8 @@ class NodeDelete(DeleteView):
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=self.request.user,
             perm=NODE_PERMISSION.ADMIN)
+        if node.status == NODE_STATUS.ALLOCATED:
+            raise PermissionDenied()
         return node
 
     def get_next_url(self):

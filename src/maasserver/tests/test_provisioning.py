@@ -12,7 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from abc import ABCMeta
-from urlparse import parse_qs
+from base64 import b64decode
 from xmlrpclib import Fault
 
 from django.conf import settings
@@ -24,9 +24,12 @@ from maasserver.models import (
     Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
+    NODE_STATUS_CHOICES,
     )
 from maasserver.provisioning import (
-    compose_metadata,
+    compose_cloud_init_preseed,
+    compose_commissioning_preseed,
+    compose_preseed,
     get_metadata_server_url,
     name_arch_in_cobbler_style,
     present_user_friendly_fault,
@@ -43,8 +46,131 @@ from provisioningserver.enum import (
     )
 from provisioningserver.testing.factory import ProvisioningFakeFactory
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from testtools.matchers import (
+    KeysEqual,
+    StartsWith,
+    )
 from testtools.testcase import ExpectedException
 from twisted.internet.defer import inlineCallbacks
+import yaml
+
+
+class TestHelpers(TestCase):
+    """Tests for helpers that don't actually need any kind of pserv."""
+
+    def test_metadata_server_url_refers_to_own_metadata_service(self):
+        self.assertEqual(
+            "%s/metadata/"
+            % Config.objects.get_config('maas_url').rstrip('/'),
+            get_metadata_server_url())
+
+    def test_metadata_server_url_includes_script_name(self):
+        self.patch(settings, "FORCE_SCRIPT_NAME", "/MAAS")
+        self.assertEqual(
+            "%s/MAAS/metadata/"
+            % Config.objects.get_config('maas_url').rstrip('/'),
+            get_metadata_server_url())
+
+    def test_compose_preseed_for_commissioning_node_produces_yaml(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        self.assertIn('datasource', preseed)
+        self.assertIn('MAAS', preseed['datasource'])
+        self.assertThat(
+            preseed['datasource']['MAAS'],
+            KeysEqual(
+                'metadata_url', 'consumer_key', 'token_key', 'token_secret'))
+
+    def test_compose_preseed_for_commissioning_node_has_header(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        self.assertThat(compose_preseed(node), StartsWith("#cloud-config\n"))
+
+    def test_compose_preseed_includes_metadata_url(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        self.assertIn(get_metadata_server_url(), compose_preseed(node))
+
+    def test_compose_preseed_for_commissioning_includes_metadata_url(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        self.assertEqual(
+            get_metadata_server_url(),
+            preseed['datasource']['MAAS']['metadata_url'])
+
+    def test_compose_preseed_includes_node_oauth_token(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        preseed = compose_preseed(node)
+        token = NodeKey.objects.get_token_for_node(node)
+        self.assertIn('oauth_consumer_key=%s' % token.consumer.key, preseed)
+        self.assertIn('oauth_token_key=%s' % token.key, preseed)
+        self.assertIn('oauth_token_secret=%s' % token.secret, preseed)
+
+    def test_compose_preseed_for_commissioning_includes_auth_token(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        preseed = yaml.load(compose_preseed(node))
+        maas_dict = preseed['datasource']['MAAS']
+        token = NodeKey.objects.get_token_for_node(node)
+        self.assertEqual(token.consumer.key, maas_dict['consumer_key'])
+        self.assertEqual(token.key, maas_dict['token_key'])
+        self.assertEqual(token.secret, maas_dict['token_secret'])
+
+    def test_present_user_friendly_fault_describes_pserv_fault(self):
+        self.assertIn(
+            "provisioning server",
+            present_user_friendly_fault(Fault(8002, 'error')).message)
+
+    def test_present_user_friendly_fault_covers_all_pserv_faults(self):
+        all_pserv_faults = set(map_enum(PSERV_FAULT).values())
+        presentable_pserv_faults = set(PRESENTATIONS.keys())
+        self.assertItemsEqual([], all_pserv_faults - presentable_pserv_faults)
+
+    def test_present_user_friendly_fault_rerepresents_all_pserv_faults(self):
+        fault_string = factory.getRandomString()
+        for fault_code in map_enum(PSERV_FAULT).values():
+            original_fault = Fault(fault_code, fault_string)
+            new_fault = present_user_friendly_fault(original_fault)
+            self.assertNotEqual(fault_string, new_fault.message)
+
+    def test_present_user_friendly_fault_describes_cobbler_fault(self):
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("unable to reach", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_user_friendly_fault_describes_cobbler_auth_fail(self):
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("failed to authenticate", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_user_friendly_fault_describes_cobbler_auth_error(self):
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("authentication token", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_user_friendly_fault_describes_missing_profile(self):
+        profile = factory.getRandomString()
+        friendly_fault = present_user_friendly_fault(
+            Fault(
+                PSERV_FAULT.NO_SUCH_PROFILE,
+                "invalid profile name: %s" % profile))
+        friendly_text = friendly_fault.message
+        self.assertIn(profile, friendly_text)
+        self.assertIn("maas-import-isos", friendly_text)
+
+    def test_present_user_friendly_fault_describes_generic_cobbler_fail(self):
+        error_text = factory.getRandomString()
+        friendly_fault = present_user_friendly_fault(
+            Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, error_text))
+        friendly_text = friendly_fault.message
+        self.assertIn("Cobbler", friendly_text)
+        self.assertIn(error_text, friendly_text)
+
+    def test_present_user_friendly_fault_returns_None_for_other_fault(self):
+        self.assertIsNone(present_user_friendly_fault(Fault(9999, "!!!")))
 
 
 class ProvisioningTests:
@@ -52,7 +178,7 @@ class ProvisioningTests:
 
     __metaclass__ = ABCMeta
 
-    # Must be set to the provisioning server API proxy to test against.
+    # This must be set to the provisioning server API proxy to test against.
     papi = None
 
     def make_node_without_saving(self, arch=ARCHITECTURE.i386):
@@ -216,36 +342,6 @@ class ProvisioningTests:
         node = self.papi.get_nodes_by_name(["frank"])["frank"]
         self.assertEqual([], node["mac_addresses"])
 
-    def test_metadata_server_url_refers_to_own_metadata_service(self):
-        self.assertEqual(
-            "%s/metadata/"
-            % Config.objects.get_config('maas_url').rstrip('/'),
-            get_metadata_server_url())
-
-    def test_metadata_server_url_includes_script_name(self):
-        self.patch(settings, "FORCE_SCRIPT_NAME", "/MAAS")
-        self.assertEqual(
-            "%s/MAAS/metadata/"
-            % Config.objects.get_config('maas_url').rstrip('/'),
-            get_metadata_server_url())
-
-    def test_compose_metadata_includes_metadata_url(self):
-        node = factory.make_node()
-        self.assertEqual(
-            get_metadata_server_url(),
-            compose_metadata(node)['maas-metadata-url'])
-
-    def test_compose_metadata_includes_node_oauth_token(self):
-        node = factory.make_node()
-        metadata = compose_metadata(node)
-        token = NodeKey.objects.get_token_for_node(node)
-        self.assertEqual({
-            'oauth_consumer_key': [token.consumer.key],
-            'oauth_token_key': [token.key],
-            'oauth_token_secret': [token.secret],
-            },
-            parse_qs(metadata['maas-metadata-credentials']))
-
     def test_papi_xmlrpc_faults_are_reported_helpfully(self):
 
         def raise_fault(*args, **kwargs):
@@ -254,7 +350,7 @@ class ProvisioningTests:
         self.papi.patch('add_node', raise_fault)
 
         with ExpectedException(MAASAPIException, ".*provisioning server.*"):
-            self.papi.add_node('node', 'profile', 'power', {})
+            self.papi.add_node('node', 'profile', 'power', '')
 
     def test_provisioning_errors_are_reported_helpfully(self):
 
@@ -264,66 +360,7 @@ class ProvisioningTests:
         self.papi.patch('add_node', raise_provisioning_error)
 
         with ExpectedException(MAASAPIException, ".*Cobbler.*"):
-            self.papi.add_node('node', 'profile', 'power', {})
-
-    def test_present_user_friendly_fault_describes_pserv_fault(self):
-        self.assertIn(
-            "provisioning server",
-            present_user_friendly_fault(Fault(8002, 'error')).message)
-
-    def test_present_user_friendly_fault_covers_all_pserv_faults(self):
-        all_pserv_faults = set(map_enum(PSERV_FAULT).values())
-        presentable_pserv_faults = set(PRESENTATIONS.keys())
-        self.assertItemsEqual([], all_pserv_faults - presentable_pserv_faults)
-
-    def test_present_user_friendly_fault_rerepresents_all_pserv_faults(self):
-        fault_string = factory.getRandomString()
-        for fault_code in map_enum(PSERV_FAULT).values():
-            original_fault = Fault(fault_code, fault_string)
-            new_fault = present_user_friendly_fault(original_fault)
-            self.assertNotEqual(fault_string, new_fault.message)
-
-    def test_present_user_friendly_fault_describes_cobbler_fault(self):
-        friendly_fault = present_user_friendly_fault(
-            Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString()))
-        friendly_text = friendly_fault.message
-        self.assertIn("unable to reach", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
-
-    def test_present_user_friendly_fault_describes_cobbler_auth_fail(self):
-        friendly_fault = present_user_friendly_fault(
-            Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString()))
-        friendly_text = friendly_fault.message
-        self.assertIn("failed to authenticate", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
-
-    def test_present_user_friendly_fault_describes_cobbler_auth_error(self):
-        friendly_fault = present_user_friendly_fault(
-            Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString()))
-        friendly_text = friendly_fault.message
-        self.assertIn("authentication token", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
-
-    def test_present_user_friendly_fault_describes_missing_profile(self):
-        profile = factory.getRandomString()
-        friendly_fault = present_user_friendly_fault(
-            Fault(
-                PSERV_FAULT.NO_SUCH_PROFILE,
-                "invalid profile name: %s" % profile))
-        friendly_text = friendly_fault.message
-        self.assertIn(profile, friendly_text)
-        self.assertIn("maas-import-isos", friendly_text)
-
-    def test_present_user_friendly_fault_describes_generic_cobbler_fail(self):
-        error_text = factory.getRandomString()
-        friendly_fault = present_user_friendly_fault(
-            Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, error_text))
-        friendly_text = friendly_fault.message
-        self.assertIn("Cobbler", friendly_text)
-        self.assertIn(error_text, friendly_text)
-
-    def test_present_user_friendly_fault_returns_None_for_other_fault(self):
-        self.assertIsNone(present_user_friendly_fault(Fault(9999, "!!!")))
+            self.papi.add_node('node', 'profile', 'power', '')
 
 
 class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
@@ -335,3 +372,59 @@ class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
     def setUp(self):
         super(TestProvisioningWithFake, self).setUp()
         self.papi = provisioning.get_provisioning_api_proxy()
+
+    def test_provision_post_save_Node_set_netboot_enabled(self):
+        # When a node is under MAAS's control - i.e. not allocated and not
+        # retired - it is always configured for netbooting. When the node is
+        # allocated, netbooting is left alone; its state may change in
+        # response to interactions between the node and the provisioning
+        # server and MAAS ought to leave that alone. When the node is retired
+        # netbooting is disabled.
+        expected = {
+            NODE_STATUS.DECLARED: True,
+            NODE_STATUS.COMMISSIONING: True,
+            NODE_STATUS.FAILED_TESTS: True,
+            NODE_STATUS.MISSING: True,
+            NODE_STATUS.READY: True,
+            NODE_STATUS.RESERVED: True,
+            NODE_STATUS.ALLOCATED: None,  # No setting.
+            NODE_STATUS.RETIRED: False,
+            }
+        nodes = {
+            status: factory.make_node(status=status)
+            for status, title in NODE_STATUS_CHOICES
+            }
+        pserv_nodes = {
+            status: node.system_id
+            for status, node in nodes.items()
+            }
+        observed = {
+            status: self.papi.nodes[pserv_node].get("netboot_enabled")
+            for status, pserv_node in pserv_nodes.items()
+            }
+        self.assertEqual(expected, observed)
+
+    def test_commissioning_node_gets_commissioning_preseed(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        token = NodeKey.objects.get_token_for_node(node)
+        node.start_commissioning(factory.make_admin())
+        preseed = self.papi.nodes[node.system_id]['ks_meta']['MAAS_PRESEED']
+        self.assertEqual(
+            compose_commissioning_preseed(token), b64decode(preseed))
+
+    def test_non_commissioning_node_gets_cloud_init_preseed(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        token = NodeKey.objects.get_token_for_node(node)
+        preseed = self.papi.nodes[node.system_id]['ks_meta']['MAAS_PRESEED']
+        self.assertEqual(
+            compose_cloud_init_preseed(token), b64decode(preseed))
+
+    def test_node_gets_cloud_init_preseed_after_commissioning(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        token = NodeKey.objects.get_token_for_node(node)
+        node.start_commissioning(factory.make_admin())
+        node.status = NODE_STATUS.READY
+        node.save()
+        preseed = self.papi.nodes[node.system_id]['ks_meta']['MAAS_PRESEED']
+        self.assertEqual(
+            compose_cloud_init_preseed(token), b64decode(preseed))
