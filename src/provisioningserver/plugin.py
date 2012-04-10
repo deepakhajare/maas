@@ -89,6 +89,7 @@ class Config(Schema):
 
     if_key_missing = None
 
+    interface = String(if_empty=b"", if_missing=b"127.0.0.1")
     port = Int(min=1, max=65535, if_missing=5241)
     logfile = String(if_empty=b"pserv.log", if_missing=b"pserv.log")
     oops = ConfigOops
@@ -174,7 +175,8 @@ class ProvisioningServiceMaker(object):
         site_root.putChild("api", papi_xmlrpc)
         site = Site(site_root)
         site_port = config["port"]
-        site_service = TCPServer(site_port, site)
+        site_interface = config["interface"]
+        site_service = TCPServer(site_port, site, interface=site_interface)
         site_service.setName("site")
         site_service.setServiceParent(services)
 
