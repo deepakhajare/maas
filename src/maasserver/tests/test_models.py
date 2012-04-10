@@ -981,13 +981,13 @@ class SSHKeyTest(TestCase):
             ValidationError, key2.full_clean)
 
     def test_sshkey_user_and_key_unique_together_db_level(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
         key.save()
         key2 = SSHKey(key=key_string, user=user)
         self.assertRaises(
-            IntegrityError, key2.save)
+            IntegrityError, key2.save, skip_check=True)
 
     def test_sshkey_same_key_can_be_used_by_different_users(self):
         key_string = get_data('data/test_rsa0.pub')
