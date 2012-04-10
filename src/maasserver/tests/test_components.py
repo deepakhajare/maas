@@ -12,102 +12,120 @@ __metaclass__ = type
 __all__ = []
 
 
-import random
-
 from maasserver import components
 from maasserver.components import (
     discard_persistent_error,
     get_persistent_errors,
-    PERSISTENT_COMPONENTS_ERRORS,
-    persistent_error_sensor,
+    persistent_errors,
     register_persistent_error,
     )
+from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
 
-def get_random_error():
-    return random.choice(PERSISTENT_COMPONENTS_ERRORS.keys())
+def simple_error_display(error):
+    return str(error)
 
 
 class PersistentErrorsUtilitiesTest(TestCase):
 
     def setUp(self):
         super(PersistentErrorsUtilitiesTest, self).setUp()
-        self._PERSISTENT_ERRORS = set()
+        self._PERSISTENT_ERRORS = {}
         self.patch(components, '_PERSISTENT_ERRORS', self._PERSISTENT_ERRORS)
+        self.patch(components, '_display_fault', simple_error_display)
 
     def test_register_persistent_error_registers_error(self):
-        error = get_random_error()
-        register_persistent_error(error)
-        self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
+        error = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
+        self.assertItemsEqual(
+            {component: simple_error_display(error)}, self._PERSISTENT_ERRORS)
 
-    def test_register_persistent_error_does_not_register_error_twice(self):
-        error = get_random_error()
-        register_persistent_error(error)
-        register_persistent_error(error)
-        self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
+    def test_register_persistent_error_stores_last_error(self):
+        error = Exception(factory.getRandomString())
+        error2 = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
+        register_persistent_error(component, error2)
+        self.assertItemsEqual(
+            {component: simple_error_display(error2)}, self._PERSISTENT_ERRORS)
 
     def test_discard_persistent_error_discards_error(self):
-        error = get_random_error()
-        register_persistent_error(error)
-        discard_persistent_error(error)
-        self.assertItemsEqual([], self._PERSISTENT_ERRORS)
+        error = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
+        discard_persistent_error(component)
+        self.assertItemsEqual({}, self._PERSISTENT_ERRORS)
 
     def test_discard_persistent_error_can_be_called_many_times(self):
-        error = get_random_error()
-        register_persistent_error(error)
-        discard_persistent_error(error)
-        discard_persistent_error(error)
-        self.assertItemsEqual([], self._PERSISTENT_ERRORS)
+        error = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
+        discard_persistent_error(component)
+        discard_persistent_error(component)
+        self.assertItemsEqual({}, self._PERSISTENT_ERRORS)
 
     def get_persistent_errors_returns_text_for_error_codes(self):
-        errors = PERSISTENT_COMPONENTS_ERRORS.keys()
-        for error in errors:
-            register_persistent_error(error)
-        error_messages = get_persistent_errors()
-        self.assertEqual(len(errors), len(error_messages))
-        self.assertItemsEqual(
-            [unicode] * len(errors),
-            [type(error_message) for error_message in error_messages])
+        errors, components = [], []
+        for i in range(3):
+            error = Exception(factory.getRandomString())
+            component = factory.getRandomString()
+            register_persistent_error(component, error)
+            errors.append(error)
+            components.append(component)
+        self.assertItemsEqual(errors, get_persistent_errors())
 
     def test_error_sensor_registers_error_if_exception_raised(self):
-        error = get_random_error()
+        error = NotImplementedError(factory.getRandomString())
+        component = factory.getRandomString()
 
-        @persistent_error_sensor(NotImplementedError, error)
+        @persistent_errors(NotImplementedError, component)
         def test_method():
-            raise NotImplementedError
+            raise error
 
         self.assertRaises(NotImplementedError, test_method)
-        self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
+        self.assertItemsEqual(
+            [simple_error_display(error)], get_persistent_errors())
 
     def test_error_sensor_registers_does_not_register_unknown_error(self):
-        error = get_random_error()
+        component = factory.getRandomString()
 
-        @persistent_error_sensor(NotImplementedError, error)
+        @persistent_errors(NotImplementedError, component)
         def test_method():
-            raise ValueError
+            raise ValueError()
 
         self.assertRaises(ValueError, test_method)
-        self.assertItemsEqual([], self._PERSISTENT_ERRORS)
+        self.assertItemsEqual([], get_persistent_errors())
 
     def test_error_sensor_discards_error_if_method_runs_successfully(self):
-        error = get_random_error()
-        register_persistent_error(error)
+        error = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
 
-        @persistent_error_sensor(NotImplementedError, error)
+        @persistent_errors(NotImplementedError, component)
         def test_method():
             pass
 
+        self.assertItemsEqual(
+            [simple_error_display(error)], get_persistent_errors())
         test_method()
-        self.assertItemsEqual([], self._PERSISTENT_ERRORS)
+        self.assertItemsEqual([], get_persistent_errors())
 
     def test_error_sensor_does_not_discard_error_if_unknown_exception(self):
-        error = get_random_error()
-        register_persistent_error(error)
+        error = Exception(factory.getRandomString())
+        component = factory.getRandomString()
+        register_persistent_error(component, error)
 
-        @persistent_error_sensor(ValueError, error)
+        @persistent_errors(NotImplementedError, component)
         def test_method():
-            raise NotImplementedError
+            raise ValueError()
 
-        self.assertRaises(NotImplementedError, test_method)
-        self.assertItemsEqual([error], self._PERSISTENT_ERRORS)
+        self.assertItemsEqual(
+            [simple_error_display(error)], get_persistent_errors())
+        try:
+            test_method()
+        except ValueError:
+            pass
+        self.assertItemsEqual(
+            [simple_error_display(error)], get_persistent_errors())
