@@ -11,9 +11,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import base64
+from base64 import b64encode
 from functools import partial
 from getpass import getuser
+import httplib
 import os
 from StringIO import StringIO
 import xmlrpclib
@@ -214,14 +215,13 @@ class TestProvisioningServiceMaker(TestCase):
         # HTTPAuthSessionWrapper demands credentials from an HTTP request.
         self.assertIsInstance(api, HTTPAuthSessionWrapper)
 
-    @inlineCallbacks
-    def test_makeService_api_accepts_credentials(self):
+    def exercise_api_credentials(self, config_file, username, password):
         """
-        The site service's /api resource accepts a single set of credentials.
+        Create a new service with :class:`ProvisioningServiceMaker` and
+        attempt to access the API with the given credentials.
         """
         options = Options()
-        options["config-file"] = self.write_config(
-            {"username": "orange", "password": "goblin"})
+        options["config-file"] = config_file
         service_maker = ProvisioningServiceMaker("Morecombe", "Wise")
         service = service_maker.makeService(options)
         port, site = service.getServiceNamed("site").args
@@ -232,16 +232,36 @@ class TestProvisioningServiceMaker(TestCase):
         request.content = StringIO(xmlrpclib.dumps((), "get_nodes"))
         request.prepath = ["api"]
         request.headers["authorization"] = (
-            "Basic %s" % base64.b64encode("orange:goblin"))
+            "Basic %s" % b64encode(b"%s:%s" % (username, password)))
         # The credential check and resource rendering is deferred, but
         # NOT_DONE_YET is returned from render(). The request signals
         # completion with the aid of notifyFinish().
         finished = request.notifyFinish()
         self.assertEqual(NOT_DONE_YET, api.render(request))
-        yield finished
+        return finished.addCallback(lambda ignored: request)
+
+    @inlineCallbacks
+    def test_makeService_api_accepts_valid_credentials(self):
+        """
+        The site service's /api resource accepts valid credentials.
+        """
+        config = {"username": "orange", "password": "goblin"}
+        request = yield self.exercise_api_credentials(
+            self.write_config(config), "orange", "goblin")
         # A valid XML-RPC response has been written.
         self.assertEqual(None, request.responseCode)  # None implies 200.
         xmlrpclib.loads(b"".join(request.written))
+
+    @inlineCallbacks
+    def test_makeService_api_rejects_invalid_credentials(self):
+        """
+        The site service's /api resource rejects invalid credentials.
+        """
+        config = {"username": "orange", "password": "goblin"}
+        request = yield self.exercise_api_credentials(
+            self.write_config(config), "abigail", "williams")
+        # The request has not been authorized.
+        self.assertEqual(httplib.UNAUTHORIZED, request.responseCode)
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
