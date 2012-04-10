@@ -108,7 +108,9 @@ class Factory(maastesting.factory.Factory):
         """
         if n_keys > MAX_PUBLIC_KEYS:
             raise RuntimeError(
-                "Cannot create more than %d public keys." % MAX_PUBLIC_KEYS)
+                "Cannot create more than %d public keys.  If you need more: "
+                "add more keys in src/maasserver/tests/data/."
+                % MAX_PUBLIC_KEYS)
         if user is None:
             user = self.make_user(**kwargs)
         keys = []
