@@ -987,7 +987,7 @@ class SSHKeyTest(TestCase):
         key.save()
         key2 = SSHKey(key=key_string, user=user)
         self.assertRaises(
-            IntegrityError, key2.save, skip_check=True)
+            IntegrityError, key2.save)
 
     def test_sshkey_same_key_can_be_used_by_different_users(self):
         key_string = get_data('data/test_rsa0.pub')
