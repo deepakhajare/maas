@@ -157,7 +157,7 @@ class Config(Schema):
     @classmethod
     def parse(cls, stream):
         """Load a YAML configuration from `stream` and validate."""
-        return cls().to_python(yaml.load(stream))
+        return cls.to_python(yaml.load(stream))
 
     @classmethod
     def load(cls, filename):
