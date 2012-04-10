@@ -183,6 +183,17 @@ class ProvisioningServiceMaker(object):
         self.tapname = name
         self.description = description
 
+    def _makeProvisioningAPI(self, config, cobbler_session):
+        """Construct an `IResource` for the Provisioning API."""
+        papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
+        papi_realm = ProvisioningRealm(papi_xmlrpc)
+        papi_checker = SingleUsernamePasswordChecker(
+            config["username"], config["password"])
+        papi_portal = Portal(papi_realm, [papi_checker])
+        papi_creds = BasicCredentialFactory(b"MAAS Provisioning API")
+        papi_root = HTTPAuthSessionWrapper(papi_portal, [papi_creds])
+        return papi_root
+
     def makeService(self, options):
         """Construct a service."""
         services = MultiService()
@@ -225,14 +236,8 @@ class ProvisioningServiceMaker(object):
         cobbler_session = CobblerSession(
             cobbler_config["url"], cobbler_config["username"],
             cobbler_config["password"])
-        papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
 
-        papi_realm = ProvisioningRealm(papi_xmlrpc)
-        papi_checker = SingleUsernamePasswordChecker(
-            config["username"], config["password"])
-        papi_portal = Portal(papi_realm, [papi_checker])
-        papi_creds = BasicCredentialFactory(b"MAAS Provisioning API")
-        papi_root = HTTPAuthSessionWrapper(papi_portal, [papi_creds])
+        papi_root = self._makeProvisioningAPI(config, cobbler_session)
 
         site_root = Resource()
         site_root.putChild("api", papi_root)
