@@ -8,8 +8,7 @@
 
 ## The credentials which the Provisioning API will require.
 #
-# username:
-username: "test"
+# username: <current user>
 # password:
 password: "test"
 

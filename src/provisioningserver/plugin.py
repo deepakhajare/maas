@@ -146,7 +146,7 @@ class Config(Schema):
     if_key_missing = None
 
     port = Int(min=1, max=65535, if_missing=5241)
-    username = String(not_empty=True)
+    username = String(not_empty=True, if_missing=getuser())
     password = String(not_empty=True)
     logfile = String(if_empty=b"pserv.log", if_missing=b"pserv.log")
     oops = ConfigOops
