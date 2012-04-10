@@ -203,6 +203,7 @@ class TestProvisioningServiceMaker(TestCase):
         port, site = site_service.args
         self.assertIn("api", site.resource.listStaticNames())
         api = site.resource.getStaticEntity("api")
+        # HTTPAuthSessionWrapper demands credentials from an HTTP request.
         self.assertIsInstance(api, HTTPAuthSessionWrapper)
 
 
