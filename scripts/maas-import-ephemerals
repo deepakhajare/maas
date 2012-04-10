@@ -440,7 +440,7 @@ for release in $RELEASES; do
 
 		ver_out="${TEMP_D}/verify.${target_name}"
 		tgt-admin --conf "$SYS_TGT_CONF" --update "${target_name}" &&
-			tgt-admin --config "$SYS_TGT_CONF" > "${ver_out}" &&
+			tgt-admin --conf "$SYS_TGT_CONF" --show > "${ver_out}" &&
 			grep -q "^Target [0-9][0-9]*: ${target_name}" "${ver_out}" || {
 			mv "${fpfinal_d}/info" "${fpfinal_d}/info.failed"
 			tgt-admin --conf "$SYS_TGT_CONF" --delete "$target_name"
