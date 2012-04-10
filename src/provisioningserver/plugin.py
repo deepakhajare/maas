@@ -77,6 +77,7 @@ class SingleUsernamePasswordChecker:
 
     @inlineCallbacks
     def requestAvatarId(self, credentials):
+        """See `ICredentialsChecker`."""
         if credentials.username == self.username:
             matched = yield credentials.checkPassword(self.password)
             if matched:
@@ -95,6 +96,7 @@ class ProvisioningRealm:
         self.resource = resource
 
     def requestAvatar(self, avatarId, mind, *interfaces):
+        """See `IRealm`."""
         if IResource in interfaces:
             return (IResource, self.resource, self.noop)
         raise NotImplementedError()
