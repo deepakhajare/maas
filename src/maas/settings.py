@@ -254,7 +254,7 @@ LOGGING = {
 
 # The location of the Provisioning API XML-RPC endpoint.  This should
 # match the setting in etc/pserv.yaml.
-PSERV_URL = "http://localhost:5241/api"
+PSERV_URL = "http://test:test@localhost:5241/api"
 
 # Use a real provisioning server?  If yes, the URL for the provisioning
 # server's API should be set in PSERV_URL.  If this is set to False, for
