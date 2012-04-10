@@ -128,20 +128,24 @@ class ProvisioningServiceMaker(object):
         self.description = description
 
     def _makeLogService(self, config):
+        """Create the log service."""
         return LogService(config["logfile"])
 
     def _makeOopsService(self, log_service, oops_config):
+        """Create the oops service."""
         oops_dir = oops_config["directory"]
         oops_reporter = oops_config["reporter"]
         return OOPSService(log_service, oops_dir, oops_reporter)
 
     def _makePAPI(self, cobbler_config):
+        """Create the provisioning XMLRPC API."""
         cobbler_session = CobblerSession(
             cobbler_config["url"], cobbler_config["username"],
             cobbler_config["password"])
         return ProvisioningAPI_XMLRPC(cobbler_session)
 
     def _makeSiteService(self, papi_xmlrpc, config):
+        """Create the site service."""
         site_root = Resource()
         site_root.putChild("api", papi_xmlrpc)
         site = Site(site_root)
@@ -152,6 +156,7 @@ class ProvisioningServiceMaker(object):
         return site_service
 
     def _makeBroker(self, broker_config):
+        """Create the messaging broker."""
         broker_port = broker_config["port"]
         broker_host = broker_config["host"]
         broker_username = broker_config["username"]
@@ -173,9 +178,7 @@ class ProvisioningServiceMaker(object):
     def makeService(self, options):
         """Construct a service."""
         services = MultiService()
-
-        config_file = options["config-file"]
-        config = Config.load(config_file)
+        config = Config.load(options["config-file"])
 
         log_service = self._makeLogService(config)
         log_service.setServiceParent(services)
