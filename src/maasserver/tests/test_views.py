@@ -15,21 +15,20 @@ from collections import namedtuple
 import httplib
 import os
 import urllib2
+from xmlrpclib import Fault
 
 from django.conf import settings
 from django.conf.urls.defaults import patterns
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+from django.utils.html import escape
 from lxml.html import fromstring
 from maasserver import (
     components,
     messages,
     views,
     )
-from maasserver.components import (
-    PERSISTENT_COMPONENTS_ERRORS,
-    register_persistent_error,
-    )
+from maasserver.components import register_persistent_error
 from maasserver.exceptions import NoRabbit
 from maasserver.forms import NodeActionForm
 from maasserver.models import (
@@ -40,10 +39,12 @@ from maasserver.models import (
     SSHKey,
     UserProfile,
     )
+from maasserver.provisioning import present_user_friendly_fault
 from maasserver.testing import (
     get_data,
     reload_object,
     )
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
@@ -59,6 +60,7 @@ from maasserver.views import (
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
+from provisioningserver.enum import PSERV_FAULT
 from testtools.matchers import (
     Contains,
     MatchesAll,
@@ -997,10 +999,16 @@ class UserManagementTest(AdminLoggedInTestCase):
 class PermanentErrorDisplayTest(LoggedInTestCase):
 
     def test_permanent_error_displayed(self):
-        self.patch(components, '_PERSISTENT_ERRORS', set())
-        errors = PERSISTENT_COMPONENTS_ERRORS.keys()
-        for error in errors:
-            register_persistent_error(error)
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        pserv_fault = set(map_enum(PSERV_FAULT).values())
+        errors = []
+        for fault in pserv_fault:
+            # Create component with getRandomString to be sure
+            # to display all the errors.
+            component = factory.getRandomString()
+            error = Fault(fault, factory.getRandomString())
+            errors.append(error)
+            register_persistent_error(component, error)
         links = [
             reverse('index'),
             reverse('node-list'),
@@ -1011,5 +1019,5 @@ class PermanentErrorDisplayTest(LoggedInTestCase):
             self.assertThat(
                 response.content,
                 MatchesAll(
-                    *[Contains(PERSISTENT_COMPONENTS_ERRORS[error])
+                    *[Contains(escape(str(present_user_friendly_fault(error))))
                      for error in errors]))
