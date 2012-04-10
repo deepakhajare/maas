@@ -145,6 +145,7 @@ class Config(Schema):
 
     if_key_missing = None
 
+    interface = String(if_empty=b"", if_missing=b"127.0.0.1")
     port = Int(min=1, max=65535, if_missing=5241)
     username = String(not_empty=True, if_missing=getuser())
     password = String(not_empty=True)
@@ -183,8 +184,24 @@ class ProvisioningServiceMaker(object):
         self.tapname = name
         self.description = description
 
-    def _makeProvisioningAPI(self, config, cobbler_session):
-        """Construct an `IResource` for the Provisioning API."""
+    def _makeLogService(self, config):
+        """Create the log service."""
+        return LogService(config["logfile"])
+
+    def _makeOopsService(self, log_service, oops_config):
+        """Create the oops service."""
+        oops_dir = oops_config["directory"]
+        oops_reporter = oops_config["reporter"]
+        return OOPSService(log_service, oops_dir, oops_reporter)
+
+    def _makeCobblerSession(self, cobbler_config):
+        """Create a :class:`CobblerSession`."""
+        return CobblerSession(
+            cobbler_config["url"], cobbler_config["username"],
+            cobbler_config["password"])
+
+    def _makeProvisioningAPI(self, cobbler_session, config):
+        """Construct an :class:`IResource` for the Provisioning API."""
         papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
         papi_realm = ProvisioningRealm(papi_xmlrpc)
         papi_checker = SingleUsernamePasswordChecker(
@@ -194,57 +211,61 @@ class ProvisioningServiceMaker(object):
         papi_root = HTTPAuthSessionWrapper(papi_portal, [papi_creds])
         return papi_root
 
-    def makeService(self, options):
-        """Construct a service."""
-        services = MultiService()
+    def _makeSiteService(self, papi_xmlrpc, config):
+        """Create the site service."""
+        site_root = Resource()
+        site_root.putChild("api", papi_xmlrpc)
+        site = Site(site_root)
+        site_port = config["port"]
+        site_interface = config["interface"]
+        site_service = TCPServer(site_port, site, interface=site_interface)
+        site_service.setName("site")
+        return site_service
 
-        config_file = options["config-file"]
-        config = Config.load(config_file)
-
-        log_service = LogService(config["logfile"])
-        log_service.setServiceParent(services)
-
-        oops_config = config["oops"]
-        oops_dir = oops_config["directory"]
-        oops_reporter = oops_config["reporter"]
-        oops_service = OOPSService(log_service, oops_dir, oops_reporter)
-        oops_service.setServiceParent(services)
-
-        broker_config = config["broker"]
+    def _makeBroker(self, broker_config):
+        """Create the messaging broker."""
         broker_port = broker_config["port"]
         broker_host = broker_config["host"]
         broker_username = broker_config["username"]
         broker_password = broker_config["password"]
         broker_vhost = broker_config["vhost"]
 
+        cb_connected = lambda ignored: None  # TODO
+        cb_disconnected = lambda ignored: None  # TODO
+        cb_failed = lambda connector_and_reason: (
+            log.err(connector_and_reason[1], "Connection failed"))
+        client_factory = AMQFactory(
+            broker_username, broker_password, broker_vhost,
+            cb_connected, cb_disconnected, cb_failed)
+        client_service = TCPClient(
+            broker_host, broker_port, client_factory)
+        client_service.setName("amqp")
+        return client_service
+
+    def makeService(self, options):
+        """Construct a service."""
+        services = MultiService()
+        config = Config.load(options["config-file"])
+
+        log_service = self._makeLogService(config)
+        log_service.setServiceParent(services)
+
+        oops_service = self._makeOopsService(log_service, config["oops"])
+        oops_service.setServiceParent(services)
+
+        broker_config = config["broker"]
         # Connecting to RabbitMQ is not yet a required component of a running
         # MAAS installation; skip unless the password has been set explicitly.
-        if broker_password is not b"test":
-            cb_connected = lambda ignored: None  # TODO
-            cb_disconnected = lambda ignored: None  # TODO
-            cb_failed = lambda connector_and_reason: (
-                log.err(connector_and_reason[1], "Connection failed"))
-            client_factory = AMQFactory(
-                broker_username, broker_password, broker_vhost,
-                cb_connected, cb_disconnected, cb_failed)
-            client_service = TCPClient(
-                broker_host, broker_port, client_factory)
-            client_service.setName("amqp")
+        if broker_config["password"] != b"test":
+            client_service = self._makeBroker(broker_config)
             client_service.setServiceParent(services)
 
         cobbler_config = config["cobbler"]
-        cobbler_session = CobblerSession(
-            cobbler_config["url"], cobbler_config["username"],
-            cobbler_config["password"])
+        cobbler_session = self._makeCobblerSession(cobbler_config)
 
-        papi_root = self._makeProvisioningAPI(config, cobbler_session)
+        papi_root = self._makeProvisioningAPI(cobbler_session, config)
 
-        site_root = Resource()
-        site_root.putChild("api", papi_root)
-        site = Site(site_root)
-        site_port = config["port"]
-        site_service = TCPServer(site_port, site)
-        site_service.setName("site")
+        site_service = self._makeSiteService(papi_root, config)
         site_service.setServiceParent(services)
 
         return services

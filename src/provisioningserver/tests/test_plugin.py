@@ -69,6 +69,7 @@ class TestConfig(TestCase):
                 'directory': '',
                 'reporter': '',
                 },
+            'interface': '127.0.0.1',
             'port': 5241,
             'username': getuser(),
             }
