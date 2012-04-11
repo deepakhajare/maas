@@ -146,6 +146,10 @@ class TestNodeCommissionResult(TestCase):
         ncr = NodeCommissionResult.objects.get(name=name)
         self.assertAttributes(ncr, dict(node=node, data=data))
 
+
+class TestNodeCommissionResultManager(TestCase):
+    """Test the manager utility for NodeCommissionResult."""
+
     def test_clear_results_removes_rows(self):
         # clear_results should remove all a node's results.
         node = factory.make_node()
