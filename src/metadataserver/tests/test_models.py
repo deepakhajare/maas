@@ -157,6 +157,14 @@ class TestNodeCommissionResult(TestCase):
         self.assertFalse(
             NodeCommissionResult.objects.filter(node=node).exists())
 
+    def test_clear_results_ignores_other_nodes(self):
+        # clear_results should only remove results for the supplied
+        # node.
+        node1 = factory.make_node()
+        factory.make_node_commission_result(node=node1)
+        node2 = factory.make_node()
+        factory.make_node_commission_result(node=node2)
 
-
-
+        NodeCommissionResult.objects.clear_results(node1)
+        self.assertTrue(
+            NodeCommissionResult.objects.filter(node=node2).exists())
