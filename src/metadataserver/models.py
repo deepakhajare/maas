@@ -213,11 +213,11 @@ class NodeCommissionResult(Model):
     :ivar data: The file's actual data, unicode only.
     """
 
-    class Meta:
-        unique_together = ('node', 'name')
-
     objects = NodeCommissionResultManager()
 
     node = ForeignKey(Node, null=False, editable=False, unique=False)
-    name = CharField(max_length=100, unique=True, editable=False)
+    name = CharField(max_length=100, unique=False, editable=False)
     data = CharField(max_length=1024 * 1024, editable=True)
+
+    class Meta:
+        unique_together = ('node', 'name')

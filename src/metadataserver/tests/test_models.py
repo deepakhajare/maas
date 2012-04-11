@@ -158,6 +158,13 @@ class TestNodeCommissionResult(TestCase):
             IntegrityError,
             factory.make_node_commission_result, node=node, name="foo")
 
+    def test_different_nodes_can_have_same_data_name(self):
+        node = factory.make_node()
+        ncr1 = factory.make_node_commission_result(node=node, name="foo")
+        node2 = factory.make_node()
+        ncr2 = factory.make_node_commission_result(node=node2, name="foo")
+        self.assertEqual(ncr1.name, ncr2.name)
+
 
 class TestNodeCommissionResultManager(TestCase):
     """Test the manager utility for NodeCommissionResult."""

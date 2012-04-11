@@ -16,14 +16,20 @@ class Migration(SchemaMigration):
         db.create_table('metadataserver_nodecommissionresult', (
             ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
             ('node', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['maasserver.Node'])),
-            ('name', self.gf('django.db.models.fields.CharField')(unique=True, max_length=100)),
+            ('name', self.gf('django.db.models.fields.CharField')(max_length=100)),
             ('data', self.gf('django.db.models.fields.CharField')(max_length=1048576)),
         ))
         db.send_create_signal('metadataserver', ['NodeCommissionResult'])
 
+        # Adding unique constraint on 'NodeCommissionResult', fields ['node', 'name']
+        db.create_unique('metadataserver_nodecommissionresult', ['node_id', 'name'])
+
 
     def backwards(self, orm):
         
+        # Removing unique constraint on 'NodeCommissionResult', fields ['node', 'name']
+        db.delete_unique('metadataserver_nodecommissionresult', ['node_id', 'name'])
+
         # Deleting model 'NodeCommissionResult'
         db.delete_table('metadataserver_nodecommissionresult')
 
@@ -76,15 +82,15 @@ class Migration(SchemaMigration):
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-bf0bc2e0-838a-11e1-94e5-002215205ce8'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-b9edb888-839c-11e1-965e-002215205ce8'", 'unique': 'True', 'max_length': '41'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
         'metadataserver.nodecommissionresult': {
-            'Meta': {'object_name': 'NodeCommissionResult'},
+            'Meta': {'unique_together': "((u'node', u'name'),)", 'object_name': 'NodeCommissionResult'},
             'data': ('django.db.models.fields.CharField', [], {'max_length': '1048576'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
             'node': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['maasserver.Node']"})
         },
         'metadataserver.nodekey': {
@@ -119,7 +125,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1334116773L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1334124495L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
