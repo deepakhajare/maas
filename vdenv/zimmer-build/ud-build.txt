@@ -85,6 +85,7 @@ bucket:
    post-start script
      #set -x; exec >/tmp/cobbler-start.out 2>/tmp/cobbler-start.err
      [ -f /etc/cobbler/settings.start ] || exit 0
+     rm -f /etc/cobbler/settings.start
      while : ; do
        cobbler system list >/dev/null || :
        [ $? -eq 155 ] || break
