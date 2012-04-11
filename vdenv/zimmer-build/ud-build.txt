@@ -66,7 +66,8 @@ bucket:
    
      # if user wants to manage this, then just remove that file
      # it is expected to either have an IP address or 'auto'
-     [ -e "$fn" ] && read found < "$fn" || :
+     [ -f "$fn" ] || exit 0
+     read found < "$fn" || :
      [ -n "$found" -a "$found" != "auto" ] ||
        found=$(ifconfig eth0 2>/dev/null |
          awk '$0 ~ /inet addr:/ { sub(/.*:/,"",$2); print $2; }')
