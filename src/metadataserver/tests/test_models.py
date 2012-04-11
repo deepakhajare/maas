@@ -176,8 +176,9 @@ class TestNodeCommissionResultManager(TestCase):
         factory.make_node_commission_result(node=node)
 
         NodeCommissionResult.objects.clear_results(node)
-        self.assertFalse(
-            NodeCommissionResult.objects.filter(node=node).exists())
+        self.assertItemsEqual(
+            [],
+            NodeCommissionResult.objects.filter(node=node))
 
     def test_clear_results_ignores_other_nodes(self):
         # clear_results should only remove results for the supplied
