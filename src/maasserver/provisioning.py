@@ -28,6 +28,11 @@ from django.db.models.signals import (
     post_save,
     )
 from django.dispatch import receiver
+from maasserver.components import (
+    COMPONENT,
+    discard_persistent_error,
+    register_persistent_error,
+    )
 from maasserver.exceptions import MAASAPIException
 from maasserver.models import (
     Config,
@@ -157,12 +162,36 @@ present_detailed_user_friendly_fault = partial(
 :rtype: :class:`MAASAPIException`, or None.
 """
 
+# A mapping method_name -> list of components.
+# For each method name, indicate the list of components that the method
+# uses.  This way, when calling the method is a success, if means that
+# the related components are working properly.
+METHOD_COMPONENTS = {
+    'add_node': [COMPONENT.PSERV, COMPONENT.COBBLER, COMPONENT.IMPORT_ISOS],
+    'modify_nodes': [COMPONENT.PSERV, COMPONENT.COBBLER],
+    'delete_nodes_by_name': [COMPONENT.PSERV, COMPONENT.COBBLER],
+}
+
+# A mapping exception -> component.
+# For each exception in this dict, the related component is there to
+# tell us which component will be marked as 'failing' when this
+# exception is raised.
+EXCEPTIONS_COMPONENTS = {
+    PSERV_FAULT.NO_COBBLER: COMPONENT.COBBLER,
+    PSERV_FAULT.COBBLER_AUTH_FAILED: COMPONENT.COBBLER,
+    PSERV_FAULT.COBBLER_AUTH_ERROR: COMPONENT.COBBLER,
+    PSERV_FAULT.NO_SUCH_PROFILE: COMPONENT.IMPORT_ISOS,
+    PSERV_FAULT.GENERIC_COBBLER_ERROR: COMPONENT.COBBLER,
+    8002: COMPONENT.PSERV,
+}
+
 
 class ProvisioningCaller:
     """Wrapper for an XMLRPC call.
 
-    Runs xmlrpc exceptions through `present_user_friendly_fault` for better
+    - Runs xmlrpc exceptions through `present_user_friendly_fault` for better
     presentation to the user.
+    - Register failing/working components.
     """
 
     def __init__(self, method):
@@ -170,8 +199,21 @@ class ProvisioningCaller:
 
     def __call__(self, *args, **kwargs):
         try:
-            return self.method(*args, **kwargs)
+            result = self.method(*args, **kwargs)
+            # The call was a success, discard persistent errors for
+            # components referenced by this method.
+            components = METHOD_COMPONENTS.get(self.method.__name__, [])
+            for component in components:
+                discard_persistent_error(component)
+            return result
         except xmlrpclib.Fault as e:
+            # Register failing component.
+            component = EXCEPTIONS_COMPONENTS.get(e.faultCode, None)
+            if component is not None:
+                detailed_friendly_fault = str(
+                    present_detailed_user_friendly_fault(e))
+                register_persistent_error(component, detailed_friendly_fault)
+            # Raise a more user-friendly error.
             friendly_fault = present_user_friendly_fault(e)
             if friendly_fault is None:
                 raise
