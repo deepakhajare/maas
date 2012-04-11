@@ -93,6 +93,8 @@ update_settings(){
 			fi
 		done
 	done
+
+   maas-import-ephemerals --update
 }
 
 import_isos(){
@@ -118,6 +120,8 @@ import_isos(){
 			fi
 		done
 	done
+
+   maas-import-ephemerals --import
 }
 
 add_enlist_profile(){

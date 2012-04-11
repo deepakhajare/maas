@@ -488,6 +488,12 @@ mount_callback_umount "$img" apply_updates \
 	"$kernel" "$initrd" ||
 	fail "failed to apply updates to $img"
 
+mv "$img" "$img.tmp" &&
+	e2image -r "$img.tmp" "$img" &&
+	rm "$img.tmp" ||
+	fail "failed to e2image after updating"
+
+
 exit 0
 
 # vi: ts=4 noexpandtab
