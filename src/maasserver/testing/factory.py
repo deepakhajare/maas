@@ -82,7 +82,7 @@ class Factory(maastesting.factory.Factory):
         if name is None:
             name = self.getRandomString(100)
         if data is None:
-            data = b'this is not random'
+            data = 'this is not random'
         ncr = NodeCommissionResult(node=node, name=name, data=data)
         ncr.save()
         return ncr
