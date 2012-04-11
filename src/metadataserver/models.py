@@ -20,6 +20,7 @@ from django.db.models import (
     Manager,
     Model,
     )
+from django.shortcuts import get_object_or_404
 from maasserver.models import (
     create_auth_token,
     Node,
@@ -194,12 +195,10 @@ class NodeCommissionResultManager(Manager):
             existing.data = data
             existing.save()
 
-    def get_data(self, node, name=None):
-        """Get data about a node.
-
-        If name is passed, get only the named data otherwise all data.
-        """
-        pass
+    def get_data(self, node, name):
+        """Get data about a node."""
+        ncr = get_object_or_404(NodeCommissionResult, node=node, name=name)
+        return ncr.data
 
 
 class NodeCommissionResult(Model):

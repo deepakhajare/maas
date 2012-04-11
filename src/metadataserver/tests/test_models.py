@@ -11,6 +11,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.http import Http404
+
 from maasserver.testing.factory import factory
 from maastesting.testcase import TestCase
 from metadataserver.models import (
@@ -196,3 +198,13 @@ class TestNodeCommissionResultManager(TestCase):
         [ncr] = results
         self.assertAttributes(ncr, dict(name=name, data=data))
 
+    def test_get_data(self):
+        ncr = factory.make_node_commission_result()
+        result = NodeCommissionResult.objects.get_data(ncr.node, ncr.name)
+        self.assertEqual(ncr.data, result)
+
+    def test_get_data_404s_when_not_found(self):
+        ncr = factory.make_node_commission_result()
+        self.assertRaises(
+            Http404,
+            NodeCommissionResult.objects.get_data, ncr.node, "bad name")
