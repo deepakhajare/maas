@@ -205,7 +205,7 @@ class NodeListView(ListView):
     context_object_name = "node_list"
 
     def get_queryset(self):
-        # Sort nodes, newest first.
+        # Return node list sorted, newest first.
         return Node.objects.get_nodes(
             user=self.request.user,
             perm=NODE_PERMISSION.VIEW).order_by('-id')
