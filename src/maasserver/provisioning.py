@@ -215,6 +215,9 @@ class ProvisioningCaller:
     """
 
     def __init__(self, method_name, method):
+        # Keep track of the method name; xmlrpclib does not take lightly
+        # to us attempting to look it up as an attribute of the method
+        # object.
         self.method_name = method_name
         self.method = method
 
