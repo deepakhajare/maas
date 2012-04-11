@@ -11,6 +11,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.db import IntegrityError
 from django.http import Http404
 
 from maasserver.testing.factory import factory
@@ -147,6 +148,15 @@ class TestNodeCommissionResult(TestCase):
 
         ncr = NodeCommissionResult.objects.get(name=name)
         self.assertAttributes(ncr, dict(node=node, data=data))
+
+    def test_node_name_uniqueness(self):
+        # You cannot have two result rows with the same name for the
+        # same node.
+        node = factory.make_node()
+        factory.make_node_commission_result(node=node, name="foo")
+        self.assertRaises(
+            IntegrityError,
+            factory.make_node_commission_result, node=node, name="foo")
 
 
 class TestNodeCommissionResultManager(TestCase):
