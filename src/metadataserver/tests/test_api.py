@@ -398,8 +398,7 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         response = self.call_signal(client, files={'file.txt': text})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            text,
-            NodeCommissionResult.objects.get_data(node, 'file.txt').data)
+            text, NodeCommissionResult.objects.get_data(node, 'file.txt'))
 
     def test_signal_decodes_file_from_UTF8(self):
         unicode_text = '<\u2621>'
@@ -410,7 +409,7 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
             unicode_text,
-            NodeCommissionResult.objects.get_data(node, 'file.txt').data)
+            NodeCommissionResult.objects.get_data(node, 'file.txt'))
 
     def test_signal_stores_multiple_files(self):
         contents = {
@@ -441,4 +440,4 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         self.assertEqual(httplib.OK, response.status_code)
         stored_data = NodeCommissionResult.objects.get_data(
             node, 'output.txt')
-        self.assertEqual(size_limit, len(stored_data.data))
+        self.assertEqual(size_limit, len(stored_data))
