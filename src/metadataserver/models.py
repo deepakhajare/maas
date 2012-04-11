@@ -194,6 +194,3 @@ class NodeCommissionResult(Model):
     node = ForeignKey(Node, null=False, editable=False, unique=False)
     name = CharField(max_length=100, unique=True, editable=False)
     data = CharField(max_length=1024 * 1024, editable=True)
-
-    def __unicode__(self):
-        return self.name
