@@ -182,6 +182,10 @@ class NodeUserData(Model):
 class NodeCommissionResult(Model):
     """Storage for data returned from node commissioning.
 
+    Commissioning a node results in various bits of data that need to be
+    stored, such as lshw output.  This model allows storing of this data
+    as unicode text, with an arbitrary name, for later retrieval.
+
     :ivar node: The context :class:`Node`.
     :ivar name: A unique name to use for the data being stored.
     :ivar data: The file's actual data, unicode only.
