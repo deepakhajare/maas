@@ -442,7 +442,7 @@ class ProvisioningTests:
         except MAASAPIException:
             pass
 
-    def test_error_regitered_when_NO_COBBLER_raised(self):
+    def test_error_registered_when_NO_COBBLER_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(PSERV_FAULT.NO_COBBLER)
         errors = get_persistent_errors()
@@ -451,7 +451,7 @@ class ProvisioningTests:
             "The provisioning server was unable to reach the Cobbler",
             errors[0])
 
-    def test_error_regitered_when_COBBLER_AUTH_FAILED_raised(self):
+    def test_error_registered_when_COBBLER_AUTH_FAILED_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(PSERV_FAULT.COBBLER_AUTH_FAILED)
         errors = get_persistent_errors()
@@ -459,7 +459,7 @@ class ProvisioningTests:
         self.assertIn(
             "The provisioning server failed to authenticate", errors[0])
 
-    def test_error_regitered_when_COBBLER_AUTH_ERROR_raised(self):
+    def test_error_registered_when_COBBLER_AUTH_ERROR_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(PSERV_FAULT.COBBLER_AUTH_ERROR)
         errors = get_persistent_errors()
@@ -468,7 +468,7 @@ class ProvisioningTests:
             "The Cobbler server no longer accepts the provisioning",
             errors[0])
 
-    def test_error_regitered_when_GENERIC_COBBLER_ERROR_raised(self):
+    def test_error_registered_when_GENERIC_COBBLER_ERROR_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(PSERV_FAULT.GENERIC_COBBLER_ERROR)
         errors = get_persistent_errors()
@@ -477,7 +477,7 @@ class ProvisioningTests:
             "The provisioning service encountered a problem with",
             errors[0])
 
-    def test_error_regitered_when_NO_SUCH_PROFILE_raised(self):
+    def test_error_registered_when_NO_SUCH_PROFILE_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(PSERV_FAULT.NO_SUCH_PROFILE)
         errors = get_persistent_errors()
@@ -485,7 +485,7 @@ class ProvisioningTests:
         self.assertIn(
                 "System profile does not exist", errors[0])
 
-    def test_error_regitered_when_8002_raised(self):
+    def test_error_registered_when_8002_raised(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         self.patch_and_call_papi_method(8002)
         errors = get_persistent_errors()
