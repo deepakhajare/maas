@@ -143,6 +143,7 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         params.update(kwargs)
         for name, content in files.items():
             params[name] = BytesIO(content)
+            params[name].name = name
         return client.post(self.make_url('/%s/' % version), params)
 
     def test_no_anonymous_access(self):
@@ -383,7 +384,7 @@ class TestViews(TestCase, ProvisioningFakeFactory):
             client = self.make_node_client(node=node)
             self.call_signal(
                 client, status=status,
-                files={filename: factory.getRandomString()})
+                files={filename: factory.getRandomString().encode('ascii')})
         self.assertEqual(
             {status: filename for status in statuses},
             {
@@ -393,7 +394,7 @@ class TestViews(TestCase, ProvisioningFakeFactory):
     def test_signal_stores_file_contents(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
-        text = factory.getRandomString()
+        text = factory.getRandomString().encode('ascii')
         response = self.call_signal(client, files={'file.txt': text})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
@@ -402,10 +403,10 @@ class TestViews(TestCase, ProvisioningFakeFactory):
 
     def test_signal_decodes_file_from_UTF8(self):
         unicode_text = '<\u2621>'
-        utf8_text = unicode_text.encode('utf-8')
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
-        response = self.call_signal(client, files={'file.txt': utf8_text})
+        response = self.call_signal(
+            client, files={'file.txt': unicode_text.encode('utf-8')})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
             unicode_text,
@@ -413,7 +414,8 @@ class TestViews(TestCase, ProvisioningFakeFactory):
 
     def test_signal_stores_multiple_files(self):
         contents = {
-            factory.getRandomString(): factory.getRandomString()
+            factory.getRandomString(): factory.getRandomString().encode(
+                'ascii')
             for counter in range(3)}
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
