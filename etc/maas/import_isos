@@ -9,3 +9,4 @@ RELEASES="precise"
 ## Juju Management Classes
 #MGMTCLASS_AVAILABLE="maas-juju-available"
 #MGMTCLASS_ACQUIRED="maas-juju-acquired"
+#IMPORT_EPHEMERALS=1
