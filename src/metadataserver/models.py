@@ -179,6 +179,14 @@ class NodeUserData(Model):
     data = BinaryField(null=False)
 
 
+class NodeCommissionResultManager(Manager):
+    """Utility to manage a collection of :class:`NodeCommissionResult`s."""
+
+    def clear_results(self, node):
+        """Remove all existing results for a node."""
+        self.filter(node=node).delete()
+
+
 class NodeCommissionResult(Model):
     """Storage for data returned from node commissioning.
 
@@ -190,6 +198,8 @@ class NodeCommissionResult(Model):
     :ivar name: A unique name to use for the data being stored.
     :ivar data: The file's actual data, unicode only.
     """
+
+    objects = NodeCommissionResultManager()
 
     node = ForeignKey(Node, null=False, editable=False, unique=False)
     name = CharField(max_length=100, unique=True, editable=False)

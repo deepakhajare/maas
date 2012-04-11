@@ -145,3 +145,18 @@ class TestNodeCommissionResult(TestCase):
 
         ncr = NodeCommissionResult.objects.get(name=name)
         self.assertAttributes(ncr, dict(node=node, data=data))
+
+    def test_clear_results_removes_rows(self):
+        # clear_results should remove all a node's results.
+        node = factory.make_node()
+        factory.make_node_commission_result(node=node)
+        factory.make_node_commission_result(node=node)
+        factory.make_node_commission_result(node=node)
+
+        NodeCommissionResult.objects.clear_results(node)
+        self.assertFalse(
+            NodeCommissionResult.objects.filter(node=node).exists())
+
+
+
+
