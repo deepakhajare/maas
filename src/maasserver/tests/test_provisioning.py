@@ -428,9 +428,11 @@ class ProvisioningTests:
         with ExpectedException(MAASAPIException, ".*Cobbler.*"):
             self.papi.add_node('node', 'profile', 'power', '')
 
-    def patch_and_call_papi_method(self, fault, papi_method='add_node'):
+    def patch_and_call_papi_method(self, fault_code, papi_method='add_node'):
+        # Patch papi method to make it raise a Fault of the provided
+        # fault_code.  Then call this method.
         def raise_provisioning_error(*args, **kwargs):
-            raise Fault(fault, factory.getRandomString())
+            raise Fault(fault_code, factory.getRandomString())
 
         self.papi.patch(papi_method, raise_provisioning_error)
 
@@ -523,7 +525,7 @@ class ProvisioningTests:
         register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
         other_error = factory.getRandomString()
         register_persistent_error(factory.getRandomString(), other_error)
-        self.papi.modify_nodes({})
+        self.papi.delete_nodes_by_name([])
         self.assertEqual([other_error], get_persistent_errors())
 
 
