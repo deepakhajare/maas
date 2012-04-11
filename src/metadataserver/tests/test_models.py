@@ -14,6 +14,7 @@ __all__ = []
 from maasserver.testing.factory import factory
 from maastesting.testcase import TestCase
 from metadataserver.models import (
+    NodeCommissionResult,
     NodeKey,
     NodeUserData,
     )
@@ -131,3 +132,16 @@ class TestNodeUserDataManager(TestCase):
         node = factory.make_node()
         NodeUserData.objects.set_user_data(node, b"This node has user data.")
         self.assertTrue(NodeUserData.objects.has_user_data(node))
+
+
+class TestNodeCommissionResult(TestCase):
+    """Test the NodeCommissionResult model."""
+
+    def test_can_store_data(self):
+        node = factory.make_node()
+        name = factory.getRandomString(100)
+        data = factory.getRandomString(1025)
+        factory.make_node_commission_result(node=node, name=name, data=data)
+
+        ncr = NodeCommissionResult.objects.get(name=name)
+        self.assertAttributes(ncr, dict(node=node, data=data))

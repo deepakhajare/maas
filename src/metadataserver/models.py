@@ -177,3 +177,19 @@ class NodeUserData(Model):
 
     node = ForeignKey(Node, null=False, editable=False, unique=True)
     data = BinaryField(null=False)
+
+
+class NodeCommissionResult(Model):
+    """Storage for data returned from node commissioning.
+
+    :ivar node: The context :class:`Node`.
+    :ivar name: A unique name to use for the data being stored.
+    :ivar data: The file's actual data, unicode only.
+    """
+
+    node = ForeignKey(Node, null=False, editable=False, unique=False)
+    name = CharField(max_length=100, unique=True, editable=False)
+    data = CharField(max_length=1024 * 1024, editable=True)
+
+    def __unicode__(self):
+        return self.name
