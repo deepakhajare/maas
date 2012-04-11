@@ -293,8 +293,7 @@ class NodeTest(TestCase):
         NodeCommissionResult.objects.store_data(
             node, factory.getRandomString(), factory.getRandomString())
         node.start_commissioning(factory.make_admin())
-        self.assertItemsEqual(
-            [], NodeCommissionResult.objects.filter(node=node))
+        self.assertItemsEqual([], node.nodecommissionresult_set.all())
 
     def test_start_commissioning_ignores_other_commissioning_results(self):
         node = factory.make_node()
