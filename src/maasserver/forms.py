@@ -84,6 +84,7 @@ class NodeForm(ModelForm):
         widget=forms.TextInput(attrs={'readonly': 'readonly'}),
         required=False)
     after_commissioning_action = forms.TypedChoiceField(
+        label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
     architecture = forms.ChoiceField(
@@ -100,6 +101,7 @@ class NodeForm(ModelForm):
 
 class UINodeEditForm(ModelForm):
     after_commissioning_action = forms.ChoiceField(
+        label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
 
     class Meta:
@@ -109,6 +111,7 @@ class UINodeEditForm(ModelForm):
 
 class UIAdminNodeEditForm(ModelForm):
     after_commissioning_action = forms.ChoiceField(
+        label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
 
     class Meta:
@@ -135,10 +138,31 @@ class SSHKeyForm(ModelForm):
         super(SSHKeyForm, self).__init__(*args, **kwargs)
         self.user = user
 
-    def save(self):
-        key = super(SSHKeyForm, self).save(commit=False)
-        key.user = self.user
-        return key.save()
+    def validate_unique(self):
+        # This is a trick to work around a problem in Django.
+        # See https://code.djangoproject.com/ticket/13091#comment:19 for
+        # details.
+        # Without this overridden validate_unique the validation error that
+        # can occur if this user already has the same key registered would
+        # occur when save() would be called.  The error would be an
+        # IntegrityError raised when inserting the new key in the database
+        # rather than a proper ValidationError raised by 'clean'.
+
+        # Set the instance user.
+        self.instance.user = self.user
+
+        # Allow checking against the missing attribute.
+        exclude = self._get_validation_exclusions()
+        exclude.remove('user')
+        try:
+            self.instance.validate_unique(exclude=exclude)
+        except ValidationError, e:
+            # Publish this error as a 'key' error rather than a 'general'
+            # error because only the 'key' errors are displayed on the
+            # 'add key' form.
+            error = e.message_dict.pop('__all__')
+            e.message_dict['key'] = error
+            self._update_errors(e.message_dict)
 
 
 class MultipleMACAddressField(forms.MultiValueField):

@@ -386,17 +386,14 @@ class UserPrefsViewTest(LoggedInTestCase):
         add_key_link = reverse('prefs-add-sshkey')
         self.assertIn(add_key_link, get_content_links(response))
 
-    def create_keys_for_user(self, user):
-        return [factory.make_sshkey(self.logged_in_user) for i in range(3)]
-
     def test_prefs_displays_compact_representation_of_users_keys(self):
-        keys = self.create_keys_for_user(self.logged_in_user)
+        _, keys = factory.make_user_with_keys(user=self.logged_in_user)
         response = self.client.get('/account/prefs/')
         for key in keys:
             self.assertIn(key.display_html(), response.content)
 
     def test_prefs_displays_link_to_delete_ssh_keys(self):
-        keys = self.create_keys_for_user(self.logged_in_user)
+        _, keys = factory.make_user_with_keys(user=self.logged_in_user)
         response = self.client.get('/account/prefs/')
         links = get_content_links(response)
         for key in keys:
@@ -419,12 +416,37 @@ class KeyManagementTest(LoggedInTestCase):
                 '#content form')])
 
     def test_add_key_POST_adds_key(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         response = self.client.post(
             reverse('prefs-add-sshkey'), {'key': key_string})
 
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertTrue(SSHKey.objects.filter(key=key_string).exists())
+
+    def test_add_key_POST_fails_if_key_already_exists_for_the_user(self):
+        key_string = get_data('data/test_rsa0.pub')
+        key = SSHKey(user=self.logged_in_user, key=key_string)
+        key.save()
+        response = self.client.post(
+            reverse('prefs-add-sshkey'), {'key': key_string})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn(
+            "This key has already been added for this user.",
+            response.content)
+        self.assertItemsEqual([key], SSHKey.objects.filter(key=key_string))
+
+    def test_key_can_be_added_if_same_key_already_setup_for_other_user(self):
+        key_string = get_data('data/test_rsa0.pub')
+        key = SSHKey(user=factory.make_user(), key=key_string)
+        key.save()
+        response = self.client.post(
+            reverse('prefs-add-sshkey'), {'key': key_string})
+        new_key = SSHKey.objects.get(key=key_string, user=self.logged_in_user)
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertItemsEqual(
+            [key, new_key], SSHKey.objects.filter(key=key_string))
 
     def test_delete_key_GET(self):
         # The 'Delete key' page displays a confirmation page with a form.
