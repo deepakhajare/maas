@@ -65,9 +65,8 @@ bucket:
      fn="/etc/cobbler/cobbler-server"
    
      # if user wants to manage this, then just remove that file
-     [ -f "$fn" ] || exit 0
-   
-     [ -e "$fn" ]  && read found < "$fn" || :
+     # it is expected to either have an IP address or 'auto'
+     [ -e "$fn" ] && read found < "$fn" || :
      [ -n "$found" -a "$found" != "auto" ] ||
        found=$(ifconfig eth0 2>/dev/null |
          awk '$0 ~ /inet addr:/ { sub(/.*:/,"",$2); print $2; }')
@@ -78,6 +77,8 @@ bucket:
         -e "s/^server: *..*..*..*$/server: $found/" \
         /etc/cobbler/settings
    
+     # if the above sed did something, then we leave the orig
+     # file around for post-start to cleanup.
      cmp /etc/cobbler/settings.start /etc/cobbler/settings >/dev/null &&
        rm -f /etc/cobbler/settings.start || :
    end script
