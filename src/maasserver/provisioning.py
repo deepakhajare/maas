@@ -191,7 +191,7 @@ class ProvisioningCaller:
 
     - Runs xmlrpc exceptions through `present_user_friendly_fault` for better
     presentation to the user.
-    - Register failing/working components.
+    - Registers failing/working components.
     """
 
     def __init__(self, method):
