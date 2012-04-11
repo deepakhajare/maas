@@ -80,9 +80,9 @@ class Factory(maastesting.factory.Factory):
         if node is None:
             node = self.make_node()
         if name is None:
-            name = self.getRandomString(100)
+            name = "ncrname-" + self.getRandomString(92)
         if data is None:
-            data = 'this is not random'
+            data = "ncrdata-" + self.getRandomString(1000)
         ncr = NodeCommissionResult(node=node, name=name, data=data)
         ncr.save()
         return ncr
