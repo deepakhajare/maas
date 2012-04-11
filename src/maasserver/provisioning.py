@@ -186,6 +186,26 @@ EXCEPTIONS_COMPONENTS = {
 }
 
 
+def register_working_components(method_name):
+    """Register that the components related to the provided method
+    (if any) are working.
+    """
+    components = METHOD_COMPONENTS.get(method_name, [])
+    for component in components:
+        discard_persistent_error(component)
+
+
+def register_failing_component(exception):
+    """Register that the component corresponding to exception (if any)
+    is failing.
+    """
+    component = EXCEPTIONS_COMPONENTS.get(exception.faultCode, None)
+    if component is not None:
+        detailed_friendly_fault = unicode(
+            present_detailed_user_friendly_fault(exception))
+        register_persistent_error(component, detailed_friendly_fault)
+
+
 class ProvisioningCaller:
     """Wrapper for an XMLRPC call.
 
@@ -202,17 +222,11 @@ class ProvisioningCaller:
             result = self.method(*args, **kwargs)
             # The call was a success, discard persistent errors for
             # components referenced by this method.
-            components = METHOD_COMPONENTS.get(self.method.__name__, [])
-            for component in components:
-                discard_persistent_error(component)
+            register_working_components(self.method.__name__)
             return result
         except xmlrpclib.Fault as e:
             # Register failing component.
-            component = EXCEPTIONS_COMPONENTS.get(e.faultCode, None)
-            if component is not None:
-                detailed_friendly_fault = str(
-                    present_detailed_user_friendly_fault(e))
-                register_persistent_error(component, detailed_friendly_fault)
+            register_failing_component(e)
             # Raise a more user-friendly error.
             friendly_fault = present_user_friendly_fault(e)
             if friendly_fault is None:
