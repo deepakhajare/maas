@@ -186,6 +186,21 @@ class NodeCommissionResultManager(Manager):
         """Remove all existing results for a node."""
         self.filter(node=node).delete()
 
+    def store_data(self, node, name, data):
+        """Store data about a node."""
+        existing, created = self.get_or_create(
+            node=node, name=name, defaults=dict(data=data))
+        if not created:
+            existing.data = data
+            existing.save()
+
+    def get_data(self, node, name=None):
+        """Get data about a node.
+
+        If name is passed, get only the named data otherwise all data.
+        """
+        pass
+
 
 class NodeCommissionResult(Model):
     """Storage for data returned from node commissioning.

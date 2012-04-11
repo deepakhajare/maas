@@ -172,3 +172,27 @@ class TestNodeCommissionResultManager(TestCase):
         NodeCommissionResult.objects.clear_results(node1)
         self.assertTrue(
             NodeCommissionResult.objects.filter(node=node2).exists())
+
+    def test_store_data(self):
+        node = factory.make_node()
+        name = factory.getRandomString(100)
+        data = factory.getRandomString(1024 * 1024)
+        NodeCommissionResult.objects.store_data(
+            node, name=name, data=data)
+
+        results = NodeCommissionResult.objects.filter(node=node)
+        [ncr] = results
+        self.assertAttributes(ncr, dict(name=name, data=data))
+
+    def test_store_data_updates_existing(self):
+        node = factory.make_node()
+        name = factory.getRandomString(100)
+        factory.make_node_commission_result(node=node, name=name)
+        data = factory.getRandomString(1024 * 1024)
+        NodeCommissionResult.objects.store_data(
+            node, name=name, data=data)
+
+        results = NodeCommissionResult.objects.filter(node=node)
+        [ncr] = results
+        self.assertAttributes(ncr, dict(name=name, data=data))
+
