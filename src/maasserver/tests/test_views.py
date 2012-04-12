@@ -577,13 +577,13 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_view_node_shows_message_for_commissioning_node(self):
-        statuses_with_message = [
-            NODE_STATUS.READY, NODE_STATUS.COMMISSIONING]
+        statuses_with_message = {
+            NODE_STATUS.READY, NODE_STATUS.COMMISSIONING}
+        help_link = "https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot"
         for status in map_enum(NODE_STATUS).values():
             node = factory.make_node(status=status)
             node_link = reverse('node-view', args=[node.system_id])
             response = self.client.get(node_link)
-            help_link = "https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot"
             links = get_content_links(response, '#flash-messages')
             if status in statuses_with_message:
                 self.assertIn(help_link, links)
