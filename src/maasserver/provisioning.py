@@ -233,9 +233,9 @@ class ProvisioningCaller:
         self.method_name = method_name
         self.method = method
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args):
         try:
-            result = self.method(*args, **kwargs)
+            result = self.method(*args)
         except xmlrpclib.Fault as e:
             # Register failing component.
             register_failing_component(e)
