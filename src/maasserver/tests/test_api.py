@@ -386,7 +386,8 @@ class AdminLoggedInEnlistmentAPITest(EnlistmentAPITest,
     # and adds enlistement tests specific to admin users.
 
     def test_POST_admin_creates_node_in_commissioning_state(self):
-        # When an admin user enlists a node, it goes into the Ready state.
+        # When an admin user enlists a node, it goes into the
+        # Commissioning state.
         response = self.client.post(
             self.get_uri('nodes/'),
             {
