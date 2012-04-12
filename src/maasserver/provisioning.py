@@ -236,10 +236,6 @@ class ProvisioningCaller:
     def __call__(self, *args, **kwargs):
         try:
             result = self.method(*args, **kwargs)
-            # The call was a success, discard persistent errors for
-            # components referenced by this method.
-            register_working_components(self.method_name)
-            return result
         except xmlrpclib.Fault as e:
             # Register failing component.
             register_failing_component(e)
@@ -249,6 +245,11 @@ class ProvisioningCaller:
                 raise
             else:
                 raise friendly_fault
+        else:
+            # The call was a success, discard persistent errors for
+            # components referenced by this method.
+            register_working_components(self.method_name)
+            return result
 
 
 class ProvisioningProxy:
