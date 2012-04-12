@@ -575,6 +575,19 @@ class NodeViewsTest(LoggedInTestCase):
         response = self.client.get(node_delete_link)
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def xxxtest_view_node_shows_message_for_commissioning_node(self):
+        statuses_with_message = [
+            NODE_STATUS.READY, NODE_STATUS.COMMISSIONING]
+        for status in map_enum(NODE_STATUS):
+            node = factory.make_node(status=status)
+            node_link = reverse('node-view', args=[node.system_id])
+            response = self.client.get(node_link)
+            help_link = "https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot"
+            if status in statuses_with_message:
+                self.assertIn(help_link, get_content_links(response))
+            else:
+                self.assertNotIn(help_link, get_content_links(response))
+
     def test_view_node_shows_link_to_delete_node_for_admin(self):
         self.become_admin()
         node = factory.make_node()
@@ -716,8 +729,8 @@ class NodeViewsTest(LoggedInTestCase):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         response = self.perform_action_and_get_node_page(
             node, "Accept & commission")
-        self.assertEqual(
-            ["Node commissioning started."],
+        self.assertIn(
+            "Node commissioning started.",
             [message.message for message in response.context['messages']])
 
     def test_start_node_from_ready_displays_message(self):
@@ -725,8 +738,8 @@ class NodeViewsTest(LoggedInTestCase):
             status=NODE_STATUS.READY, owner=self.logged_in_user)
         response = self.perform_action_and_get_node_page(
             node, "Start node")
-        self.assertEqual(
-            ["Node started."],
+        self.assertIn(
+            "Node started.",
             [message.message for message in response.context['messages']])
 
     def test_start_node_from_allocated_displays_message(self):
