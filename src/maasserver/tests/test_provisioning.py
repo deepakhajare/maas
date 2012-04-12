@@ -571,6 +571,4 @@ class TestProvisioningTransport(TestCase):
         # The connection has not yet been established.
         self.assertIsNone(connection.sock)
         # The desired timeout has been modified.
-        self.assertEqual(
-            ProvisioningTransport.timeout,
-            connection.timeout)
+        self.assertEqual(transport.timeout, connection.timeout)

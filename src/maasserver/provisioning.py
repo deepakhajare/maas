@@ -277,7 +277,9 @@ class ProvisioningProxy:
 class ProvisioningTransport(xmlrpclib.Transport):
     """An XML-RPC transport that sets a low socket timeout."""
 
-    timeout = 7.0  # seconds
+    @property
+    def timeout(self):
+        return settings.PSERV_TIMEOUT
 
     def make_connection(self, host):
         """See `xmlrpclib.Transport.make_connection`.
