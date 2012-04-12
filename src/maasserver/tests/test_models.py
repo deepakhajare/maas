@@ -32,7 +32,6 @@ from maasserver.exceptions import (
     NodeStateViolation,
     )
 from maasserver.models import (
-    commissioning_user_data,
     Config,
     create_auth_token,
     DEFAULT_CONFIG,
@@ -284,6 +283,9 @@ class NodeTest(TestCase):
     def test_start_commissioning_sets_user_data(self):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         node.start_commissioning(factory.make_admin())
+        path = settings.COMMISSIONING_SCRIPT
+        with open(path, 'r') as f:
+            commissioning_user_data = f.read()
         self.assertEqual(
             commissioning_user_data,
             NodeUserData.objects.get_user_data(node))
