@@ -262,9 +262,6 @@ class ProvisioningProxy:
     def __init__(self, xmlrpc_proxy):
         self.proxy = xmlrpc_proxy
 
-    def patch(self, method, replacement):
-        setattr(self.proxy, method, replacement)
-
     def __getattr__(self, attribute_name):
         """Return a wrapped version of the requested method."""
         attribute = getattr(self.proxy, attribute_name)

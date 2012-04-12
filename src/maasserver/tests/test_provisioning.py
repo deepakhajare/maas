@@ -322,7 +322,7 @@ class ProvisioningTests:
         def raise_missing_profile(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_SUCH_PROFILE, "Unknown profile.")
 
-        self.papi.patch('add_node', raise_missing_profile)
+        self.patch(self.papi.proxy, 'add_node', raise_missing_profile)
         with ExpectedException(MAASAPIException):
             node = factory.make_node(architecture='amd32k')
             provisioning.provision_post_save_Node(
@@ -333,7 +333,7 @@ class ProvisioningTests:
         def raise_fault(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_fault)
+        self.patch(self.papi.proxy, 'add_node', raise_fault)
         with ExpectedException(MAASAPIException):
             node = factory.make_node(architecture='amd32k')
             provisioning.provision_post_save_Node(
@@ -413,7 +413,7 @@ class ProvisioningTests:
         def raise_fault(*args, **kwargs):
             raise Fault(8002, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_fault)
+        self.patch(self.papi.proxy, 'add_node', raise_fault)
 
         with ExpectedException(MAASAPIException, ".*provisioning server.*"):
             self.papi.add_node('node', 'profile', 'power', '')
@@ -423,7 +423,7 @@ class ProvisioningTests:
         def raise_provisioning_error(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_provisioning_error)
+        self.patch(self.papi.proxy, 'add_node', raise_provisioning_error)
 
         with ExpectedException(MAASAPIException, ".*Cobbler.*"):
             self.papi.add_node('node', 'profile', 'power', '')
@@ -434,7 +434,7 @@ class ProvisioningTests:
         def raise_provisioning_error(*args, **kwargs):
             raise Fault(fault_code, factory.getRandomString())
 
-        self.papi.patch(papi_method, raise_provisioning_error)
+        self.patch(self.papi.proxy, papi_method, raise_provisioning_error)
 
         try:
             method = getattr(self.papi, papi_method)
