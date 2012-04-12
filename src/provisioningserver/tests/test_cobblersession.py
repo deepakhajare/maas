@@ -12,6 +12,7 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
+import re
 from xmlrpclib import Fault
 
 import fixtures
@@ -356,10 +357,11 @@ class TestCobblerSession(TestCase):
         session = make_recording_session(session_args=session_args)
         failure = DNSLookupError(factory.getRandomString())
         session.proxy.set_return_values([failure])
-        expected_failure = ProvisioningError(
+        expected_exception = ProvisioningError(
             faultCode=PSERV_FAULT.COBBLER_DNS_LOOKUP_ERROR,
             faultString=url.lower())
-        with ExpectedException(ProvisioningError, unicode(expected_failure)):
+        expected_exception_re = re.escape(unicode(expected_exception))
+        with ExpectedException(ProvisioningError, expected_exception_re):
             yield session.call('failing_method')
 
 
