@@ -290,6 +290,15 @@ class NodeTest(TestCase):
             commissioning_user_data,
             NodeUserData.objects.get_user_data(node))
 
+    def test_missing_commissioning_script(self):
+        self.patch(
+            settings, 'COMMISSIONING_SCRIPT',
+            '/etc/' + factory.getRandomString(10))
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        self.assertRaises(
+            ValidationError,
+            node.start_commissioning, factory.make_admin())
+
     def test_start_commissioning_clears_node_commissioning_results(self):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         NodeCommissionResult.objects.store_data(
