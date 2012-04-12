@@ -274,6 +274,21 @@ class ProvisioningProxy:
             return attribute
 
 
+class ProvisioningTransport(xmlrpclib.Transport):
+    """An XML-RPC transport that sets a low socket timeout."""
+
+    timeout = 7.0  # seconds
+
+    def make_connection(self, host):
+        """See `xmlrpclib.Transport.make_connection`.
+
+        This also sets the desired socket timeout.
+        """
+        connection = xmlrpclib.Transport.make_connection(self, host)
+        connection.timeout = self.timeout
+        return connection
+
+
 def get_provisioning_api_proxy():
     """Return a proxy to the Provisioning API.
 
@@ -284,8 +299,9 @@ def get_provisioning_api_proxy():
     if settings.USE_REAL_PSERV:
         # Use a real provisioning server.  This requires PSERV_URL to be
         # set.
+        xmlrpc_transport = ProvisioningTransport(use_datetime=True)
         xmlrpc_proxy = xmlrpclib.ServerProxy(
-            settings.PSERV_URL, allow_none=True, use_datetime=True)
+            settings.PSERV_URL, transport=xmlrpc_transport, allow_none=True)
     else:
         # Create a fake.  The code that provides the testing fake is not
         # available in an installed production system, so import it only

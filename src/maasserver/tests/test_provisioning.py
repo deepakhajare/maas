@@ -43,6 +43,7 @@ from maasserver.provisioning import (
     name_arch_in_cobbler_style,
     present_detailed_user_friendly_fault,
     present_user_friendly_fault,
+    ProvisioningTransport,
     select_profile_for_node,
     SHORT_PRESENTATIONS,
     )
@@ -559,3 +560,17 @@ class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
         preseed = self.papi.nodes[node.system_id]['ks_meta']['MAAS_PRESEED']
         self.assertEqual(
             compose_cloud_init_preseed(token), b64decode(preseed))
+
+
+class TestProvisioningTransport(TestCase):
+    """Tests for :class:`ProvisioningTransport`."""
+
+    def test_make_connection(self):
+        transport = ProvisioningTransport()
+        connection = transport.make_connection("nowhere.example.com")
+        # The connection has not yet been established.
+        self.assertIsNone(connection.sock)
+        # The desired timeout has been modified.
+        self.assertEqual(
+            ProvisioningTransport.timeout,
+            connection.timeout)
