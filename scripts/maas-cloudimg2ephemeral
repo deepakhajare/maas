@@ -62,13 +62,13 @@ unmount_under() {
 		{ error "/proc/mounts not a file"; return 1; }
 	tac /proc/mounts | sh -c '
 		under=$1
-   		while read s mp t opt a b ; do 
-      		[ "${mp#${under}}" != "${mp}" ] || continue; 
-      		umount $mp || 
+		while read s mp t opt a b ; do 
+			[ "${mp#${under}}" != "${mp}" ] || continue; 
+			umount $mp || 
 				{ echo "failed umount $mp, waiting, trying again" 1>&2; 
 				  sleep 10;
 				  umount $mp || exit 1; }
-   		done' -- "$1"
+		done' -- "$1"
 }
 
 loop_mount() {
@@ -403,12 +403,12 @@ apply_updates() {
 	cat > "$dir/usr/sbin/policy-rc.d" <<"EOF"
 #!/bin/sh
 while true; do
-    case "$1" in
-        -*) shift ;;
-        makedev) exit 0 ;;
-        x11-common) exit 0 ;;
-        *) exit 101 ;;
-    esac
+	case "$1" in
+		-*) shift ;;
+		makedev) exit 0 ;;
+		x11-common) exit 0 ;;
+		*) exit 101 ;;
+	esac
 done
 EOF
 	[ $? -eq 0 ] && chmod 755 "$dir/usr/sbin/policy-rc.d" ||
@@ -417,8 +417,8 @@ EOF
 	add_initramfs_hooks "$dir" || return
 
 	local prox="" apt_opts=""
-    out=$(apt-config shell prox Acquire::HTTP::Proxy) &&
-    	eval $out && [ -n "$prox" ] &&
+	out=$(apt-config shell prox Acquire::HTTP::Proxy) &&
+		eval $out && [ -n "$prox" ] &&
 		apt_opts="--option=Acquire::HTTP::Proxy=${prox}"
 
 	apt_opts="${apt_opts} --option=Dpkg::Options::=--force-confold"
@@ -480,7 +480,7 @@ kernel="$2"
 initrd="$3"
 
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
-   fail "failed to make tempdir"
+	fail "failed to make tempdir"
 
 trap cleanup EXIT
 
