@@ -186,6 +186,7 @@ class NodeEditForms(TestCase):
         self.assertEqual(
             [
                 'hostname',
+                # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
                 #'after_commissioning_action',
             ], list(form.fields))
 
