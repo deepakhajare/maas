@@ -16,7 +16,15 @@ from base64 import b64decode
 from xmlrpclib import Fault
 
 from django.conf import settings
-from maasserver import provisioning
+from maasserver import (
+    components,
+    provisioning,
+    )
+from maasserver.components import (
+    COMPONENT,
+    get_persistent_errors,
+    register_persistent_error,
+    )
 from maasserver.exceptions import MAASAPIException
 from maasserver.models import (
     ARCHITECTURE,
@@ -30,11 +38,13 @@ from maasserver.provisioning import (
     compose_cloud_init_preseed,
     compose_commissioning_preseed,
     compose_preseed,
+    DETAILED_PRESENTATIONS,
     get_metadata_server_url,
     name_arch_in_cobbler_style,
+    present_detailed_user_friendly_fault,
     present_user_friendly_fault,
-    PRESENTATIONS,
     select_profile_for_node,
+    SHORT_PRESENTATIONS,
     )
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
@@ -113,6 +123,66 @@ class TestHelpers(TestCase):
         self.assertEqual(token.key, maas_dict['token_key'])
         self.assertEqual(token.secret, maas_dict['token_secret'])
 
+    def test_present_detailed_user_friendly_fault_describes_pserv_fault(self):
+        self.assertIn(
+            "provisioning server",
+            present_user_friendly_fault(Fault(8002, 'error')).message)
+
+    def test_present_detailed_fault_covers_all_pserv_faults(self):
+        all_pserv_faults = set(map_enum(PSERV_FAULT).values())
+        presentable_pserv_faults = set(DETAILED_PRESENTATIONS.keys())
+        self.assertItemsEqual([], all_pserv_faults - presentable_pserv_faults)
+
+    def test_present_detailed_fault_rerepresents_all_pserv_faults(self):
+        fault_string = factory.getRandomString()
+        for fault_code in map_enum(PSERV_FAULT).values():
+            original_fault = Fault(fault_code, fault_string)
+            new_fault = present_detailed_user_friendly_fault(original_fault)
+            self.assertNotEqual(fault_string, new_fault.message)
+
+    def test_present_detailed_fault_describes_cobbler_fault(self):
+        friendly_fault = present_detailed_user_friendly_fault(
+            Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("unable to reach", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_detailed_fault_describes_cobbler_auth_fail(self):
+        friendly_fault = present_detailed_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("failed to authenticate", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_detailed_fault_describes_cobbler_auth_error(self):
+        friendly_fault = present_detailed_user_friendly_fault(
+            Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString()))
+        friendly_text = friendly_fault.message
+        self.assertIn("authentication token", friendly_text)
+        self.assertIn("Cobbler", friendly_text)
+
+    def test_present_detailed_fault_describes_missing_profile(self):
+        profile = factory.getRandomString()
+        friendly_fault = present_detailed_user_friendly_fault(
+            Fault(
+                PSERV_FAULT.NO_SUCH_PROFILE,
+                "invalid profile name: %s" % profile))
+        friendly_text = friendly_fault.message
+        self.assertIn(profile, friendly_text)
+        self.assertIn("maas-import-isos", friendly_text)
+
+    def test_present_detailed_fault_describes_generic_cobbler_fail(self):
+        error_text = factory.getRandomString()
+        friendly_fault = present_detailed_user_friendly_fault(
+            Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, error_text))
+        friendly_text = friendly_fault.message
+        self.assertIn("Cobbler", friendly_text)
+        self.assertIn(error_text, friendly_text)
+
+    def test_present_detailed_fault_returns_None_for_other_fault(self):
+        self.assertIsNone(
+            present_detailed_user_friendly_fault(Fault(9999, "!!!")))
+
     def test_present_user_friendly_fault_describes_pserv_fault(self):
         self.assertIn(
             "provisioning server",
@@ -120,7 +190,7 @@ class TestHelpers(TestCase):
 
     def test_present_user_friendly_fault_covers_all_pserv_faults(self):
         all_pserv_faults = set(map_enum(PSERV_FAULT).values())
-        presentable_pserv_faults = set(PRESENTATIONS.keys())
+        presentable_pserv_faults = set(SHORT_PRESENTATIONS.keys())
         self.assertItemsEqual([], all_pserv_faults - presentable_pserv_faults)
 
     def test_present_user_friendly_fault_rerepresents_all_pserv_faults(self):
@@ -134,22 +204,21 @@ class TestHelpers(TestCase):
         friendly_fault = present_user_friendly_fault(
             Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString()))
         friendly_text = friendly_fault.message
-        self.assertIn("unable to reach", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
+        self.assertIn("Unable to reach the Cobbler server", friendly_text)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_fail(self):
         friendly_fault = present_user_friendly_fault(
             Fault(PSERV_FAULT.COBBLER_AUTH_FAILED, factory.getRandomString()))
         friendly_text = friendly_fault.message
-        self.assertIn("failed to authenticate", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
+        self.assertIn(
+            "Failed to authenticate with the Cobbler server", friendly_text)
 
     def test_present_user_friendly_fault_describes_cobbler_auth_error(self):
         friendly_fault = present_user_friendly_fault(
             Fault(PSERV_FAULT.COBBLER_AUTH_ERROR, factory.getRandomString()))
         friendly_text = friendly_fault.message
-        self.assertIn("authentication token", friendly_text)
-        self.assertIn("Cobbler", friendly_text)
+        self.assertIn(
+            "Failed to authenticate with the Cobbler server", friendly_text)
 
     def test_present_user_friendly_fault_describes_missing_profile(self):
         profile = factory.getRandomString()
@@ -159,18 +228,15 @@ class TestHelpers(TestCase):
                 "invalid profile name: %s" % profile))
         friendly_text = friendly_fault.message
         self.assertIn(profile, friendly_text)
-        self.assertIn("maas-import-isos", friendly_text)
 
     def test_present_user_friendly_fault_describes_generic_cobbler_fail(self):
         error_text = factory.getRandomString()
         friendly_fault = present_user_friendly_fault(
             Fault(PSERV_FAULT.GENERIC_COBBLER_ERROR, error_text))
         friendly_text = friendly_fault.message
-        self.assertIn("Cobbler", friendly_text)
-        self.assertIn(error_text, friendly_text)
-
-    def test_present_user_friendly_fault_returns_None_for_other_fault(self):
-        self.assertIsNone(present_user_friendly_fault(Fault(9999, "!!!")))
+        self.assertIn(
+            "Unknown problem encountered with the Cobbler server.",
+            friendly_text)
 
 
 class ProvisioningTests:
@@ -361,6 +427,71 @@ class ProvisioningTests:
 
         with ExpectedException(MAASAPIException, ".*Cobbler.*"):
             self.papi.add_node('node', 'profile', 'power', '')
+
+    def patch_and_call_papi_method(self, fault_code, papi_method='add_node'):
+        # Patch papi method to make it raise a Fault of the provided
+        # fault_code.  Then call this method.
+        def raise_provisioning_error(*args, **kwargs):
+            raise Fault(fault_code, factory.getRandomString())
+
+        self.papi.patch(papi_method, raise_provisioning_error)
+
+        try:
+            method = getattr(self.papi, papi_method)
+            method()
+        except MAASAPIException:
+            pass
+
+    def test_error_registered_when_NO_COBBLER_raised(self):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        self.patch_and_call_papi_method(PSERV_FAULT.NO_COBBLER)
+        errors = get_persistent_errors()
+        self.assertEqual(1, len(errors))
+        self.assertIn(
+            "The provisioning server was unable to reach the Cobbler",
+            errors[0])
+
+    def test_error_registered_can_handle_all_the_exceptions(self):
+        for fault_code in map_enum(PSERV_FAULT).values():
+            self.patch(components, '_PERSISTENT_ERRORS', {})
+            self.patch_and_call_papi_method(fault_code)
+            errors = get_persistent_errors()
+            self.assertEqual(1, len(errors))
+
+    def test_failing_components_cleared_if_add_node_works(self):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
+        register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
+        register_persistent_error(
+            COMPONENT.IMPORT_ISOS, factory.getRandomString())
+        self.papi.add_node('node', 'hostname', 'profile', 'power', '')
+        self.assertEqual([], get_persistent_errors())
+
+    def test_only_failing_components_are_cleared_if_modify_nodes_works(self):
+        # Only the components listed in METHOD_COMPONENTS[method_name]
+        # are cleared with the run of method_name is successfull.
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        other_error = factory.getRandomString()
+        other_component = factory.getRandomString()
+        register_persistent_error(other_component, other_error)
+        self.papi.modify_nodes({})
+        self.assertEqual([other_error], get_persistent_errors())
+
+    def test_failing_components_cleared_if_modify_nodes_works(self):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
+        register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
+        self.papi.modify_nodes({})
+        self.assertEqual([], get_persistent_errors())
+
+    def test_failing_components_cleared_if_delete_nodes_by_name_works(self):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
+        register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
+        other_error = factory.getRandomString()
+        register_persistent_error(factory.getRandomString(), other_error)
+        self.papi.delete_nodes_by_name([])
+        self.assertEqual([other_error], get_persistent_errors())
 
 
 class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
