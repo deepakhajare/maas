@@ -265,12 +265,12 @@ class ProvisioningProxy:
     def __getattr__(self, attribute_name):
         """Return a wrapped version of the requested method."""
         attribute = getattr(self.proxy, attribute_name)
-        if getattr(attribute, '__call__', None) is None:
-            # This is a regular attribute.  Return it as-is.
-            return attribute
-        else:
+        if callable(attribute):
             # This attribute is callable.  Wrap it in a caller.
             return ProvisioningCaller(attribute_name, attribute)
+        else:
+            # This is a regular attribute.  Return it as-is.
+            return attribute
 
 
 def get_provisioning_api_proxy():
