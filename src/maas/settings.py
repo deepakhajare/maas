@@ -208,6 +208,10 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # ErrorsMiddleware catches all the exceptions and issues
+    # a redirect.  Specialize error handling middlewares
+    # (like APIErrorsMiddleware) should be placed after it.
+    'maasserver.middleware.ErrorsMiddleware',
     'maasserver.middleware.APIErrorsMiddleware',
     'metadataserver.middleware.MetadataErrorsMiddleware',
     'django.middleware.transaction.TransactionMiddleware',
