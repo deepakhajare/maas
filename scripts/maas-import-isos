@@ -70,7 +70,7 @@ update_settings(){
 		done
 	done
 
-	[ "$IMPORT_EPHEMERALS" = "1" ] || maas-import-ephemerals --update
+	[ "$IMPORT_EPHEMERALS" = "0" ] || maas-import-ephemerals --update
 }
 
 import_isos(){
