@@ -170,6 +170,11 @@ class ProvisioningAPI:
         super(ProvisioningAPI, self).__init__()
         self.session = session
 
+    def _sync(self):
+        """Request Cobbler to sync and return when it's finished."""
+        return self.session.call(
+            "sync", self.session.token_placeholder)
+
     @inlineCallbacks
     def add_distro(self, name, initrd, kernel):
         assert isinstance(name, basestring)
@@ -278,6 +283,7 @@ class ProvisioningAPI:
         assert all(isinstance(name, basestring) for name in names)
         for name in names:
             yield object_type(self.session, name).delete()
+        yield self._sync()
 
     @deferred
     def delete_distros_by_name(self, names):
