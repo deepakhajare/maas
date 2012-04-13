@@ -98,7 +98,7 @@ class RealCobbler:
 
         Returns None if no real Cobbler is available.
         """
-        if self.is_available():
+        if self.is_available:
             return CobblerSession(self.url, self.username, self.password)
         else:
             return None
