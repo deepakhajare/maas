@@ -19,7 +19,6 @@ from abc import (
     abstractmethod,
     )
 from base64 import b64decode
-from unittest import skipIf
 
 from maasserver.testing.enum import map_enum
 from maastesting.factory import factory
@@ -645,7 +644,7 @@ class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
 
     real_cobbler = RealCobbler()
 
-    @skipIf(not real_cobbler.is_available(), RealCobbler.help_text)
+    @real_cobbler.skip_unless_available
     def get_provisioning_api(self):
         """Return a connected :class:`ProvisioningAPI`."""
         return ProvisioningAPI(self.real_cobbler.get_session())
