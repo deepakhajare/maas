@@ -236,6 +236,7 @@ class ProvisioningAPI:
                 for interface_modification in interface_modifications:
                     yield system.modify(interface_modification)
             yield system.modify(delta)
+        self._sync()
 
     @inlineCallbacks
     def get_objects_by_name(self, object_type, names):

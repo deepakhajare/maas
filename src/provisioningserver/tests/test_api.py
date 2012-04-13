@@ -38,11 +38,11 @@ from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from provisioningserver.testing.realcobbler import RealCobbler
 from testtools import TestCase
+from testtools.deferredruntest import AsynchronousDeferredRunTest
 from testtools.matchers import (
     FileExists,
     Not,
     )
-from testtools.deferredruntest import AsynchronousDeferredRunTest
 from twisted.internet.defer import inlineCallbacks
 from zope.interface.verify import verifyObject
 
@@ -655,25 +655,21 @@ class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
 
     @real_cobbler.skip_unless_local
     @inlineCallbacks
-    def test_sync_after_delete(self):
-        # When MAAS deletes a node it first clears all the MAC
-        # addresses. Cobbler must be sync'ed afterwards, otherwise some
-        # netboot files get left behind.
+    def test_sync_after_modify(self):
+        # When MAAS modifies the MAC addresses of a node it triggers a sync of
+        # Cobbler. This is to ensure that netboot files are up-to-date, or
+        # removed as appropriate.
         papi = self.get_provisioning_api()
         node_name = yield self.add_node(papi)
-        # Set a single MAC address on the node.
         mac_address = factory.getRandomMACAddress()
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": [mac_address]}})
+        # The PXE file corresponding to the node's MAC address is present.
         pxe_filename = "/var/lib/tftpboot/pxelinux.cfg/01-%s" % (
             mac_address.replace(":", "-"),)
         self.assertThat(pxe_filename, FileExists())
-        # Remove that MAC address.
+        # Remove the MAC address again.
         yield papi.modify_nodes(
             {node_name: {"mac_addresses": []}})
-        # The netboot file is left behind! This is a bug in Cobbler.
-        # TODO: Sync after modify instead.
-        self.assertThat(pxe_filename, FileExists())
-        # However, after deleting the node the netboot file is cleared up.
-        yield papi.delete_nodes_by_name([node_name])
+        # The PXE file has been removed too.
         self.assertThat(pxe_filename, Not(FileExists()))
