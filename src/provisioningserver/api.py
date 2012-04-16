@@ -218,11 +218,13 @@ class ProvisioningAPI:
     def modify_distros(self, deltas):
         for name, delta in deltas.items():
             yield CobblerDistro(self.session, name).modify(delta)
+        yield self._sync()
 
     @inlineCallbacks
     def modify_profiles(self, deltas):
         for name, delta in deltas.items():
             yield CobblerProfile(self.session, name).modify(delta)
+        yield self._sync()
 
     @inlineCallbacks
     def modify_nodes(self, deltas):
@@ -239,7 +241,7 @@ class ProvisioningAPI:
                 for interface_modification in interface_modifications:
                     yield system.modify(interface_modification)
             yield system.modify(delta)
-        self._sync()
+        yield self._sync()
 
     @inlineCallbacks
     def get_objects_by_name(self, object_type, names):
