@@ -4,6 +4,7 @@
 """Twisted Application Plugin code for the MAAS provisioning server"""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )

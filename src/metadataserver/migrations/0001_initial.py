@@ -4,9 +4,11 @@
 """Initial metadataserver migration."""
 
 from __future__ import (
-    print_function,
     # This breaks South.
     #unicode_literals,
+    absolute_import,
+    print_function,
+    unicode_literals,
     )
 
 __metaclass__ = type
