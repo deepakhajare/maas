@@ -684,6 +684,30 @@ class ProvisioningAPITestsWithCobbler:
             yield papi.modify_nodes({})
             self.assertEqual(1, sync_count())
 
+    @inlineCallbacks
+    def test_delete_distros_by_name_syncs(self):
+        # delete_distros_by_name ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        with self.patch_sync(papi) as sync_count:
+            yield papi.delete_distros_by_name([])
+            self.assertEqual(1, sync_count())
+
+    @inlineCallbacks
+    def test_delete_profiles_by_name_syncs(self):
+        # delete_profiles_by_name ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        with self.patch_sync(papi) as sync_count:
+            yield papi.delete_profiles_by_name([])
+            self.assertEqual(1, sync_count())
+
+    @inlineCallbacks
+    def test_delete_nodes_by_name_syncs(self):
+        # delete_nodes_by_name ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        with self.patch_sync(papi) as sync_count:
+            yield papi.delete_nodes_by_name([])
+            self.assertEqual(1, sync_count())
+
 
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
