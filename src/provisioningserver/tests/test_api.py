@@ -614,89 +614,82 @@ class ProvisioningAPITestsWithCobbler:
             preseed_data, b64decode(attrs['ks_meta']['MAAS_PRESEED']))
 
     @contextmanager
-    def patch_sync(self, papi):
+    def expected_sync(self, papi, times=1):
+        """Context where # calls to `papi.sync` must match `times`."""
         sync_calls = []
         orig_sync = papi.sync
         fake_sync = lambda: orig_sync().addCallback(sync_calls.append)
         unpatch = patch(papi, "sync", fake_sync)
         try:
-            yield partial(len, sync_calls)
+            yield
         finally:
             unpatch()
+        self.assertEqual(times, len(sync_calls))
 
     @inlineCallbacks
     def test_add_distro_syncs(self):
         # add_distro ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield self.add_distro(papi)
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_add_profile_syncs(self):
         # add_profile ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
         distro_name = yield self.add_distro(papi)
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield self.add_profile(papi, distro_name=distro_name)
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_add_node_syncs(self):
         # add_node ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
         profile_name = yield self.add_profile(papi)
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield self.add_node(papi, profile_name=profile_name)
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_modify_distros_syncs(self):
         # modify_distros ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.modify_distros({})
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_modify_profiles_syncs(self):
         # modify_profiles ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.modify_profiles({})
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_modify_nodes_syncs(self):
         # modify_nodes ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.modify_nodes({})
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_delete_distros_by_name_syncs(self):
         # delete_distros_by_name ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.delete_distros_by_name([])
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_delete_profiles_by_name_syncs(self):
         # delete_profiles_by_name ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.delete_profiles_by_name([])
-            self.assertEqual(1, sync_count())
 
     @inlineCallbacks
     def test_delete_nodes_by_name_syncs(self):
         # delete_nodes_by_name ensures that Cobbler syncs.
         papi = self.get_provisioning_api()
-        with self.patch_sync(papi) as sync_count:
+        with self.expected_sync(papi):
             yield papi.delete_nodes_by_name([])
-            self.assertEqual(1, sync_count())
 
 
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
