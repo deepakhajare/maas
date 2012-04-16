@@ -17,8 +17,9 @@ suite.add(new Y.maas.testing.TestCase({
         var cfg = {
             srcNode: '#panel-two',
             targetNode: '#panel-one'
-        }
+        };
         morpher = new module.Morph(cfg);
+        morpher._get_nodes();
         Y.Assert.isFalse(
             Y.one('#panel-one').hasClass('hidden'),
             'The target panel should initially be visible');
@@ -26,11 +27,39 @@ suite.add(new Y.maas.testing.TestCase({
             Y.one('#panel-two').hasClass('hidden'),
             'The source panel should initially be hidden');
         var morphed_fired = false;
+        var fade_in_completed = false;
+        var fade_out_completed = false;
+        var resize_completed = false;
+        morpher._create_morph_out();
         morpher.on('morphed', function() {
             morphed_fired = true;
         });
-        morpher.morph();
+        morpher._fade_out.on('end', function() {
+            fade_out_completed = true;
+            /* The morph in animation can't be created until after the morph
+               out animation has run.
+            */
+            morpher._create_morph_in();
+            morpher._fade_in.on('end', function() {
+                fade_in_completed = true;
+            });
+            morpher._resize.on('end', function() {
+                resize_completed = true;
+            });
+            morpher._fade_in.run();
+            morpher._resize.run();
+        });
+        morpher._fade_out.run();
         this.wait(function() {
+            Y.Assert.isTrue(
+                fade_out_completed,
+                'The fade out animation should have completed');
+            Y.Assert.isTrue(
+                fade_in_completed,
+                'The fade in animation should have completed');
+            Y.Assert.isTrue(
+                resize_completed,
+                'The resize animation should have completed');
             Y.Assert.isTrue(
                 Y.one(cfg.targetNode).hasClass('hidden'),
                 'The target panel should now be hidden');

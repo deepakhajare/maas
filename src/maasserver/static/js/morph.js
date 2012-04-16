@@ -18,6 +18,10 @@ var Morph = function(config) {
 
 Morph.NAME = 'morph';
 
+Morph._fade_out;
+Morph._fade_in;
+Morph._resize;
+
 Morph.ATTRS = {
     /**
      * The DOM node to be morphed from.
@@ -43,56 +47,94 @@ Y.extend(Morph, Y.Widget, {
         }
     },
 
+    /**
+     * Animate between the original and new content.
+     *
+     * @method morph
+     * @param {Boolean} reverse: whether or not the widget should morph in the
+            new content or return to the original content.
+     */
     morph: function(reverse) {
-        if (reverse){
-            var srcNode = this.get('targetNode');
-            var targetNode = this.get('srcNode');
-        }
-        else {
-            var srcNode = this.get('srcNode');
-            var targetNode = this.get('targetNode');
-        }
+        this._get_nodes(reverse);
         if (this._animate) {
-            var target_height = targetNode.getComputedStyle('height');
-            var fade_out = new Y.Anim({
-                node: targetNode,
-                to: {opacity: 0},
-                duration: 0.2,
-                easing: 'easeOut'
-                });
             var self = this;
-            fade_out.on('end', function () {
-                targetNode.addClass('hidden');
-                srcNode.setStyle('opacity', 0);
-                srcNode.removeClass('hidden');
-                src_height = srcNode.getComputedStyle('height')
-                    .replace('px', '');
-                srcNode.setStyle('height', target_height);
-                var fade_in = new Y.Anim({
-                    node: srcNode,
-                    to: {opacity: 1},
-                    duration: 1,
-                    easing: 'easeIn'
-                    });
-                var resize = new Y.Anim({
-                    node: srcNode,
-                    to: {height: src_height},
-                    duration: 0.5,
-                    easing: 'easeOut'
-                    });
-                resize.on('end', function () {
-                    srcNode.setStyle('height', 'auto');
-                    self.fire('morphed');
-                });
-                fade_in.run();
-                resize.run();
+            this._create_morph_in();
+            this._fade_out.on('end', function () {
+                self._create_morph_in();
+                self._fade_in.run();
+                self._resize.run();
             });
-            fade_out.run();
+            this._fade_out.run();
         }
         else {
-            targetNode.addClass('hidden');
-            srcNode.removeClass('hidden');
+            this.target_node.addClass('hidden');
+            this.src_node.removeClass('hidden');
+            this.fire('morphed');
         }
+    },
+
+    /**
+     * Get the HTML nodes to morph between.
+     *
+     * @method _get_nodes
+     * @param {Boolean} reverse: whether or not the returned nodes should morph
+            in the new content or return to the original content.
+     */
+    _get_nodes: function(reverse) {
+        if (reverse) {
+            this.src_node = this.get('targetNode');
+            this.target_node = this.get('srcNode');
+        }
+        else {
+            this.src_node = this.get('srcNode');
+            this.target_node = this.get('targetNode');
+        }
+    },
+
+    /**
+     * Create the animation for morphing out the original content.
+     *
+     * @method _create_morph_out
+     */
+    _create_morph_out: function() {
+        this.target_height = this.target_node.getComputedStyle('height');
+        this._fade_out = new Y.Anim({
+            node: this.target_node,
+            to: {opacity: 0},
+            duration: 0.2,
+            easing: 'easeOut'
+            });
+    },
+
+    /**
+     * Create the animation for morphing in the new content.
+     *
+     * @method _create_morph_in
+     */
+    _create_morph_in: function() {
+        var self = this;
+        this.target_node.addClass('hidden');
+        this.src_node.setStyle('opacity', 0);
+        this.src_node.removeClass('hidden');
+        var src_height = this.src_node.getComputedStyle('height')
+            .replace('px', '');
+        this.src_node.setStyle('height', this.target_height);
+        this._fade_in = new Y.Anim({
+            node: this.src_node,
+            to: {opacity: 1},
+            duration: 1,
+            easing: 'easeIn'
+            });
+        this._resize = new Y.Anim({
+            node: this.src_node,
+            to: {height: src_height},
+            duration: 0.5,
+            easing: 'easeOut'
+            });
+        this._resize.on('end', function () {
+            self.src_node.setStyle('height', 'auto');
+            self.fire('morphed');
+        });
     }
 });
 
