@@ -122,7 +122,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
             .addClass('add-link')
             .addClass('add-mac-form')
             .set('href', '#')
-            .set('text', " Add additional MAC address")
+            .set('text', "Add additional MAC address")
             .prepend(macaddress_add_icon);
         var operation = Y.Node.create('<input />')
             .set('type', 'hidden')
