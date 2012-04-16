@@ -185,6 +185,7 @@ class ProvisioningAPI:
                 "initrd": initrd,
                 "kernel": kernel,
                 })
+        yield self._sync()
         returnValue(distro.name)
 
     @inlineCallbacks
@@ -193,6 +194,7 @@ class ProvisioningAPI:
         assert isinstance(distro, basestring)
         profile = yield CobblerProfile.new(
             self.session, name, {"distro": distro})
+        yield self._sync()
         returnValue(profile.name)
 
     @inlineCallbacks
@@ -209,6 +211,7 @@ class ProvisioningAPI:
             "power_type": power_type,
             }
         system = yield CobblerSystem.new(self.session, name, attributes)
+        yield self._sync()
         returnValue(system.name)
 
     @inlineCallbacks

@@ -19,6 +19,8 @@ from abc import (
     abstractmethod,
     )
 from base64 import b64decode
+from contextlib import contextmanager
+from functools import partial
 
 from maasserver.testing.enum import map_enum
 from maastesting.factory import factory
@@ -43,6 +45,7 @@ from testtools.matchers import (
     FileExists,
     Not,
     )
+from testtools.monkey import patch
 from twisted.internet.defer import inlineCallbacks
 from zope.interface.verify import verifyObject
 
@@ -609,6 +612,53 @@ class ProvisioningAPITestsWithCobbler:
         attrs = yield CobblerSystem(papi.session, node_name).get_values()
         self.assertEqual(
             preseed_data, b64decode(attrs['ks_meta']['MAAS_PRESEED']))
+
+    @inlineCallbacks
+    def assertSyncIsCalled(self, func, *args, **kwargs):
+        papi = self.get_provisioning_api()
+        sync_calls = []
+        orig_sync = papi._sync
+        fake_sync = lambda: orig_sync().addCallback(sync_calls.append)
+        self.patch(papi, "_sync", fake_sync)
+        yield func(papi, *args, **kwargs)
+        self.assertEqual(1, len(sync_calls))
+
+    @contextmanager
+    def patch_sync(self, papi):
+        sync_calls = []
+        orig_sync = papi._sync
+        fake_sync = lambda: orig_sync().addCallback(sync_calls.append)
+        unpatch = patch(papi, "_sync", fake_sync)
+        try:
+            yield partial(len, sync_calls)
+        finally:
+            unpatch()
+
+    @inlineCallbacks
+    def test_add_distro_syncs(self):
+        # add_distro ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        with self.patch_sync(papi) as sync_count:
+            yield self.add_distro(papi)
+            self.assertEqual(1, sync_count())
+
+    @inlineCallbacks
+    def test_add_profile_syncs(self):
+        # add_profile ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        distro_name = yield self.add_distro(papi)
+        with self.patch_sync(papi) as sync_count:
+            yield self.add_profile(papi, distro_name=distro_name)
+            self.assertEqual(1, sync_count())
+
+    @inlineCallbacks
+    def test_add_node_syncs(self):
+        # add_node ensures that Cobbler syncs.
+        papi = self.get_provisioning_api()
+        profile_name = yield self.add_profile(papi)
+        with self.patch_sync(papi) as sync_count:
+            yield self.add_node(papi, profile_name=profile_name)
+            self.assertEqual(1, sync_count())
 
 
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
