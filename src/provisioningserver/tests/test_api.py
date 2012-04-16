@@ -715,6 +715,22 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
         """Return a real ProvisioningAPI, but using a fake Cobbler session."""
         return ProvisioningAPI(make_fake_cobbler_session())
 
+    def test_sync(self):
+        """`ProvisioningAPI.sync` issues an authenticated ``sync`` call.
+
+        It is not exported - i.e. it is not part of :class:`IProvisioningAPI`
+        - but is used heavily by other methods in `IProvisioningAPI`.
+        """
+        papi = self.get_provisioning_api()
+        calls = []
+        self.patch(
+            papi.session, "call",
+            lambda *args: calls.append(args))
+        papi.sync()
+        self.assertEqual(
+            [("sync", papi.session.token_placeholder)],
+            calls)
+
 
 class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
                                          ProvisioningAPITestsWithCobbler,
