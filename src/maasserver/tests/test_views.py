@@ -757,7 +757,7 @@ class MAASExceptionHandledInView(LoggedInTestCase):
         node = factory.make_node(owner=self.logged_in_user)
         node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.post(node_edit_link, {})
-        redirect_url = urlparse(dict(response.items())['Location']).path
+        redirect_url = urlparse(response['Location']).path
         self.assertEqual(
             (httplib.FOUND, redirect_url),
             (response.status_code, node_edit_link))

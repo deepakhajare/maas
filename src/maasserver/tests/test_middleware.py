@@ -190,7 +190,7 @@ class ExceptionLoggerMiddlewareTest(TestCase):
 
 class ErrorsMiddlewareTest(LoggedInTestCase):
 
-    def test_error_middleware_ignores_get_requests(self):
+    def test_error_middleware_ignores_GET_requests(self):
         request = fake_request(factory.getRandomString(), 'GET')
         exception = MAASException()
         middleware = ErrorsMiddleware()
@@ -213,7 +213,7 @@ class ErrorsMiddlewareTest(LoggedInTestCase):
         response = middleware.process_exception(request, exception)
         # The response is a redirect.
         self.assertEqual(
-            (httplib.FOUND, dict(response.items())['Location']),
+            (httplib.FOUND, response['Location']),
             (response.status_code, url))
         # An error message has been published.
         self.assertEqual(
