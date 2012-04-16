@@ -35,7 +35,7 @@ from maasserver.components import (
     discard_persistent_error,
     register_persistent_error,
     )
-from maasserver.exceptions import MAASAPIException
+from maasserver.exceptions import ExternalComponentException
 from maasserver.models import (
     ARCHITECTURE_CHOICES,
     Config,
@@ -145,7 +145,7 @@ def _present_user_friendly_fault(fault, presentations):
     if user_friendly_text is None:
         return None
     else:
-        return MAASAPIException(dedent(
+        return ExternalComponentException(dedent(
             user_friendly_text.lstrip('\n') % params))
 
 
