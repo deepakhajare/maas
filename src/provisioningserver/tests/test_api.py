@@ -613,22 +613,12 @@ class ProvisioningAPITestsWithCobbler:
         self.assertEqual(
             preseed_data, b64decode(attrs['ks_meta']['MAAS_PRESEED']))
 
-    @inlineCallbacks
-    def assertSyncIsCalled(self, func, *args, **kwargs):
-        papi = self.get_provisioning_api()
-        sync_calls = []
-        orig_sync = papi._sync
-        fake_sync = lambda: orig_sync().addCallback(sync_calls.append)
-        self.patch(papi, "_sync", fake_sync)
-        yield func(papi, *args, **kwargs)
-        self.assertEqual(1, len(sync_calls))
-
     @contextmanager
     def patch_sync(self, papi):
         sync_calls = []
-        orig_sync = papi._sync
+        orig_sync = papi.sync
         fake_sync = lambda: orig_sync().addCallback(sync_calls.append)
-        unpatch = patch(papi, "_sync", fake_sync)
+        unpatch = patch(papi, "sync", fake_sync)
         try:
             yield partial(len, sync_calls)
         finally:
