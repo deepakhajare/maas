@@ -46,6 +46,7 @@ from maasserver.provisioning import (
     name_arch_in_cobbler_style,
     present_detailed_user_friendly_fault,
     present_user_friendly_fault,
+    ProvisioningTransport,
     select_profile_for_node,
     SHORT_PRESENTATIONS,
     )
@@ -325,7 +326,7 @@ class ProvisioningTests:
         def raise_missing_profile(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_SUCH_PROFILE, "Unknown profile.")
 
-        self.papi.patch('add_node', raise_missing_profile)
+        self.patch(self.papi.proxy, 'add_node', raise_missing_profile)
         with ExpectedException(ExternalComponentException):
             node = factory.make_node(architecture='amd32k')
             provisioning.provision_post_save_Node(
@@ -336,7 +337,7 @@ class ProvisioningTests:
         def raise_fault(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_fault)
+        self.patch(self.papi.proxy, 'add_node', raise_fault)
         with ExpectedException(ExternalComponentException):
             node = factory.make_node(architecture='amd32k')
             provisioning.provision_post_save_Node(
@@ -416,7 +417,7 @@ class ProvisioningTests:
         def raise_fault(*args, **kwargs):
             raise Fault(8002, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_fault)
+        self.patch(self.papi.proxy, 'add_node', raise_fault)
 
         with ExpectedException(
             ExternalComponentException, ".*provisioning server.*"):
@@ -427,7 +428,7 @@ class ProvisioningTests:
         def raise_provisioning_error(*args, **kwargs):
             raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
-        self.papi.patch('add_node', raise_provisioning_error)
+        self.patch(self.papi.proxy, 'add_node', raise_provisioning_error)
 
         with ExpectedException(ExternalComponentException, ".*Cobbler.*"):
             self.papi.add_node('node', 'profile', 'power', '')
@@ -438,7 +439,7 @@ class ProvisioningTests:
         def raise_provisioning_error(*args, **kwargs):
             raise Fault(fault_code, factory.getRandomString())
 
-        self.papi.patch(papi_method, raise_provisioning_error)
+        self.patch(self.papi.proxy, papi_method, raise_provisioning_error)
 
         try:
             method = getattr(self.papi, papi_method)
@@ -516,7 +517,7 @@ class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
         # server and MAAS ought to leave that alone. When the node is retired
         # netbooting is disabled.
         expected = {
-            NODE_STATUS.DECLARED: True,
+            NODE_STATUS.DECLARED: False,
             NODE_STATUS.COMMISSIONING: True,
             NODE_STATUS.FAILED_TESTS: True,
             NODE_STATUS.MISSING: True,
@@ -563,3 +564,15 @@ class TestProvisioningWithFake(ProvisioningTests, ProvisioningFakeFactory,
         preseed = self.papi.nodes[node.system_id]['ks_meta']['MAAS_PRESEED']
         self.assertEqual(
             compose_cloud_init_preseed(token), b64decode(preseed))
+
+
+class TestProvisioningTransport(TestCase):
+    """Tests for :class:`ProvisioningTransport`."""
+
+    def test_make_connection(self):
+        transport = ProvisioningTransport()
+        connection = transport.make_connection("nowhere.example.com")
+        # The connection has not yet been established.
+        self.assertIsNone(connection.sock)
+        # The desired timeout has been modified.
+        self.assertEqual(transport.timeout, connection.timeout)
