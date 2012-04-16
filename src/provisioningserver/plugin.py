@@ -14,7 +14,6 @@ __all__ = []
 
 from getpass import getuser
 
-from amqpclient import AMQFactory
 from formencode import Schema
 from formencode.validators import (
     Int,
@@ -22,6 +21,7 @@ from formencode.validators import (
     String,
     URL,
     )
+from provisioningserver.amqpclient import AMQFactory
 from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.remote import ProvisioningAPI_XMLRPC
 from provisioningserver.services import (
