@@ -58,8 +58,9 @@ def cobbler_to_papi_node(data):
         "mac_addresses": [
             mac_address.strip()
             for mac_address in mac_addresses
-            if not mac_address.isspace()
+            if mac_address and not mac_address.isspace()
             ],
+        "netboot_enabled": data.get("netboot_enabled"),
         "power_type": data["power_type"],
         }
 
@@ -134,6 +135,15 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
         in izip(eth_names, mac_addresses, dns_names)
         }
 
+    # If we're removing all MAC addresses, we need to leave one unconfigured
+    # interface behind to satisfy Cobbler's data model constraints.
+    if len(mac_addresses) == 0:
+        interfaces_to["eth0"] = {
+            "interface": "eth0",
+            "mac_address": "",
+            "dns_name": "",
+            }
+
     # Go through interfaces, generating deltas from `interfaces_from` to
     # `interfaces_to`. This is done in sorted order to make testing easier.
     interface_names = set().union(interfaces_from, interfaces_to)
@@ -150,18 +160,6 @@ def gen_cobbler_interface_deltas(interfaces, hostname, mac_addresses):
             yield interface_to
         else:
             pass  # No change.
-
-
-# Preseed data to send to cloud-init.  We set this as MAAS_PRESEED in
-# ks_meta, and it gets fed straight into debconf.
-metadata_preseed_items = [
-    ('datasources', 'multiselect', 'MAAS'),
-    ('maas-metadata-url', 'string', '%(maas-metadata-url)s'),
-    ('maas-metadata-credentials', 'string', '%(maas-metadata-credentials)s'),
-    ]
-metadata_preseed = '\n'.join(
-    "cloud-init   cloud-init/%s  %s %s" % (item_name, item_type, item_value)
-    for item_name, item_type, item_value in metadata_preseed_items)
 
 
 class ProvisioningAPI:
@@ -193,17 +191,16 @@ class ProvisioningAPI:
         returnValue(profile.name)
 
     @inlineCallbacks
-    def add_node(self, name, hostname, profile, power_type, metadata):
+    def add_node(self, name, hostname, profile, power_type, preseed_data):
         assert isinstance(name, basestring)
         assert isinstance(hostname, basestring)
         assert isinstance(profile, basestring)
         assert power_type in (POWER_TYPE.VIRSH, POWER_TYPE.WAKE_ON_LAN)
-        assert isinstance(metadata, dict)
-        preseed = b64encode(metadata_preseed % metadata)
+        assert isinstance(preseed_data, basestring)
         attributes = {
             "hostname": hostname,
             "profile": profile,
-            "ks_meta": {"MAAS_PRESEED": preseed},
+            "ks_meta": {"MAAS_PRESEED": b64encode(preseed_data)},
             "power_type": power_type,
             }
         system = yield CobblerSystem.new(self.session, name, attributes)

@@ -6,6 +6,18 @@
 #
 # port: 5241
 
+## The credentials which the Provisioning API will require.
+#
+# username: <current user>
+# password:
+password: "test"
+
+## Network interface to bind the service on.
+# Keep this pointed at the loopback interface unless you really know what
+# you're doing.
+#
+# interface: "127.0.0.1"
+
 ## Where to log. This log can be rotated by sending SIGUSR1 to the
 ## running server.
 #

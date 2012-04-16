@@ -24,6 +24,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.db import IntegrityError
 from django.utils.safestring import SafeUnicode
 from fixtures import TestWithFixtures
 from maasserver.exceptions import (
@@ -58,7 +59,10 @@ from maasserver.testing import get_data
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from metadataserver.models import NodeUserData
+from metadataserver.models import (
+    NodeCommissionResult,
+    NodeUserData,
+    )
 from piston.models import (
     Consumer,
     KEY_SIZE,
@@ -124,6 +128,10 @@ class NodeTest(TestCase):
         node.delete()
         self.assertRaises(
             MACAddress.DoesNotExist, MACAddress.objects.get, id=mac.id)
+
+    def test_cannot_delete_allocated_node(self):
+        node = factory.make_node(status=NODE_STATUS.ALLOCATED)
+        self.assertRaises(NodeStateViolation, node.delete)
 
     def test_set_mac_based_hostname_default_enlistment_domain(self):
         # The enlistment domain defaults to `local`.
@@ -199,13 +207,10 @@ class NodeTest(TestCase):
     def test_accept_enlistment_gets_node_out_of_declared_state(self):
         # If called on a node in Declared state, accept_enlistment()
         # changes the node's status, and returns the node.
-
-        # This will change when we add commissioning.  Until then,
-        # acceptance gets a node straight to Ready state.
-        target_state = NODE_STATUS.READY
+        target_state = NODE_STATUS.COMMISSIONING
 
         node = factory.make_node(status=NODE_STATUS.DECLARED)
-        return_value = node.accept_enlistment()
+        return_value = node.accept_enlistment(factory.make_user())
         self.assertEqual((node, target_state), (return_value, node.status))
 
     def test_accept_enlistment_does_nothing_if_already_accepted(self):
@@ -221,7 +226,7 @@ class NodeTest(TestCase):
             for status in accepted_states}
 
         return_values = {
-            status: node.accept_enlistment()
+            status: node.accept_enlistment(factory.make_user())
             for status, node in nodes.items()}
 
         self.assertEqual(
@@ -249,7 +254,7 @@ class NodeTest(TestCase):
         exceptions = {status: False for status in unacceptable_states}
         for status, node in nodes.items():
             try:
-                node.accept_enlistment()
+                node.accept_enlistment(factory.make_user())
             except NodeStateViolation:
                 exceptions[status] = True
 
@@ -258,6 +263,55 @@ class NodeTest(TestCase):
         self.assertEqual(
             {status: status for status in unacceptable_states},
             {status: node.status for status, node in nodes.items()})
+
+    def test_start_commissioning_changes_status_and_starts_node(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node.start_commissioning(user)
+
+        expected_attrs = {
+            'status': NODE_STATUS.COMMISSIONING,
+            'owner': user,
+        }
+        self.assertAttributes(node, expected_attrs)
+        power_status = get_provisioning_api_proxy().power_status
+        self.assertEqual('start', power_status[node.system_id])
+
+    def test_start_commissioning_sets_user_data(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node.start_commissioning(factory.make_admin())
+        path = settings.COMMISSIONING_SCRIPT
+        with open(path, 'r') as f:
+            commissioning_user_data = f.read()
+        self.assertEqual(
+            commissioning_user_data,
+            NodeUserData.objects.get_user_data(node))
+
+    def test_missing_commissioning_script(self):
+        self.patch(
+            settings, 'COMMISSIONING_SCRIPT',
+            '/etc/' + factory.getRandomString(10))
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        self.assertRaises(
+            ValidationError,
+            node.start_commissioning, factory.make_admin())
+
+    def test_start_commissioning_clears_node_commissioning_results(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        NodeCommissionResult.objects.store_data(
+            node, factory.getRandomString(), factory.getRandomString())
+        node.start_commissioning(factory.make_admin())
+        self.assertItemsEqual([], node.nodecommissionresult_set.all())
+
+    def test_start_commissioning_ignores_other_commissioning_results(self):
+        node = factory.make_node()
+        filename = factory.getRandomString()
+        text = factory.getRandomString()
+        NodeCommissionResult.objects.store_data(node, filename, text)
+        other_node = factory.make_node(status=NODE_STATUS.DECLARED)
+        other_node.start_commissioning(factory.make_admin())
+        self.assertEqual(
+            text, NodeCommissionResult.objects.get_data(node, filename))
 
     def test_full_clean_checks_status_transition_and_raises_if_invalid(self):
         # RETIRED -> ALLOCATED is an invalid transition.
@@ -368,8 +422,9 @@ class NodeManagerTest(TestCase):
         self.assertItemsEqual(
             [node], Node.objects.filter_by_ids(Node.objects.all(), None))
 
-    def test_get_visible_nodes_for_user_lists_visible_nodes(self):
-        """get_visible_nodes lists the nodes a user has access to.
+    def test_get_nodes_for_user_lists_visible_nodes(self):
+        """get_nodes with perm=NODE_PERMISSION.VIEW lists the nodes a user
+        has access to.
 
         When run for a regular user it returns unowned nodes, and nodes
         owned by that user.
@@ -378,9 +433,9 @@ class NodeManagerTest(TestCase):
         visible_nodes = [self.make_node(owner) for owner in [None, user]]
         self.make_node(factory.make_user())
         self.assertItemsEqual(
-            visible_nodes, Node.objects.get_visible_nodes(user))
+            visible_nodes, Node.objects.get_nodes(user, NODE_PERMISSION.VIEW))
 
-    def test_get_visible_nodes_admin_lists_all_nodes(self):
+    def test_get_nodes_admin_lists_all_nodes(self):
         admin = factory.make_admin()
         owners = [
             None,
@@ -389,26 +444,29 @@ class NodeManagerTest(TestCase):
             admin,
             ]
         nodes = [self.make_node(owner) for owner in owners]
-        self.assertItemsEqual(nodes, Node.objects.get_visible_nodes(admin))
+        self.assertItemsEqual(
+            nodes, Node.objects.get_nodes(admin, NODE_PERMISSION.VIEW))
 
-    def test_get_visible_nodes_filters_by_id(self):
+    def test_get_nodes_filters_by_id(self):
         user = factory.make_user()
         nodes = [self.make_node(user) for counter in range(5)]
         ids = [node.system_id for node in nodes]
         wanted_slice = slice(0, 3)
         self.assertItemsEqual(
             nodes[wanted_slice],
-            Node.objects.get_visible_nodes(user, ids=ids[wanted_slice]))
+            Node.objects.get_nodes(
+                user, NODE_PERMISSION.VIEW, ids=ids[wanted_slice]))
 
-    def test_get_editable_nodes_for_user_lists_owned_nodes(self):
+    def test_get_nodes_with_edit_perm_for_user_lists_owned_nodes(self):
         user = factory.make_user()
         visible_node = self.make_node(user)
         self.make_node(None)
         self.make_node(factory.make_user())
         self.assertItemsEqual(
-            [visible_node], Node.objects.get_editable_nodes(user))
+            [visible_node],
+            Node.objects.get_nodes(user, NODE_PERMISSION.EDIT))
 
-    def test_get_editable_nodes_admin_lists_all_nodes(self):
+    def test_get_nodes_with_edit_perm_admin_lists_all_nodes(self):
         admin = factory.make_admin()
         owners = [
             None,
@@ -417,16 +475,23 @@ class NodeManagerTest(TestCase):
             admin,
             ]
         nodes = [self.make_node(owner) for owner in owners]
-        self.assertItemsEqual(nodes, Node.objects.get_editable_nodes(admin))
+        self.assertItemsEqual(
+            nodes, Node.objects.get_nodes(admin, NODE_PERMISSION.EDIT))
 
-    def test_get_editable_nodes_filters_by_id(self):
+    def test_get_nodes_with_admin_perm_returns_empty_list_for_user(self):
+        user = factory.make_user()
+        [self.make_node(user) for counter in range(5)]
+        self.assertItemsEqual(
+            [],
+            Node.objects.get_nodes(user, NODE_PERMISSION.ADMIN))
+
+    def test_get_nodes_with_admin_perm_returns_all_nodes_for_admin(self):
         user = factory.make_user()
         nodes = [self.make_node(user) for counter in range(5)]
-        ids = [node.system_id for node in nodes]
-        wanted_slice = slice(0, 3)
         self.assertItemsEqual(
-            nodes[wanted_slice],
-            Node.objects.get_editable_nodes(user, ids=ids[wanted_slice]))
+            nodes,
+            Node.objects.get_nodes(
+                factory.make_admin(), NODE_PERMISSION.ADMIN))
 
     def test_get_visible_node_or_404_ok(self):
         """get_node_or_404 fetches nodes by system_id."""
@@ -524,6 +589,30 @@ class NodeManagerTest(TestCase):
         power_status = get_provisioning_api_proxy().power_status
         self.assertEqual('start', power_status[node.system_id])
 
+    def test_start_nodes_sets_commissioning_profile(self):
+        # Starting up a node should always set a profile. Here we test
+        # that a commissioning profile was set for nodes in the
+        # commissioning status.
+        user = factory.make_user()
+        node = factory.make_node(
+            set_hostname=True, status=NODE_STATUS.COMMISSIONING, owner=user)
+        output = Node.objects.start_nodes([node.system_id], user)
+
+        self.assertItemsEqual([node], output)
+        profile = get_provisioning_api_proxy().nodes[node.system_id]['profile']
+        self.assertEqual('maas-precise-i386-commissioning', profile)
+
+    def test_start_nodes_doesnt_set_commissioning_profile(self):
+        # Starting up a node should always set a profile. Complement the
+        # above test to show that a different profile can be set.
+        user = factory.make_user()
+        node = self.make_node(user)
+        output = Node.objects.start_nodes([node.system_id], user)
+
+        self.assertItemsEqual([node], output)
+        profile = get_provisioning_api_proxy().nodes[node.system_id]['profile']
+        self.assertEqual('maas-precise-i386', profile)
+
     def test_start_nodes_ignores_uneditable_nodes(self):
         nodes = [self.make_node(factory.make_user()) for counter in range(3)]
         ids = [node.system_id for node in nodes]
@@ -549,12 +638,14 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             original_user_data, NodeUserData.objects.get_user_data(node))
 
-    def test_start_nodes_without_user_data_leaves_existing_data_alone(self):
+    def test_start_nodes_without_user_data_clears_existing_data(self):
         node = factory.make_node(owner=factory.make_user())
         user_data = self.make_user_data()
         NodeUserData.objects.set_user_data(node, user_data)
         Node.objects.start_nodes([node.system_id], node.owner, user_data=None)
-        self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
+        self.assertRaises(
+            NodeUserData.DoesNotExist,
+            NodeUserData.objects.get_user_data, node)
 
     def test_start_nodes_with_user_data_overwrites_existing_data(self):
         node = factory.make_node(owner=factory.make_user())
@@ -705,7 +796,7 @@ class UserProfileTest(TestCase):
 class SSHKeyValidatorTest(TestCase):
 
     def test_validates_rsa_public_key(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         validate_ssh_public_key(key_string)
         # No ValidationError.
 
@@ -879,7 +970,7 @@ class SSHKeyTest(TestCase):
     """Testing for the :class:`SSHKey`."""
 
     def test_sshkey_validation_with_valid_key(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
         key.full_clean()
@@ -894,7 +985,7 @@ class SSHKeyTest(TestCase):
 
     def test_sshkey_display_with_real_life_key(self):
         # With a real-life ssh-rsa key, the key_string part is cropped.
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
         display = key.display_html()
@@ -902,11 +993,39 @@ class SSHKeyTest(TestCase):
             'ssh-rsa AAAAB3NzaC1yc2E&hellip; ubuntu@server-7476', display)
 
     def test_sshkey_display_is_marked_as_HTML_safe(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         user = factory.make_user()
         key = SSHKey(key=key_string, user=user)
         display = key.display_html()
         self.assertIsInstance(display, SafeUnicode)
+
+    def test_sshkey_user_and_key_unique_together(self):
+        key_string = get_data('data/test_rsa0.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        key2 = SSHKey(key=key_string, user=user)
+        self.assertRaises(
+            ValidationError, key2.full_clean)
+
+    def test_sshkey_user_and_key_unique_together_db_level(self):
+        key_string = get_data('data/test_rsa0.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        key2 = SSHKey(key=key_string, user=user)
+        self.assertRaises(
+            IntegrityError, key2.save, skip_check=True)
+
+    def test_sshkey_same_key_can_be_used_by_different_users(self):
+        key_string = get_data('data/test_rsa0.pub')
+        user = factory.make_user()
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        user2 = factory.make_user()
+        key2 = SSHKey(key=key_string, user=user2)
+        key2.full_clean()
+        # No ValidationError.
 
 
 class SSHKeyManagerTest(TestCase):
@@ -918,15 +1037,12 @@ class SSHKeyManagerTest(TestCase):
         self.assertItemsEqual([], keys)
 
     def test_get_keys_for_user_with_keys(self):
-        user1 = factory.make_user_with_keys(n_keys=3, username='user1')
+        user1, created_keys = factory.make_user_with_keys(
+            n_keys=3, username='user1')
         # user2
         factory.make_user_with_keys(n_keys=2)
         keys = SSHKey.objects.get_keys_for_user(user1)
-        self.assertItemsEqual([
-            'ssh-rsa KEY user1-key-0',
-            'ssh-rsa KEY user1-key-1',
-            'ssh-rsa KEY user1-key-2',
-            ], keys)
+        self.assertItemsEqual([key.key for key in created_keys], keys)
 
 
 class FileStorageTest(TestCase):

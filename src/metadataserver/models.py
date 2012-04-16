@@ -20,6 +20,7 @@ from django.db.models import (
     Manager,
     Model,
     )
+from django.shortcuts import get_object_or_404
 from maasserver.models import (
     create_auth_token,
     Node,
@@ -131,17 +132,14 @@ class NodeUserDataManager(Manager):
     """Utility for the collection of NodeUserData items."""
 
     def set_user_data(self, node, data):
-        """Set user data for the given node."""
-        existing_entries = self.filter(node=node)
-        if len(existing_entries) == 1:
-            [entry] = existing_entries
-            entry.data = Bin(data)
-            entry.save()
-        elif len(existing_entries) == 0:
-            wrapped_data = Bin(data)
-            self.create(node=node, data=wrapped_data)
+        """Set user data for the given node.
+
+        If `data` is None, remove user data for the node.
+        """
+        if data is None:
+            self._remove(node)
         else:
-            raise AssertionError("More than one user-data entry matches.")
+            self._set(node, data)
 
     def get_user_data(self, node):
         """Retrieve user data for the given node."""
@@ -150,6 +148,19 @@ class NodeUserDataManager(Manager):
     def has_user_data(self, node):
         """Do we have user data registered for node?"""
         return self.filter(node=node).exists()
+
+    def _set(self, node, data):
+        """Set actual user data for a node.  Not usable if data is None."""
+        wrapped_data = Bin(data)
+        (existing_entry, created) = self.get_or_create(
+            node=node, defaults={'data': wrapped_data})
+        if not created:
+            existing_entry.data = wrapped_data
+            existing_entry.save()
+
+    def _remove(self, node):
+        """Remove metadata from node, if it has any any."""
+        self.filter(node=node).delete()
 
 
 class NodeUserData(Model):
@@ -167,3 +178,46 @@ class NodeUserData(Model):
 
     node = ForeignKey(Node, null=False, editable=False, unique=True)
     data = BinaryField(null=False)
+
+
+class NodeCommissionResultManager(Manager):
+    """Utility to manage a collection of :class:`NodeCommissionResult`s."""
+
+    def clear_results(self, node):
+        """Remove all existing results for a node."""
+        self.filter(node=node).delete()
+
+    def store_data(self, node, name, data):
+        """Store data about a node."""
+        existing, created = self.get_or_create(
+            node=node, name=name, defaults=dict(data=data))
+        if not created:
+            existing.data = data
+            existing.save()
+
+    def get_data(self, node, name):
+        """Get data about a node."""
+        ncr = get_object_or_404(NodeCommissionResult, node=node, name=name)
+        return ncr.data
+
+
+class NodeCommissionResult(Model):
+    """Storage for data returned from node commissioning.
+
+    Commissioning a node results in various bits of data that need to be
+    stored, such as lshw output.  This model allows storing of this data
+    as unicode text, with an arbitrary name, for later retrieval.
+
+    :ivar node: The context :class:`Node`.
+    :ivar name: A unique name to use for the data being stored.
+    :ivar data: The file's actual data, unicode only.
+    """
+
+    objects = NodeCommissionResultManager()
+
+    node = ForeignKey(Node, null=False, editable=False, unique=False)
+    name = CharField(max_length=100, unique=False, editable=False)
+    data = CharField(max_length=1024 * 1024, editable=True)
+
+    class Meta:
+        unique_together = ('node', 'name')

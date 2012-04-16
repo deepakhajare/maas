@@ -45,6 +45,7 @@ from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maasserver.testing.testcase import (
+    AdminLoggedInTestCase,
     LoggedInTestCase,
     TestCase,
     )
@@ -94,8 +95,11 @@ class TestModuleHelpers(TestCase):
             extract_constraints(QueryDict('name=%s' % name)))
 
 
-class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
-    # Nodes can be enlisted anonymously.
+class EnlistmentAPITest(APIv10TestMixin):
+    # This is a mixin containing enlistement tests.  We will run this for:
+    # an anonymous user, a simple (non-admin) user and an admin user.
+    # XXX: rvb 2012-04-10 bug=978035: It would be better to use
+    # testscenarios for this.
 
     def test_POST_new_creates_node(self):
         # The API allows a Node to be created.
@@ -116,27 +120,9 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertEqual('diane', parsed_result['hostname'])
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
-        self.assertEqual(2, diane.after_commissioning_action)
+        # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+        #self.assertEqual(2, diane.after_commissioning_action)
         self.assertEqual(architecture, diane.architecture)
-
-    def test_POST_new_anonymous_creates_node_in_declared_state(self):
-        # Upon anonymous enlistment, a node goes into the Declared
-        # state.  Deliberate approval is required before we start
-        # reinstalling the system, wiping its disks etc.
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {
-                'op': 'new',
-                'hostname': factory.getRandomString(),
-                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
-                'after_commissioning_action': '2',
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
-            })
-        self.assertEqual(httplib.OK, response.status_code)
-        system_id = json.loads(response.content)['system_id']
-        self.assertEqual(
-            NODE_STATUS.DECLARED,
-            Node.objects.get(system_id=system_id).status)
 
     def test_POST_new_power_type_defaults_to_asking_config(self):
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
@@ -194,25 +180,6 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             system_id=json.loads(response.content)['system_id'])
         self.assertEqual('node-aabbccddeeff.local', node.hostname)
 
-    def test_POST_returns_limited_fields(self):
-        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {
-                'op': 'new',
-                'hostname': 'diane',
-                'architecture': architecture,
-                'after_commissioning_action': '2',
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
-            })
-        parsed_result = json.loads(response.content)
-        self.assertItemsEqual(
-            [
-                'hostname', 'system_id', 'macaddress_set', 'architecture',
-                'status'
-            ],
-            list(parsed_result))
-
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
         # request data, a 'Bad request' response is returned.
@@ -259,6 +226,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             self.fail("post_save should not have been called")
 
         post_save.connect(node_created, sender=Node)
+        self.addCleanup(post_save.disconnect, node_created, sender=Node)
         self.client.post(
             self.get_uri('nodes/'),
             {
@@ -318,6 +286,34 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertIn('application/json', response['Content-Type'])
         self.assertItemsEqual(['architecture'], parsed_result)
 
+
+class NonAdminEnlistmentAPITest(EnlistmentAPITest):
+    # This is a mixin containing enlistement tests for non-admin users.
+
+    def test_POST_non_admin_creates_node_in_declared_state(self):
+        # Upon non-admin enlistment, a node goes into the Declared
+        # state.  Deliberate approval is required before we start
+        # reinstalling the system, wiping its disks etc.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.DECLARED,
+            Node.objects.get(system_id=system_id).status)
+
+
+class AnonymousEnlistmentAPITest(NonAdminEnlistmentAPITest, TestCase):
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin and adds enlistement tests specific to anonymous users.
+
     def test_POST_accept_not_allowed(self):
         # An anonymous user is not allowed to accept an anonymously
         # enlisted node.  That would defeat the whole purpose of holding
@@ -329,14 +325,161 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             (httplib.UNAUTHORIZED, "You must be logged in to accept nodes."),
             (response.status_code, response.content))
 
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'hostname': factory.getRandomString(),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status',
+            ],
+            list(parsed_result))
+
+
+class SimpleUserLoggedInEnlistmentAPITest(NonAdminEnlistmentAPITest,
+                                          LoggedInTestCase):
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin plus enlistement tests specific to simple (non-admin) users.
+
+    def test_POST_accept_not_allowed(self):
+        # An non-admin user is not allowed to accept an anonymously
+        # enlisted node.  That would defeat the whole purpose of holding
+        # those nodes for approval.
+        node_id = factory.make_node(status=NODE_STATUS.DECLARED).system_id
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % node_id),
+            (response.status_code, response.content))
+
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status', 'resource_uri',
+            ],
+            list(parsed_result))
+
+
+class AdminLoggedInEnlistmentAPITest(EnlistmentAPITest,
+                                     AdminLoggedInTestCase):
+    # This is an actual test case that uses the EnlistmentAPITest mixin
+    # and adds enlistement tests specific to admin users.
+
+    def test_POST_admin_creates_node_in_commissioning_state(self):
+        # When an admin user enlists a node, it goes into the
+        # Commissioning state.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING,
+            Node.objects.get(system_id=system_id).status)
+
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status', 'resource_uri',
+            ],
+            list(parsed_result))
+
+
+class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
+
+    def test_is_registered_returns_True_if_node_registered(self):
+        mac_address = factory.getRandomMACAddress()
+        factory.make_mac_address(mac_address)
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "true"),
+            (response.status_code, response.content))
+
+    def test_is_registered_returns_False_if_mac_registered_node_retired(self):
+        mac_address = factory.getRandomMACAddress()
+        mac = factory.make_mac_address(mac_address)
+        mac.node.status = NODE_STATUS.RETIRED
+        mac.node.save()
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "false"),
+            (response.status_code, response.content))
+
+    def test_is_registered_normalizes_mac_address(self):
+        # These two non-normalized MAC Addresses are the same.
+        non_normalized_mac_address = 'AA-bb-cc-dd-ee-ff'
+        non_normalized_mac_address2 = 'aabbccddeeff'
+        factory.make_mac_address(non_normalized_mac_address)
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {
+                'op': 'is_registered',
+                'mac_address': non_normalized_mac_address2
+            })
+        self.assertEqual(
+            (httplib.OK, "true"),
+            (response.status_code, response.content))
+
+    def test_is_registered_returns_False_if_node_not_registered(self):
+        mac_address = factory.getRandomMACAddress()
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "false"),
+            (response.status_code, response.content))
+
 
 class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
     def test_anon_nodes_GET(self):
-        # Anonymous requests to the API are denied.
+        # Anonymous requests to the API without a specified operation
+        # get a "Bad Request" response.
         response = self.client.get(self.get_uri('nodes/'))
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
@@ -648,6 +791,19 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(204, response.status_code)
         self.assertItemsEqual([], Node.objects.filter(system_id=system_id))
 
+    def test_DELETE_cannot_delete_allocated_node(self):
+        # The api allows to delete a Node.
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.ALLOCATED)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(
+            (httplib.CONFLICT,
+                "Cannot delete node %s: node is in state %s." % (
+                    node.system_id,
+                    NODE_STATUS_CHOICES_DICT[NODE_STATUS.ALLOCATED])),
+            (response.status_code, response.content))
+
     def test_DELETE_deletes_node_fails_if_not_admin(self):
         # Only superusers can delete nodes.
         node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
@@ -690,7 +846,7 @@ class TestNodesAPI(APITestCase):
             self.get_uri('nodes/'),
             {
                 'op': 'new',
-                'hostname': 'diane',
+                'hostname': factory.getRandomString(),
                 'architecture': architecture,
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
@@ -698,9 +854,8 @@ class TestNodesAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_POST_new_when_logged_in_creates_node_in_ready_state(self):
-        # When a logged-in user enlists a node, it goes into the Ready
-        # state.
+    def test_POST_new_when_logged_in_creates_node_in_declared_state(self):
+        # When a user enlists a node, it goes into the Declared state.
         # This will change once we start doing proper commissioning.
         response = self.client.post(
             self.get_uri('nodes/'),
@@ -714,7 +869,8 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         system_id = json.loads(response.content)['system_id']
         self.assertEqual(
-            NODE_STATUS.READY, Node.objects.get(system_id=system_id).status)
+            NODE_STATUS.DECLARED,
+            Node.objects.get(system_id=system_id).status)
 
     def test_GET_list_lists_nodes(self):
         # The api allows for fetching the list of Nodes.
@@ -965,7 +1121,8 @@ class TestNodesAPI(APITestCase):
     def test_POST_accept_gets_node_out_of_declared_state(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
-        target_state = NODE_STATUS.READY
+        self.become_admin()
+        target_state = NODE_STATUS.COMMISSIONING
 
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         response = self.client.post(
@@ -985,6 +1142,7 @@ class TestNodesAPI(APITestCase):
             (httplib.OK, "[]"), (response.status_code, response.content))
 
     def test_POST_accept_rejects_impossible_state_changes(self):
+        self.become_admin()
         acceptable_states = set([
             NODE_STATUS.DECLARED,
             NODE_STATUS.COMMISSIONING,
@@ -1019,17 +1177,30 @@ class TestNodesAPI(APITestCase):
             self.assertIn(NODE_STATUS_CHOICES_DICT[status], response.content)
 
     def test_POST_accept_fails_if_node_does_not_exist(self):
+        self.become_admin()
         node_id = factory.getRandomString()
         response = self.client.post(
             self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
         self.assertEqual(
-            (httplib.BAD_REQUEST, "Unknown node(s): %s" % node_id),
+            (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
+            (response.status_code, response.content))
+
+    def test_POST_accept_fails_if_not_admin(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {'op': 'accept', 'nodes': [node.system_id]})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % node.system_id),
             (response.status_code, response.content))
 
     def test_POST_accept_accepts_multiple_nodes(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
-        target_state = NODE_STATUS.READY
+        self.become_admin()
+        target_state = NODE_STATUS.COMMISSIONING
 
         nodes = [
             factory.make_node(status=NODE_STATUS.DECLARED)
@@ -1045,6 +1216,7 @@ class TestNodesAPI(APITestCase):
             [reload_object(node).status for node in nodes])
 
     def test_POST_accept_returns_actually_accepted_nodes(self):
+        self.become_admin()
         acceptable_nodes = [
             factory.make_node(status=NODE_STATUS.DECLARED)
             for counter in range(2)

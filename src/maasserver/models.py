@@ -40,6 +40,7 @@ import os
 import re
 from socket import gethostname
 from string import whitespace
+from textwrap import dedent
 import time
 from uuid import uuid1
 
@@ -90,8 +91,9 @@ logger = getLogger('maasserver')
 
 
 class CommonInfo(models.Model):
-    """A base model which records the creation date and the last modification
-    date.
+    """A base model which:
+    - calls full_clean before saving the model (by default).
+    - records the creation date and the last modification date.
 
     :ivar created: The creation date.
     :ivar updated: The last modification date.
@@ -103,11 +105,13 @@ class CommonInfo(models.Model):
     class Meta:
         abstract = True
 
-    def save(self, *args, **kwargs):
+    def save(self, skip_check=False, *args, **kwargs):
         if not self.id:
             self.created = datetime.date.today()
         self.updated = datetime.datetime.today()
-        super(CommonInfo, self).save(*args, **kwargs)
+        if not skip_check:
+            self.full_clean()
+        return super(CommonInfo, self).save(*args, **kwargs)
 
 
 def generate_node_system_id():
@@ -288,11 +292,13 @@ class NodeManager(models.Manager):
         else:
             return query.filter(system_id__in=ids)
 
-    def get_visible_nodes(self, user, ids=None):
-        """Fetch Nodes visible by a User_.
+    def get_nodes(self, user, perm, ids=None):
+        """Fetch Nodes on which the User_ has the given permission.
 
         :param user: The user that should be used in the permission check.
         :type user: User_
+        :param perm: The permission to check.
+        :type perm: a permission string from NODE_PERMISSION
         :param ids: If given, limit result to nodes with these system_ids.
         :type ids: Sequence.
 
@@ -302,11 +308,21 @@ class NodeManager(models.Manager):
 
         """
         if user.is_superuser:
-            visible_nodes = self.all()
+            nodes = self.all()
         else:
-            visible_nodes = self.filter(
-                models.Q(owner__isnull=True) | models.Q(owner=user))
-        return self.filter_by_ids(visible_nodes, ids)
+            if perm == NODE_PERMISSION.VIEW:
+                nodes = self.filter(
+                    models.Q(owner__isnull=True) | models.Q(owner=user))
+            elif perm == NODE_PERMISSION.EDIT:
+                nodes = self.filter(owner=user)
+            elif perm == NODE_PERMISSION.ADMIN:
+                nodes = self.none()
+            else:
+                raise NotImplementedError(
+                    "Invalid permission check (invalid permission name: %s)." %
+                    perm)
+
+        return self.filter_by_ids(nodes, ids)
 
     def get_allocated_visible_nodes(self, token, ids):
         """Fetch Nodes that were allocated to the User_/oauth token.
@@ -328,22 +344,6 @@ class NodeManager(models.Manager):
         else:
             nodes = self.filter(token=token, system_id__in=ids)
         return nodes
-
-    def get_editable_nodes(self, user, ids=None):
-        """Fetch Nodes a User_ has ownership privileges on.
-
-        An admin has ownership privileges on all nodes.
-
-        :param user: The user that should be used in the permission check.
-        :type user: User_
-        :param ids: If given, limit result to nodes with these system_ids.
-        :type ids: Sequence.
-        """
-        if user.is_superuser:
-            visible_nodes = self.all()
-        else:
-            visible_nodes = self.filter(owner=user)
-        return self.filter_by_ids(visible_nodes, ids)
 
     def get_node_or_404(self, system_id, user, perm):
         """Fetch a `Node` by system_id.  Raise exceptions if no `Node` with
@@ -382,7 +382,7 @@ class NodeManager(models.Manager):
         if constraints is None:
             constraints = {}
         available_nodes = (
-            self.get_visible_nodes(for_user)
+            self.get_nodes(for_user, NODE_PERMISSION.VIEW)
                 .filter(status=NODE_STATUS.READY))
 
         if constraints.get('name'):
@@ -408,7 +408,7 @@ class NodeManager(models.Manager):
         :return: Those Nodes for which shutdown was actually requested.
         :rtype: list
         """
-        nodes = self.get_editable_nodes(by_user, ids=ids)
+        nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
         get_papi().stop_nodes([node.system_id for node in nodes])
         return nodes
 
@@ -429,11 +429,12 @@ class NodeManager(models.Manager):
         :return: Those Nodes for which power-on was actually requested.
         :rtype: list
         """
+        # TODO: File structure needs sorting out to avoid this circular
+        # import dance.
         from metadataserver.models import NodeUserData
-        nodes = self.get_editable_nodes(by_user, ids=ids)
-        if user_data is not None:
-            for node in nodes:
-                NodeUserData.objects.set_user_data(node, user_data)
+        nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
+        for node in nodes:
+            NodeUserData.objects.set_user_data(node, user_data)
         get_papi().start_nodes([node.system_id for node in nodes])
         return nodes
 
@@ -489,7 +490,7 @@ class Node(CommonInfo):
         default=NODE_STATUS.DEFAULT_STATUS)
 
     owner = models.ForeignKey(
-        User, default=None, blank=True, null=True, editable=True)
+        User, default=None, blank=True, null=True, editable=False)
 
     after_commissioning_action = models.IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -507,6 +508,8 @@ class Node(CommonInfo):
 
     token = models.ForeignKey(
         Token, db_index=True, null=True, editable=False, unique=False)
+
+    error = models.CharField(max_length=255, blank=True, default='')
 
     objects = NodeManager()
 
@@ -537,11 +540,6 @@ class Node(CommonInfo):
         super(Node, self).clean(*args, **kwargs)
         self.clean_status()
 
-    def save(self, skip_check=False, *args, **kwargs):
-        if not skip_check:
-            self.full_clean()
-        return super(Node, self).save(*args, **kwargs)
-
     def display_status(self):
         """Return status text as displayed to the user.
 
@@ -571,7 +569,6 @@ class Node(CommonInfo):
         """
 
         mac = MACAddress(mac_address=mac_address, node=self)
-        mac.full_clean()
         mac.save()
         return mac
 
@@ -586,7 +583,7 @@ class Node(CommonInfo):
         if mac:
             mac.delete()
 
-    def accept_enlistment(self):
+    def accept_enlistment(self, user):
         """Accept this node's (anonymous) enlistment.
 
         This call makes sense only on a node in Declared state, i.e. one that
@@ -598,10 +595,6 @@ class Node(CommonInfo):
         :return: This node if it has made the transition from Declared, or
             None if it was already in an accepted state.
         """
-        # Accepting a node puts it into Ready state.  This will change
-        # once we implement commissioning.
-        target_state = NODE_STATUS.READY
-
         accepted_states = [NODE_STATUS.READY, NODE_STATUS.COMMISSIONING]
         if self.status in accepted_states:
             return None
@@ -610,13 +603,37 @@ class Node(CommonInfo):
                 "Cannot accept node enlistment: node %s is in state %s."
                 % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
 
-        self.status = target_state
-        self.save()
+        self.start_commissioning(user)
         return self
+
+    def start_commissioning(self, user):
+        """Install OS and self-test a new node."""
+        # Avoid circular imports.
+        from metadataserver.models import NodeCommissionResult
+
+        path = settings.COMMISSIONING_SCRIPT
+        if not os.path.exists(path):
+            raise ValidationError(
+                "Commissioning script is missing: %s" % path)
+        with open(path, 'r') as f:
+            commissioning_user_data = f.read()
+
+        NodeCommissionResult.objects.clear_results(self)
+        self.status = NODE_STATUS.COMMISSIONING
+        self.owner = user
+        self.save()
+        # The commissioning profile is handled in start_nodes.
+        Node.objects.start_nodes(
+            [self.system_id], user, user_data=commissioning_user_data)
 
     def delete(self):
         # Delete the related mac addresses first.
         self.macaddress_set.all().delete()
+        # Allocated nodes can't be deleted.
+        if self.status == NODE_STATUS.ALLOCATED:
+            raise NodeStateViolation(
+                "Cannot delete node %s: node is in state %s."
+                % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
         super(Node, self).delete()
 
     def set_mac_based_hostname(self, mac_address):
@@ -905,15 +922,22 @@ class SSHKey(CommonInfo):
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
     """
-    class Meta:
-        verbose_name_plural = "SSH keys"
-
     objects = SSHKeyManager()
 
     user = models.ForeignKey(User, null=False, editable=False)
 
     key = models.TextField(
         null=False, editable=True, validators=[validate_ssh_public_key])
+
+    class Meta:
+        verbose_name_plural = "SSH keys"
+        unique_together = ('user', 'key')
+
+    def unique_error_message(self, model_class, unique_check):
+        if unique_check == ('user', 'key'):
+                return "This key has already been added for this user."
+        return super(
+            SSHKey, self).unique_error_message(model_class, unique_check)
 
     def __unicode__(self):
         return self.key

@@ -47,6 +47,7 @@ from django.contrib.auth.views import (
     login as dj_login,
     logout as dj_logout,
     )
+from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
@@ -77,7 +78,7 @@ from maasserver.forms import (
     AddArchiveForm,
     CommissioningForm,
     EditUserForm,
-    get_transition_form,
+    get_action_form,
     MAASAndNetworkForm,
     NewUserCreationForm,
     ProfileForm,
@@ -90,6 +91,7 @@ from maasserver.messages import messaging
 from maasserver.models import (
     Node,
     NODE_PERMISSION,
+    NODE_STATUS,
     SSHKey,
     UserProfile,
     )
@@ -122,7 +124,7 @@ class NodeView(UpdateView):
         return node
 
     def get_form_class(self):
-        return get_transition_form(self.request.user)
+        return get_action_form(self.request.user, self.request)
 
     def get_context_data(self, **kwargs):
         context = super(NodeView, self).get_context_data(**kwargs)
@@ -169,6 +171,8 @@ class NodeDelete(DeleteView):
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=self.request.user,
             perm=NODE_PERMISSION.ADMIN)
+        if node.status == NODE_STATUS.ALLOCATED:
+            raise PermissionDenied()
         return node
 
     def get_next_url(self):
@@ -201,7 +205,10 @@ class NodeListView(ListView):
     context_object_name = "node_list"
 
     def get_queryset(self):
-        return Node.objects.get_visible_nodes(user=self.request.user)
+        # Return node list sorted, newest first.
+        return Node.objects.get_nodes(
+            user=self.request.user,
+            perm=NODE_PERMISSION.VIEW).order_by('-id')
 
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)

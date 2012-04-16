@@ -19,8 +19,6 @@ from abc import (
     abstractmethod,
     )
 from base64 import b64decode
-from itertools import count
-from time import time
 from unittest import skipIf
 
 from maasserver.testing.enum import map_enum
@@ -36,33 +34,14 @@ from provisioningserver.api import (
 from provisioningserver.cobblerclient import CobblerSystem
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.interfaces import IProvisioningAPI
+from provisioningserver.testing.factory import ProvisioningFakeFactory
 from provisioningserver.testing.fakeapi import FakeAsynchronousProvisioningAPI
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
 from provisioningserver.testing.realcobbler import RealCobbler
 from testtools import TestCase
 from testtools.deferredruntest import AsynchronousDeferredRunTest
-from twisted.internet.defer import (
-    inlineCallbacks,
-    returnValue,
-    )
-from twisted.web.xmlrpc import Fault
+from twisted.internet.defer import inlineCallbacks
 from zope.interface.verify import verifyObject
-
-
-names = ("test%d" % num for num in count(int(time())))
-
-
-def fake_name():
-    """Return a fake name. Each call returns a different name."""
-    return next(names)
-
-
-def fake_node_metadata():
-    """Produce fake metadata parameters for adding a node."""
-    return {
-        'maas-metadata-url': 'http://%s:5240/metadata/' % fake_name(),
-        'maas-metadata-credentials': 'fake/%s' % fake_name(),
-        }
 
 
 class TestFunctions(TestCase):
@@ -87,8 +66,12 @@ class TestFunctions(TestCase):
             "hostname": "dystopia",
             "interfaces": {
                 "eth0": {"mac_address": "12:34:56:78:9a:bc"},
+                "eth1": {"mac_address": "  "},
+                "eth2": {"mac_address": ""},
+                "eth3": {"mac_address": None},
                 },
             "power_type": "virsh",
+            "netboot_enabled": False,
             "ju": "nk",
             }
         expected = {
@@ -96,6 +79,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "dystopia",
             "mac_addresses": ["12:34:56:78:9a:bc"],
+            "netboot_enabled": False,
             "power_type": "virsh",
             }
         observed = cobbler_to_papi_node(data)
@@ -107,6 +91,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "power_type": "ether_wake",
+            "netboot_enabled": True,
             "ju": "nk",
             }
         expected = {
@@ -114,6 +99,7 @@ class TestFunctions(TestCase):
             "profile": "earth",
             "hostname": "darksaga",
             "mac_addresses": [],
+            "netboot_enabled": True,
             "power_type": "ether_wake",
             }
         observed = cobbler_to_papi_node(data)
@@ -275,8 +261,33 @@ class TestInterfaceDeltas(TestCase):
             current_interfaces, hostname, mac_addresses)
         self.assertItemsEqual(expected, observed)
 
+    def test_gen_cobbler_interface_deltas_remove_all_macs(self):
+        # Removing all MAC addresses results in a delta to remove all but the
+        # first interface. The first interface is instead deconfigured; this
+        # is necessary to satisfy the Cobbler data model.
+        current_interfaces = {
+            "eth0": {
+                "mac_address": "11:11:11:11:11:11",
+                },
+            "eth1": {
+                "mac_address": "22:22:22:22:22:22",
+                },
+            }
+        hostname = "empiricism"
+        mac_addresses = []
+        expected = [
+            {"interface": "eth0",
+             "mac_address": "",
+             "dns_name": ""},
+            {"interface": "eth1",
+             "delete_interface": True},
+            ]
+        observed = gen_cobbler_interface_deltas(
+            current_interfaces, hostname, mac_addresses)
+        self.assertItemsEqual(expected, observed)
 
-class ProvisioningAPITests:
+
+class ProvisioningAPITests(ProvisioningFakeFactory):
     """Tests for `provisioningserver.api.ProvisioningAPI`.
 
     Abstract base class.  To exercise these tests, derive a test case from
@@ -295,88 +306,6 @@ class ProvisioningAPITests:
 
         Override this in the test case that exercises this scenario.
         """
-
-    @staticmethod
-    def cleanup_objects(delete_func, *object_names):
-        """Remove named objects from the PAPI.
-
-        `delete_func` is expected to be one of the ``delete_*_by_name``
-        methods of the Provisioning API. XML-RPC errors are ignored; this
-        function does its best to remove the object but a failure to do so is
-        not an error.
-        """
-        d = delete_func(object_names)
-        d.addErrback(lambda failure: failure.trap(Fault))
-        return d
-
-    @inlineCallbacks
-    def add_distro(self, papi, name=None):
-        """Creates a new distro object via `papi`.
-
-        Arranges for it to be deleted during test clean-up. If `name` is not
-        specified, `fake_name` will be called to obtain one.
-        """
-        if name is None:
-            name = fake_name()
-        # For the initrd and kernel, use a file that we know will exist for a
-        # running Cobbler instance (at least, on Ubuntu) so that we can test
-        # against remote instances, like one in odev.
-        initrd = "/etc/cobbler/settings"
-        kernel = "/etc/cobbler/version"
-        distro_name = yield papi.add_distro(name, initrd, kernel)
-        self.addCleanup(
-            self.cleanup_objects,
-            papi.delete_distros_by_name,
-            distro_name)
-        returnValue(distro_name)
-
-    @inlineCallbacks
-    def add_profile(self, papi, name=None, distro_name=None):
-        """Creates a new profile object via `papi`.
-
-        Arranges for it to be deleted during test clean-up. If `name` is not
-        specified, `fake_name` will be called to obtain one. If `distro_name`
-        is not specified, one will be obtained by calling `add_distro`.
-        """
-        if name is None:
-            name = fake_name()
-        if distro_name is None:
-            distro_name = yield self.add_distro(papi)
-        profile_name = yield papi.add_profile(name, distro_name)
-        self.addCleanup(
-            self.cleanup_objects,
-            papi.delete_profiles_by_name,
-            profile_name)
-        returnValue(profile_name)
-
-    @inlineCallbacks
-    def add_node(self, papi, name=None, hostname=None, profile_name=None,
-                 power_type=None, metadata=None):
-        """Creates a new node object via `papi`.
-
-        Arranges for it to be deleted during test clean-up. If `name` is not
-        specified, `fake_name` will be called to obtain one. If `profile_name`
-        is not specified, one will be obtained by calling `add_profile`. If
-        `metadata` is not specified, it will be obtained by calling
-        `fake_node_metadata`.
-        """
-        if name is None:
-            name = fake_name()
-        if hostname is None:
-            hostname = fake_name()
-        if profile_name is None:
-            profile_name = yield self.add_profile(papi)
-        if power_type is None:
-            power_type = POWER_TYPE.WAKE_ON_LAN
-        if metadata is None:
-            metadata = fake_node_metadata()
-        node_name = yield papi.add_node(
-            name, hostname, profile_name, power_type, metadata)
-        self.addCleanup(
-            self.cleanup_objects,
-            papi.delete_nodes_by_name,
-            node_name)
-        returnValue(node_name)
 
     def test_ProvisioningAPI_interfaces(self):
         papi = self.get_provisioning_api()
@@ -492,6 +421,30 @@ class ProvisioningAPITests:
         values = yield papi.get_nodes_by_name([node_name])
         self.assertEqual(
             [mac_address2], values[node_name]["mac_addresses"])
+
+    @inlineCallbacks
+    def test_modify_nodes_set_netboot_enabled(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        yield papi.modify_nodes({node_name: {"netboot_enabled": False}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertFalse(values[node_name]["netboot_enabled"])
+        yield papi.modify_nodes({node_name: {"netboot_enabled": True}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertTrue(values[node_name]["netboot_enabled"])
+
+    @inlineCallbacks
+    def test_modify_nodes_remove_all_mac_addresses(self):
+        papi = self.get_provisioning_api()
+        node_name = yield self.add_node(papi)
+        mac_address = factory.getRandomMACAddress()
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": [mac_address]}})
+        yield papi.modify_nodes(
+            {node_name: {"mac_addresses": []}})
+        values = yield papi.get_nodes_by_name([node_name])
+        self.assertEqual(
+            [], values[node_name]["mac_addresses"])
 
     @inlineCallbacks
     def test_delete_distros_by_name(self):
@@ -645,6 +598,15 @@ class ProvisioningAPITestsWithCobbler:
         self.assertItemsEqual(
             dict(zip(power_types, power_types)), cobbler_power_types)
 
+    @inlineCallbacks
+    def test_add_node_provides_preseed(self):
+        papi = self.get_provisioning_api()
+        preseed_data = factory.getRandomString()
+        node_name = yield self.add_node(papi, preseed_data=preseed_data)
+        attrs = yield CobblerSystem(papi.session, node_name).get_values()
+        self.assertEqual(
+            preseed_data, b64decode(attrs['ks_meta']['MAAS_PRESEED']))
+
 
 class TestFakeProvisioningAPI(ProvisioningAPITests, TestCase):
     """Test :class:`FakeAsynchronousProvisioningAPI`.
@@ -668,17 +630,6 @@ class TestProvisioningAPIWithFakeCobbler(ProvisioningAPITests,
     def get_provisioning_api(self):
         """Return a real ProvisioningAPI, but using a fake Cobbler session."""
         return ProvisioningAPI(make_fake_cobbler_session())
-
-    @inlineCallbacks
-    def test_add_node_preseeds_metadata(self):
-        papi = self.get_provisioning_api()
-        metadata = fake_node_metadata()
-        node_name = yield self.add_node(papi, metadata=metadata)
-        attrs = yield CobblerSystem(papi.session, node_name).get_values()
-        preseed = attrs['ks_meta']['MAAS_PRESEED']
-        preseed = b64decode(preseed)
-        self.assertIn(metadata['maas-metadata-url'], preseed)
-        self.assertIn(metadata['maas-metadata-credentials'], preseed)
 
 
 class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,

@@ -10,6 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 
+from getpass import getuser
 import os
 from urlparse import urljoin
 
@@ -254,12 +255,17 @@ LOGGING = {
 
 # The location of the Provisioning API XML-RPC endpoint.  This should
 # match the setting in etc/pserv.yaml.
-PSERV_URL = "http://localhost:5241/api"
+PSERV_URL = "http://%s:test@localhost:5241/api" % getuser()
 
 # Use a real provisioning server?  If yes, the URL for the provisioning
 # server's API should be set in PSERV_URL.  If this is set to False, for
 # testing or demo purposes, MAAS will use an internal fake service.
 USE_REAL_PSERV = True
+
+# The location of the commissioning script that is executed on nodes as
+# part of commissioning.  Only override this if you know what you are
+# doing.
+COMMISSIONING_SCRIPT = 'etc/maas/commissioning-user-data'
 
 # Allow the user to override settings in maas_local_settings.
 import_local_settings()

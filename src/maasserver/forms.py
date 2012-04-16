@@ -11,12 +11,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "CommissioningForm",
-    "get_transition_form",
+    "get_action_form",
     "HostnameFormField",
     "NodeForm",
     "MACAddressForm",
     "MAASAndNetworkForm",
-    "NodeTransitionForm",
+    "NodeActionForm",
     "SSHKeyForm",
     "UbuntuForm",
     "UIAdminNodeEditForm",
@@ -24,6 +24,7 @@ __all__ = [
     ]
 
 from django import forms
+from django.contrib import messages
 from django.contrib.auth.forms import (
     UserChangeForm,
     UserCreationForm,
@@ -49,12 +50,10 @@ from maasserver.models import (
     Config,
     MACAddress,
     Node,
-    NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODE_PERMISSION,
     NODE_STATUS,
     SSHKey,
-    UserProfile,
     )
 
 
@@ -83,9 +82,14 @@ class NodeForm(ModelForm):
     system_id = forms.CharField(
         widget=forms.TextInput(attrs={'readonly': 'readonly'}),
         required=False)
-    after_commissioning_action = forms.TypedChoiceField(
-        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
-        empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
+
+    # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+
+    #after_commissioning_action = forms.TypedChoiceField(
+    #    label="After commissioning",
+    #    choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
+    #    empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
+
     architecture = forms.ChoiceField(
         choices=ARCHITECTURE_CHOICES, required=True,
         initial=ARCHITECTURE.i386,
@@ -94,29 +98,48 @@ class NodeForm(ModelForm):
     class Meta:
         model = Node
         fields = (
-            'hostname', 'system_id', 'after_commissioning_action',
-            'architecture', 'power_type')
+            'hostname',
+            'system_id',
+            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+            #'after_commissioning_action',
+            'architecture',
+            'power_type',
+            )
 
 
 class UINodeEditForm(ModelForm):
-    after_commissioning_action = forms.ChoiceField(
-        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
 
-    class Meta:
-        model = Node
-        fields = ('hostname', 'after_commissioning_action')
+    # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
 
-
-class UIAdminNodeEditForm(ModelForm):
-    after_commissioning_action = forms.ChoiceField(
-        choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
-    owner = forms.ModelChoiceField(
-        queryset=UserProfile.objects.all_users(), required=False)
+    #after_commissioning_action = forms.ChoiceField(
+    #    label="After commissioning",
+    #    choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
 
     class Meta:
         model = Node
         fields = (
-            'hostname', 'after_commissioning_action', 'power_type', 'owner')
+            'hostname',
+            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+            #'after_commissioning_action',
+            )
+
+
+class UIAdminNodeEditForm(ModelForm):
+
+    # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+
+    #after_commissioning_action = forms.ChoiceField(
+    #    label="After commissioning",
+    #    choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+
+    class Meta:
+        model = Node
+        fields = (
+            'hostname',
+            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+            #'after_commissioning_action',
+            'power_type',
+            )
 
 
 class MACAddressForm(ModelForm):
@@ -137,10 +160,31 @@ class SSHKeyForm(ModelForm):
         super(SSHKeyForm, self).__init__(*args, **kwargs)
         self.user = user
 
-    def save(self):
-        key = super(SSHKeyForm, self).save(commit=False)
-        key.user = self.user
-        return key.save()
+    def validate_unique(self):
+        # This is a trick to work around a problem in Django.
+        # See https://code.djangoproject.com/ticket/13091#comment:19 for
+        # details.
+        # Without this overridden validate_unique the validation error that
+        # can occur if this user already has the same key registered would
+        # occur when save() would be called.  The error would be an
+        # IntegrityError raised when inserting the new key in the database
+        # rather than a proper ValidationError raised by 'clean'.
+
+        # Set the instance user.
+        self.instance.user = self.user
+
+        # Allow checking against the missing attribute.
+        exclude = self._get_validation_exclusions()
+        exclude.remove('user')
+        try:
+            self.instance.validate_unique(exclude=exclude)
+        except ValidationError, e:
+            # Publish this error as a 'key' error rather than a 'general'
+            # error because only the 'key' errors are displayed on the
+            # 'add key' form.
+            error = e.message_dict.pop('__all__')
+            e.message_dict['key'] = error
+            self._update_errors(e.message_dict)
 
 
 class MultipleMACAddressField(forms.MultiValueField):
@@ -194,99 +238,137 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
-# Node transitions methods.
-# The format is:
-# {
-#     old_status1: [
-#         {
-#             'display': display_string11,  # The name of the transition
-#                                           # (to be displayed in the UI).
-#             'name': transition_name11,  # The name of the transition.
-#             'permission': permission_required11,
-#         },
-#     ]
-# ...
+def start_node(node, user):
+    """Start a node from the UI.  It will have no meta_data."""
+    Node.objects.start_nodes([node.system_id], user)
+
+
+# Node actions per status.
 #
-NODE_TRANSITIONS_METHODS = {
+# This maps each NODE_STATUS to a list of actions applicable to a node
+# in that state:
+#
+# {
+#     NODE_STATUS.<statusX>: [action1, action2],
+#     NODE_STATUS.<statusY>: [action1],
+#     NODE_STATUS.<statusZ>: [action1, action2, action3],
+# }
+#
+# The available actions (insofar as the user has privileges to use them)
+# show up in the user interface as buttons on the node page.
+#
+# Each action is a dict:
+#
+# {
+#     # Action's display name; will be shown in the button.
+#     'display': "Paint node",
+#     # Permission required to perform action.
+#     'permission': NODE_PERMISSION.EDIT,
+#     # Callable that performs action.  Takes parameters (node, user).
+#     'execute': lambda node, user: paint_node(
+#                    node, favourite_colour(user)),
+# }
+#
+NODE_ACTIONS = {
     NODE_STATUS.DECLARED: [
         {
-            'display': "Accept Enlisted node",
+            'display': "Accept & commission",
             'permission': NODE_PERMISSION.ADMIN,
-            'execute': lambda node, user: Node.accept_enlistment(node),
+            'execute': lambda node, user: Node.start_commissioning(node, user),
+            'message': "Node commissioning started."
+        },
+    ],
+    NODE_STATUS.READY: [
+        {
+            'display': "Start node",
+            'permission': NODE_PERMISSION.EDIT,
+            'execute': start_node,
+            'message': "Node started."
+        },
+    ],
+    NODE_STATUS.ALLOCATED: [
+        {
+            'display': "Start node",
+            'permission': NODE_PERMISSION.EDIT,
+            'execute': start_node,
+            'message': "Node started."
         },
     ],
 }
 
 
-class NodeTransitionForm(forms.Form):
-    """A form used to perform a status change on a Node.
+class NodeActionForm(forms.Form):
+    """Base form for performing a node action.
 
-    That form class should not be used directly but through subclasses
-    created using `get_transition_form`.
+    This form class should not be used directly but through subclasses
+    created using `get_action_form`.
     """
 
     user = AnonymousUser()
+    request = None
 
     # The name of the input button used with this form.
-    input_name = 'node_transition'
+    input_name = 'node_action'
 
     def __init__(self, instance, *args, **kwargs):
-        super(NodeTransitionForm, self).__init__(*args, **kwargs)
+        super(NodeActionForm, self).__init__(*args, **kwargs)
         self.node = instance
-        self.transition_buttons = self.available_transition_methods(
+        self.action_buttons = self.available_action_methods(
             self.node, self.user)
-        # Create a convenient dict to fetch the transition name and
+        # Create a convenient dict to fetch the action's name and
         # the permission to be checked from the button name.
-        self.transition_dict = {
-            transition['display']: (
-                transition['permission'], transition['execute'])
-            for transition in self.transition_buttons
+        self.action_dict = {
+            action['display']: (
+                action['permission'], action['execute'], action['message'])
+            for action in self.action_buttons
         }
 
-    def available_transition_methods(self, node, user):
-        """Return the transitions that this user is allowed to perform on
-        a node.
+    def available_action_methods(self, node, user):
+        """Return the actions that this user is allowed to perform on a node.
 
         :param node: The node for which the check should be performed.
         :type node: :class:`maasserver.models.Node`
-        :param user: The user used to perform the permission checks.  Only the
-            transitions available to this user will be returned.
+        :param user: The user who would be performing the action.  Only the
+            actions available to this user will be returned.
         :type user: :class:`django.contrib.auth.models.User`
-        :return: A list of transition dicts (each dict contains 3 values:
-            'name': the name of the transition, 'permission': the permission
-            required to perform this transition, 'method': the name of the
-            method to execute on the node to perform the transition).
+        :return: Any applicable action dicts, as found in NODE_ACTIONS.
         :rtype: Sequence
         """
-        node_transitions = NODE_TRANSITIONS_METHODS.get(node.status, ())
         return [
-            node_transition for node_transition in node_transitions
-            if user.has_perm(node_transition['permission'], node)]
+            action for action in NODE_ACTIONS.get(node.status, ())
+            if user.has_perm(action['permission'], node)]
+
+    def display_message(self, message):
+        if self.request is not None:
+            messages.add_message(self.request, messages.INFO, message)
 
     def save(self):
-        transition_name = self.data.get(self.input_name)
-        permission, execute = self.transition_dict.get(
-            transition_name, (None, None))
+        action_name = self.data.get(self.input_name)
+        permission, execute, message = (
+            self.action_dict.get(action_name, (None, None, None)))
         if execute is not None:
             if not self.user.has_perm(permission, self.node):
                 raise PermissionDenied()
             execute(self.node, self.user)
+            self.display_message(message)
         else:
             raise PermissionDenied()
 
 
-def get_transition_form(user):
-    """Return a class derived from NodeTransitionForm for a specific user.
+def get_action_form(user, request=None):
+    """Return a class derived from NodeActionForm for a specific user.
 
     :param user: The user for which to build a form derived from
-        NodeTransitionForm.
+        NodeActionForm.
     :type user: :class:`django.contrib.auth.models.User`
-    :return: A form class derived from NodeTransitionForm.
+    :param request: An optional request object to publish action messages.
+    :type request: django.http.HttpRequest
+    :return: A form class derived from NodeActionForm.
     :rtype: class:`django.forms.Form`
     """
     return type(
-        str("SpecificNodeTransitionForm"), (NodeTransitionForm,),
-        {'user': user})
+        str("SpecificNodeActionForm"), (NodeActionForm,),
+        {'user': user, 'request': request})
 
 
 class ProfileForm(ModelForm):

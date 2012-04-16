@@ -22,6 +22,7 @@ __all__ = [
     "FakeSynchronousProvisioningAPI",
     ]
 
+from base64 import b64encode
 from functools import wraps
 
 from provisioningserver.interfaces import IProvisioningAPI
@@ -88,11 +89,13 @@ class FakeProvisioningAPIBase:
         self.profiles[name]["distro"] = distro
         return name
 
-    def add_node(self, name, hostname, profile, power_type, metadata):
+    def add_node(self, name, hostname, profile, power_type, preseed_data):
         self.nodes[name]["hostname"] = hostname
         self.nodes[name]["profile"] = profile
         self.nodes[name]["mac_addresses"] = []
-        self.nodes[name]["metadata"] = metadata
+        self.nodes[name]["ks_meta"] = {
+            "MAAS_PRESEED": b64encode(preseed_data),
+            }
         self.nodes[name]["power_type"] = power_type
         return name
 

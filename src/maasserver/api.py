@@ -408,23 +408,21 @@ def create_node(request):
     The node will be in the Declared state.
 
     :param request: The http request for this node to be created.
-    :return: A suitable return value for the handler receiving the "new"
-        request that this implements.
-    :rtype: :class:`maasserver.models.Node` or
-        :class:`django.http.HttpResponseBadRequest`.
+    :return: A `Node`.
+    :rtype: :class:`maasserver.models.Node`.
+    :raises: ValidationError
     """
     form = NodeWithMACAddressesForm(request.data)
     if form.is_valid():
         return form.save()
     else:
-        return HttpResponseBadRequest(
-            form.errors, content_type='application/json')
+        raise ValidationError(form.errors)
 
 
 @api_operations
 class AnonNodesHandler(AnonymousBaseHandler):
     """Create Nodes."""
-    allowed_methods = ('POST',)
+    allowed_methods = ('GET', 'POST',)
     fields = NODE_FIELDS
 
     @api_exported('new', 'POST')
@@ -432,11 +430,26 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """Create a new Node.
 
         Adding a server to a MAAS puts it on a path that will wipe its disks
-        and re-install its operating system.  In anonymous enlistment,
-        therefore, the node is held in the "Declared" state for approval by a
-        MAAS user.
+        and re-install its operating system.  In anonymous enlistment and when
+        the enlistment is done by a non-admin, the node is held in the
+        "Declared" state for approval by a MAAS admin.
         """
         return create_node(request)
+
+    @api_exported('is_registered', 'GET')
+    def is_registered(self, request):
+        """Returns whether or not the given MAC Address is registered within
+        this MAAS (and attached to a non-retired node).
+
+        :param mac_address: The mac address to be checked.
+        :type mac_address: basestring
+        :return: 'true' or 'false'.
+        :rtype: basestring
+        """
+        mac_address = get_mandatory_param(request.GET, 'mac_address')
+        return MACAddress.objects.filter(
+            mac_address=mac_address).exclude(
+                node__status=NODE_STATUS.RETIRED).exists()
 
     @api_exported('accept', 'POST')
     def accept(self, request):
@@ -473,21 +486,22 @@ class NodesHandler(BaseHandler):
     def new(self, request):
         """Create a new Node.
 
-        When a node has been added to MAAS by a logged-in MAAS user, it is
+        When a node has been added to MAAS by an admin MAAS user, it is
         ready for allocation to services running on the MAAS.
         """
         node = create_node(request)
-        node.accept_enlistment()
+        if request.user.is_superuser:
+            node.accept_enlistment(request.user)
         return node
 
     @api_exported('accept', 'POST')
     def accept(self, request):
         """Accept declared nodes into the MAAS.
 
-        Nodes can be enlisted in the MAAS anonymously, as opposed to by a
-        logged-in user, at the nodes' own request.  These nodes are held in
-        the Declared state; a MAAS user must first verify the authenticity of
-        these enlistments, and accept them.
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
 
         Enlistments can be accepted en masse, by passing multiple nodes to
         this call.  Accepting an already accepted node is not an error, but
@@ -500,12 +514,23 @@ class NodesHandler(BaseHandler):
             excluded from the result.
         """
         system_ids = set(request.POST.getlist('nodes'))
-        nodes = Node.objects.filter(system_id__in=system_ids)
-        found_ids = set(node.system_id for node in nodes)
-        if len(nodes) < len(system_ids):
+        # Check the existence of these nodes first.
+        existing_ids = set(Node.objects.filter().values_list(
+            'system_id', flat=True))
+        if len(existing_ids) < len(system_ids):
             raise MAASAPIBadRequest(
-                "Unknown node(s): %s" % ', '.join(system_ids - found_ids))
-        return filter(None, [node.accept_enlistment() for node in nodes])
+                "Unknown node(s): %s." % ', '.join(system_ids - existing_ids))
+        # Make sure that the user has the required permission.
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN, ids=system_ids)
+        ids = set(node.system_id for node in nodes)
+        if len(nodes) < len(system_ids):
+            raise PermissionDenied(
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % (
+                    ', '.join(system_ids - ids)))
+        return filter(
+            None, [node.accept_enlistment(request.user) for node in nodes])
 
     @api_exported('list', 'GET')
     def list(self, request):
@@ -513,7 +538,8 @@ class NodesHandler(BaseHandler):
         match_ids = request.GET.getlist('id')
         if match_ids == []:
             match_ids = None
-        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        nodes = Node.objects.get_nodes(
+            request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         return nodes.order_by('id')
 
     @api_exported('list_allocated', 'GET')

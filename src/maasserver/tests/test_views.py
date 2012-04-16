@@ -14,20 +14,23 @@ __all__ = []
 from collections import namedtuple
 import httplib
 import os
-import random
 import urllib2
+from xmlrpclib import Fault
 
 from django.conf import settings
 from django.conf.urls.defaults import patterns
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+from django.utils.html import escape
 from lxml.html import fromstring
 from maasserver import (
+    components,
     messages,
     views,
     )
+from maasserver.components import register_persistent_error
 from maasserver.exceptions import NoRabbit
-from maasserver.forms import NodeTransitionForm
+from maasserver.forms import NodeActionForm
 from maasserver.models import (
     Config,
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -40,6 +43,7 @@ from maasserver.testing import (
     get_data,
     reload_object,
     )
+from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
@@ -55,6 +59,11 @@ from maasserver.views import (
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
+from provisioningserver.enum import PSERV_FAULT
+from testtools.matchers import (
+    Contains,
+    MatchesAll,
+    )
 
 
 def get_prefixed_form_data(prefix, data):
@@ -149,7 +158,8 @@ class TestSnippets(LoggedInTestCase):
         self.assertTemplateExistsAndContains(
             response.content, '#add-node', 'input#id_hostname')
 
-    def test_after_commissioning_action_snippet(self):
+    # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+    def t_e_s_t_after_commissioning_action_snippet(self):
         response = self.client.get('/')
         self.assertTemplateExistsAndContains(
             response.content, '#add-node',
@@ -387,17 +397,14 @@ class UserPrefsViewTest(LoggedInTestCase):
         add_key_link = reverse('prefs-add-sshkey')
         self.assertIn(add_key_link, get_content_links(response))
 
-    def create_keys_for_user(self, user):
-        return [factory.make_sshkey(self.logged_in_user) for i in range(3)]
-
     def test_prefs_displays_compact_representation_of_users_keys(self):
-        keys = self.create_keys_for_user(self.logged_in_user)
+        _, keys = factory.make_user_with_keys(user=self.logged_in_user)
         response = self.client.get('/account/prefs/')
         for key in keys:
             self.assertIn(key.display_html(), response.content)
 
     def test_prefs_displays_link_to_delete_ssh_keys(self):
-        keys = self.create_keys_for_user(self.logged_in_user)
+        _, keys = factory.make_user_with_keys(user=self.logged_in_user)
         response = self.client.get('/account/prefs/')
         links = get_content_links(response)
         for key in keys:
@@ -420,12 +427,37 @@ class KeyManagementTest(LoggedInTestCase):
                 '#content form')])
 
     def test_add_key_POST_adds_key(self):
-        key_string = get_data('data/test_rsa.pub')
+        key_string = get_data('data/test_rsa0.pub')
         response = self.client.post(
             reverse('prefs-add-sshkey'), {'key': key_string})
 
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertTrue(SSHKey.objects.filter(key=key_string).exists())
+
+    def test_add_key_POST_fails_if_key_already_exists_for_the_user(self):
+        key_string = get_data('data/test_rsa0.pub')
+        key = SSHKey(user=self.logged_in_user, key=key_string)
+        key.save()
+        response = self.client.post(
+            reverse('prefs-add-sshkey'), {'key': key_string})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn(
+            "This key has already been added for this user.",
+            response.content)
+        self.assertItemsEqual([key], SSHKey.objects.filter(key=key_string))
+
+    def test_key_can_be_added_if_same_key_already_setup_for_other_user(self):
+        key_string = get_data('data/test_rsa0.pub')
+        key = SSHKey(user=factory.make_user(), key=key_string)
+        key.save()
+        response = self.client.post(
+            reverse('prefs-add-sshkey'), {'key': key_string})
+        new_key = SSHKey.objects.get(key=key_string, user=self.logged_in_user)
+
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertItemsEqual(
+            [key, new_key], SSHKey.objects.filter(key=key_string))
 
     def test_delete_key_GET(self):
         # The 'Delete key' page displays a confirmation page with a form.
@@ -484,15 +516,43 @@ class NodeViewsTest(LoggedInTestCase):
         node_link = reverse('node-view', args=[node.system_id])
         self.assertIn(node_link, get_content_links(response))
 
+    def test_node_list_displays_sorted_list_of_nodes(self):
+        # Nodes are sorted on the node list page, newest first.
+        nodes = [factory.make_node() for i in range(3)]
+        nodes.reverse()
+        # Modify one node to make sure that the default db ordering
+        # (by modification date) is not used.
+        node = nodes[1]
+        node.hostname = factory.getRandomString()
+        node.save()
+        response = self.client.get(reverse('node-list'))
+        node_links = [
+            reverse('node-view', args=[node.system_id])
+            for node in nodes]
+        self.assertEqual(
+            node_links,
+            [link for link in get_content_links(response)
+                if link.startswith('/nodes')])
+
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
-        node = factory.make_node()
+        node = factory.make_node(owner=self.logged_in_user)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(node.hostname, content_text)
         self.assertIn(node.display_status(), content_text)
+        self.assertIn(self.logged_in_user.username, content_text)
+
+    def test_view_node_displays_node_info_no_owner(self):
+        # If the node has no owner, the Owner 'slot' does not exist.
+        node = factory.make_node()
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertNotIn('Owner', content_text)
 
     def test_view_node_displays_link_to_edit_if_user_owns_node(self):
         node = factory.make_node(owner=self.logged_in_user)
@@ -517,7 +577,7 @@ class NodeViewsTest(LoggedInTestCase):
 
     def test_view_node_shows_link_to_delete_node_for_admin(self):
         self.become_admin()
-        node = factory.make_node(owner=factory.make_user())
+        node = factory.make_node()
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
         node_delete_link = reverse('node-delete', args=[node.system_id])
@@ -525,11 +585,34 @@ class NodeViewsTest(LoggedInTestCase):
 
     def test_admin_can_delete_nodes(self):
         self.become_admin()
-        node = factory.make_node(owner=factory.make_user())
+        node = factory.make_node()
         node_delete_link = reverse('node-delete', args=[node.system_id])
         response = self.client.post(node_delete_link, {'post': 'yes'})
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertFalse(User.objects.filter(id=node.id).exists())
+
+    def test_allocated_node_view_page_says_node_cannot_be_deleted(self):
+        self.become_admin()
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        node_view_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_view_link)
+        node_delete_link = reverse('node-delete', args=[node.system_id])
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertNotIn(node_delete_link, get_content_links(response))
+        self.assertIn(
+            "You cannot delete this node because it's in use.",
+            response.content)
+
+    def test_allocated_node_cannot_be_deleted(self):
+        self.become_admin()
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        node_delete_link = reverse('node-delete', args=[node.system_id])
+        response = self.client.get(node_delete_link)
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_user_cannot_view_someone_elses_node(self):
         node = factory.make_node(owner=factory.make_user())
@@ -568,43 +651,15 @@ class NodeViewsTest(LoggedInTestCase):
         node_edit_link = reverse('node-edit', args=[node.system_id])
         params = {
             'hostname': factory.getRandomString(),
-            'after_commissioning_action': factory.getRandomEnum(
-                NODE_AFTER_COMMISSIONING_ACTION),
+            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+            #'after_commissioning_action': factory.getRandomEnum(
+            #    NODE_AFTER_COMMISSIONING_ACTION),
         }
         response = self.client.post(node_edit_link, params)
 
         node = reload_object(node)
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertAttributes(node, params)
-
-    def test_view_node_admin_has_button_to_accept_enlistement(self):
-        self.logged_in_user.is_superuser = True
-        self.logged_in_user.save()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        node_link = reverse('node-view', args=[node.system_id])
-        response = self.client.get(node_link)
-        doc = fromstring(response.content)
-        inputs = [
-            input for input in doc.cssselect('form#node_actions input')
-            if input.name == NodeTransitionForm.input_name]
-
-        self.assertSequenceEqual(
-            ["Accept Enlisted node"], [input.value for input in inputs])
-
-    def test_view_node_POST_admin_can_enlist_node(self):
-        self.logged_in_user.is_superuser = True
-        self.logged_in_user.save()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        node_link = reverse('node-view', args=[node.system_id])
-        response = self.client.post(
-            node_link,
-            data={
-                NodeTransitionForm.input_name: "Accept Enlisted node",
-            })
-
-        self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertEqual(
-            NODE_STATUS.READY, reload_object(node).status)
 
     def test_view_node_has_button_to_accept_enlistement_for_user(self):
         # A simple user can't see the button to enlist a declared node.
@@ -615,24 +670,90 @@ class NodeViewsTest(LoggedInTestCase):
 
         self.assertEqual(0, len(doc.cssselect('form#node_actions input')))
 
+    def test_view_node_shows_error_if_set(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, error=factory.getRandomString())
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertIn("Error output", content_text)
+        self.assertIn(node.error, content_text)
+
+    def test_view_node_shows_no_error_if_no_error_set(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertNotIn("Error output", content_text)
+
+    def test_view_node_POST_admin_can_start_commissioning_node(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.post(
+            node_link,
+            data={
+                NodeActionForm.input_name: "Accept & commission",
+            })
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def perform_action_and_get_node_page(self, node, action_name):
+        node_link = reverse('node-view', args=[node.system_id])
+        self.client.post(
+            node_link,
+            data={
+                NodeActionForm.input_name: action_name,
+            })
+        response = self.client.get(node_link)
+        return response
+
+    def test_start_commisionning_displays_message(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        response = self.perform_action_and_get_node_page(
+            node, "Accept & commission")
+        self.assertEqual(
+            ["Node commissioning started."],
+            [message.message for message in response.context['messages']])
+
+    def test_start_node_from_ready_displays_message(self):
+        node = factory.make_node(
+            status=NODE_STATUS.READY, owner=self.logged_in_user)
+        response = self.perform_action_and_get_node_page(
+            node, "Start node")
+        self.assertEqual(
+            ["Node started."],
+            [message.message for message in response.context['messages']])
+
+    def test_start_node_from_allocated_displays_message(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
+        response = self.perform_action_and_get_node_page(
+            node, "Start node")
+        self.assertEqual(
+            ["Node started."],
+            [message.message for message in response.context['messages']])
+
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
 
     def test_admin_can_edit_nodes(self):
         node = factory.make_node(owner=factory.make_user())
         node_edit_link = reverse('node-edit', args=[node.system_id])
-        owner = random.choice([factory.make_user() for i in range(5)])
         params = {
             'hostname': factory.getRandomString(),
-            'after_commissioning_action': factory.getRandomEnum(
-                NODE_AFTER_COMMISSIONING_ACTION),
+            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+            #'after_commissioning_action': factory.getRandomEnum(
+            #    NODE_AFTER_COMMISSIONING_ACTION),
             'power_type': factory.getRandomChoice(POWER_TYPE_CHOICES),
-            'owner': owner.id,
         }
         response = self.client.post(node_edit_link, params)
 
         node = reload_object(node)
-        params['owner'] = owner
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertAttributes(node, params)
 
@@ -879,3 +1000,32 @@ class UserManagementTest(AdminLoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(user.username, content_text)
         self.assertIn(user.email, content_text)
+
+
+class PermanentErrorDisplayTest(LoggedInTestCase):
+
+    def test_permanent_error_displayed(self):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        pserv_fault = set(map_enum(PSERV_FAULT).values())
+        errors = []
+        for fault in pserv_fault:
+            # Create component with getRandomString to be sure
+            # to display all the errors.
+            component = factory.getRandomString()
+            error_message = factory.getRandomString()
+            error = Fault(fault, error_message)
+            errors.append(error)
+            register_persistent_error(component, error_message)
+        links = [
+            reverse('index'),
+            reverse('node-list'),
+            reverse('prefs'),
+        ]
+        for link in links:
+            response = self.client.get(link)
+            self.assertThat(
+                response.content,
+                MatchesAll(
+                    *[Contains(
+                          escape(error.faultString))
+                     for error in errors]))
