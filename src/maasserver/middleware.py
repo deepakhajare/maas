@@ -181,7 +181,8 @@ class ErrorsMiddleware:
             messages.error(request, unicode(exception))
             return HttpResponseRedirect(request.path)
         else:
-            # Not a MAASException or not a POST request: do not handle it.
+            # Not an ExternalComponentException or not a POST request: do not
+            # handle it.
             return None
 
 
