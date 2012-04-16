@@ -40,8 +40,8 @@ from django.http import (
     )
 from django.utils.http import urlquote_plus
 from maasserver.exceptions import (
+    ExternalComponentException,
     MAASAPIException,
-    MAASException,
     )
 
 
@@ -169,12 +169,15 @@ class APIErrorsMiddleware(ExceptionMiddleware):
 
 
 class ErrorsMiddleware:
-    """Handle MAASException exceptions in POST requests: add a message
-    with the error string and redirect to the same page (using GET).
+    """Handle ExternalComponentException exceptions in POST requests: add a
+    message with the error string and redirect to the same page (using GET).
     """
 
     def process_exception(self, request, exception):
-        if request.method == 'POST' and isinstance(exception, MAASException):
+        should_process_exception = (
+            request.method == 'POST' and
+            isinstance(exception, ExternalComponentException))
+        if should_process_exception:
             messages.error(request, unicode(exception))
             return HttpResponseRedirect(request.path)
         else:

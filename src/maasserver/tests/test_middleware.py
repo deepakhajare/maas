@@ -23,6 +23,7 @@ from django.core.exceptions import (
     )
 from django.test.client import RequestFactory
 from maasserver.exceptions import (
+    ExternalComponentException,
     MAASAPIException,
     MAASAPINotFound,
     MAASException,
@@ -197,18 +198,18 @@ class ErrorsMiddlewareTest(LoggedInTestCase):
         response = middleware.process_exception(request, exception)
         self.assertIsNone(response)
 
-    def test_error_middleware_ignores_non_maasexceptions(self):
+    def test_error_middleware_ignores_non_ExternalComponentException(self):
         request = fake_request(factory.getRandomString(), 'GET')
         exception = ValueError()
         middleware = ErrorsMiddleware()
         response = middleware.process_exception(request, exception)
         self.assertIsNone(response)
 
-    def test_error_middleware_handles_maasexception(self):
+    def test_error_middleware_handles_ExternalComponentException(self):
         url = factory.getRandomString()
         request = fake_request(url, 'POST')
         error_message = factory.getRandomString()
-        exception = MAASException(error_message)
+        exception = ExternalComponentException(error_message)
         middleware = ErrorsMiddleware()
         response = middleware.process_exception(request, exception)
         # The response is a redirect.

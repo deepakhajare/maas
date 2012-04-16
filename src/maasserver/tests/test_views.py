@@ -31,7 +31,7 @@ from maasserver import (
     )
 from maasserver.components import register_persistent_error
 from maasserver.exceptions import (
-    MAASException,
+    ExternalComponentException,
     NoRabbit,
     )
 from maasserver.forms import NodeActionForm
@@ -747,12 +747,12 @@ class NodeViewsTest(LoggedInTestCase):
 class MAASExceptionHandledInView(LoggedInTestCase):
 
     def test_raised_MAASException_redirects(self):
-        # When a MAASException is raised in a POST request, the response
-        # is a redirect to the same page.
+        # When a ExternalComponentException is raised in a POST request, the
+        # response is a redirect to the same page.
 
         # Patch NodeEdit to error on post.
         def post(self, request, *args, **kwargs):
-            raise MAASException()
+            raise ExternalComponentException()
         self.patch(NodeEdit, 'post', post)
         node = factory.make_node(owner=self.logged_in_user)
         node_edit_link = reverse('node-edit', args=[node.system_id])
@@ -762,14 +762,14 @@ class MAASExceptionHandledInView(LoggedInTestCase):
             (httplib.FOUND, redirect_url),
             (response.status_code, node_edit_link))
 
-    def test_raised_MAASException_publishes_message(self):
-        # When a MAASException is raised in a POST request, a message is
-        # published with the error message.
+    def test_raised_ExternalComponentException_publishes_message(self):
+        # When a ExternalComponentException is raised in a POST request, a
+        # message is published with the error message.
         error_message = factory.getRandomString()
 
         # Patch NodeEdit to error on post.
         def post(self, request, *args, **kwargs):
-            raise MAASException(error_message)
+            raise ExternalComponentException(error_message)
         self.patch(NodeEdit, 'post', post)
         node = factory.make_node(owner=self.logged_in_user)
         node_edit_link = reverse('node-edit', args=[node.system_id])
