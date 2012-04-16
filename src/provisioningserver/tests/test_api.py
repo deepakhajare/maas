@@ -731,7 +731,8 @@ class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
     The URL for the Cobbler instance must be provided in the
     `PSERV_TEST_COBBLER_URL` environment variable.
 
-    Includes by inheritance all the tests in :class:`ProvisioningAPITests`.
+    Includes by inheritance all the tests in :class:`ProvisioningAPITests` and
+    :class:`ProvisioningAPITestsWithCobbler`.
     """
 
     real_cobbler = RealCobbler()
