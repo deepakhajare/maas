@@ -4,11 +4,10 @@
 """Maasserver migration 0002_macaddress_unique."""
 
 from __future__ import (
-    # This breaks South.
-    #unicode_literals,
     absolute_import,
     print_function,
-    unicode_literals,
+    # This breaks South.
+    #unicode_literals,
     )
 
 __metaclass__ = type
