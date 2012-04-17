@@ -23,7 +23,7 @@ class Command(BaseCommand):
         make_option('--key', dest='username', default=None,
             help="Specify a specific key to delete."),
       )
-    help = "Clear the cache (the entire cache or only specific key)."
+    help = "Clear the cache (the entire cache or only a specific key)."
 
     def handle(self, *args, **options):
         key = options.get('key', None)
