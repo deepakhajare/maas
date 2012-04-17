@@ -191,7 +191,7 @@ Y.extend(NodesChartWidget, Y.Widget, {
                 this._outer_paths = [];
             }
             var segment_start = 0;
-            Y.Array.each(outer_nodes, function(outer_node) {
+            Y.Array.each(outer_nodes, function(outer_node, i) {
                 var segment_size = 360 / outer_total * outer_node.nodes;
                 var segment = [
                     this._center().x,
