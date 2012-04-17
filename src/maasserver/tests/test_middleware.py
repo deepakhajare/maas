@@ -224,6 +224,16 @@ class ExternalComponentsMiddlewareTest(TestCase):
         response = middleware.process_request(request)
         self.assertIsNone(response)
 
+    def test_middleware_does_not_catch_keyboardinterrupt_exception(self):
+        def raise_exception(profiles):
+            raise KeyboardInterrupt()
+
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        middleware = ExternalComponentsMiddleware()
+        request = fake_request(factory.getRandomString())
+        self.assertRaises(
+            KeyboardInterrupt, middleware.process_request, request)
+
 
 class ErrorsMiddlewareTest(LoggedInTestCase):
 

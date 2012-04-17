@@ -101,6 +101,9 @@ class AccessMiddleware:
 
 
 class ExternalComponentsMiddleware:
+    """This middleware performs checks for external components (right
+    now only Cobbler is checked) at regular intervals.
+    """
     def process_request(self, request):
         # This middleware hijacks the request to perform checks.  Any
         # error raised during these checks should be caught to avoid
@@ -108,7 +111,7 @@ class ExternalComponentsMiddleware:
         # should be handled in the check method itself.
         try:
             check_profiles_cached()
-        except:
+        except Exception:
             pass
         return None
 
