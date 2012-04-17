@@ -12,7 +12,9 @@ Y.log('loading maas.nodes_chart');
 
 var module = Y.namespace('maas.nodes_chart');
 
-var NodesChartWidget = function() {
+var NodesChartWidget;
+
+NodesChartWidget = function() {
     NodesChartWidget.superclass.constructor.apply(this, arguments);
 };
 

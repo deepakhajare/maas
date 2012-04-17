@@ -185,7 +185,6 @@ suite.add(new Y.maas.testing.TestCase({
             view.added_nodes,
             'Check the initial number of nodes for the status');
         Y.fire('Node.created', {instance: node});
-        return;
         Y.Assert.areEqual(
             'host14',
             view.modelList.getById('sys14').get('hostname'),

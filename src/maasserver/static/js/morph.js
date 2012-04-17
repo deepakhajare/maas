@@ -12,7 +12,9 @@ Y.log('loading mass.morph');
 
 var module = Y.namespace('maas.morph');
 
-var Morph = function(config) {
+var Morph;
+
+Morph = function(config) {
     Morph.superclass.constructor.apply(this, arguments);
 };
 
