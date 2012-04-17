@@ -427,7 +427,7 @@ PROFILES_CHECK_DONE_KEY = 'profile-check-done'
 
 # Profiles' check done by check_profiles_cached is only done at most once
 # every PROFILE_CHECK_DELAY seconds for efficiency.
-PROFILE_CHECK_DELAY = 30
+PROFILE_CHECK_DELAY = 20
 
 
 def clear_profiles_check_cache():
