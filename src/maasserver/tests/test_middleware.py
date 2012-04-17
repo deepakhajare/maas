@@ -22,6 +22,11 @@ from django.core.exceptions import (
     ValidationError,
     )
 from django.test.client import RequestFactory
+from maasserver import (
+    components,
+    provisioning,
+    )
+from maasserver.components import get_persistent_errors
 from maasserver.exceptions import (
     ExternalComponentException,
     MAASAPIException,
@@ -33,6 +38,7 @@ from maasserver.middleware import (
     ErrorsMiddleware,
     ExceptionLoggerMiddleware,
     ExceptionMiddleware,
+    ExternalComponentsMiddleware,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
@@ -187,6 +193,36 @@ class ExceptionLoggerMiddlewareTest(TestCase):
                 fake_request('/middleware/api/hello'),
                 ValueError(error_text))
             self.assertIn(error_text, open(logfile.name).read())
+
+
+class ExternalComponentsMiddlewareTest(TestCase):
+
+    def patch_papi_get_profiles_by_name(self, method):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        papi = provisioning.get_provisioning_api_proxy()
+        self.patch(papi.proxy, 'get_profiles_by_name', method)
+
+    def test_middleware_sets_persistence_message_if_missing_profiles(self):
+        def return_some_profiles(profiles):
+            return profiles[1:]
+
+        self.patch_papi_get_profiles_by_name(return_some_profiles)
+        middleware = ExternalComponentsMiddleware()
+        request = fake_request(factory.getRandomString())
+        response = middleware.process_request(request)
+        errors = get_persistent_errors()
+        self.assertIsNone(response)
+        self.assertIn("<pre>sudo maas-import-isos</pre>", errors[0])
+
+    def test_middleware_returns_none_if_exception_raised(self):
+        def raise_exception(profiles):
+            raise Exception()
+
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        middleware = ExternalComponentsMiddleware()
+        request = fake_request(factory.getRandomString())
+        response = middleware.process_request(request)
+        self.assertIsNone(response)
 
 
 class ErrorsMiddlewareTest(LoggedInTestCase):

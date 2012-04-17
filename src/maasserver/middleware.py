@@ -43,6 +43,7 @@ from maasserver.exceptions import (
     ExternalComponentException,
     MAASAPIException,
     )
+from maasserver.provisioning import check_profiles_cached
 
 
 def get_relative_path(path):
@@ -97,6 +98,19 @@ class AccessMiddleware:
                     settings.LOGIN_URL, urlquote_plus(request.path)))
             else:
                 return None
+
+
+class ExternalComponentsMiddleware:
+    def process_request(self, request):
+        # This middleware hijacks the request to perform checks.  Any
+        # error raised during these checks should be caught to avoid
+        # disturbing the handling of the request.  Proper error reporting
+        # should be handled in the check method itself.
+        try:
+            check_profiles_cached()
+        except:
+            pass
+        return None
 
 
 class ExceptionMiddleware:
