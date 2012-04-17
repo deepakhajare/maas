@@ -160,10 +160,14 @@ suite.add(new Y.maas.testing.TestCase({
             '3 nodes reserved for named deployment.',
             Y.one('#reserved-nodes').get('text'),
             'The reserved text should be set');
+        // However, the reserved nodes message should be hidden for now.
+        Y.Assert.areEqual("none", view.reservedNode.getStyle("display"));
         Y.Assert.areEqual(
             '1 retired node not represented.',
             Y.one('#retired-nodes').get('text'),
             'The retired text should be set');
+        // However, the retired nodes message should be hidden for now.
+        Y.Assert.areEqual("none", view.retiredNode.getStyle("display"));
     },
 
     testUpdateNodeCreation: function() {
