@@ -27,6 +27,7 @@ import re
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -43,7 +44,7 @@ from maasserver.exceptions import (
     ExternalComponentException,
     MAASAPIException,
     )
-from maasserver.provisioning import check_profiles_cached
+from maasserver.provisioning import check_profiles
 
 
 def get_relative_path(path):
@@ -98,6 +99,29 @@ class AccessMiddleware:
                     settings.LOGIN_URL, urlquote_plus(request.path)))
             else:
                 return None
+
+
+PROFILES_CHECK_DONE_KEY = 'profile-check-done'
+
+# The profiles check done by check_profiles_cached is only done at most once
+# every PROFILE_CHECK_DELAY seconds for efficiency.
+PROFILE_CHECK_DELAY = 20
+
+
+def check_profiles_cached():
+    """Check Cobbler's profiles. The check is actually done at most once every
+    PROFILE_CHECK_DELAY seconds for performance reasons.
+    """
+    if not cache.get(PROFILES_CHECK_DONE_KEY, False):
+        # Mark the profile check as done beforehand as the actual check
+        # might raise an exception.
+        cache.set(PROFILES_CHECK_DONE_KEY, True, PROFILE_CHECK_DELAY)
+        check_profiles()
+
+
+def clear_profiles_check_cache():
+    """Force a profile check next time the MAAS server is accessed."""
+    cache.delete(PROFILES_CHECK_DONE_KEY)
 
 
 class ExternalComponentsMiddleware:

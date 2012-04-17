@@ -10,8 +10,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'check_profiles_cached',
-    'clear_profiles_check_cache',
+    'check_profiles',
     'get_provisioning_api_proxy',
     'get_all_profile_names',
     'present_detailed_user_friendly_fault',
@@ -27,7 +26,6 @@ from urlparse import urljoin
 import xmlrpclib
 
 from django.conf import settings
-from django.core.cache import cache
 from django.db.models.signals import (
     post_delete,
     post_save,
@@ -421,29 +419,6 @@ def name_arch_in_cobbler_style(architecture):
     if isinstance(architecture, bytes):
         architecture = architecture.decode('ascii')
     return conversions.get(architecture, architecture)
-
-
-PROFILES_CHECK_DONE_KEY = 'profile-check-done'
-
-# The profiles check done by check_profiles_cached is only done at most once
-# every PROFILE_CHECK_DELAY seconds for efficiency.
-PROFILE_CHECK_DELAY = 20
-
-
-def clear_profiles_check_cache():
-    """Force a profile check next time the MAAS server is accessed."""
-    cache.delete(PROFILES_CHECK_DONE_KEY)
-
-
-def check_profiles_cached():
-    """Check Cobbler's profiles. The check is actually done at most once every
-    PROFILE_CHECK_DELAY seconds for performance reasons.
-    """
-    if not cache.get(PROFILES_CHECK_DONE_KEY, False):
-        # Mark the profile check as done beforehand as the actual check
-        # might raise an exception.
-        cache.set(PROFILES_CHECK_DONE_KEY, True, PROFILE_CHECK_DELAY)
-        check_profiles()
 
 
 def check_profiles():

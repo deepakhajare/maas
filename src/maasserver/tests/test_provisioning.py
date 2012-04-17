@@ -16,7 +16,6 @@ from base64 import b64decode
 from xmlrpclib import Fault
 
 from django.conf import settings
-from django.core.cache import cache
 from maasserver import (
     components,
     provisioning,
@@ -40,8 +39,6 @@ from maasserver.models import (
     )
 from maasserver.provisioning import (
     check_profiles,
-    check_profiles_cached,
-    clear_profiles_check_cache,
     compose_cloud_init_preseed,
     compose_commissioning_preseed,
     compose_preseed,
@@ -52,7 +49,6 @@ from maasserver.provisioning import (
     name_arch_in_cobbler_style,
     present_detailed_user_friendly_fault,
     present_user_friendly_fault,
-    PROFILES_CHECK_DONE_KEY,
     ProvisioningTransport,
     select_profile_for_node,
     SHORT_PRESENTATIONS,
@@ -496,44 +492,6 @@ class ProvisioningTests:
         check_profiles()
         errors = get_persistent_errors()
         self.assertIn("<pre>sudo maas-import-isos</pre>", errors[0])
-
-    def test_check_profiles_adds_error_and_sets_cache(self):
-        def return_no_profiles(profiles):
-            return []
-        self.patch_get_profiles_by_name(return_no_profiles)
-
-        check_profiles_cached()
-        errors = get_persistent_errors()
-        self.assertIn("<pre>sudo maas-import-isos</pre>", errors[0])
-        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
-
-    def test_check_profiles_cached_sets_cache_key_if_exception_raised(self):
-        # The cache key PROFILES_CHECK_DONE_KEY is set to True even if
-        # the call to papi.get_profiles_by_name raises an exception.
-        def raise_exception(profiles):
-            raise Exception()
-        self.patch_get_profiles_by_name(raise_exception)
-        try:
-            check_profiles_cached()
-        except Exception:
-            pass
-        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
-
-    def test_check_profiles_cached_does_nothing_if_cache_key_set(self):
-        # If the cache key PROFILES_CHECK_DONE_KE is set to True
-        # the call to check_profiles_cached is silent.
-        def raise_exception(profiles):
-            raise Exception()
-        cache.set(PROFILES_CHECK_DONE_KEY, True)
-        self.patch_get_profiles_by_name(raise_exception)
-        check_profiles_cached()
-        # No exception, get_profiles_by_name has not been called.
-
-    def test_clear_profiles_check_cache_deletes_PROFILES_CHECK_DONE_KEY(self):
-        cache.set(PROFILES_CHECK_DONE_KEY, factory.getRandomString())
-        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
-        clear_profiles_check_cache()
-        self.assertFalse(cache.get(PROFILES_CHECK_DONE_KEY, False))
 
     def test_failing_components_cleared_if_add_node_works(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
