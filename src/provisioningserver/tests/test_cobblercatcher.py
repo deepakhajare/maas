@@ -4,6 +4,7 @@
 """Tests for conversion of Cobbler exceptions to `ProvisioningError`."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -180,7 +181,7 @@ class TestExceptionConversionWithRealCobbler(ExceptionConversionTests,
 
     real_cobbler = RealCobbler()
 
-    @skipIf(not real_cobbler.is_available(), RealCobbler.help_text)
+    @real_cobbler.skip_unless_available
     @deferred
     def get_cobbler_session(self):
         return self.real_cobbler.get_session()
