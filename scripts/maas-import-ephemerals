@@ -20,7 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 VERBOSITY=0
-REMOTE_IMAGES_MIRROR="https://maas.ubuntu.com"
+REMOTE_IMAGES_MIRROR="https://maas.ubuntu.com/images"
 CONSOLE="ttyS0,9600n8"
 EPH_KOPTS_CONSOLE="console=$CONSOLE"
 EPH_KOPTS_ISCSI="ip=dhcp iscsi_target_name=@@iscsi_target@@ iscsi_target_ip=@@iscsi_target_ip@@ iscsi_target_port=3260"
