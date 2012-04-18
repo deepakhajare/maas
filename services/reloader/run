@@ -13,6 +13,7 @@ from __future__ import (
 
 __metaclass__ = type
 
+from io import BytesIO
 from os import (
     chdir,
     dup2,
@@ -23,6 +24,7 @@ from os import (
     )
 from subprocess import check_call
 import sys
+import unittest
 
 import pyinotify
 
@@ -54,7 +56,36 @@ def handle_pserv_change(event):
         check_call(("svc", "-du", "services/pserv"))
 
 
+class TestReloader(unittest.TestCase):
+    """Tests for this script."""
+
+    def test_is_interesting_python_change(self):
+        expected = {
+            None: False,
+            "script": False,
+            "module.py": True,
+            ".hidden.py": False,
+            "module_flymake.py": False,
+            }
+        observed = {
+            filename: is_interesting_python_change(filename)
+            for filename in expected
+            }
+        self.assertEqual(expected, observed)
+
+
+def self_test():
+    """Run tests and exit if any fails."""
+    suite = unittest.makeSuite(TestReloader)
+    runner = unittest.TextTestRunner(stream=BytesIO())
+    if not runner.run(suite).wasSuccessful():
+        sys.stderr.write(runner.stream.getvalue())
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
+    # Check everything is hunky-dory.
+    self_test()
     # Move to the project root.
     chdir(path.join(pardir, pardir))
     # Start watch src/ for changes.
