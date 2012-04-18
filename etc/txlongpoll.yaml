@@ -35,3 +35,4 @@ broker:
 ## running server.
 #
 # logfile: "txlongpoll.log"
+logfile: "/dev/null"
