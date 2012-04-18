@@ -1,0 +1,20 @@
+# -*- mode: shell-script -*-
+
+is_socket_open() {
+    # Is the specified TCP host:port accepting connections?
+    local host="${1:?}" port="${2:?}"
+    cat "/dev/null" 2> "/dev/null" > "/dev/tcp/${host}/${port}"
+}
+
+wait_until_socket_closed() {
+    # Wait until the specified TCP host:port is *not* accepting
+    # connections. If it is, sleep for the specified number of seconds
+    # before trying again.
+    local host="${1:?}" port="${2:?}" delay="${3:-10}"
+    while is_socket_open "${host}" "${port}"
+    do
+        echo "${host}:${port} is in use." >&2
+        echo "--> Sleeping for ${delay} seconds." >&2
+        sleep "${delay}"
+    done
+}

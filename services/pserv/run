@@ -14,6 +14,13 @@ cd ../..
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
+# Load common functions.
+source "services/functions"
+
+# The port should match the port set in etc/pserv.yaml, or be the
+# default port for pserv.
+wait_until_socket_closed "localhost" "5241"
+
 # Exec the Provisioning Server.
 script="$(readlink -f bin/twistd.pserv)"
 config="$(readlink -f etc/pserv.yaml)"
