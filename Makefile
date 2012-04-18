@@ -92,7 +92,7 @@ syncdb: bin/maas dev-db
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
 
-services := api pserv reloader txlongpoll
+services := web pserv reloader txlongpoll
 services := $(patsubst %,services/%/,$(services))
 
 # The services/*/@something targets below are phony - they will never
@@ -129,7 +129,7 @@ services/%/@shutdown:
 services/%/@status:
 	@svstat $(@D)
 
-services/api/@deps: bin/maas dev-db
+services/web/@deps: bin/maas dev-db
 
 services/pserv/@deps: bin/twistd.pserv
 
