@@ -113,7 +113,7 @@ nginx-stop:
 
 
 run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid run/nginx.pid
-	bin/maas runserver 0.0.0.0:5240 --settings=maas.demo
+	bin/maas runserver 0.0.0.0:5244 --settings=maas.demo
 
 harness: bin/maas dev-db
 	bin/maas shell --settings=maas.demo
