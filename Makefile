@@ -102,7 +102,7 @@ txlongpoll-stop: pidfile=run/txlongpoll.pid
 txlongpoll-stop:
 	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run/nginx.pid: | bin/twistd.txlongpoll etc/txlongpoll.yaml
+run/nginx.pid: | etc/nginx.conf
 	nginx -c etc/nginx.conf -p `pwd`/
 
 nginx-start: run/nginx.pid
