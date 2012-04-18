@@ -84,7 +84,7 @@ harness: bin/maas dev-db
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
 
-services := api pserv
+services := api pserv reloader
 services := $(patsubst %,services/%/,$(services))
 
 # The services/*/@something targets below are phony - they will never
@@ -124,6 +124,11 @@ services/%/@status:
 services/pserv/@deps: bin/twistd.pserv
 
 services/api/@deps: bin/maas dev-db
+
+services/reloader/@deps: /usr/bin/inotifywait
+
+/usr/bin/inotifywait:
+	sudo apt-get install inotify-tools
 
 .PHONY: \
     build check clean dev-db distclean doc \
