@@ -27,10 +27,10 @@ Prerequisites
 =============
 
 You will need to manually install Postgres 9.1, RabbitMQ, python-dev,
-avahi-daemon and make::
+avahi-daemon, daemontools, pyinotify, and make::
 
     $ sudo apt-get install postgresql-9.1 rabbitmq-server python-dev \
-        avahi-daemon daemontools make
+        avahi-daemon daemontools python-pyinotify make
 
 Also, you might want to install Bazaar (``bzr``) to grab the source
 code directly from Launchpad::
