@@ -97,7 +97,7 @@ services := $(patsubst %,services/%/,$(services))
 
 # The services/*/@something targets below are phony - they will never
 # correspond to an existing file - but we want them to be evaluated
-# for building.
+# for building, hence they are not added as .PHONY.
 
 start: $(addsuffix @start,$(services))
 
