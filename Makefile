@@ -133,10 +133,7 @@ services/pserv/@deps: bin/twistd.pserv
 
 services/api/@deps: bin/maas dev-db
 
-services/reloader/@deps: /usr/bin/inotifywait
-
-/usr/bin/inotifywait:
-	sudo apt-get install inotify-tools
+services/reloader/@deps:
 
 .PHONY: \
     build check clean dev-db distclean doc \
