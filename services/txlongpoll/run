@@ -17,4 +17,4 @@ cd ../..
 # Exec the Provisioning Server.
 script="$(readlink -f bin/twistd.txlongpoll)"
 config="$(readlink -f etc/txlongpoll.yaml)"
-exec "${script}" --nodaemon txlongpoll --config-file "${config}"
+exec "${script}" --nodaemon --pidfile="" txlongpoll --config-file "${config}"

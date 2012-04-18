@@ -17,4 +17,4 @@ cd ../..
 # Exec the Provisioning Server.
 script="$(readlink -f bin/twistd.pserv)"
 config="$(readlink -f etc/pserv.yaml)"
-exec "${script}" --nodaemon maas-pserv --config-file "${config}"
+exec "${script}" --nodaemon --pidfile="" maas-pserv --config-file "${config}"
