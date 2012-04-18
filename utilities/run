@@ -34,9 +34,8 @@ def service():
 def tail_logs():
     command = ["tail", "--follow=name", "--retry", "--"]
     command.extend(
-        join(logdir, "current")
-        for logdir in iglob("logs/*")
-        if isdir(logdir))
+        join(logdir, "current") for logdir in iglob("logs/*")
+        if isdir(logdir) and logdir != "logs/oops")
     check_call(command)
 
 
