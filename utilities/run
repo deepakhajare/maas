@@ -1,0 +1,45 @@
+#!/usr/bin/env python2.7
+# -*- mode: python -*-
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+"""Script to start services, tail logs, and stop services at the end."""
+
+from __future__ import (
+    absolute_import,
+    print_function,
+    unicode_literals,
+    )
+
+__metaclass__ = type
+
+from contextlib import contextmanager
+from subprocess import check_call
+from os.path import isdir, join
+from glob import iglob
+
+
+@contextmanager
+def service():
+    check_call(("make", "--no-print-directory", "start"))
+    try:
+        yield
+    finally:
+        check_call(("make", "--no-print-directory", "stop"))
+
+
+def tail_logs():
+    command = ["tail", "--follow=name", "--retry", "--"]
+    command.extend(
+        join(logdir, "current")
+        for logdir in iglob("logs/*")
+        if isdir(logdir))
+    check_call(command)
+
+
+if __name__ == "__main__":
+    try:
+        with service():
+            tail_logs()
+    except KeyboardInterrupt:
+        pass  # Ignore.

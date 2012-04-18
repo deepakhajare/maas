@@ -103,8 +103,8 @@ start: $(addsuffix @start,$(services))
 
 stop: $(addsuffix @stop,$(services))
 
-run: start
-	@tail --follow=name logs/*/current
+run:
+	@utilities/run
 
 status: $(addsuffix @status,$(services))
 
