@@ -4,6 +4,7 @@
 """Test maasserver middleware classes."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -13,30 +14,67 @@ __all__ = []
 
 import httplib
 import json
+import logging
+from tempfile import NamedTemporaryFile
 
-from django.core.exceptions import ValidationError
+from django.contrib.messages import constants
+from django.core.cache import cache
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.test.client import RequestFactory
+from maasserver import (
+    components,
+    middleware as middleware_module,
+    provisioning,
+    )
 from maasserver.exceptions import (
-    MaaSAPIException,
-    MaaSAPINotFound,
+    ExternalComponentException,
+    MAASAPIException,
+    MAASAPINotFound,
+    MAASException,
     )
 from maasserver.middleware import (
     APIErrorsMiddleware,
+    check_profiles_cached,
+    clear_profiles_check_cache,
+    ErrorsMiddleware,
+    ExceptionLoggerMiddleware,
     ExceptionMiddleware,
+    ExternalComponentsMiddleware,
+    PROFILES_CHECK_DONE_KEY,
     )
-from maasserver.testing import (
-    factory,
+from maasserver.testing.factory import factory
+from maasserver.testing.testcase import (
+    LoggedInTestCase,
     TestCase,
     )
 
 
-def fake_request(base_path):
+class Messages:
+    """A class to record messages published by Django messaging
+    framework.
+    """
+
+    messages = []
+
+    def add(self, level, message, extras):
+        self.messages.append((level, message, extras))
+
+
+def fake_request(path, method='GET'):
     """Create a fake request.
 
-    :param base_path: The base path to make the request to.
+    :param path: The path to make the request to.
+    :param method: The method to use for the reques
+        ('GET' or 'POST').
     """
     rf = RequestFactory()
-    return rf.get('%s/hello/' % base_path)
+    request = rf.get(path)
+    request.method = method
+    request._messages = Messages()
+    return request
 
 
 class ExceptionMiddlewareTest(TestCase):
@@ -68,27 +106,31 @@ class ExceptionMiddlewareTest(TestCase):
     def test_ignores_paths_outside_path_regex(self):
         middleware = self.make_middleware(self.make_base_path())
         request = fake_request(self.make_base_path())
-        exception = MaaSAPINotFound("Huh?")
+        exception = MAASAPINotFound("Huh?")
         self.assertIsNone(middleware.process_exception(request, exception))
 
-    def test_ignores_unknown_exception(self):
-        # An unknown exception is not processed by the middleware
-        # (returns None).
-        self.assertIsNone(
-            self.process_exception(ValueError("Error occurred!")))
-
-    def test_reports_MaaSAPIException_with_appropriate_api_error(self):
-        class MyException(MaaSAPIException):
-            api_error = httplib.UNAUTHORIZED
-
-        exception = MyException("Error occurred!")
-        response = self.process_exception(exception)
+    def test_unknown_exception_generates_internal_server_error(self):
+        # An unknown exception generates an internal server error with the
+        # exception message.
+        error_message = factory.getRandomString()
+        response = self.process_exception(RuntimeError(error_message))
         self.assertEqual(
-            (httplib.UNAUTHORIZED, "Error occurred!"),
+            (httplib.INTERNAL_SERVER_ERROR, error_message),
             (response.status_code, response.content))
 
-    def test_renders_MaaSAPIException_as_unicode(self):
-        class MyException(MaaSAPIException):
+    def test_reports_MAASAPIException_with_appropriate_api_error(self):
+        class MyException(MAASAPIException):
+            api_error = httplib.UNAUTHORIZED
+
+        error_message = factory.getRandomString()
+        exception = MyException(error_message)
+        response = self.process_exception(exception)
+        self.assertEqual(
+            (httplib.UNAUTHORIZED, error_message),
+            (response.status_code, response.content))
+
+    def test_renders_MAASAPIException_as_unicode(self):
+        class MyException(MAASAPIException):
             api_error = httplib.UNAUTHORIZED
 
         error_message = "Error %s" % unichr(233)
@@ -98,18 +140,26 @@ class ExceptionMiddlewareTest(TestCase):
             (response.status_code, response.content.decode('utf-8')))
 
     def test_reports_ValidationError_as_Bad_Request(self):
-        response = self.process_exception(ValidationError("Validation Error"))
+        error_message = factory.getRandomString()
+        response = self.process_exception(ValidationError(error_message))
         self.assertEqual(
-            (httplib.BAD_REQUEST, "Validation Error"),
+            (httplib.BAD_REQUEST, error_message),
             (response.status_code, response.content))
 
     def test_returns_ValidationError_message_dict_as_json(self):
-        exception = ValidationError("Error")
+        exception = ValidationError(factory.getRandomString())
         exception_dict = {'hostname': 'invalid'}
         setattr(exception, 'message_dict', exception_dict)
         response = self.process_exception(exception)
         self.assertEqual(exception_dict, json.loads(response.content))
         self.assertIn('application/json', response['Content-Type'])
+
+    def test_reports_PermissionDenied_as_Forbidden(self):
+        error_message = factory.getRandomString()
+        response = self.process_exception(PermissionDenied(error_message))
+        self.assertEqual(
+            (httplib.FORBIDDEN, error_message),
+            (response.status_code, response.content))
 
 
 class APIErrorsMiddlewareTest(TestCase):
@@ -117,15 +167,140 @@ class APIErrorsMiddlewareTest(TestCase):
     def test_handles_error_on_API(self):
         middleware = APIErrorsMiddleware()
         non_api_request = fake_request("/api/1.0/hello")
-        exception = MaaSAPINotFound("Have you looked under the couch?")
+        error_message = factory.getRandomString()
+        exception = MAASAPINotFound(error_message)
         response = middleware.process_exception(non_api_request, exception)
         self.assertEqual(
-            (httplib.NOT_FOUND, "Have you looked under the couch?"),
+            (httplib.NOT_FOUND, error_message),
             (response.status_code, response.content))
 
     def test_ignores_error_outside_API(self):
         middleware = APIErrorsMiddleware()
         non_api_request = fake_request("/middleware/api/hello")
-        exception = MaaSAPINotFound("Have you looked under the couch?")
+        exception = MAASAPINotFound(factory.getRandomString())
         self.assertIsNone(
             middleware.process_exception(non_api_request, exception))
+
+
+class ExceptionLoggerMiddlewareTest(TestCase):
+
+    def set_up_logger(self, filename):
+        logger = logging.getLogger('maas')
+        handler = logging.handlers.RotatingFileHandler(filename)
+        logger.addHandler(handler)
+        self.addCleanup(logger.removeHandler, handler)
+
+    def test_exception_logger_logs_error(self):
+        error_text = factory.getRandomString()
+        with NamedTemporaryFile() as logfile:
+            self.set_up_logger(logfile.name)
+            ExceptionLoggerMiddleware().process_exception(
+                fake_request('/middleware/api/hello'),
+                ValueError(error_text))
+            self.assertIn(error_text, open(logfile.name).read())
+
+
+class ExternalComponentsMiddlewareTest(TestCase):
+
+    def patch_papi_get_profiles_by_name(self, method):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        papi = provisioning.get_provisioning_api_proxy()
+        self.patch(papi.proxy, 'get_profiles_by_name', method)
+
+    def test_middleware_calls_check_profiles_cached(self):
+        calls = []
+        self.patch(
+            middleware_module, "check_profiles_cached",
+            lambda: calls.append(1))
+        middleware = ExternalComponentsMiddleware()
+        response = middleware.process_request(None)
+        self.assertIsNone(response)
+        self.assertEqual(1, len(calls))
+
+    def test_check_profiles_cached_sets_cache_key(self):
+        def return_all_profiles(profiles):
+            return profiles
+        self.patch_papi_get_profiles_by_name(return_all_profiles)
+
+        check_profiles_cached()
+        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
+
+    def test_check_profiles_cached_sets_cache_key_if_exception_raised(self):
+        # The cache key PROFILES_CHECK_DONE_KEY is set to True even if
+        # the call to papi.get_profiles_by_name raises an exception.
+        def raise_exception(profiles):
+            raise Exception()
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        try:
+            check_profiles_cached()
+        except Exception:
+            pass
+        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
+
+    def test_check_profiles_cached_does_nothing_if_cache_key_set(self):
+        # If the cache key PROFILES_CHECK_DONE_KE is set to True
+        # the call to check_profiles_cached is silent.
+        def raise_exception(profiles):
+            raise Exception()
+        cache.set(PROFILES_CHECK_DONE_KEY, True)
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        check_profiles_cached()
+        # No exception, get_profiles_by_name has not been called.
+
+    def test_clear_profiles_check_cache_deletes_PROFILES_CHECK_DONE_KEY(self):
+        cache.set(PROFILES_CHECK_DONE_KEY, factory.getRandomString())
+        self.assertTrue(cache.get(PROFILES_CHECK_DONE_KEY, False))
+        clear_profiles_check_cache()
+        self.assertFalse(cache.get(PROFILES_CHECK_DONE_KEY, False))
+
+    def test_middleware_returns_none_if_exception_raised(self):
+        def raise_exception(profiles):
+            raise Exception()
+
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        middleware = ExternalComponentsMiddleware()
+        request = fake_request(factory.getRandomString())
+        response = middleware.process_request(request)
+        self.assertIsNone(response)
+
+    def test_middleware_does_not_catch_keyboardinterrupt_exception(self):
+        def raise_exception(profiles):
+            raise KeyboardInterrupt()
+
+        self.patch_papi_get_profiles_by_name(raise_exception)
+        middleware = ExternalComponentsMiddleware()
+        request = fake_request(factory.getRandomString())
+        self.assertRaises(
+            KeyboardInterrupt, middleware.process_request, request)
+
+
+class ErrorsMiddlewareTest(LoggedInTestCase):
+
+    def test_error_middleware_ignores_GET_requests(self):
+        request = fake_request(factory.getRandomString(), 'GET')
+        exception = MAASException()
+        middleware = ErrorsMiddleware()
+        response = middleware.process_exception(request, exception)
+        self.assertIsNone(response)
+
+    def test_error_middleware_ignores_non_ExternalComponentException(self):
+        request = fake_request(factory.getRandomString(), 'GET')
+        exception = ValueError()
+        middleware = ErrorsMiddleware()
+        response = middleware.process_exception(request, exception)
+        self.assertIsNone(response)
+
+    def test_error_middleware_handles_ExternalComponentException(self):
+        url = factory.getRandomString()
+        request = fake_request(url, 'POST')
+        error_message = factory.getRandomString()
+        exception = ExternalComponentException(error_message)
+        middleware = ErrorsMiddleware()
+        response = middleware.process_exception(request, exception)
+        # The response is a redirect.
+        self.assertEqual(
+            (httplib.FOUND, response['Location']),
+            (response.status_code, url))
+        # An error message has been published.
+        self.assertEqual(
+            [(constants.ERROR, error_message, '')], request._messages.messages)

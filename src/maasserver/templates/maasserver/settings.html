@@ -4,13 +4,12 @@
 
 {% block title %}Settings{% endblock %}
 {% block page-title %}Settings{% endblock %}
-{% block layout-modifiers %}sidebar{% endblock %}
 
 {% block head %}
 {% endblock %}
 
 {% block content %}
-  <div id="settings">
+  <div id="settings" class="block">
     <div id="users">
       <h2>Users and Keys</h2>
       <table class="list">
@@ -19,13 +18,13 @@
             <th>ID</th>
             <th>Number of nodes in use</th>
             <th>Last seen</th>
-            <th>MaaS Admin</th>
+            <th>MAAS Admin</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {% for user_item in user_list %}
-          <tr class="user" id="{{ user_item.username }}">
+          <tr class="user {% cycle 'even' 'odd' %}" id="{{ user_item.username }}">
             <td>
               <a class="user"
                  href="{% url 'accounts-view' user_item.username %}">
@@ -36,19 +35,22 @@
             <td>{{ user_item.last_login }}</td>
             <td>
               {% if user_item.is_superuser %}
-                <img src="{{ STATIC_URL }}img/yes.png" />
+                Yes
               {% endif %}
             </td>
             <td>
               <a href="{% url 'accounts-edit' user_item.username %}"
-                 title="Edit user {{ user_item.username }}">
-                <img src="{{ STATIC_URL }}img/edit.png" />
+                 title="Edit user {{ user_item.username }}"
+                 class="icon">
+                <img src="{{ STATIC_URL }}img/edit.png" 
+                     alt="edit"
+                     class="space-right-small" />
               </a>
               {% if user != user_item %}
                 <a title="Delete user {{ user_item.username }}"
-                   class="delete-user"
+                   class="delete-user icon"
                    href="{% url 'accounts-del' user_item.username %}">
-                  <img src="{{ STATIC_URL }}img/delete.png" />
+                  <img src="{{ STATIC_URL }}img/delete.png" alt="delete" />
                 </a>
                 <form method="POST"
                       action="{% url 'accounts-del' user_item.username %}">
@@ -61,13 +63,13 @@
           {% endfor %}
         </tbody>
       </table>
-      <br />
-      <a class="button" href="{% url 'accounts-add' %}">
-        <button class="button right">Add user</button>
+      <a class="button right space-top-small" href="{% url 'accounts-add' %}">
+        Add user
       </a>
       <div class="clear"></div>
     </div>
-    <div id="commissioning">
+<!-- XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable. -->
+    <div id="commissioning" class="hidden block size7 first">
       <h2>Commissioning</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>
@@ -77,21 +79,24 @@
         </ul>
         <input type="hidden" name="commissioning_submit" value="1" />
         <input type="submit" class="button right" value="Save" />
-        <div class="clear"></div>
       </form>
     </div>
-    <div id="ubuntu">
+<!-- XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable. -->
+    <div id="ubuntu" class="hidden block size7 first">
       <h2>Ubuntu</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>
         {% with field=ubuntu_form.update_from %}
           {% include "maasserver/form_field.html" %}
         {% endwith %}
-        <p>
+        <li>
+          <label>Custom archives</label>
           <a href="{% url "settings-add-archive" %}">
+            <img src="{{ STATIC_URL }}img/inline_add.png" 
+                 alt="Add" class="icon" />
             Add archive for newly provisioned machines
           </a>
-        </p>
+        </li>
         {% with field=ubuntu_form.fallback_master_archive %}
           {% include "maasserver/form_field.html" %}
         {% endwith %}
@@ -104,10 +109,9 @@
         </ul>
         <input type="hidden" name="ubuntu_submit" value="1" />
         <input type="submit" class="button right" value="Save" />
-        <div class="clear"></div>
       </form>
     </div>
-    <div id="maas_and_network">
+    <div id="maas_and_network" class="block size7 first">
       <h2>Network Configuration</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>
@@ -117,7 +121,6 @@
         </ul>
         <input type="hidden" name="maas_and_network_submit" value="1" />
         <input type="submit" class="button right" value="Save" />
-        <div class="clear"></div>
       </form>
     </div>
   </div>

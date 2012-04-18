@@ -53,6 +53,10 @@
     padding-top: 18px;
     height: 46px;
     }
+#main-nav li.icon.large a {
+    padding-top: 13px;
+    height: 51px;
+    }
 #right-nav li.active a,
 #main-nav li.active a {
     background: rgba(0,0,0,0.2) url(../img/header_tail.png) no-repeat bottom center;
@@ -77,40 +81,12 @@
 #header-search {
     margin: 18px 15px 0 0;
     }
-#header-search input {
-    margin: 0;
-    }
+
 #header-search input[type="text"] {
-    width: 240px;
-    padding: 6px 15px;
-    border: none;
-    color: #aea79f;
-    -moz-border-radius: 6px 0 0 16px;
-    -webkit-border-radius: 6px 0 0 6px;
-    border-radius: 6px 0 0 6px;
-    }
-#header-search input[type="submit"] {
-    padding: 5px 20px 6px 20px;
-    border-left: 1px solid #481e3d;
-    border-top-color: #743062;
-    -moz-border-radius: 0 6px 6px 0;
-    -webkit-border-radius: 0 6px 6px 0;
-    border-radius: 0 6px 6px 0;
-    -webkit-box-shadow: none;
-    box-shadow: none;
-    background: #5E2750 url(../img/header_search_icon.png) no-repeat center center;
-    background-image: url(../img/header_search_icon.png), linear-gradient(bottom, rgb(80,33,68) 0%, rgb(94,39,80) 100%);
-    background-image: url(../img/header_search_icon.png), -o-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(94,39,80) 100%);
-    background-image: url(../img/header_search_icon.png), -moz-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(94,39,80) 100%);
-    background-image: url(../img/header_search_icon.png), -webkit-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(94,39,80) 100%);
-    background-image: url(../img/header_search_icon.png), -ms-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(94,39,80) 100%);
-    }
-#header-search input[type="submit"]:hover {
-    background-image: url(../img/header_search_icon.png), linear-gradient(bottom, rgb(80,33,68) 0%, rgb(117,49,100) 100%);
-    background-image: url(../img/header_search_icon.png), -o-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(117,49,100) 100%);
-    background-image: url(../img/header_search_icon.png), -moz-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(117,49,100) 100%);
-    background-image: url(../img/header_search_icon.png), -webkit-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(117,49,100) 100%);
-    background-image: url(../img/header_search_icon.png), -ms-linear-gradient(bottom, rgb(80,33,68) 0%, rgb(117,49,100) 100%);
+    width: 200px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    border-radius: 4px;
     }
 
 
@@ -125,6 +101,8 @@
     padding-top: 1px;
     }
 #page-title {
+    /* Need to set relative so the tail appears above shadows. */
+    position: relative;
     font-size: 36px;
     color: #fff;
     margin: 0 20px;
@@ -138,10 +116,6 @@
     -webkit-border-radius: 4px;
     border-radius: 4px;
     }
-#login-logout {
-    width: 300px;
-    margin:0px auto;
-    }
 
 
 /******************************************************************************
@@ -150,23 +124,36 @@
 .modal-content #body {
     background-color: transparent;
     }
-.modal-content #content {
-    margin-top: 20px;
-    }
 
 
 /******************************************************************************
     Content modifier: login
 */
+.login .center-page-wrapper {
+    width: 440px;
+    }
+.login.no-users .center-page-wrapper {
+    width: 670px;
+    }
+.login #body {
+    margin-top: 100px;
+    }
+.login #page-title {
+    margin-left: 15px;
+    }
 .login #content {
     padding: 30px 40px;
-    width: 360px;
-    margin: 100px auto;
     -webkit-box-shadow: 0 0 15px 0 rgba(0,0,0,1);
     box-shadow: 0 0 15px 0 rgba(0,0,0,1);
     }
 .login #content h2:first-child {
     margin: 0 0 20px 0;
+    }
+.login h2 {
+    margin-bottom: 20px;
+    }
+.login #footer {
+    margin: 0 auto;
     }
 
 
@@ -181,12 +168,37 @@
 /******************************************************************************
     Sidebar
 */
-.sidebar #sidebar {
+#sidebar {
+    display: none;
     float: right;
     width: 180px;
     margin-right: -250px;
     padding: 0 20px 10px 20px;
     border-left: 1px solid #e5e2e0;
+    }
+.sidebar #sidebar {
+    display: block;
+    }
+#sidebar h4 {
+    font-weight: bold;
+    margin-bottom: 5px;
+    }
+#sidebar .block:first-child h4 {
+    margin-top: 0;
+    }
+#sidebar .button {
+    width: 100px;
+    }
+#sidebar h4 {
+    margin: 30px 0 0 0;
+    }
+#sidebar h4:first-child {
+    margin-top: 10px;
+    }
+#sidebar .button,
+#sidebar button,
+#sidebar input[type="submit"] {
+    margin-top: 10px;
     }
 
 
@@ -194,7 +206,8 @@
     Footer
 */
 #footer {
-    padding: 12px 20px;
+    margin-bottom: 20px;
+    padding: 12px 0;
     color: #aea79f;
     font-size: 12px;
     }

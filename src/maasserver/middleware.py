@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     "AccessMiddleware",
     "APIErrorsMiddleware",
+    "ErrorsMiddleware",
     "ExceptionMiddleware",
     ]
 
@@ -19,19 +21,44 @@ from abc import (
     ABCMeta,
     abstractproperty,
     )
+import httplib
 import json
+import logging
 import re
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.contrib import messages
+from django.core.cache import cache
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.core.urlresolvers import reverse
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
+    HttpResponseForbidden,
     HttpResponseRedirect,
     )
 from django.utils.http import urlquote_plus
-from maasserver.exceptions import MaaSAPIException
+from maasserver.exceptions import (
+    ExternalComponentException,
+    MAASAPIException,
+    )
+from maasserver.provisioning import check_profiles
+
+
+def get_relative_path(path):
+    """If the url prefix settings.FORCE_SCRIPT_NAME is not None: strip the
+    prefix from the given path.
+    """
+    prefix = settings.FORCE_SCRIPT_NAME
+    if prefix is None:
+        return path
+    elif path.startswith(prefix):
+        return path[len(prefix):]
+    else:
+        assert False, "Prefix '%s' not in path '%s'" % (prefix, path)
 
 
 class AccessMiddleware:
@@ -39,16 +66,17 @@ class AccessMiddleware:
 
     Most UI views are visible only to logged-in users, but there are pages
     that are accessible to anonymous users (e.g. the login page!) or that
-    use other authentication (e.g. the MaaS API, which is managed through
+    use other authentication (e.g. the MAAS API, which is managed through
     piston).
     """
 
     def __init__(self):
         # URL prefixes that do not require authentication by Django.
         public_url_roots = [
-            # Login/logout pages: must be visible to anonymous users.
+            # Login page: must be visible to anonymous users.
             reverse('login'),
-            reverse('logout'),
+            # The combo loader is publicly accessible.
+            '^/' + re.escape(settings.YUI_COMBO_URL),
             # Static resources are publicly visible.
             settings.STATIC_URL,
             reverse('favicon'),
@@ -64,20 +92,59 @@ class AccessMiddleware:
 
     def process_request(self, request):
         # Public urls.
-        if self.public_urls.match(request.path):
+        if self.public_urls.match(get_relative_path(request.path)):
             return None
         else:
             if request.user.is_anonymous():
                 return HttpResponseRedirect("%s?next=%s" % (
-                    self.login_url, urlquote_plus(request.path)))
+                    settings.LOGIN_URL, urlquote_plus(request.path)))
             else:
                 return None
+
+
+PROFILES_CHECK_DONE_KEY = 'profile-check-done'
+
+# The profiles check done by check_profiles_cached is only done at most once
+# every PROFILE_CHECK_DELAY seconds for efficiency.
+PROFILE_CHECK_DELAY = 2 * 60
+
+
+def check_profiles_cached():
+    """Check Cobbler's profiles. The check is actually done at most once every
+    PROFILE_CHECK_DELAY seconds for performance reasons.
+    """
+    if not cache.get(PROFILES_CHECK_DONE_KEY, False):
+        # Mark the profile check as done beforehand as the actual check
+        # might raise an exception.
+        cache.set(PROFILES_CHECK_DONE_KEY, True, PROFILE_CHECK_DELAY)
+        check_profiles()
+
+
+def clear_profiles_check_cache():
+    """Force a profile check next time the MAAS server is accessed."""
+    cache.delete(PROFILES_CHECK_DONE_KEY)
+
+
+class ExternalComponentsMiddleware:
+    """This middleware performs checks for external components (right
+    now only Cobbler is checked) at regular intervals.
+    """
+    def process_request(self, request):
+        # This middleware hijacks the request to perform checks.  Any
+        # error raised during these checks should be caught to avoid
+        # disturbing the handling of the request.  Proper error reporting
+        # should be handled in the check method itself.
+        try:
+            check_profiles_cached()
+        except Exception:
+            pass
+        return None
 
 
 class ExceptionMiddleware:
     """Convert exceptions into appropriate HttpResponse responses.
 
-    For example, a MaaSAPINotFound exception processed by a middleware
+    For example, a MAASAPINotFound exception processed by a middleware
     based on this class will result in an http 404 response to the client.
     Validation errors become "bad request" responses.
 
@@ -101,13 +168,13 @@ class ExceptionMiddleware:
 
     def process_exception(self, request, exception):
         """Django middleware callback."""
-        if not self.path_matcher.match(request.path):
+        if not self.path_matcher.match(get_relative_path(request.path)):
             # Not a path we're handling exceptions for.
             return None
 
         encoding = b'utf-8'
-        if isinstance(exception, MaaSAPIException):
-            # The exception is a MaaSAPIException: exception.api_error
+        if isinstance(exception, MAASAPIException):
+            # The exception is a MAASAPIException: exception.api_error
             # will give us the proper error type.
             return HttpResponse(
                 content=unicode(exception).encode(encoding),
@@ -125,10 +192,16 @@ class ExceptionMiddleware:
                 return HttpResponseBadRequest(
                     unicode(''.join(exception.messages)).encode(encoding),
                     mimetype=b"text/plain; charset=%s" % encoding)
+        elif isinstance(exception, PermissionDenied):
+            return HttpResponseForbidden(
+                content=unicode(exception).encode(encoding),
+                mimetype=b"text/plain; charset=%s" % encoding)
         else:
-            # Do not handle the exception, this will result in a
-            # "Internal Server Error" response.
-            return None
+            # Return an API-readable "Internal Server Error" response.
+            return HttpResponse(
+                content=unicode(exception).encode(encoding),
+                status=httplib.INTERNAL_SERVER_ERROR,
+                mimetype=b"text/plain; charset=%s" % encoding)
 
 
 class APIErrorsMiddleware(ExceptionMiddleware):
@@ -137,11 +210,30 @@ class APIErrorsMiddleware(ExceptionMiddleware):
     path_regex = settings.API_URL_REGEXP
 
 
-class ConsoleExceptionMiddleware:
+class ErrorsMiddleware:
+    """Handle ExternalComponentException exceptions in POST requests: add a
+    message with the error string and redirect to the same page (using GET).
+    """
+
+    def process_exception(self, request, exception):
+        should_process_exception = (
+            request.method == 'POST' and
+            isinstance(exception, ExternalComponentException))
+        if should_process_exception:
+            messages.error(request, unicode(exception))
+            return HttpResponseRedirect(request.path)
+        else:
+            # Not an ExternalComponentException or not a POST request: do not
+            # handle it.
+            return None
+
+
+class ExceptionLoggerMiddleware:
+
     def process_exception(self, request, exception):
         import traceback
         import sys
         exc_info = sys.exc_info()
-        print(" Exception ".center(79, "#"))
-        print(''.join(traceback.format_exception(*exc_info)))
-        print("#" * 79)
+        logger = logging.getLogger('maas.maasserver')
+        logger.error(" Exception: %s ".center(79, "#") % unicode(exception))
+        logger.error(''.join(traceback.format_exception(*exc_info)))

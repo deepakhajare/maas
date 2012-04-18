@@ -4,6 +4,7 @@
 """Test object factories."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -15,56 +16,84 @@ __all__ = [
 
 from io import BytesIO
 import random
-import string
+import time
 
 from django.contrib.auth.models import User
 from maasserver.models import (
+    ARCHITECTURE,
     FileStorage,
     MACAddress,
     Node,
     NODE_STATUS,
+    SSHKey,
     )
+from maasserver.testing import get_data
+from maasserver.testing.enum import map_enum
+import maastesting.factory
+from metadataserver.models import NodeCommissionResult
+
+# We have a limited number of public keys:
+# src/maasserver/tests/data/test_rsa{0, 1, 2, 3, 4}.pub
+MAX_PUBLIC_KEYS = 5
 
 
-class Factory():
-
-    def getRandomString(self, size=10):
-        return "".join(
-            random.choice(string.letters + string.digits)
-            for x in range(size))
-
-    def getRandomBoolean(self):
-        return random.choice((True, False))
+class Factory(maastesting.factory.Factory):
 
     def getRandomEnum(self, enum):
-        enum_choices = [
-            value for key, value in vars(enum).items()
-            if not key.startswith('__')]
-        return random.choice(enum_choices)
+        """Pick a random item from an enumeration class.
 
-    def getRandomChoice(self, choices):
-        # Get a random choice from the passed-in 'choices'.  'choices'
-        # must use Django form choices format:
-        # [('choice_id_1': "Choice name 1"), ('choice_id_2', "Choice
-        # name 2")].  A random choice id will be returned.
-        return random.choice(choices)[0]
+        :param enum: An enumeration class such as `NODE_STATUS`.
+        :return: The value of one of its items.
+        """
+        return random.choice(list(map_enum(enum).values()))
+
+    def getRandomChoice(self, choices, but_not=None):
+        """Pick a random item from `choices`.
+
+        :param choices: A sequence of choices in Django form choices format:
+            [
+                ('choice_id_1', "Choice name 1"),
+                ('choice_id_2', "Choice name 2"),
+            ]
+        :param but_not: A list of choices' IDs to exclude.
+        :type but_not: Sequence.
+        :return: The "id" portion of a random choice out of `choices`.
+        """
+        if but_not is None:
+            but_not = ()
+        return random.choice(
+            [choice for choice in choices if choice[0] not in but_not])[0]
 
     def make_node(self, hostname='', set_hostname=False, status=None,
-                  **kwargs):
+                  architecture=ARCHITECTURE.i386, **kwargs):
         # hostname=None is a valid value, hence the set_hostname trick.
         if hostname is '' and set_hostname:
             hostname = self.getRandomString(255)
         if status is None:
             status = NODE_STATUS.DEFAULT_STATUS
-        node = Node(hostname=hostname, status=status, **kwargs)
-        node.save()
+        node = Node(
+            hostname=hostname, status=status, architecture=architecture,
+            **kwargs)
+        node.save(skip_check=True)
         return node
+
+    def make_node_commission_result(self, node=None, name=None, data=None):
+        if node is None:
+            node = self.make_node()
+        if name is None:
+            name = "ncrname-" + self.getRandomString(92)
+        if data is None:
+            data = "ncrdata-" + self.getRandomString(1000)
+        ncr = NodeCommissionResult(node=node, name=name, data=data)
+        ncr.save()
+        return ncr
 
     def make_mac_address(self, address):
         """Create a MAC address."""
         node = Node()
         node.save()
         mac = MACAddress(mac_address=address, node=node)
+        mac.save()
         return mac
 
     def make_user(self, username=None, password=None, email=None):
@@ -77,6 +106,34 @@ class Factory():
         return User.objects.create_user(
             username=username, password=password, email=email)
 
+    def make_sshkey(self, user, key_string=None):
+        if key_string is None:
+            key_string = get_data('data/test_rsa0.pub')
+        key = SSHKey(key=key_string, user=user)
+        key.save()
+        return key
+
+    def make_user_with_keys(self, n_keys=2, user=None, **kwargs):
+        """Create a user with n `SSHKey`.  If user is not None, use this user
+        instead of creating one.
+
+        Additional keyword arguments are passed to `make_user()`.
+        """
+        if n_keys > MAX_PUBLIC_KEYS:
+            raise RuntimeError(
+                "Cannot create more than %d public keys.  If you need more: "
+                "add more keys in src/maasserver/tests/data/."
+                % MAX_PUBLIC_KEYS)
+        if user is None:
+            user = self.make_user(**kwargs)
+        keys = []
+        for i in range(n_keys):
+            key_string = get_data('data/test_rsa%d.pub' % i)
+            key = SSHKey(user=user, key=key_string)
+            key.save()
+            keys.append(key)
+        return user, keys
+
     def make_admin(self, username=None, password=None, email=None):
         admin = self.make_user(
             username=username, password=password, email=email)
@@ -86,14 +143,31 @@ class Factory():
 
     def make_file_storage(self, filename=None, data=None):
         if filename is None:
-            filename = self.getRandomString(255)
+            filename = self.getRandomString(100)
         if data is None:
-            data = self.getRandomString(1024)
+            data = self.getRandomString(1024).encode('ascii')
 
-        storage = FileStorage()
-        storage.save_file(filename, BytesIO(data))
-        storage.save()
-        return storage
+        return FileStorage.objects.save_file(filename, BytesIO(data))
+
+    def make_oauth_header(self, **kwargs):
+        """Fake an OAuth authorization header.
+
+        This will use arbitrary values.  Pass as keyword arguments any
+        header items that you wish to override.
+        """
+        items = {
+            'realm': self.getRandomString(),
+            'oauth_nonce': random.randint(0, 99999),
+            'oauth_timestamp': time.time(),
+            'oauth_consumer_key': self.getRandomString(18),
+            'oauth_signature_method': 'PLAINTEXT',
+            'oauth_version': '1.0',
+            'oauth_token': self.getRandomString(18),
+            'oauth_signature': "%%26%s" % self.getRandomString(32),
+        }
+        items.update(kwargs)
+        return "OAuth " + ", ".join([
+            '%s="%s"' % (key, value) for key, value in items.items()])
 
 
 # Create factory singleton.

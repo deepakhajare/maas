@@ -4,6 +4,7 @@
 """Test related classes and functions for maas and its applications."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -20,3 +21,7 @@ from maasserver.fields import JSONObjectField
 class JSONFieldModel(models.Model):
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
+
+
+class MessagesTestModel(models.Model):
+    name = models.CharField(max_length=255, unique=False)

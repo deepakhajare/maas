@@ -1,9 +1,10 @@
-# Copyright 2005-2011 Canonical Ltd.  This software is licensed under the
+# Copyright 2005-2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 """Tests for `provisioningserver.amqpclient`."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -67,12 +68,12 @@ class AMQTest(TestCase):
           http://readthedocs.org/docs/nose/en/latest/writing_tests.html
 
         """
-        from provisioningserver import tests
-        return tests.get_rabbit()
+        from maastesting import rabbit
+        return rabbit.get_rabbit()
 
     @skip(
         "RabbitMQ is not yet a required component "
-        "of a running MaaS installation.")
+        "of a running MAAS pserv instance.")
     def setUp(self):
         """
         At each run, we delete the test vhost and recreate it, to be sure to be

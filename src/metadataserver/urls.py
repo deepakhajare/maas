@@ -4,6 +4,7 @@
 """Metadata API URLs."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -17,7 +18,7 @@ from django.conf.urls.defaults import (
     patterns,
     url,
     )
-from maas.api_auth import api_auth
+from maasserver.api_auth import api_auth
 from metadataserver.api import (
     IndexHandler,
     MetaDataHandler,

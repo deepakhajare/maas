@@ -4,6 +4,7 @@
 """URL configuration for the maas project."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -31,7 +32,7 @@ if settings.STATIC_LOCAL_SERVE:
             {'document_root': settings.MEDIA_ROOT}),
     )
 
-urlpatterns += staticfiles_urlpatterns()
+    urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG:
     from django.contrib import admin
@@ -39,5 +40,4 @@ if settings.DEBUG:
 
     urlpatterns += patterns('',
         (r'^admin/', include(admin.site.urls)),
-        (r'^admin/doc/', include('django.contrib.admindocs.urls')),
     )

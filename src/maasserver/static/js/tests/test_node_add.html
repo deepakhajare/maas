@@ -4,16 +4,18 @@
     <title>Test maas.node_add</title>
 
     <!-- YUI and test setup -->
-    <script type="text/javascript" src="../yui/tests/yui/yui-min.js"></script>
+    <script type="text/javascript" src="../testing/yui_test_conf.js"></script>
+    <script type="text/javascript" src="../../jslibs/yui/tests/build/yui/yui.js"></script>
     <script type="text/javascript" src="../testing/testrunner.js"></script>
     <script type="text/javascript" src="../testing/testing.js"></script>
+    <script type="text/javascript" src="../morph.js"></script>
     <!-- The module under test -->
     <script type="text/javascript" src="../node_add.js"></script>
     <!-- The test suite -->
     <script type="text/javascript" src="test_node_add.js"></script>
     <script type="text/javascript">
     <!--
-    var MaaS_config = {
+    var MAAS_config = {
       uris: {
         login: '/login/',
         statics: '/static/',
@@ -27,6 +29,17 @@
   <script type="text/x-template" id="add-macaddress">
     <p></p>
   </script>
+  <script type="text/x-template" id="add-architecture">
+    <p>
+    <label for="id_architecture">Architecture
+    </label>
+    <select id="id_architecture" name="architecture">
+      <option value="amd64">amd64</option>
+      <option value="i386">i386</option>
+    </select>
+    <input type="text" maxlength="30" name="hostname" id="id_hostname" />
+    </p>
+  </script>
   <script type="text/x-template" id="add-node">
     <p>
     <label for="id_hostname">Hostname
@@ -35,7 +48,7 @@
     <input type="text" maxlength="30" name="hostname" id="id_hostname" />
     </p>
   </script>
-
+  <div id="target_node"></div>
   <span id="suite">maas.node_add.tests</span>
   </body>
 </html>

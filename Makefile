@@ -4,6 +4,7 @@ build: \
     bin/buildout \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
+    bin/twistd.txlongpoll \
     bin/py bin/ipy
 
 all: build doc
@@ -28,6 +29,10 @@ bin/test.pserv: bin/buildout buildout.cfg setup.py
 	bin/buildout install pserv-test
 	@touch --no-create $@
 
+bin/twistd.txlongpoll: bin/buildout buildout.cfg setup.py
+	bin/buildout install txlongpoll
+	@touch --no-create $@
+
 bin/flake8: bin/buildout buildout.cfg setup.py
 	bin/buildout install flake8
 	@touch --no-create $@
@@ -47,14 +52,14 @@ test: bin/test.maas bin/test.pserv
 	bin/test.maas
 	bin/test.pserv
 
-lint: sources = setup.py src templates utilities
+lint: sources = contrib setup.py src templates twisted utilities
 lint: bin/flake8
-	@bin/flake8 $(sources) | \
-	    (! egrep -v "from maas[.](settings|development) import [*]")
+	@find $(sources) -name '*.py' ! -path '*/migrations/*' \
+	    -print0 | xargs -r0 bin/flake8
 
 check: clean test
 
-docs/api.rst: bin/maas src/maasserver/api.py
+docs/api.rst: bin/maas src/maasserver/api.py syncdb
 	bin/maas generate_api_doc > $@
 
 sampledata: bin/maas syncdb
@@ -66,11 +71,12 @@ doc: bin/sphinx docs/api.rst
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
+	$(RM) -r media/demo/* media/development
 
 distclean: clean shutdown
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build dist logs parts
+	$(RM) -r bin build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
@@ -79,10 +85,12 @@ distclean: clean shutdown
 	$(RM) twisted/plugins/dropin.cache
 
 harness: bin/maas dev-db
-	bin/maas shell
+	bin/maas shell --settings=maas.demo
 
 syncdb: bin/maas dev-db
 	bin/maas syncdb --noinput
+	bin/maas migrate maasserver --noinput
+	bin/maas migrate metadataserver --noinput
 
 services := api pserv reloader
 services := $(patsubst %,services/%/,$(services))

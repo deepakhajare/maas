@@ -5,6 +5,7 @@
 """..."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,7 +13,6 @@ from __future__ import (
 __metaclass__ = type
 
 import argparse
-
 
 # See http://docs.python.org/release/2.7/library/argparse.html.
 argument_parser = argparse.ArgumentParser(description=__doc__)

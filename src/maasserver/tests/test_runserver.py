@@ -4,6 +4,7 @@
 """Tests for the "runserver" command module."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,7 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from maasserver.management.commands.runserver import render_error
-from maasserver.testing import TestCase
+from maasserver.testing.testcase import TestCase
 
 
 class TestRunServer(TestCase):

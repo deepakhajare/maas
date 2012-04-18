@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -31,14 +32,21 @@ __all__ = [
     ]
 
 from functools import partial
+from urlparse import urlparse
 import xmlrpclib
 
+from provisioningserver.cobblercatcher import (
+    convert_cobbler_exception,
+    ProvisioningError,
+    )
+from provisioningserver.enum import PSERV_FAULT
 from twisted.internet import reactor as default_reactor
 from twisted.internet.defer import (
     DeferredLock,
     inlineCallbacks,
     returnValue,
     )
+from twisted.internet.error import DNSLookupError
 from twisted.python.log import msg
 from twisted.web.xmlrpc import Proxy
 
@@ -87,12 +95,13 @@ class CobblerXMLRPCProxy(Proxy):
         return d
 
 
-def looks_like_auth_expiry(exception):
-    """Does `exception` look like an authentication token expired?"""
+def looks_like_object_not_found(exception):
+    """Does `exception` look like an unknown object failure?"""
     if not hasattr(exception, 'faultString'):
-        # An auth failure would come as an xmlrpclib.Fault.
+        # An unknown object failure would come as an xmlrpclib.Fault.
         return False
-    return exception.faultString.startswith("invalid token: ")
+    else:
+        return "internal error, unknown " in exception.faultString
 
 
 class CobblerSession:
@@ -224,6 +233,7 @@ class CobblerSession:
         message = "%s(%s)" % (method, args_repr)
         msg(message, system=__name__)
 
+    @inlineCallbacks
     def _issue_call(self, method, *args):
         """Initiate call to XMLRPC method.
 
@@ -239,8 +249,17 @@ class CobblerSession:
         method = method.encode('ascii')
         self._log_call(method, args)
         args = map(self._substitute_token, args)
-        d = self._with_timeout(self.proxy.callRemote(method, *args))
-        return d
+        try:
+            result = yield self._with_timeout(
+                self.proxy.callRemote(method, *args))
+        except xmlrpclib.Fault as e:
+            raise convert_cobbler_exception(e)
+        except DNSLookupError as e:
+            hostname = urlparse(self.url).hostname
+            raise ProvisioningError(
+                faultCode=PSERV_FAULT.COBBLER_DNS_LOOKUP_ERROR,
+                faultString=hostname)
+        returnValue(result)
 
     @inlineCallbacks
     def call(self, method, *args):
@@ -269,7 +288,7 @@ class CobblerSession:
             try:
                 result = yield self._issue_call(method, *args)
             except xmlrpclib.Fault as e:
-                if uses_auth and looks_like_auth_expiry(e):
+                if e.faultCode == PSERV_FAULT.COBBLER_AUTH_ERROR:
                     need_auth = True
                 else:
                     raise
@@ -327,7 +346,7 @@ class CobblerObject:
     # keep an accurate record of which attributes we use for which types
     # of objects.
     # Some attributes in Cobbler uses dashes as separators, others use
-    # underscores.  In MaaS, use only underscores.
+    # underscores.  In MAAS, use only underscores.
     known_attributes = []
 
     # What attributes does Cobbler require for this type of object?
@@ -371,7 +390,7 @@ class CobblerObject:
     def _normalize_attribute(cls, attribute_name, attributes=None):
         """Normalize an attribute name.
 
-        Cobbler mixes dashes and underscores in attribute names.  MaaS may
+        Cobbler mixes dashes and underscores in attribute names.  MAAS may
         pass attributes as keyword arguments internally, where dashes are not
         an option.  Hide the distinction by looking up the proper name in
         `known_attributes` by default, but `attributes` can be passed to
@@ -397,9 +416,10 @@ class CobblerObject:
             return attribute_name
 
         attribute_name = attribute_name.replace('-', '_')
-        assert attribute_name in attributes, (
-            "Unknown attribute for %s: %s."
-            % (cls.object_type, attribute_name))
+        if attribute_name not in attributes:
+            raise AssertionError(
+                "Unknown attribute for %s: %s." % (
+                    cls.object_type, attribute_name))
         return attribute_name
 
     @classmethod
@@ -485,14 +505,24 @@ class CobblerObject:
             (cls._normalize_attribute(key), value)
             for key, value in attributes.items())
 
-        # Overwrite any existing object of the same name.  Unfortunately
-        # this parameter goes into the "attributes," and seems to be
-        # stored along with them.  Its value doesn't matter.
-        args.setdefault('clobber', True)
+        # Do not clobber under any circumstances.
+        if "clobber" in args:
+            del args["clobber"]
 
-        success = yield session.call(
-            'xapi_object_edit', cls.object_type, name, 'add', args,
-            session.token_placeholder)
+        try:
+            # Attempt to edit an existing object.
+            success = yield session.call(
+                'xapi_object_edit', cls.object_type, name, 'edit', args,
+                session.token_placeholder)
+        except xmlrpclib.Fault as e:
+            # If it was not found, add the object.
+            if looks_like_object_not_found(e):
+                success = yield session.call(
+                    'xapi_object_edit', cls.object_type, name, 'add', args,
+                    session.token_placeholder)
+            else:
+                raise
+
         if not success:
             raise RuntimeError(
                 "Cobbler refused to create %s '%s'.  Attributes: %s"
@@ -701,10 +731,13 @@ class CobblerSystem(CobblerObject):
         'profile',
         ]
     modification_attributes = [
+        'hostname',
         'delete_interface',
         'interface',  # Required for mac_address and delete_interface.
         'mac_address',
         'profile',
+        'dns_name',
+        'netboot_enabled',
         ]
 
     @classmethod

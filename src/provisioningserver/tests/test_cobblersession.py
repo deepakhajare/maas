@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,11 +13,19 @@ __metaclass__ = type
 __all__ = []
 
 from random import Random
+import re
 from xmlrpclib import Fault
 
 import fixtures
+from maastesting.factory import factory
 from provisioningserver import cobblerclient
-from provisioningserver.testing.fakecobbler import fake_token
+from provisioningserver.cobblercatcher import ProvisioningError
+from provisioningserver.enum import PSERV_FAULT
+from provisioningserver.testing.fakecobbler import (
+    fake_auth_failure_string,
+    fake_object_not_found_string,
+    fake_token,
+    )
 from testtools.content import text_content
 from testtools.deferredruntest import (
     assert_fails_with,
@@ -29,6 +38,7 @@ from testtools.testcase import (
     )
 from twisted.internet import defer
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.error import DNSLookupError
 from twisted.internet.task import Clock
 
 
@@ -49,14 +59,13 @@ class FakeAuthFailure(Fault):
     """Imitated Cobbler authentication failure."""
 
     def __init__(self, token):
-        super(FakeAuthFailure, self).__init__(1, "invalid token: %s" % token)
+        super(FakeAuthFailure, self).__init__(
+            1, fake_auth_failure_string(token))
 
 
-def make_auth_failure(broken_token=None):
+def make_auth_failure():
     """Mimick a Cobbler authentication failure."""
-    if broken_token is None:
-        broken_token = fake_token()
-    return FakeAuthFailure(broken_token)
+    return FakeAuthFailure(fake_token())
 
 
 class RecordingFakeProxy:
@@ -237,6 +246,20 @@ class TestCobblerSession(TestCase):
         self.assertEqual(return_value, actual_return_value)
         self.assertEqual([(method, arg)], session.proxy.calls)
 
+    def test_looks_like_object_not_found_for_regular_exception(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(RuntimeError("Error")))
+
+    def test_looks_like_object_not_found_for_other_Fault(self):
+        self.assertFalse(
+            cobblerclient.looks_like_object_not_found(
+                Fault(1, "Missing sprocket")))
+
+    def test_looks_like_object_not_found_recognizes_object_not_found(self):
+        error = Fault(1, fake_object_not_found_string("distro", "bob"))
+        self.assertTrue(
+            cobblerclient.looks_like_object_not_found(error))
+
     @inlineCallbacks
     def test_call_reauthenticates_and_retries_on_auth_failure(self):
         # If a call triggers an authentication error, call()
@@ -294,7 +317,7 @@ class TestCobblerSession(TestCase):
             make_auth_failure(),
             ]
         session.proxy.set_return_values(failures)
-        with ExpectedException(failures[-1].__class__, failures[-1].message):
+        with ExpectedException(ProvisioningError, failures[-1].message):
             return_value = yield session.call(
                 'double_fail', cobblerclient.CobblerSession.token_placeholder)
             self.addDetail('return_value', text_content(repr(return_value)))
@@ -323,6 +346,24 @@ class TestCobblerSession(TestCase):
         self.assertNotEqual(None, session.token)
         self.assertEqual(
             [('authenticate_me_first', session.token)], session.proxy.calls)
+
+    @inlineCallbacks
+    def test_dns_lookup_exception_handled(self):
+        url = factory.getRandomString()
+        session_args = (
+            'http://%s/%d' % (url, pick_number()),
+            factory.getRandomString(),  # username.
+            factory.getRandomString(),  # password.
+            )
+        session = make_recording_session(session_args=session_args)
+        failure = DNSLookupError(factory.getRandomString())
+        session.proxy.set_return_values([failure])
+        expected_exception = ProvisioningError(
+            faultCode=PSERV_FAULT.COBBLER_DNS_LOOKUP_ERROR,
+            faultString=url.lower())
+        expected_exception_re = re.escape(unicode(expected_exception))
+        with ExpectedException(ProvisioningError, expected_exception_re):
+            yield session.call('failing_method')
 
 
 class TestConnectionTimeouts(TestCase, fixtures.TestWithFixtures):
@@ -399,6 +440,29 @@ class TestCobblerObject(TestCase):
                 session, 'incomplete_system', {})
 
     @inlineCallbacks
+    def test_new_attempts_edit_before_creating_new(self):
+        # CobblerObject.new always attempts an extended edit operation on the
+        # given object first, following by an add should the object not yet
+        # exist.
+        session = make_recording_session()
+        not_found_string = fake_object_not_found_string("system", "carcass")
+        not_found = Fault(1, not_found_string)
+        session.proxy.set_return_values([not_found, True])
+        yield cobblerclient.CobblerSystem.new(
+            session, "carcass", {"profile": "heartwork"})
+        expected_calls = [
+            # First an edit is attempted...
+            ("xapi_object_edit", "system", "carcass", "edit",
+             {"name": "carcass", "profile": "heartwork"},
+             session.token),
+            # Followed by an add.
+            ("xapi_object_edit", "system", "carcass", "add",
+             {"name": "carcass", "profile": "heartwork"},
+             session.token),
+            ]
+        self.assertEqual(expected_calls, session.proxy.calls)
+
+    @inlineCallbacks
     def test_modify(self):
         session = make_recording_session()
         session.proxy.set_return_values([True])
@@ -430,7 +494,6 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distro
         # just created.
         values_stored = {
-            "clobber": True,
             "initrd": "an_initrd",
             "kernel": "a_kernel",
             "likes": "cabbage",
@@ -455,8 +518,7 @@ class TestCobblerObject(TestCase):
         # Fake that Cobbler holds the following attributes about the distros
         # just created.
         values_stored = [
-            {"clobber": True,
-             "initrd": "an_initrd",
+            {"initrd": "an_initrd",
              "kernel": "a_kernel",
              "likes": "cabbage",
              "name": "alice"},

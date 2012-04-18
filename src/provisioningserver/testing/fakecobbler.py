@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -10,9 +11,11 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'fake_auth_failure_string',
+    'fake_object_not_found_string',
+    'fake_token',
     'FakeCobbler',
     'FakeTwistedProxy',
-    'fake_token',
     'make_fake_cobbler_session',
     ]
 
@@ -33,6 +36,18 @@ from twisted.internet.defer import (
 
 
 unique_ints = count(randint(0, 99999))
+
+
+def fake_auth_failure_string(token):
+    """Fake a Cobbler authentication failure fault string for `token`."""
+    return "<class 'cobbler.cexceptions.CX'>:'invalid token: %s'" % token
+
+
+def fake_object_not_found_string(object_type, object_name):
+    """Fake a Cobbler unknown object fault string."""
+    return (
+        "<class 'cobbler.cexceptions.CX'>:'internal error, "
+        "unknown %s name %s'" % (object_type, object_name))
 
 
 def fake_token(user=None, custom_id=None):
@@ -127,7 +142,7 @@ class FakeCobbler:
 
     def _check_token(self, token):
         if token not in self.tokens:
-            raise Fault(1, "invalid token: %s" % token)
+            raise Fault(1, fake_auth_failure_string(token))
 
     def _raise_bad_handle(self, object_type, handle):
         raise Fault(1, "Invalid %s handle: %s" % (object_type, handle))
@@ -205,7 +220,7 @@ class FakeCobbler:
         if handle is None:
             handle = self._get_handle_if_present(None, object_type, name)
         if handle is None:
-            raise Fault(1, "Unknown %s: %s." % (object_type, name))
+            raise Fault(1, fake_object_not_found_string(object_type, name))
         return handle
 
     def _api_find_objects(self, object_type, criteria):
@@ -263,6 +278,15 @@ class FakeCobbler:
 
         session_obj[key] = value
 
+    def _validate(self, token, object_type, attributes):
+        """Check object for validity.  Raise :class:`Fault` if it's bad."""
+        # Add more checks here as needed for testing realism.
+        if object_type == 'system':
+            profile_name = attributes.get('profile')
+            profile = self._api_get_object('profile', profile_name)
+            if profile is None:
+                raise Fault(1, "invalid profile name: '%s'" % profile_name)
+
     def _api_save_object(self, token, object_type, handle):
         """Save an object's modifications to the saved store."""
         self._check_token(token)
@@ -274,6 +298,8 @@ class FakeCobbler:
         if session_obj is None:
             # Object not modified.  Nothing to do.
             return True
+
+        self._validate(token, object_type, session_obj)
 
         name = session_obj['name']
         other_handle = self._get_handle_if_present(token, object_type, name)
@@ -333,19 +359,23 @@ class FakeCobbler:
         if "mac_address" in attrs:
             interface = interfaces.setdefault(interface_name, {})
             interface["mac_address"] = attrs.pop("mac_address")
+        elif "dns_name" in attrs:
+            interface = interfaces.setdefault(interface_name, {})
+            interface["dns_name"] = attrs.pop("dns_name")
         elif "delete_interface" in attrs:
             if interface_name in interfaces:
                 del interfaces[interface_name]
         else:
             raise AssertionError(
-                "Edit operation defined interface but "
-                "not mac_address or delete_interface. "
+                "Edit operation defined interface but not "
+                "mac_address, dns_name, or delete_interface. "
                 "Got: %r" % (attrs,))
         self._api_modify_object(
             token, 'system', handle, "interfaces", interfaces)
 
     def xapi_object_edit(self, object_type, name, operation, attrs, token):
         """Swiss-Army-Knife API: create/rename/copy/edit object."""
+        self._check_token(token)
         if operation == 'remove':
             self._api_remove_object(token, object_type, name)
             return True

@@ -12,12 +12,12 @@
 ./docs/api.rst
 ./download-cache
 ./eggs
-./logs
+./logs/*
+./media/demo/*
+./media/development
 ./parts
-./pserv.log
-./pserv.pid
 ./services/*/supervise
+./run/*.pid
 ./TAGS
 ./tags
-./twistd.log
 ./twisted/plugins/dropin.cache

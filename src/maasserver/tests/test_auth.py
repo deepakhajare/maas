@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -15,12 +16,13 @@ import httplib
 
 from django.core.urlresolvers import reverse
 from maasserver.models import (
-    MaaSAuthorizationBackend,
+    MAASAuthorizationBackend,
     Node,
+    NODE_PERMISSION,
     NODE_STATUS,
     )
-from maasserver.testing import TestCase
 from maasserver.testing.factory import factory
+from maasserver.testing.testcase import TestCase
 from metadataserver.nodeinituser import get_node_init_user
 
 
@@ -72,41 +74,71 @@ def make_allocated_node(owner=None):
     return factory.make_node(owner=owner, status=NODE_STATUS.ALLOCATED)
 
 
-class TestMaaSAuthorizationBackend(TestCase):
+class TestMAASAuthorizationBackend(TestCase):
 
     def test_invalid_check_object(self):
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         mac = make_unallocated_node().add_mac_address('AA:BB:CC:DD:EE:FF')
         self.assertRaises(
             NotImplementedError, backend.has_perm,
-            factory.make_admin(), 'access', mac)
+            factory.make_admin(), NODE_PERMISSION.VIEW, mac)
 
     def test_invalid_check_permission(self):
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         self.assertRaises(
             NotImplementedError, backend.has_perm,
             factory.make_admin(), 'not-access', make_unallocated_node())
 
     def test_node_init_user_cannot_access(self):
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         self.assertFalse(backend.has_perm(
-            get_node_init_user(), 'access', make_unallocated_node()))
+            get_node_init_user(), NODE_PERMISSION.VIEW,
+            make_unallocated_node()))
 
     def test_user_can_access_unowned_node(self):
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         self.assertTrue(backend.has_perm(
-            factory.make_user(), 'access', make_unallocated_node()))
+            factory.make_user(), NODE_PERMISSION.VIEW,
+            make_unallocated_node()))
 
     def test_user_cannot_access_nodes_owned_by_others(self):
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         self.assertFalse(backend.has_perm(
-            factory.make_user(), 'access', make_allocated_node()))
+            factory.make_user(), NODE_PERMISSION.VIEW, make_allocated_node()))
 
     def test_owned_status(self):
         # A non-admin user can access nodes he owns.
-        backend = MaaSAuthorizationBackend()
+        backend = MAASAuthorizationBackend()
         node = make_allocated_node()
-        self.assertTrue(backend.has_perm(node.owner, 'access', node))
+        self.assertTrue(
+            backend.has_perm(
+                node.owner, NODE_PERMISSION.VIEW, node))
+
+    def test_user_cannot_edit_nodes_owned_by_others(self):
+        backend = MAASAuthorizationBackend()
+        self.assertFalse(backend.has_perm(
+            factory.make_user(), NODE_PERMISSION.EDIT, make_allocated_node()))
+
+    def test_user_cannot_edit_unowned_node(self):
+        backend = MAASAuthorizationBackend()
+        self.assertFalse(backend.has_perm(
+            factory.make_user(), NODE_PERMISSION.EDIT,
+            make_unallocated_node()))
+
+    def test_user_can_edit_his_own_nodes(self):
+        backend = MAASAuthorizationBackend()
+        user = factory.make_user()
+        self.assertTrue(backend.has_perm(
+            user, NODE_PERMISSION.EDIT, make_allocated_node(owner=user)))
+
+    def test_user_has_no_admin_permission_on_node(self):
+        # NODE_PERMISSION.ADMIN permission on nodes is granted to super users
+        # only.
+        backend = MAASAuthorizationBackend()
+        user = factory.make_user()
+        self.assertFalse(
+            backend.has_perm(
+                user, NODE_PERMISSION.ADMIN, factory.make_node()))
 
 
 class TestNodeVisibility(TestCase):
@@ -117,7 +149,9 @@ class TestNodeVisibility(TestCase):
             make_unallocated_node(),
             ]
         self.assertItemsEqual(
-            nodes, Node.objects.get_visible_nodes(factory.make_admin()))
+            nodes,
+            Node.objects.get_nodes(
+                factory.make_admin(), NODE_PERMISSION.VIEW))
 
     def test_user_sees_own_nodes_and_unowned_nodes(self):
         user = factory.make_user()
@@ -126,4 +160,4 @@ class TestNodeVisibility(TestCase):
         unowned_node = make_unallocated_node()
         self.assertItemsEqual(
             [own_node, unowned_node],
-            Node.objects.get_visible_nodes(own_node.owner))
+            Node.objects.get_nodes(own_node.owner, NODE_PERMISSION.VIEW))

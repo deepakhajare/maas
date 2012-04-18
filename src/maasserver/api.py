@@ -1,9 +1,53 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""API."""
+"""Restful MAAS API.
+
+This is the documentation for the API that lets you control and query MAAS.
+The API is "Restful", which means that you access it through normal HTTP
+requests.
+
+
+API versions
+------------
+
+At any given time, MAAS may support multiple versions of its API.  The version
+number is included in the API's URL, e.g. /api/1.0/
+
+For now, 1.0 is the only supported version.
+
+
+HTTP methods and parameter-passing
+----------------------------------
+
+The following HTTP methods are available for accessing the API:
+ * GET (for information retrieval and queries),
+ * POST (for asking the system to do things),
+ * PUT (for updating objects), and
+ * DELETE (for deleting objects).
+
+All methods except DELETE may take parameters, but they are not all passed in
+the same way.  GET parameters are passed in the URL, as is normal with a GET:
+"/item/?foo=bar" passes parameter "foo" with value "bar".
+
+POST and PUT are different.  Your request should have MIME type
+"multipart/form-data"; each part represents one parameter (for POST) or
+attribute (for PUT).  Each part is named after the parameter or attribute it
+contains, and its contents are the conveyed value.
+
+All parameters are in text form.  If you need to submit binary data to the
+API, don't send it as any MIME binary format; instead, send it as a plain text
+part containing base64-encoded data.
+
+Most resources offer a choice of GET or POST operations.  In those cases these
+methods will take one special parameter, called `op`, to indicate what it is
+you want to do.
+
+For example, to list all nodes, you might GET "/api/1.0/nodes/?op=list".
+"""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -11,6 +55,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "api_doc",
+    "api_doc_title",
+    "extract_oauth_key",
     "generate_api_doc",
     "AccountHandler",
     "AnonNodesHandler",
@@ -21,11 +67,17 @@ __all__ = [
     "NodeMacsHandler",
     ]
 
+from base64 import b64decode
 import httplib
+import json
 import sys
+from textwrap import dedent
 import types
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    PermissionDenied,
+    ValidationError,
+    )
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -36,18 +88,24 @@ from django.shortcuts import (
     )
 from django.template import RequestContext
 from docutils import core
+from formencode import validators
+from formencode.validators import Invalid
 from maasserver.exceptions import (
-    MaaSAPIBadRequest,
-    MaaSAPINotFound,
+    MAASAPIBadRequest,
+    MAASAPINotFound,
     NodesNotAvailable,
-    PermissionDenied,
+    NodeStateViolation,
+    Unauthorized,
     )
 from maasserver.fields import validate_mac
 from maasserver.forms import NodeWithMACAddressesForm
 from maasserver.models import (
+    Config,
     FileStorage,
     MACAddress,
     Node,
+    NODE_PERMISSION,
+    NODE_STATUS,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -55,6 +113,7 @@ from piston.handler import (
     BaseHandler,
     HandlerMetaClass,
     )
+from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
 
@@ -73,6 +132,17 @@ class RestrictedResource(Resource):
         actor, anonymous = super(
             RestrictedResource, self).authenticate(request, rm)
         if not anonymous and not request.user.is_active:
+            raise PermissionDenied("User is not allowed access to this API.")
+        else:
+            return actor, anonymous
+
+
+class AdminRestrictedResource(RestrictedResource):
+
+    def authenticate(self, request, rm):
+        actor, anonymous = super(
+            AdminRestrictedResource, self).authenticate(request, rm)
+        if anonymous or not request.user.is_superuser:
             raise PermissionDenied("User is not allowed access to this API.")
         else:
             return actor, anonymous
@@ -194,9 +264,52 @@ def api_operations(cls):
     return cls
 
 
+def get_mandatory_param(data, key, validator=None):
+    """Get the parameter from the provided data dict or raise a ValidationError
+    if this parameter is not present.
+
+    :param data: The data dict (usually request.data or request.GET where
+        request is a django.http.HttpRequest).
+    :param data: dict
+    :param key: The parameter's key.
+    :type key: basestring
+    :param validator: An optional validator that will be used to validate the
+         retrieved value.
+    :type validator: formencode.validators.Validator
+    :return: The value of the parameter.
+    :raises: ValidationError
+    """
+    value = data.get(key, None)
+    if value is None:
+        raise ValidationError("No provided %s!" % key)
+    if validator is not None:
+        try:
+            return validator.to_python(value)
+        except Invalid, e:
+            raise ValidationError("Invalid %s: %s" % (key, e.msg))
+    else:
+        return value
+
+
+def extract_oauth_key(auth_data):
+    """Extract the oauth key from auth data in HTTP header.
+
+    :param auth_data: {string} The HTTP Authorization header.
+
+    :return: The oauth key from the header, or None.
+    """
+    for entry in auth_data.split():
+        key_value = entry.split('=', 1)
+        if len(key_value) == 2:
+            key, value = key_value
+            if key == 'oauth_token':
+                return value.rstrip(',').strip('"')
+    return None
+
+
 NODE_FIELDS = (
     'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
-    'architecture')
+    'architecture', 'status')
 
 
 @api_operations
@@ -208,23 +321,23 @@ class NodeHandler(BaseHandler):
 
     def read(self, request, system_id):
         """Read a specific Node."""
-        return Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        return Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.VIEW)
 
     def update(self, request, system_id):
         """Update a specific Node."""
-        node = Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         for key, value in request.data.items():
             setattr(node, key, value)
-        node.full_clean()
         node.save()
         return node
 
     def delete(self, request, system_id):
         """Delete a specific Node."""
-        node = Node.objects.get_visible_node_or_404(
-            system_id=system_id, user=request.user)
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user,
+            perm=NODE_PERMISSION.ADMIN)
         node.delete()
         return rc.DELETED
 
@@ -251,38 +364,117 @@ class NodeHandler(BaseHandler):
 
     @api_exported('start', 'POST')
     def start(self, request, system_id):
-        """Power up a node."""
-        nodes = Node.objects.start_nodes([system_id], request.user)
+        """Power up a node.
+
+        The user_data parameter, if set in the POST data, is taken as
+        base64-encoded binary data.
+
+        Ideally we'd have MIME multipart and content-transfer-encoding etc.
+        deal with the encapsulation of binary data, but couldn't make it work
+        with the framework in reasonable time so went for a dumb, manual
+        encoding instead.
+        """
+        user_data = request.POST.get('user_data', None)
+        if user_data is not None:
+            user_data = b64decode(user_data)
+        nodes = Node.objects.start_nodes(
+            [system_id], request.user, user_data=user_data)
         if len(nodes) == 0:
             raise PermissionDenied(
                 "You are not allowed to start up this node.")
         return nodes[0]
 
+    @api_exported('release', 'POST')
+    def release(self, request, system_id):
+        """Release a node.  Opposite of `NodesHandler.acquire`."""
+        node = Node.objects.get_node_or_404(
+            system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
+        if node.status == NODE_STATUS.READY:
+            # Nothing to do.  This may be a redundant retry, and the
+            # postcondition is achieved, so call this success.
+            pass
+        elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
+            node.release()
+            node.save()
+        else:
+            raise NodeStateViolation(
+                "Node cannot be released in its current state ('%s')."
+                % node.display_status())
+        return node
+
 
 def create_node(request):
+    """Service an http request to create a node.
+
+    The node will be in the Declared state.
+
+    :param request: The http request for this node to be created.
+    :return: A `Node`.
+    :rtype: :class:`maasserver.models.Node`.
+    :raises: ValidationError
+    """
     form = NodeWithMACAddressesForm(request.data)
     if form.is_valid():
-        node = form.save()
-        return node
+        return form.save()
     else:
-        return HttpResponseBadRequest(
-            form.errors, content_type='application/json')
+        raise ValidationError(form.errors)
 
 
 @api_operations
 class AnonNodesHandler(AnonymousBaseHandler):
     """Create Nodes."""
-    allowed_methods = ('POST',)
+    allowed_methods = ('GET', 'POST',)
     fields = NODE_FIELDS
 
     @api_exported('new', 'POST')
     def new(self, request):
-        """Create a new Node."""
+        """Create a new Node.
+
+        Adding a server to a MAAS puts it on a path that will wipe its disks
+        and re-install its operating system.  In anonymous enlistment and when
+        the enlistment is done by a non-admin, the node is held in the
+        "Declared" state for approval by a MAAS admin.
+        """
         return create_node(request)
+
+    @api_exported('is_registered', 'GET')
+    def is_registered(self, request):
+        """Returns whether or not the given MAC Address is registered within
+        this MAAS (and attached to a non-retired node).
+
+        :param mac_address: The mac address to be checked.
+        :type mac_address: basestring
+        :return: 'true' or 'false'.
+        :rtype: basestring
+        """
+        mac_address = get_mandatory_param(request.GET, 'mac_address')
+        return MACAddress.objects.filter(
+            mac_address=mac_address).exclude(
+                node__status=NODE_STATUS.RETIRED).exists()
+
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept a node's enlistment: not allowed to anonymous users."""
+        raise Unauthorized("You must be logged in to accept nodes.")
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('nodes_handler', [])
+
+
+def extract_constraints(request_params):
+    """Extract a dict of node allocation constraints from http parameters.
+
+    :param request_params: Parameters submitted with the allocation request.
+    :type request_params: :class:`django.http.QueryDict`
+    :return: A mapping of applicable constraint names to their values.
+    :rtype: :class:`dict`
+    """
+    name = request_params.get('name', None)
+    if name is None:
+        return {}
+    else:
+        return {'name': name}
 
 
 @api_operations
@@ -293,8 +485,53 @@ class NodesHandler(BaseHandler):
 
     @api_exported('new', 'POST')
     def new(self, request):
-        """Create a new Node."""
-        return create_node(request)
+        """Create a new Node.
+
+        When a node has been added to MAAS by an admin MAAS user, it is
+        ready for allocation to services running on the MAAS.
+        """
+        node = create_node(request)
+        if request.user.is_superuser:
+            node.accept_enlistment(request.user)
+        return node
+
+    @api_exported('accept', 'POST')
+    def accept(self, request):
+        """Accept declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
+
+        Enlistments can be accepted en masse, by passing multiple nodes to
+        this call.  Accepting an already accepted node is not an error, but
+        accepting one that is already allocated, broken, etc. is.
+
+        :param nodes: system_ids of the nodes whose enlistment is to be
+            accepted.  (An empty list is acceptable).
+        :return: The system_ids of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are
+            excluded from the result.
+        """
+        system_ids = set(request.POST.getlist('nodes'))
+        # Check the existence of these nodes first.
+        existing_ids = set(Node.objects.filter().values_list(
+            'system_id', flat=True))
+        if len(existing_ids) < len(system_ids):
+            raise MAASAPIBadRequest(
+                "Unknown node(s): %s." % ', '.join(system_ids - existing_ids))
+        # Make sure that the user has the required permission.
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN, ids=system_ids)
+        ids = set(node.system_id for node in nodes)
+        if len(nodes) < len(system_ids):
+            raise PermissionDenied(
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % (
+                    ', '.join(system_ids - ids)))
+        return filter(
+            None, [node.accept_enlistment(request.user) for node in nodes])
 
     @api_exported('list', 'GET')
     def list(self, request):
@@ -302,16 +539,43 @@ class NodesHandler(BaseHandler):
         match_ids = request.GET.getlist('id')
         if match_ids == []:
             match_ids = None
-        nodes = Node.objects.get_visible_nodes(request.user, ids=match_ids)
+        nodes = Node.objects.get_nodes(
+            request.user, NODE_PERMISSION.VIEW, ids=match_ids)
+        return nodes.order_by('id')
+
+    @api_exported('list_allocated', 'GET')
+    def list_allocated(self, request):
+        """Fetch Nodes that were allocated to the User/oauth token."""
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        # A plain assertion is fine here because to get this far we
+        # should already have a valid authorization. If the assertion
+        # fails it is a genuine bug in the code and this will return a
+        # 500 response which is appropriate.
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        assert key is not None, (
+            "Invalid Authorization header on request.")
+        token = Token.objects.get(key=key)
+        match_ids = request.GET.getlist('id')
+        if match_ids == []:
+            match_ids = None
+        nodes = Node.objects.get_allocated_visible_nodes(token, match_ids)
         return nodes.order_by('id')
 
     @api_exported('acquire', 'POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
-        node = Node.objects.get_available_node_for_acquisition(request.user)
+        node = Node.objects.get_available_node_for_acquisition(
+            request.user, constraints=extract_constraints(request.data))
         if node is None:
-            raise NodesNotAvailable("No node is available.")
-        node.acquire(request.user)
+            raise NodesNotAvailable("No matching node is available.")
+        auth_header = request.META.get("HTTP_AUTHORIZATION")
+        assert auth_header is not None, (
+            "HTTP_AUTHORIZATION not set on request")
+        key = extract_oauth_key(auth_header)
+        token = Token.objects.get(key=key)
+        node.acquire(token)
         node.save()
         return node
 
@@ -330,20 +594,17 @@ class NodeMacsHandler(BaseHandler):
 
     def read(self, request, system_id):
         """Read all MAC Addresses related to a Node."""
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
         return MACAddress.objects.filter(node=node).order_by('id')
 
     def create(self, request, system_id):
         """Create a MAC Address for a specified Node."""
-        try:
-            node = Node.objects.get_visible_node_or_404(
-                user=request.user, system_id=system_id)
-            mac = node.add_mac_address(request.data.get('mac_address', None))
-            return mac
-        except ValidationError as e:
-            return HttpResponseBadRequest(e.message_dict)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
+        mac = node.add_mac_address(request.data.get('mac_address', None))
+        return mac
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -358,8 +619,8 @@ class NodeMacHandler(BaseHandler):
 
     def read(self, request, system_id, mac_address):
         """Read a MAC Address related to a Node."""
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
         validate_mac(mac_address)
         return get_object_or_404(
@@ -368,8 +629,8 @@ class NodeMacHandler(BaseHandler):
     def delete(self, request, system_id, mac_address):
         """Delete a specific MAC Address for the specified Node."""
         validate_mac(mac_address)
-        node = Node.objects.get_visible_node_or_404(
-            user=request.user, system_id=system_id)
+        node = Node.objects.get_node_or_404(
+            user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
 
         mac = get_object_or_404(MACAddress, node=node, mac_address=mac_address)
         mac.delete()
@@ -385,27 +646,48 @@ class NodeMacHandler(BaseHandler):
         return ('node_mac_handler', [node_system_id, mac_address])
 
 
+def get_file(handler, request):
+    """Get a named file from the file storage.
+
+    :param filename: The exact name of the file you want to get.
+    :type filename: string
+    :return: The file is returned in the response content.
+    """
+    filename = request.GET.get("filename", None)
+    if not filename:
+        raise MAASAPIBadRequest("Filename not supplied")
+    try:
+        db_file = FileStorage.objects.get(filename=filename)
+    except FileStorage.DoesNotExist:
+        raise MAASAPINotFound("File not found")
+    return HttpResponse(db_file.data.read(), status=httplib.OK)
+
+
+@api_operations
+class AnonFilesHandler(AnonymousBaseHandler):
+    """Anonymous file operations.
+
+    This is needed for Juju. The story goes something like this:
+
+    - The Juju provider will upload a file using an "unguessable" name.
+
+    - The name of this file (or its URL) will be shared with all the agents in
+      the environment. They cannot modify the file, but they can access it
+      without credentials.
+
+    """
+    allowed_methods = ('GET',)
+
+    get = api_exported('get', 'GET')(get_file)
+
+
 @api_operations
 class FilesHandler(BaseHandler):
     """File management operations."""
     allowed_methods = ('GET', 'POST',)
+    anonymous = AnonFilesHandler
 
-    @api_exported('get', 'GET')
-    def get(self, request):
-        """Get a named file from the file storage.
-
-        :param filename: The exact name of the file you want to get.
-        :type filename: string
-        :return: The file is returned in the response content.
-        """
-        filename = request.GET.get("filename", None)
-        if not filename:
-            raise MaaSAPIBadRequest("Filename not supplied")
-        try:
-            db_file = FileStorage.objects.get(filename=filename)
-        except FileStorage.DoesNotExist:
-            raise MaaSAPINotFound("File not found")
-        return HttpResponse(db_file.data.read(), status=httplib.OK)
+    get = api_exported('get', 'GET')(get_file)
 
     @api_exported('add', 'POST')
     def add(self, request):
@@ -418,23 +700,18 @@ class FilesHandler(BaseHandler):
         """
         filename = request.data.get("filename", None)
         if not filename:
-            raise MaaSAPIBadRequest("Filename not supplied")
+            raise MAASAPIBadRequest("Filename not supplied")
         files = request.FILES
         if not files:
-            raise MaaSAPIBadRequest("File not supplied")
+            raise MAASAPIBadRequest("File not supplied")
         if len(files) != 1:
-            raise MaaSAPIBadRequest("Exactly one file must be supplied")
+            raise MAASAPIBadRequest("Exactly one file must be supplied")
         uploaded_file = files['file']
 
         # As per the comment in FileStorage, this ought to deal in
         # chunks instead of reading the file into memory, but large
         # files are not expected.
-        try:
-            storage = FileStorage.objects.get(filename=filename)
-        except FileStorage.DoesNotExist:
-            storage = FileStorage()
-
-        storage.save_file(filename, uploaded_file)
+        FileStorage.objects.save_file(filename, uploaded_file)
         return HttpResponse('', status=httplib.CREATED)
 
     @classmethod
@@ -470,13 +747,10 @@ class AccountHandler(BaseHandler):
         """Delete an authorisation OAuth token and the related OAuth consumer.
 
         :param token_key: The key of the token to be deleted.
-        :type token_key: str
-
+        :type token_key: basestring
         """
         profile = request.user.get_profile()
-        token_key = request.data.get('token_key', None)
-        if token_key is None:
-            raise ValidationError('No provided token_key!')
+        token_key = get_mandatory_param(request.data, 'token_key')
         profile.delete_authorisation_token(token_key)
         return rc.DELETED
 
@@ -485,7 +759,58 @@ class AccountHandler(BaseHandler):
         return ('account_handler', [])
 
 
-def generate_api_doc(add_title=False):
+@api_operations
+class MAASHandler(BaseHandler):
+    """Manage the MAAS' itself."""
+    allowed_methods = ('POST', 'GET')
+
+    @api_exported('set_config', method='POST')
+    def set_config(self, request):
+        """Set a config value.
+
+        :param name: The name of the config item to be set.
+        :type name: basestring
+        :param name: The value of the config item to be set.
+        :type value: json object
+        """
+        name = get_mandatory_param(
+            request.data, 'name', validators.String(min=1))
+        value = get_mandatory_param(request.data, 'value')
+        Config.objects.set_config(name, value)
+        return rc.ALL_OK
+
+    @api_exported('get_config', method='GET')
+    def get_config(self, request):
+        """Get a config value.
+
+        :param name: The name of the config item to be retrieved.
+        :type name: basestring
+        """
+        name = get_mandatory_param(request.GET, 'name')
+        value = Config.objects.get_config(name)
+        return HttpResponse(json.dumps(value), content_type='application/json')
+
+
+# Title section for the API documentation.  Matches in style, format,
+# etc. whatever generate_api_doc() produces, so that you can concatenate
+# the two.
+api_doc_title = dedent("""
+    ========
+    MAAS API
+    ========
+    """.lstrip('\n'))
+
+
+def generate_api_doc():
+    """Generate ReST documentation for the REST API.
+
+    This module's docstring forms the head of the documentation; details of
+    the API methods follow.
+
+    :return: Documentation, in ReST, for the API.
+    :rtype: :class:`unicode`
+    """
+
     # Fetch all the API Handlers (objects with the class
     # HandlerMetaClass).
     module = sys.modules[__name__]
@@ -503,21 +828,21 @@ def generate_api_doc(add_title=False):
 
     docs = [generate_doc(handler) for handler in handlers]
 
-    messages = []
-    if add_title:
-        messages.extend([
-            '**********************\n',
-            'MaaS API documentation\n',
-            '**********************\n',
-            '\n\n']
-            )
+    messages = [
+        __doc__.strip(),
+        '',
+        '',
+        'Operations',
+        '----------',
+        '',
+        ]
     for doc in docs:
         for method in doc.get_methods():
             messages.append(
-                "%s %s\n  %s\n\n" % (
+                "%s %s\n  %s\n" % (
                     method.http_name, doc.resource_uri_template,
                     method.doc))
-    return ''.join(messages)
+    return '\n'.join(messages)
 
 
 def reST_to_html_fragment(a_str):

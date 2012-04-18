@@ -2,30 +2,49 @@
 
 {% block nav-active-index %}active{% endblock %}
 {% block title %}Dashboard{% endblock %}
+{% block site-switcher %}{% endblock %}
 
 {% block html_includes %}{% include "maasserver/snippets.html" %}
 {% endblock %}
 
 {% block head %}
+  <script type="text/javascript" src="{{ STATIC_URL }}jslibs/raphael/raphael-min.js"></script>
+  <script type="text/javascript" src="{{ STATIC_URL }}js/nodes_chart.js"></script>
   <script type="text/javascript">
   <!--
-  YUI().use('maas.node_add', 'maas.node','maas.node_views', function (Y) {
+  YUI().use(
+    'maas.node_add', 'maas.node','maas.node_views', 'maas.utils',
+    'maas.longpoll',
+    function (Y) {
     Y.on('load', function() {
       // Create Dashboard view.
-      var view_container = Y.Node.create('<div />')
-          .set('id', 'dashboard');
-      Y.one('#content').append(view_container);
-      var view = new Y.maas.node_views.NodesDashboard(
-          {'append': '#dashboard'});
-      view.render(view_container);
-      // Create 'Add node' link.
-      var add_node_link = Y.Node.create('<a />')
-          .set('id', 'addnode')
-          .set('text', "Add node")
-          .set('href', '#')
-          .addClass('button');
-      Y.one('#content').append(add_node_link);
-      add_node_link.on('click', Y.maas.node_add.showAddNodeWidget);
+      var view = new Y.maas.node_views.NodesDashboard({
+          srcNode: '#dashboard',
+          summaryNode: '#summary',
+          numberNode: '#nodes-number',
+          descriptionNode: '#nodes-description',
+          reservedNode: '#reserved-nodes',
+          retiredNode: '#retired-nodes'});
+      view.render();
+      
+      Y.one('#addnode').on('click', function(e) {
+        e.preventDefault();
+        Y.maas.node_add.showAddNodeWidget({targetNode: '#dashboard'});
+      });
+
+      // Setup TitleEditWidget.
+      var title_widget = new Y.maas.utils.TitleEditWidget(
+	  {srcNode: '.page-title-form'});
+      title_widget.render();
+
+      // Start longpoll.
+      {% if longpoll_queue and LONGPOLL_PATH %}
+        Y.later(0, Y.maas.longpoll, function() {
+          var longpollmanager = Y.maas.longpoll.setupLongPollManager(
+            '{{ longpoll_queue }}', '{{ LONGPOLL_PATH }}');
+        });
+      {% endif %}
+
     });
   });
   // -->
@@ -34,9 +53,9 @@
 
 {% block page-title-block %}
   {% if user.is_superuser %}
-    {% comment %}TODO: wire this up so that it changes the MaaS title{% endcomment %}
     <form action="" method="" class="page-title-form">
-      <input type="text" value="{{ global_options.site_name }}" title="Edit the name of this MaaS" />
+      <input type="text" value="{{ global_options.site_name }} MAAS"
+             title="Edit the name of this MAAS" />
     </form>
   {% else %}
     <h1 id="page-title">{% include "maasserver/site_title.html" %}</h1>
@@ -44,4 +63,17 @@
 {% endblock %}
 
 {% block content %}
+  <div id="dashboard" class="pad-top">
+    <div id="chart" class="block size6"></div>
+    <div class="block block size8">
+      <div id="summary">
+        <h2 id="nodes-number" class="super-size pad-top-large"></h2>
+        <p id="nodes-description" class="large"></p>
+      </div>
+      <p id="reserved-nodes" class="medium space-bottom-small"></p>
+      <p id="retired-nodes" class="secondary medium space-top-none"></p>
+      <a href="#" id="addnode" class="button right space-top">+ Add node</a>
+    </div>
+    <div class="clear"></div>
+  </div>
 {% endblock %}

@@ -4,6 +4,7 @@
 """Custom model fields."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -28,15 +29,28 @@ from django.db.models import (
     )
 from django.forms import RegexField
 import psycopg2.extensions
+from south.modelsinspector import add_introspection_rules
 
 
-mac_re = re.compile(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$')
+mac_re = re.compile(r'^\s*([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}\s*$')
 
 
 mac_error_msg = "Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)."
 
 
 validate_mac = RegexValidator(regex=mac_re, message=mac_error_msg)
+
+
+# The MACAddressField and the JSONObjectField don't introduce any new
+# parameters compared to their parent's constructors so South will handle
+# them just fine.
+# See http://south.aeracode.org/docs/customfields.html#extending-introspection
+# for details.
+add_introspection_rules(
+    [], [
+        "^maasserver\.fields\.MACAddressField",
+        "^maasserver\.fields\.JSONObjectField",
+    ])
 
 
 class MACAddressFormField(RegexField):

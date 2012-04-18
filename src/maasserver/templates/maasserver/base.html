@@ -46,15 +46,21 @@
           </div>
           <div id="header" class="center-page-content">
               <ul id="right-nav" class="nav">
-                <li class="search">
-                  {% block header-search %}
-                    <form action="{% url 'node-list' %}" method="get" id="header-search">
-                      <input type="text" name="query" value="Search nodes" /><input type="submit" value="" />
-                    </form>
-                  {% endblock %}
-                </li>
+                {% comment %}
+                  <!-- To be enabled when we have search functionality -->
+                  <li class="search">
+                    {% block header-search %}
+                      <form action="{% url 'node-list' %}" method="get" id="header-search">
+                        <input type="text" name="query" value="Search nodes" class="search-box" />
+                      </form>
+                    {% endblock %}
+                  </li>
+                {% endcomment %}
                 {% if user.is_superuser %}
-                  <li class="divider"></li>
+                  {% comment %}
+                    <!-- To be enabled when we have search functionality -->
+                    <li class="divider"></li>
+                  {% endcomment %}
                   <li class="icon {% block nav-active-settings %}{% endblock %}">
                     <a href="{% url 'settings' %}">
                       <img src="{{ STATIC_URL }}img/settings.png" alt="Settings" />
@@ -63,9 +69,9 @@
                 {% endif %}
               </ul>
               <ul id="main-nav" class="nav">
-                <li class="icon {% block nav-active-index %}{% endblock %}">
+                <li class="icon large {% block nav-active-index %}{% endblock %}">
                   <a href="{% url 'index' %}">
-                    <img src="{{ STATIC_URL }}img/home.png" alt="MaaS home" />
+                    <img src="{{ STATIC_URL }}img/home.png" alt="MAAS home" />
                   </a>
                 </li>
                 <li class="{% block nav-active-node-list %}{% endblock %}">
@@ -78,6 +84,9 @@
       {% endif %}
       <div id="body">
         <ul id="flash-messages">
+          {% for persistent_error in persistent_errors %}
+             <li class="warning">{{ persistent_error }}</li>
+          {% endfor %}
           {% if messages %}
             {% for message in messages %}
               <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
@@ -85,11 +94,9 @@
             {% endfor %}
           {% endif %}
         </ul>
-        {% if user.is_authenticated %}
-          {% block page-title-block %}
-            <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
-          {% endblock %}
-        {% endif %}
+        {% block page-title-block %}
+          <h1 id="page-title">{% block page-title %}{% endblock %}</h1>
+        {% endblock %}
         <div id="content">
             <div id="sidebar">{% block sidebar %}{% endblock %}</div>
             {% block content %}{% endblock %}
@@ -99,9 +106,11 @@
       <div id="footer">
         <img src="{{ STATIC_URL }}img/ubuntu_logo_footer.png" alt="Ubuntu" />
         {% block footer-copyright %}
-          &copy; 2012 Canonical Ltd. Ubuntu and Canonical are registered 
+          <p>&copy; 2012 Canonical Ltd. Ubuntu and Canonical are registered 
           trademarks of Canonical Ltd.
+          <a class="space-left-small" href="https://wiki.ubuntu.com/ServerTeam/MAAS/" target="_blank">View Documentation</a></p>
         {% endblock %}
+        <div class="clear"></div>
       </div>
     </div>
   </div>

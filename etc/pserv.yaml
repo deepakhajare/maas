@@ -4,37 +4,55 @@
 
 ## The port on which the Provisioning API will be made available.
 #
-# port: 8001
+# port: 5241
+
+## The credentials which the Provisioning API will require.
 #
+# username: <current user>
+# password:
+password: "test"
+
+## Network interface to bind the service on.
+# Keep this pointed at the loopback interface unless you really know what
+# you're doing.
+#
+# interface: "127.0.0.1"
 
 ## Where to log. This log can be rotated by sending SIGUSR1 to the
 ## running server.
 #
 # logfile: "pserv.log"
-#
+logfile: "logs/pserv.log"
 
 ## OOPS configuration (optional).
 #
-# oops:
-#   directory: "/tmp/killed/by"
-#   reporter: "death"
-#
+oops:
+  ## Directory in which to place OOPS reports.  Must not contain any files
+  # or directories other than what the oops machinery creates there.
+  #
+  # directory:
+  directory: "logs/oops"
+  # reporter:
+  reporter: "maas-pserv"
 
 ## Message broker configuration (optional, not currently used).
 #
-# broker:
-#   host: "localhost"
-#   port: 1543
-#   username: "lemmy"
-#   password: "overkill"
-#   vhost: "/hammersmith"
-#
+broker:
+  # host: "localhost"
+  # port: 5673
+  # username: <current user>
+  # password: "test"
+  # vhost: "/"
 
-## Cobbler configuration.
+## Cobbler configuration.  Defaults to the virtual development environment
+# (vdenv) cobbler.
 #
-# cobbler:
-#   url: "localhost"
-#   username: "admin"
-#   password: "test"
-#   fake: false
-#
+cobbler:
+  # url: http://localhost/cobbler_api
+  # username: <current user>
+  # password: "test"
+
+  # vdenv specific; see vdenv/README.txt.
+  url: http://local.cobbler.dev/cobbler_api
+  username: cobbler
+  password: xcobbler

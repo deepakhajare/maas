@@ -4,6 +4,7 @@
 """..."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -11,7 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting import TestCase
+from maastesting.testcase import TestCase
 
 
 class TestSomething(TestCase):

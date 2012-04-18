@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -14,8 +15,8 @@ __all__ = []
 from itertools import count
 from random import randint
 from tempfile import NamedTemporaryFile
-import xmlrpclib
 
+from provisioningserver.cobblercatcher import ProvisioningError
 from provisioningserver.cobblerclient import (
     CobblerDistro,
     CobblerImage,
@@ -155,7 +156,7 @@ class TestFakeCobbler(TestCase):
     @inlineCallbacks
     def test_login_failure_raises_failure(self):
         cobbler = FakeCobbler(passwords={'moi': 'potahto'})
-        with ExpectedException(xmlrpclib.Fault):
+        with ExpectedException(ProvisioningError):
             return_value = yield fake_cobbler_session(
                 user='moi', password='potayto', fake_cobbler=cobbler)
             self.addDetail('return_value', text_content(repr(return_value)))
@@ -383,7 +384,7 @@ class TestCobblerProfile(CobblerObjectTestScenario, TestCase):
 
     def test_normalize_attribute_normalizes_separators(self):
         # Based on the Cobbler source, Profile seems to use a mix of
-        # underscores and dashes in attribute names.  The MaaS Cobbler
+        # underscores and dashes in attribute names.  The MAAS Cobbler
         # wrapper ignores the difference, and uses whatever Cobbler
         # seems to expect in either case.
         inputs = [
@@ -451,6 +452,19 @@ class TestCobblerSystem(CobblerObjectTestScenario, TestCase):
         self.assertEqual(["eth0"], sorted(interfaces))
         state_eth0 = interfaces["eth0"]
         self.assertEqual("12:34:56:78:90:12", state_eth0["mac_address"])
+
+    @inlineCallbacks
+    def test_interface_set_dns_name(self):
+        session = yield fake_cobbler_session()
+        name = self.make_name()
+        obj = yield fake_cobbler_object(session, self.cobbler_class, name)
+        yield obj.modify(
+            {"interface": "eth0", "dns_name": "epitaph"})
+        state = yield obj.get_values()
+        interfaces = state.get("interfaces", {})
+        self.assertEqual(["eth0"], sorted(interfaces))
+        state_eth0 = interfaces["eth0"]
+        self.assertEqual("epitaph", state_eth0["dns_name"])
 
     @inlineCallbacks
     def test_interface_delete_interface(self):

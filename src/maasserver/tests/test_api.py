@@ -4,6 +4,7 @@
 """Test maasserver API."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -11,26 +12,51 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from base64 import b64encode
 import httplib
 import json
 import os
+import random
 import shutil
 
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.http import QueryDict
+from fixtures import Fixture
+from maasserver import api
+from maasserver.api import (
+    extract_constraints,
+    extract_oauth_key,
+    )
 from maasserver.models import (
-    ARCHITECTURE,
+    ARCHITECTURE_CHOICES,
+    Config,
+    create_auth_token,
+    get_auth_tokens,
     MACAddress,
     Node,
     NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.testing import (
+    reload_object,
+    reload_objects,
+    )
+from maasserver.testing.enum import map_enum
+from maasserver.testing.factory import factory
+from maasserver.testing.oauthclient import OAuthAuthenticatedClient
+from maasserver.testing.testcase import (
+    AdminLoggedInTestCase,
     LoggedInTestCase,
     TestCase,
     )
-from maasserver.testing.factory import factory
-from maasserver.testing.oauthclient import OAuthAuthenticatedClient
-from metadataserver.models import NodeKey
+from maastesting.testcase import TransactionTestCase
+from metadataserver.models import (
+    NodeKey,
+    NodeUserData,
+    )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.enum import POWER_TYPE
 
 
 class APIv10TestMixin:
@@ -44,17 +70,47 @@ class APIv10TestMixin:
         return api_root + path
 
 
-class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
-    # Nodes can be enlisted anonymously.
+class TestModuleHelpers(TestCase):
+
+    def test_extract_oauth_key_extracts_oauth_token_from_oauth_header(self):
+        token = factory.getRandomString(18)
+        self.assertEqual(
+            token,
+            extract_oauth_key(factory.make_oauth_header(oauth_token=token)))
+
+    def test_extract_oauth_key_returns_None_without_oauth_key(self):
+        self.assertIs(None, extract_oauth_key(''))
+
+    def test_extract_constraints_ignores_unknown_parameters(self):
+        unknown_parameter = "%s=%s" % (
+            factory.getRandomString(),
+            factory.getRandomString(),
+            )
+        self.assertEqual(
+            {}, extract_constraints(QueryDict(unknown_parameter)))
+
+    def test_extract_constraints_extracts_name(self):
+        name = factory.getRandomString()
+        self.assertEqual(
+            {'name': name},
+            extract_constraints(QueryDict('name=%s' % name)))
+
+
+class EnlistmentAPITest(APIv10TestMixin):
+    # This is a mixin containing enlistement tests.  We will run this for:
+    # an anonymous user, a simple (non-admin) user and an admin user.
+    # XXX: rvb 2012-04-10 bug=978035: It would be better to use
+    # testscenarios for this.
 
     def test_POST_new_creates_node(self):
         # The API allows a Node to be created.
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         response = self.client.post(
             self.get_uri('nodes/'),
             {
                 'op': 'new',
                 'hostname': 'diane',
-                'architecture': 'amd64',
+                'architecture': architecture,
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
@@ -65,17 +121,45 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertEqual('diane', parsed_result['hostname'])
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
-        self.assertEqual(2, diane.after_commissioning_action)
-        self.assertEqual(ARCHITECTURE.amd64, diane.architecture)
+        # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
+        #self.assertEqual(2, diane.after_commissioning_action)
+        self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_power_type_defaults_to_asking_config(self):
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'new',
+                'architecture': architecture,
+                'mac_addresses': ['00:11:22:33:44:55'],
+                })
+        node = Node.objects.get(
+            system_id=json.loads(response.content)['system_id'])
+        self.assertEqual(POWER_TYPE.DEFAULT, node.power_type)
+
+    def test_POST_new_sets_power_type(self):
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'new',
+                'architecture': architecture,
+                'power_type': POWER_TYPE.VIRSH,
+                'mac_addresses': ['00:11:22:33:44:55'],
+                })
+        node = Node.objects.get(
+            system_id=json.loads(response.content)['system_id'])
+        self.assertEqual(POWER_TYPE.VIRSH, node.power_type)
 
     def test_POST_new_associates_mac_addresses(self):
         # The API allows a Node to be created and associated with MAC
         # Addresses.
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         self.client.post(
             self.get_uri('nodes/'),
             {
                 'op': 'new',
                 'hostname': 'diane',
+                'architecture': architecture,
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
@@ -84,19 +168,18 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
             ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             [mac.mac_address for mac in diane.macaddress_set.all()])
 
-    def test_POST_returns_limited_fields(self):
+    def test_POST_with_no_hostname_auto_populates_hostname(self):
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         response = self.client.post(
             self.get_uri('nodes/'),
             {
                 'op': 'new',
-                'hostname': 'diane',
-                'after_commissioning_action': '2',
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+                'architecture': architecture,
+                'mac_addresses': ['aa:BB:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
-        parsed_result = json.loads(response.content)
-        self.assertItemsEqual(
-            ['hostname', 'system_id', 'macaddress_set', 'architecture'],
-            list(parsed_result))
+        node = Node.objects.get(
+            system_id=json.loads(response.content)['system_id'])
+        self.assertEqual('node-aabbccddeeff.local', node.hostname)
 
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
@@ -111,6 +194,48 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/html', response['Content-Type'])
         self.assertEqual("Unknown operation.", response.content)
+
+    def test_POST_fails_if_mac_duplicated(self):
+        # Mac Addresses should be unique.
+        mac = 'aa:bb:cc:dd:ee:ff'
+        factory.make_mac_address(mac)
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'architecture': architecture,
+                'hostname': factory.getRandomString(),
+                'mac_addresses': [mac],
+            })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual(
+            ["Mac address %s already in use." % mac],
+            parsed_result['mac_addresses'])
+
+    def test_POST_fails_if_mac_duplicated_does_not_trigger_post_save(self):
+        # Mac Addresses should be unique, if the check fails,
+        # Node.post_save is not triggered.
+        mac = 'aa:bb:cc:dd:ee:ff'
+        factory.make_mac_address(mac)
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+
+        def node_created(sender, instance, created, **kwargs):
+            self.fail("post_save should not have been called")
+
+        post_save.connect(node_created, sender=Node)
+        self.addCleanup(post_save.disconnect, node_created, sender=Node)
+        self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'architecture': architecture,
+                'hostname': factory.getRandomString(),
+                'mac_addresses': [mac],
+            })
 
     def test_POST_fails_with_bad_operation(self):
         # If the operation ('op=operation_name') specified in the
@@ -141,7 +266,6 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('application/json', response['Content-Type'])
-        self.assertItemsEqual(['mac_addresses'], parsed_result)
         self.assertEqual(
             ["One or more MAC Addresses is invalid."],
             parsed_result['mac_addresses'])
@@ -164,13 +288,199 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
         self.assertItemsEqual(['architecture'], parsed_result)
 
 
+class NonAdminEnlistmentAPITest(EnlistmentAPITest):
+    # This is a mixin containing enlistement tests for non-admin users.
+
+    def test_POST_non_admin_creates_node_in_declared_state(self):
+        # Upon non-admin enlistment, a node goes into the Declared
+        # state.  Deliberate approval is required before we start
+        # reinstalling the system, wiping its disks etc.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.DECLARED,
+            Node.objects.get(system_id=system_id).status)
+
+
+class AnonymousEnlistmentAPITest(NonAdminEnlistmentAPITest, TestCase):
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin and adds enlistement tests specific to anonymous users.
+
+    def test_POST_accept_not_allowed(self):
+        # An anonymous user is not allowed to accept an anonymously
+        # enlisted node.  That would defeat the whole purpose of holding
+        # those nodes for approval.
+        node_id = factory.make_node(status=NODE_STATUS.DECLARED).system_id
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
+        self.assertEqual(
+            (httplib.UNAUTHORIZED, "You must be logged in to accept nodes."),
+            (response.status_code, response.content))
+
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'hostname': factory.getRandomString(),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status',
+            ],
+            list(parsed_result))
+
+
+class SimpleUserLoggedInEnlistmentAPITest(NonAdminEnlistmentAPITest,
+                                          LoggedInTestCase):
+    # This is an actual test case that uses the NonAdminEnlistmentAPITest
+    # mixin plus enlistement tests specific to simple (non-admin) users.
+
+    def test_POST_accept_not_allowed(self):
+        # An non-admin user is not allowed to accept an anonymously
+        # enlisted node.  That would defeat the whole purpose of holding
+        # those nodes for approval.
+        node_id = factory.make_node(status=NODE_STATUS.DECLARED).system_id
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % node_id),
+            (response.status_code, response.content))
+
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status', 'resource_uri',
+            ],
+            list(parsed_result))
+
+
+class AdminLoggedInEnlistmentAPITest(EnlistmentAPITest,
+                                     AdminLoggedInTestCase):
+    # This is an actual test case that uses the EnlistmentAPITest mixin
+    # and adds enlistement tests specific to admin users.
+
+    def test_POST_admin_creates_node_in_commissioning_state(self):
+        # When an admin user enlists a node, it goes into the
+        # Commissioning state.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING,
+            Node.objects.get(system_id=system_id).status)
+
+    def test_POST_returns_limited_fields(self):
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [
+                'hostname', 'system_id', 'macaddress_set', 'architecture',
+                'status', 'resource_uri',
+            ],
+            list(parsed_result))
+
+
+class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
+
+    def test_is_registered_returns_True_if_node_registered(self):
+        mac_address = factory.getRandomMACAddress()
+        factory.make_mac_address(mac_address)
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "true"),
+            (response.status_code, response.content))
+
+    def test_is_registered_returns_False_if_mac_registered_node_retired(self):
+        mac_address = factory.getRandomMACAddress()
+        mac = factory.make_mac_address(mac_address)
+        mac.node.status = NODE_STATUS.RETIRED
+        mac.node.save()
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "false"),
+            (response.status_code, response.content))
+
+    def test_is_registered_normalizes_mac_address(self):
+        # These two non-normalized MAC Addresses are the same.
+        non_normalized_mac_address = 'AA-bb-cc-dd-ee-ff'
+        non_normalized_mac_address2 = 'aabbccddeeff'
+        factory.make_mac_address(non_normalized_mac_address)
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {
+                'op': 'is_registered',
+                'mac_address': non_normalized_mac_address2
+            })
+        self.assertEqual(
+            (httplib.OK, "true"),
+            (response.status_code, response.content))
+
+    def test_is_registered_returns_False_if_node_not_registered(self):
+        mac_address = factory.getRandomMACAddress()
+        response = self.client.get(
+            self.get_uri('nodes/'),
+            {'op': 'is_registered', 'mac_address': mac_address})
+        self.assertEqual(
+            (httplib.OK, "false"),
+            (response.status_code, response.content))
+
+
 class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
     def test_anon_nodes_GET(self):
-        # Anonymous requests to the API are denied.
+        # Anonymous requests to the API without a specified operation
+        # get a "Bad Request" response.
         response = self.client.get(self.get_uri('nodes/'))
 
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
@@ -185,8 +495,12 @@ class NodeAnonAPITest(APIv10TestMixin, TestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
+class AnonAPITestCase(APIv10TestMixin, TestCase):
+    """Base class for anonymous API tests."""
+
+
 class APITestCase(APIv10TestMixin, TestCase):
-    """Extension to `TestCase`: log in first.
+    """Base class for logged-in API tests.
 
     :ivar logged_in_user: A user who is currently logged in and can access
         the API.
@@ -293,9 +607,128 @@ class TestNodeAPI(APITestCase):
         response = self.client.post(self.get_node_uri(node), {'op': 'start'})
         self.assertEqual(httplib.OK, response.status_code)
 
+    def test_POST_start_stores_user_data(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        user_data = (
+            b'\xff\x00\xff\xfe\xff\xff\xfe' +
+            factory.getRandomString().encode('ascii'))
+        response = self.client.post(
+            self.get_node_uri(node), {
+                'op': 'start',
+                'user_data': b64encode(user_data),
+                })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(user_data, NodeUserData.objects.get_user_data(node))
+
+    def test_POST_release_releases_owned_node(self):
+        owned_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            ]
+        owned_nodes = [
+            factory.make_node(owner=self.logged_in_user, status=status)
+            for status in owned_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in owned_nodes]
+        self.assertEqual(
+            [httplib.OK] * len(owned_nodes),
+            [response.status_code for response in responses])
+        self.assertItemsEqual(
+            [NODE_STATUS.READY] * len(owned_nodes),
+            [node.status for node in reload_objects(Node, owned_nodes)])
+
+    def test_POST_release_removes_token_and_user(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
+        self.assertEqual(self.logged_in_user, node.owner)
+        self.assertEqual(self.client.token.key, node.token.key)
+        self.client.post(self.get_node_uri(node), {'op': 'release'})
+        node = Node.objects.get(system_id=node.system_id)
+        self.assertIs(None, node.owner)
+        self.assertIs(None, node.token)
+
+    def test_POST_release_does_nothing_for_unowned_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.READY, owner=self.logged_in_user)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_POST_release_forbidden_if_user_cannot_edit_node(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_POST_release_fails_for_other_node_states(self):
+        releasable_statuses = [
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.READY,
+            ]
+        unreleasable_statuses = [
+            status
+            for status in map_enum(NODE_STATUS).values()
+                if status not in releasable_statuses]
+        nodes = [
+            factory.make_node(status=status, owner=self.logged_in_user)
+            for status in unreleasable_statuses]
+        responses = [
+            self.client.post(self.get_node_uri(node), {'op': 'release'})
+            for node in nodes]
+        self.assertEqual(
+            [httplib.CONFLICT] * len(unreleasable_statuses),
+            [response.status_code for response in responses])
+        self.assertEqual(
+            unreleasable_statuses,
+            [node.status for node in reload_objects(Node, nodes)])
+
+    def test_POST_release_in_wrong_state_reports_current_state(self):
+        node = factory.make_node(
+            status=NODE_STATUS.RETIRED, owner=self.logged_in_user)
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(
+            (
+                httplib.CONFLICT,
+                "Node cannot be released in its current state ('Retired').",
+            ),
+            (response.status_code, response.content))
+
+    def test_POST_release_rejects_request_from_unauthorized_user(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
+
+    def test_POST_release_allows_admin_to_release_anyones_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        self.become_admin()
+        response = self.client.post(
+            self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
+    def test_POST_release_combines_with_acquire(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'acquire'})
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
+        node_uri = json.loads(response.content)['resource_uri']
+        response = self.client.post(node_uri, {'op': 'release'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
+
     def test_PUT_updates_node(self):
-        # The api allows to update a Node.
-        node = factory.make_node(hostname='diane')
+        # The api allows the updating of a Node.
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'francis'})
         parsed_result = json.loads(response.content)
@@ -308,7 +741,7 @@ class TestNodeAPI(APITestCase):
     def test_resource_uri_points_back_at_node(self):
         # When a Node is returned by the API, the field 'resource_uri'
         # provides the URI for this Node.
-        node = factory.make_node(hostname='diane')
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'francis'})
         parsed_result = json.loads(response.content)
@@ -320,7 +753,7 @@ class TestNodeAPI(APITestCase):
     def test_PUT_rejects_invalid_data(self):
         # If the data provided to update a node is invalid, a 'Bad request'
         # response is returned.
-        node = factory.make_node(hostname='diane')
+        node = factory.make_node(hostname='diane', owner=self.logged_in_user)
         response = self.client.put(
             self.get_node_uri(node), {'hostname': 'too long' * 100})
         parsed_result = json.loads(response.content)
@@ -351,12 +784,40 @@ class TestNodeAPI(APITestCase):
 
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
-        node = factory.make_node(set_hostname=True)
+        self.become_admin()
+        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
         system_id = node.system_id
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(204, response.status_code)
         self.assertItemsEqual([], Node.objects.filter(system_id=system_id))
+
+    def test_DELETE_cannot_delete_allocated_node(self):
+        # The api allows to delete a Node.
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.ALLOCATED)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(
+            (httplib.CONFLICT,
+                "Cannot delete node %s: node is in state %s." % (
+                    node.system_id,
+                    NODE_STATUS_CHOICES_DICT[NODE_STATUS.ALLOCATED])),
+            (response.status_code, response.content))
+
+    def test_DELETE_deletes_node_fails_if_not_admin(self):
+        # Only superusers can delete nodes.
+        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_DELETE_forbidden_without_edit_permission(self):
+        # A user without the edit permission cannot delete a Node.
+        node = factory.make_node(set_hostname=True)
+        response = self.client.delete(self.get_node_uri(node))
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_refuses_to_delete_invisible_node(self):
         # The request to delete a single node is denied if the node isn't
@@ -381,16 +842,36 @@ class TestNodesAPI(APITestCase):
 
     def test_POST_new_creates_node(self):
         # The API allows a Node to be created, even as a logged-in user.
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         response = self.client.post(
             self.get_uri('nodes/'),
             {
                 'op': 'new',
-                'hostname': 'diane',
+                'hostname': factory.getRandomString(),
+                'architecture': architecture,
                 'after_commissioning_action': '2',
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
 
         self.assertEqual(httplib.OK, response.status_code)
+
+    def test_POST_new_when_logged_in_creates_node_in_declared_state(self):
+        # When a user enlists a node, it goes into the Declared state.
+        # This will change once we start doing proper commissioning.
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': factory.getRandomString(),
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action': '2',
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = json.loads(response.content)['system_id']
+        self.assertEqual(
+            NODE_STATUS.DECLARED,
+            Node.objects.get(system_id=system_id).status)
 
     def test_GET_list_lists_nodes(self):
         # The api allows for fetching the list of Nodes.
@@ -469,12 +950,63 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             [existing_id], extract_system_ids(parsed_result))
 
-    def test_POST_returns_available_node(self):
+    def test_GET_list_allocated_returns_only_allocated_with_user_token(self):
+        # If the user's allocated nodes have different session tokens,
+        # list_allocated should only return the nodes that have the
+        # current request's token on them.
+        node_1 = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
+            token=get_auth_tokens(self.logged_in_user)[0])
+        second_token = create_auth_token(self.logged_in_user)
+        factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
+            token=second_token)
+
+        user_2 = factory.make_user()
+        create_auth_token(user_2)
+        factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED,
+            token=second_token)
+
+        # At this point we have two nodes owned by the same user but
+        # allocated with different tokens, and a third node allocated to
+        # someone else entirely.  We expect list_allocated to
+        # return the node with the same token as the one used in
+        # self.client, which is the one we set on node_1 above.
+
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list_allocated'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [node_1.system_id], extract_system_ids(parsed_result))
+
+    def test_GET_list_allocated_filters_by_id(self):
+        # list_allocated takes an optional list of 'id' parameters to
+        # filter returned results.
+        current_token = get_auth_tokens(self.logged_in_user)[0]
+        nodes = []
+        for i in range(3):
+            nodes.append(factory.make_node(
+                status=NODE_STATUS.ALLOCATED,
+                owner=self.logged_in_user, token=current_token))
+
+        required_node_ids = [nodes[0].system_id, nodes[1].system_id]
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list_allocated',
+            'id': required_node_ids,
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            required_node_ids, extract_system_ids(parsed_result))
+
+    def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.
         available_status = NODE_STATUS.READY
         node = factory.make_node(status=available_status, owner=None)
         response = self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual(node.system_id, parsed_result['system_id'])
 
@@ -493,27 +1025,238 @@ class TestNodesAPI(APITestCase):
         # Fails with Conflict error: resource can't satisfy request.
         self.assertEqual(httplib.CONFLICT, response.status_code)
 
+    def test_POST_ignores_already_allocated_node(self):
+        factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_chooses_candidate_matching_constraint(self):
+        # If "acquire" is passed a constraint, it will go for a node
+        # matching that constraint even if there's tons of other nodes
+        # available.
+        # (Creating lots of nodes here to minimize the chances of this
+        # passing by accident).
+        available_nodes = [
+            factory.make_node(status=NODE_STATUS.READY, owner=None)
+            for counter in range(20)]
+        desired_node = random.choice(available_nodes)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'name': desired_node.hostname,
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(desired_node.hostname, parsed_result['hostname'])
+
+    def test_POST_acquire_would_rather_fail_than_disobey_constraint(self):
+        # If "acquire" is passed a constraint, it won't return a node
+        # that does not meet that constraint.  Even if it means that it
+        # can't meet the request.
+        factory.make_node(status=NODE_STATUS.READY, owner=None)
+        desired_node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'name': desired_node.system_id,
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_ignores_unknown_constraint(self):
+        node = factory.make_node(status=NODE_STATUS.READY, owner=None)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            factory.getRandomString(): factory.getRandomString(),
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(node.system_id, parsed_result['system_id'])
+
+    def test_POST_acquire_allocates_node_by_name(self):
+        # Positive test for name constraint.
+        # If a name constraint is given, "acquire" attempts to allocate
+        # a node of that name.
+        node = factory.make_node(status=NODE_STATUS.READY, owner=None)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'name': node.hostname,
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            node.hostname, json.loads(response.content)['hostname'])
+
+    def test_POST_acquire_constrains_by_name(self):
+        # Negative test for name constraint.
+        # If a name constraint is given, "acquire" will only consider a
+        # node with that name.
+        factory.make_node(status=NODE_STATUS.READY, owner=None)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'name': factory.getRandomString(),
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_treats_unknown_name_as_resource_conflict(self):
+        # A name constraint naming an unknown node produces a resource
+        # conflict: most likely the node existed but has changed or
+        # disappeared.
+        # Certainly it's not a 404, since the resource named in the URL
+        # is "nodes/," which does exist.
+        factory.make_node(status=NODE_STATUS.READY, owner=None)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'name': factory.getRandomString(),
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_sets_a_token(self):
+        # "acquire" should set the Token being used in the request on
+        # the Node that is allocated.
+        available_status = NODE_STATUS.READY
+        node = factory.make_node(status=available_status, owner=None)
+        self.client.post(self.get_uri('nodes/'), {'op': 'acquire'})
+        node = Node.objects.get(system_id=node.system_id)
+        oauth_key = self.client.token.key
+        self.assertEqual(oauth_key, node.token.key)
+
+    def test_POST_accept_gets_node_out_of_declared_state(self):
+        # This will change when we add provisioning.  Until then,
+        # acceptance gets a node straight to Ready state.
+        self.become_admin()
+        target_state = NODE_STATUS.COMMISSIONING
+
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {'op': 'accept', 'nodes': [node.system_id]})
+        accepted_ids = [
+            accepted_node['system_id']
+            for accepted_node in json.loads(response.content)]
+        self.assertEqual(
+            (httplib.OK, [node.system_id]),
+            (response.status_code, accepted_ids))
+        self.assertEqual(target_state, reload_object(node).status)
+
+    def test_POST_quietly_accepts_empty_set(self):
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'accept'})
+        self.assertEqual(
+            (httplib.OK, "[]"), (response.status_code, response.content))
+
+    def test_POST_accept_rejects_impossible_state_changes(self):
+        self.become_admin()
+        acceptable_states = set([
+            NODE_STATUS.DECLARED,
+            NODE_STATUS.COMMISSIONING,
+            NODE_STATUS.READY,
+            ])
+        unacceptable_states = (
+            set(map_enum(NODE_STATUS).values()) - acceptable_states)
+        nodes = {
+            status: factory.make_node(status=status)
+            for status in unacceptable_states}
+        responses = {
+            status: self.client.post(
+                self.get_uri('nodes/'), {
+                    'op': 'accept',
+                    'nodes': [node.system_id],
+                    })
+            for status, node in nodes.items()}
+        # All of these attempts are rejected with Conflict errors.
+        self.assertEqual(
+            {status: httplib.CONFLICT for status in unacceptable_states},
+            {
+                status: responses[status].status_code
+                for status in unacceptable_states})
+
+        for status, response in responses.items():
+            # Each error describes the problem.
+            self.assertIn("Cannot accept node enlistment", response.content)
+            # Each error names the node it encountered a problem with.
+            self.assertIn(nodes[status].system_id, response.content)
+            # Each error names the node state that the request conflicted
+            # with.
+            self.assertIn(NODE_STATUS_CHOICES_DICT[status], response.content)
+
+    def test_POST_accept_fails_if_node_does_not_exist(self):
+        self.become_admin()
+        node_id = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
+            (response.status_code, response.content))
+
+    def test_POST_accept_fails_if_not_admin(self):
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {'op': 'accept', 'nodes': [node.system_id]})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to accept the "
+                "following node(s): %s." % node.system_id),
+            (response.status_code, response.content))
+
+    def test_POST_accept_accepts_multiple_nodes(self):
+        # This will change when we add provisioning.  Until then,
+        # acceptance gets a node straight to Ready state.
+        self.become_admin()
+        target_state = NODE_STATUS.COMMISSIONING
+
+        nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED)
+            for counter in range(2)]
+        node_ids = [node.system_id for node in nodes]
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'accept',
+            'nodes': node_ids,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            [target_state] * len(nodes),
+            [reload_object(node).status for node in nodes])
+
+    def test_POST_accept_returns_actually_accepted_nodes(self):
+        self.become_admin()
+        acceptable_nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED)
+            for counter in range(2)
+            ]
+        accepted_node = factory.make_node(status=NODE_STATUS.READY)
+        nodes = acceptable_nodes + [accepted_node]
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'accept',
+            'nodes': [node.system_id for node in nodes],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        accepted_ids = [
+            node['system_id'] for node in json.loads(response.content)]
+        self.assertItemsEqual(
+            [node.system_id for node in acceptable_nodes], accepted_ids)
+        self.assertNotIn(accepted_node.system_id, accepted_ids)
+
 
 class MACAddressAPITest(APITestCase):
 
-    def setUp(self):
-        super(MACAddressAPITest, self).setUp()
-        self.node = factory.make_node()
-        self.mac1 = self.node.add_mac_address('aa:bb:cc:dd:ee:ff')
-        self.mac2 = self.node.add_mac_address('22:bb:cc:dd:aa:ff')
+    def createNodeWithMacs(self, owner=None):
+        node = factory.make_node(owner=owner)
+        mac1 = node.add_mac_address('aa:bb:cc:dd:ee:ff')
+        mac2 = node.add_mac_address('22:bb:cc:dd:aa:ff')
+        return node, mac1, mac2
 
     def test_macs_GET(self):
         # The api allows for fetching the list of the MAC Addresss for a node.
+        node, mac1, mac2 = self.createNodeWithMacs()
         response = self.client.get(
-            self.get_uri('nodes/%s/macs/') % self.node.system_id)
+            self.get_uri('nodes/%s/macs/') % node.system_id)
         parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(2, len(parsed_result))
         self.assertEqual(
-            self.mac1.mac_address, parsed_result[0]['mac_address'])
+            mac1.mac_address, parsed_result[0]['mac_address'])
         self.assertEqual(
-            self.mac2.mac_address, parsed_result[1]['mac_address'])
+            mac2.mac_address, parsed_result[1]['mac_address'])
 
     def test_macs_GET_forbidden(self):
         # When fetching MAC Addresses, the api returns a 'Forbidden' (403)
@@ -535,9 +1278,10 @@ class MACAddressAPITest(APITestCase):
     def test_macs_GET_node_not_found(self):
         # When fetching a MAC Address, the api returns a 'Not Found' (404)
         # error if the MAC Address does not exist.
+        node = factory.make_node()
         response = self.client.get(
             self.get_uri(
-                'nodes/%s/macs/00-aa-22-cc-44-dd/') % self.node.system_id)
+                'nodes/%s/macs/00-aa-22-cc-44-dd/') % node.system_id)
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
@@ -555,30 +1299,43 @@ class MACAddressAPITest(APITestCase):
     def test_macs_GET_node_bad_request(self):
         # When fetching a MAC Address, the api returns a 'Bad Request' (400)
         # error if the MAC Address is not valid.
+        node = factory.make_node()
         response = self.client.get(
-            self.get_uri('nodes/%s/macs/invalid-mac/') % self.node.system_id)
+            self.get_uri('nodes/%s/macs/invalid-mac/') % node.system_id)
 
         self.assertEqual(400, response.status_code)
 
     def test_macs_POST_add_mac(self):
         # The api allows to add a MAC Address to an existing node.
-        nb_macs = MACAddress.objects.filter(node=self.node).count()
+        node = factory.make_node(owner=self.logged_in_user)
+        nb_macs = MACAddress.objects.filter(node=node).count()
         response = self.client.post(
-            self.get_uri('nodes/%s/macs/') % self.node.system_id,
-            {'mac_address': 'AA:BB:CC:DD:EE:FF'})
+            self.get_uri('nodes/%s/macs/') % node.system_id,
+            {'mac_address': '01:BB:CC:DD:EE:FF'})
         parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual('AA:BB:CC:DD:EE:FF', parsed_result['mac_address'])
+        self.assertEqual('01:BB:CC:DD:EE:FF', parsed_result['mac_address'])
         self.assertEqual(
             nb_macs + 1,
-            MACAddress.objects.filter(node=self.node).count())
+            MACAddress.objects.filter(node=node).count())
+
+    def test_macs_POST_add_mac_without_edit_perm(self):
+        # Adding a MAC Address to a node requires the NODE_PERMISSION.EDIT
+        # permission.
+        node = factory.make_node()
+        response = self.client.post(
+            self.get_uri('nodes/%s/macs/') % node.system_id,
+            {'mac_address': '01:BB:CC:DD:EE:FF'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_POST_add_mac_invalid(self):
         # A 'Bad Request' response is returned if one tries to add an invalid
         # MAC Address to a node.
+        node = self.createNodeWithMacs(self.logged_in_user)[0]
         response = self.client.post(
-            self.get_uri('nodes/%s/macs/') % self.node.system_id,
+            self.get_uri('nodes/%s/macs/') % node.system_id,
             {'mac_address': 'invalid-mac'})
         parsed_result = json.loads(response.content)
 
@@ -590,42 +1347,57 @@ class MACAddressAPITest(APITestCase):
 
     def test_macs_DELETE_mac(self):
         # The api allows to delete a MAC Address.
-        nb_macs = self.node.macaddress_set.count()
+        node, mac1, mac2 = self.createNodeWithMacs(self.logged_in_user)
+        nb_macs = node.macaddress_set.count()
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
-                self.node.system_id, self.mac1.mac_address))
+                node.system_id, mac1.mac_address))
 
         self.assertEqual(204, response.status_code)
         self.assertEqual(
             nb_macs - 1,
-            self.node.macaddress_set.count())
+            node.macaddress_set.count())
 
     def test_macs_DELETE_mac_forbidden(self):
         # When deleting a MAC Address, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
+        node, mac1, _ = self.createNodeWithMacs()
         other_node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
-                other_node.system_id, self.mac1.mac_address))
+                other_node.system_id, mac1.mac_address))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_DELETE_not_found(self):
         # When deleting a MAC Address, the api returns a 'Not Found' (404)
         # error if no existing MAC Address is found.
+        node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
-                self.node.system_id, '00-aa-22-cc-44-dd'))
+                node.system_id, '00-aa-22-cc-44-dd'))
+
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_macs_DELETE_forbidden(self):
+        # When deleting a MAC Address, the api returns a 'Forbidden'
+        # (403) error if the user does not have the 'edit' permission on the
+        # node.
+        node = factory.make_node(owner=self.logged_in_user)
+        response = self.client.delete(
+            self.get_uri('nodes/%s/macs/%s/') % (
+                node.system_id, '00-aa-22-cc-44-dd'))
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_DELETE_bad_request(self):
         # When deleting a MAC Address, the api returns a 'Bad Request' (400)
         # error if the provided MAC Address is not valid.
+        node = factory.make_node()
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
-                self.node.system_id, 'invalid-mac'))
+                node.system_id, 'invalid-mac'))
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
@@ -665,14 +1437,28 @@ class AccountAPITest(APITestCase):
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
 
 
-class FileStorageAPITest(APITestCase):
+class MediaRootFixture(Fixture):
+    """Create and clear-down a `settings.MEDIA_ROOT` directory.
+
+    The directory must not previously exist.
+    """
 
     def setUp(self):
-        super(FileStorageAPITest, self).setUp()
-        os.mkdir(settings.MEDIA_ROOT)
-        self.tmpdir = os.path.join(settings.MEDIA_ROOT, "testing")
+        super(MediaRootFixture, self).setUp()
+        self.path = settings.MEDIA_ROOT
+        if os.path.exists(self.path):
+            raise AssertionError("See media/README")
+        self.addCleanup(shutil.rmtree, self.path, ignore_errors=True)
+        os.mkdir(self.path)
+
+
+class FileStorageAPITestMixin:
+
+    def setUp(self):
+        super(FileStorageAPITestMixin, self).setUp()
+        media_root = self.useFixture(MediaRootFixture()).path
+        self.tmpdir = os.path.join(media_root, "testing")
         os.mkdir(self.tmpdir)
-        self.addCleanup(shutil.rmtree, settings.MEDIA_ROOT)
 
     def make_file(self, name="foo", contents="test file contents"):
         """Make a temp file named `name` with contents `contents`.
@@ -703,6 +1489,19 @@ class FileStorageAPITest(APITestCase):
         """Make an API GET request and return the response."""
         params = self._create_API_params(op, filename, fileObj)
         return self.client.get(self.get_uri('files/'), params)
+
+
+class AnonymousFileStorageAPITest(FileStorageAPITestMixin, AnonAPITestCase):
+
+    def test_get_works_anonymously(self):
+        factory.make_file_storage(filename="foofilers", data=b"give me rope")
+        response = self.make_API_GET_request("get", "foofilers")
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(b"give me rope", response.content)
+
+
+class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
 
     def test_add_file_succeeds(self):
         filepath = self.make_file()
@@ -784,3 +1583,163 @@ class FileStorageAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("File not found", response.content)
+
+
+class MAASAPIAnonTest(APIv10TestMixin, TestCase):
+    # The MAAS' handler is not accessible to anon users.
+
+    def test_anon_get_config_forbidden(self):
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {'op': 'get_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_anon_set_config_forbidden(self):
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {'op': 'set_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+
+class MAASAPITest(APITestCase):
+
+    def test_simple_user_get_config_forbidden(self):
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {'op': 'get_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_simple_user_set_config_forbidden(self):
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {'op': 'set_config'})
+
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_get_config_requires_name_param(self):
+        self.become_admin()
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {
+                'op': 'get_config',
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
+
+    def test_get_config_returns_config(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        Config.objects.set_config(name, value)
+        response = self.client.get(
+            self.get_uri('maas/'),
+            {
+                'op': 'get_config',
+                'name': name,
+            })
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual(value, parsed_result)
+
+    def test_set_config_requires_name_param(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'value': factory.getRandomString(),
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided name!", response.content)
+
+    def test_set_config_requires_string_name_param(self):
+        self.become_admin()
+        value = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': '',  # Invalid empty name.
+                'value': value,
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(
+           "Invalid name: Please enter a value", response.content)
+
+    def test_set_config_requires_value_param(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': factory.getRandomString(),
+            })
+
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual("No provided value!", response.content)
+
+    def test_admin_set_config(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        value = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('maas/'),
+            {
+                'op': 'set_config',
+                'name': name,
+                'value': value,
+            })
+
+        self.assertEqual(httplib.OK, response.status_code)
+        stored_value = Config.objects.get_config(name)
+        self.assertEqual(stored_value, value)
+
+
+class APIErrorsTest(APIv10TestMixin, TransactionTestCase):
+
+    def test_internal_error_generate_proper_api_response(self):
+        error_message = factory.getRandomString()
+
+        # Monkey patch api.create_node to have it raise a RuntimeError.
+        def raise_exception(*args, **kwargs):
+            raise RuntimeError(error_message)
+        self.patch(api, 'create_node', raise_exception)
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'new'})
+
+        self.assertEqual(
+            (httplib.INTERNAL_SERVER_ERROR, error_message),
+            (response.status_code, response.content))
+
+    def test_Node_post_save_error_rollbacks_transaction(self):
+        # If post_save raises an exception after a Node is added, the
+        # whole transaction is rolledback.
+        error_message = factory.getRandomString()
+
+        def raise_exception(*args, **kwargs):
+            raise RuntimeError(error_message)
+        post_save.connect(raise_exception, sender=Node)
+        self.addCleanup(post_save.disconnect, raise_exception, sender=Node)
+
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        hostname = factory.getRandomString()
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'new',
+            'hostname': hostname,
+            'architecture': architecture,
+            'after_commissioning_action': '2',
+            'mac_addresses': ['aa:bb:cc:dd:ee:ff'],
+        })
+
+        self.assertEqual(
+            (httplib.INTERNAL_SERVER_ERROR, error_message),
+            (response.status_code, response.content))
+        self.assertRaises(
+            Node.DoesNotExist, Node.objects.get, hostname=hostname)

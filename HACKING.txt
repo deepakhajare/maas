@@ -1,13 +1,15 @@
+.. -*- mode: rst -*-
+
 ************
-Hacking MaaS
+Hacking MAAS
 ************
 
 
 Coding style
 ============
 
-MaaS follows the `Launchpad Python Style Guide`_, except where it gets
-Launchpad specific, and where it talks about `method naming`_. MaaS
+MAAS follows the `Launchpad Python Style Guide`_, except where it gets
+Launchpad specific, and where it talks about `method naming`_. MAAS
 instead adopts `PEP-8`_ naming in all cases, so method names should
 usually use the ``lowercase_with_underscores`` form.
 
@@ -24,22 +26,34 @@ usually use the ``lowercase_with_underscores`` form.
 Prerequisites
 =============
 
-You will need to manually install Postgres 9.1 (postgresql-9.1 and
-libpq-dev), RabbitMQ (rabbitmq-server), python-dev, daemontools, and
-make::
+You will need to manually install Postgres 9.1, RabbitMQ, python-dev,
+avahi-daemon and make::
 
-    $ sudo apt-get install postgresql-9.1 libpq-dev rabbitmq-server
-    $ sudo apt-get install python-dev daemontools make
+    $ sudo apt-get install postgresql-9.1 rabbitmq-server python-dev \
+        avahi-daemon daemontools make
 
 Also, you might want to install Bazaar (``bzr``) to grab the source
 code directly from Launchpad::
 
     $ sudo apt-get install bzr
 
-If you intend to run the test suite, you also need libxslt1-dev, libxml2-dev,
-xvfb and firefox::
+This is the list of runtime dependencies that you'll need to install::
 
-    $ sudo apt-get install libxslt1-dev libxml2-dev xvfb firefox
+    $ sudo apt-get install python-django python-django-piston \
+        python-django-south python-twisted python-txamqp python-amqplib \
+        python-formencode python-oauth python-oops python-oops-datedir-repo \
+        python-twisted python-oops-wsgi python-oops-twisted \
+        python-psycopg2 python-yaml python-convoy python-django-south \
+        python-avahi python-dbus
+
+Additionally, you need to install the following python libraries
+for development convenience::
+
+    $ sudo apt-get install python-sphinx python-lxml
+
+If you intend to run the test suite, you also need xvfb and firefox::
+
+    $ sudo apt-get install xvfb firefox avahi-utils
 
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
@@ -51,7 +65,7 @@ when buildout runs.
 First time using buildout?
 ==========================
 
-Buildout is used to develop MaaS. Buildout, if configured so, can
+Buildout is used to develop MAAS. Buildout, if configured so, can
 cache downloaded files and built eggs. If you've not already done
 something similar, the following snippet will massively improve build
 times::
@@ -78,7 +92,40 @@ to reside and run::
     $ bzr branch lp:maas maas && cd maas
 
 
-Development MaaS server setup
+Running tests
+=============
+
+To run the whole suite::
+
+    $ make test
+
+To run tests at a lower level of granularity::
+
+    $ bin/test.maas maasserver.tests.test_api -v
+    $ bin/test.pserv provisioningserver.tests.test_api -v
+
+The test runner is `nose`_, so you can pass in options like
+``--with-coverage`` and ``--nocapture`` (short option: ``-s``). The
+latter is essential when using ``pdb`` so that stdout is not
+adulterated.
+
+.. _nose: http://readthedocs.org/docs/nose/en/latest/
+
+
+Running tests with a real Cobbler
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once you have a Cobbler instance running somewhere there are some
+tests that can be run against it::
+
+    $ PSERV_TEST_COBBLER_URL=http://user:pass@localhost/cobbler_api \
+        bin/test.pserv provisioningserver.tests.test_api
+
+Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
+tests will modify your Cobbler database.
+
+
+Development MAAS server setup
 =============================
 
 Access to the database is configured in ``src/maas/development.py``.
@@ -101,10 +148,16 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler, and import at least one distro and profile::
+Install Cobbler, and install the preseed files and snippets::
 
     $ sudo apt-get install apache2 cobbler
-    $ sudo cobbler-ubuntu-import precise-i386  # For example.
+    $ sudo cp contrib/preseeds/* /var/lib/cobbler/kickstarts/
+    $ sudo cp contrib/snippets/* /var/lib/cobbler/snippets/
+
+Now run ``maas-import-isos`` to download Ubuntu precise and create the
+necessary MAAS profiles::
+
+    $ sudo ./scripts/maas-import-isos
 
 Add yourself as a user in Cobbler. For convenience, give yourself the
 password ``test``::
@@ -120,7 +173,7 @@ Run the development webserver::
 
     $ make run
 
-Point your browser to http://localhost:8000/
+Point your browser to http://localhost:5240/
 
 If you've populated your instance with the sample data, you can login as a
 simple user using the test account (username: 'test', password: 'test') or the
@@ -132,12 +185,92 @@ your branch::
     $ make distclean
 
 
+Adding new dependencies
+=======================
+
+Since MAAS is distributed mainly as Ubuntu package, all runtime dependencies
+should be packaged and we should develop with the packaged version if
+possible. You'll need to add the dependency to the
+``allowed-eggs-from-site-packages`` option in the ``buildout.cfg`` file. You
+also need to add it to setup.py (And don't forget to add the version to
+``versions.cfg`` as we run with ``allowed-picked-version`` set to false.)
+
+If it is a development-only dependency (i.e. only needed for the test suite, or
+for developers' convenience), simply running ``buildout`` like this will make
+the necessary updates to ``versions.cfg``::
+
+    $ ./bin/buildout -v buildout:allow-picked-versions=true
+
+
 Adding new source files
 =======================
 
 When creating a new source file, a Python module or test for example,
 always start with the appropriate template from the ``templates``
 directory.
+
+
+Database schema changes
+=======================
+
+MAAS uses South_ to manage changes to the database schema.
+
+.. _South: http://south.aeracode.org
+
+Be sure to have a look at `South's documentation`_ before you make any change.
+
+.. _South's documentation: http://south.aeracode.org/docs/
+
+
+Changing the schema
+^^^^^^^^^^^^^^^^^^^
+
+Once you've made a change to ``src/<application>/models.py`` you have to run  
+South's `schemamigration`_ command to create a migration file that will be
+stored in ``src/<application>/migrations/``.
+
+.. _schemamigration: http://south.aeracode.org/docs/commands.html#schemamigration
+
+For instance if you're making changes to ``src/maasserver/models.py``, you
+will need to run::
+
+    $ ./bin/maas schemamigration maasserver --auto description_of_the_change
+
+This will generate a migration module named
+``src/maasserver/migrations/<auto_number>_description_of_the_change.py``.  Don't
+forget to add that file to the project with::
+
+    $ bzr add \
+        src/maasserver/migrations/<auto_number>_description_of_the_change.py
+
+To apply that migration, run::
+
+    $ make syncdb
+
+
+Performing data migration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you need to perform data migration, very much in the same way, you will need
+to run South's `datamigration`_ command.  For instance, if you want to perform
+changes to the ``maasserver`` application, run::
+
+    $ ./bin/maas datamigration maasserver --auto description_of_the_change
+
+.. _datamigration: http://south.aeracode.org/docs/commands.html#datamigration
+
+This will generate a migration module named
+``src/maasserver/migrations/<auto_number>_description_of_the_change.py``.
+You will need to edit that file and fill the ``forwards`` and ``backwards``
+methods where data should be actually migrated. Again, don't forget to
+add that file to the project::
+
+    $ bzr add \
+        src/maasserver/migrations/<auto_number>_description_of_the_change.py
+
+Once the methods have been written, apply that migration with::
+
+    $ make syncdb
 
 
 Documentation
@@ -150,3 +283,28 @@ documentation`_.
 
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
+
+
+Acceptance tests
+================
+
+MAAS uses `Checkbox`_ to verify features are implemented according to
+the spec. They can be found in the `official checkbox repository`_, in
+the ``jobs/`` directory.
+
+.. _Checkbox: https://wiki.ubuntu.com/Testing/Automation/Checkbox
+
+.. _official checkbox repository:
+  https://code.launchpad.net/~nskaggs/checkbox/checkbox-app-testing-qt
+
+You need to install additional QT dependencies::
+
+    $ sudo apt-get install libqt4-dev qt4-qmake
+
+Get a copy of the checkbox repository::
+
+    $ bzr branch lp:~nskaggs/checkbox/checkbox-app-testing-qt
+
+To run them, move into the branch directory and run::
+
+    $ bin/checbox-app-testing --whitelist-file=
