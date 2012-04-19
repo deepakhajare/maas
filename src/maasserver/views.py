@@ -51,8 +51,10 @@ from django.contrib.auth.views import (
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import (
+    Http404,
     HttpResponse,
     HttpResponseBadRequest,
+    HttpResponseForbidden,
     HttpResponseNotFound,
     HttpResponseRedirect,
     )
@@ -110,6 +112,63 @@ def login(request):
 def logout(request):
     messages.info(request, "You have been logged out.")
     return dj_logout(request, next_page=reverse('login'))
+
+
+class HelpfulDeleteView(DeleteView):
+    """Extension to Django's :class:`django.views.generic.DeleteView`.
+
+    This modifies `DeleteView` in a few ways:
+     - Deleting a nonexistent object is successful.
+     - There's a callback that lets you describe the object to the user.
+     - User feedback is built in.
+     - get_success_url defaults to returning the "next" URL.
+
+    :ivar type_description: A name for the type of object that's being
+        deleted.  This gets included in user feedback text like
+        "<Object> deleted" and "<Object> not found."
+    """
+
+    # Override this for your concrete view type.
+    type_description = "Object"
+
+    def delete(self, *args, **kwargs):
+        """Delete result of self.get_object(), if any."""
+        try:
+            self.object = self.get_object()
+        except Http404:
+            self.object = None
+
+        if self.object is not None:
+            self.object.delete()
+        self.set_feedback_message()
+        return HttpResponseRedirect(self.get_success_url())
+
+    def set_feedback_message(self):
+        """Set the confirmation message to be shown to the user.
+
+        If the object did not exist, `self.object` is None.
+        """
+        if self.object is None:
+            notice = "Not deleted: %s not found." % self.type_description
+        else:
+            notice = "%s deleted." % self.name_object()
+        messages.info(self.request, notice)
+
+    def name_object(self):
+        """Overridable: describe `self.object` to the user.
+
+        The result text will be included in a user notice along the lines of
+        "<Object> deleted."
+
+        This only gets called if self.object is not None.  The object will
+        already have been deleted from the database.  It might return
+        something like "User <self.object.username>".
+        """
+        return self.type_description
+
+    def get_success_url(self):
+        """Forwards to `get_next_url`, if that's all the view has."""
+        return self.get_next_url()
 
 
 # Info message displayed on the node page for COMMISSIONING
@@ -179,11 +238,11 @@ class NodeEdit(UpdateView):
         return reverse('node-view', args=[self.get_object().system_id])
 
 
-class NodeDelete(DeleteView):
+class NodeDelete(HelpfulDeleteView):
 
     template_name = 'maasserver/node_confirm_delete.html'
-
     context_object_name = 'node_to_delete'
+    type_description = "Node"
 
     def get_object(self):
         system_id = self.kwargs.get('system_id', None)
@@ -197,11 +256,9 @@ class NodeDelete(DeleteView):
     def get_next_url(self):
         return reverse('node-list')
 
-    def delete(self, request, *args, **kwargs):
-        node = self.get_object()
-        node.delete()
-        messages.info(request, "Node %s deleted." % node.system_id)
-        return HttpResponseRedirect(self.get_next_url())
+    def name_object(self):
+        """See `HelpfulDeleteView`."""
+        return "Node %s" % self.object.system_id
 
 
 def get_longpoll_context():
@@ -261,21 +318,37 @@ class SSHKeyCreateView(CreateView):
         return reverse('prefs')
 
 
-class SSHKeyDeleteView(DeleteView):
+class NotYourKey(Exception):
+    """Marker exception: Can't delete this SSH key, since it's not yours."""
+
+
+class SSHKeyDeleteView(HelpfulDeleteView):
 
     template_name = 'maasserver/prefs_confirm_delete_sshkey.html'
     context_object_name = 'key'
+    type_description = "SSH key"
 
     def get_object(self):
         keyid = self.kwargs.get('keyid', None)
-        return get_object_or_404(SSHKey, user=self.request.user, id=keyid)
+        key = get_object_or_404(SSHKey, id=keyid)
+        if key.user != self.request.user:
+            raise NotYourKey()
+        return key
 
-    def form_valid(self, form):
-        messages.info(self.request, "SSH key deleted.")
-        return super(SSHKeyDeleteView, self).form_valid(form)
-
-    def get_success_url(self):
+    def get_next_url(self):
         return reverse('prefs')
+
+    def get(self, *args, **kwargs):
+        """Prompt user for confirmation of deletion request."""
+        try:
+            return super(SSHKeyDeleteView, self).get(*args, **kwargs)
+        except Http404:
+            # Key is already gone.  Skip out of the whole deletion.
+            messages.info(self.request, "Key was already deleted.")
+            return HttpResponseRedirect(self.get_next_url())
+        except NotYourKey:
+            return HttpResponseForbidden(
+                "You cannot delete this key; it does not belong to you.")
 
 
 def process_form(request, form_class, redirect_url, prefix,

@@ -487,7 +487,7 @@ class KeyManagementTest(LoggedInTestCase):
         del_link = reverse('prefs-delete-sshkey', args=[key.id])
         response = self.client.get(del_link)
 
-        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_delete_key_GET_nonexistent_key_redirects_to_prefs(self):
         # Deleting a nonexistent key requires no confirmation.  It just
