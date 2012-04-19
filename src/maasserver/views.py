@@ -118,10 +118,11 @@ class HelpfulDeleteView(DeleteView):
     """Extension to Django's :class:`django.views.generic.DeleteView`.
 
     This modifies `DeleteView` in a few ways:
-     - Deleting a nonexistent object is successful.
+     - Deleting a nonexistent object is considered successful.
      - There's a callback that lets you describe the object to the user.
      - User feedback is built in.
      - get_success_url defaults to returning the "next" URL.
+     - Confirmation screen also deals nicely with already-deleted object.
 
     :ivar type_description: A name for the type of object that's being
         deleted.  This gets included in user feedback text like
@@ -140,29 +141,44 @@ class HelpfulDeleteView(DeleteView):
 
         if self.object is not None:
             self.object.delete()
-        self.set_feedback_message()
+        self.set_feedback_message(self.object)
         return HttpResponseRedirect(self.get_success_url())
 
-    def set_feedback_message(self):
-        """Set the confirmation message to be shown to the user.
+    def get(self, *args, **kwargs):
+        """Prompt for confirmation of deletion request in the UI.
 
-        If the object did not exist, `self.object` is None.
+        If the object has been deleted in the meantime, don't bother: just
+        redirect to the success URL and show a notice that the object is no
+        longer there.
         """
-        if self.object is None:
-            notice = "Not deleted: %s not found." % self.type_description
+        try:
+            return super(HelpfulDeleteView, self).get(*args, **kwargs)
+        except Http404:
+            # Object is already gone.  Skip out of the whole deletion.
+            self.set_feedback_message(None)
+            return HttpResponseRedirect(self.get_success_url())
+
+    def set_feedback_message(self, obj=None):
+        """Set the deletion confirmation message to be shown to the user.
+
+        :param obj: The object that's being (or has been) deleted from the
+            database, if any.
+        """
+        if obj is None:
+            notice = "Not deleting: %s not found." % self.type_description
         else:
-            notice = "%s deleted." % self.name_object()
+            notice = "%s deleted." % self.name_object(obj)
         messages.info(self.request, notice)
 
-    def name_object(self):
-        """Overridable: describe `self.object` to the user.
+    def name_object(self, obj):
+        """Overridable: describe object being deleted to the user.
 
         The result text will be included in a user notice along the lines of
         "<Object> deleted."
 
-        This only gets called if self.object is not None.  The object will
-        already have been deleted from the database.  It might return
-        something like "User <self.object.username>".
+        :param obj: Object that's been deleted from the database.
+        :return: Description of the object, along the lines of
+            "User <obj.username>".
         """
         return self.type_description
 
@@ -256,9 +272,9 @@ class NodeDelete(HelpfulDeleteView):
     def get_next_url(self):
         return reverse('node-list')
 
-    def name_object(self):
+    def name_object(self, obj):
         """See `HelpfulDeleteView`."""
-        return "Node %s" % self.object.system_id
+        return "Node %s" % obj.system_id
 
 
 def get_longpoll_context():
@@ -342,10 +358,6 @@ class SSHKeyDeleteView(HelpfulDeleteView):
         """Prompt user for confirmation of deletion request."""
         try:
             return super(SSHKeyDeleteView, self).get(*args, **kwargs)
-        except Http404:
-            # Key is already gone.  Skip out of the whole deletion.
-            messages.info(self.request, "Key was already deleted.")
-            return HttpResponseRedirect(self.get_next_url())
         except NotYourKey:
             return HttpResponseForbidden(
                 "You cannot delete this key; it does not belong to you.")
