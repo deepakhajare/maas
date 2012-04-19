@@ -4,6 +4,7 @@
 """Test maasserver models."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -554,7 +555,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             nodes[1],
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': nodes[1].system_id}))
+                user, {'name': nodes[1].hostname}))
 
     def test_get_available_node_returns_None_if_name_is_unknown(self):
         user = factory.make_user()

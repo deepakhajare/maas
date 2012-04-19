@@ -4,6 +4,7 @@
 """Custom test-case classes."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -16,6 +17,7 @@ __all__ = [
     'TestModelTestCase',
     ]
 
+from django.core.cache import cache
 from maasserver.testing import reset_fake_provisioning_api_proxy
 from maasserver.testing.factory import factory
 import maastesting.testcase
@@ -25,6 +27,7 @@ class TestCase(maastesting.testcase.TestCase):
 
     def setUp(self):
         super(TestCase, self).setUp()
+        self.addCleanup(cache.clear)
         self.addCleanup(reset_fake_provisioning_api_proxy)
 
 

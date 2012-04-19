@@ -4,6 +4,7 @@
 """Views."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -60,6 +61,7 @@ from django.shortcuts import (
     render_to_response,
     )
 from django.template import RequestContext
+from django.utils.safestring import mark_safe
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -110,6 +112,17 @@ def logout(request):
     return dj_logout(request, next_page=reverse('login'))
 
 
+# Info message displayed on the node page for COMMISSIONING
+# or READY nodes.
+NODE_BOOT_INFO = mark_safe("""
+You can boot this node using Avahi enabled boot media or an
+adequately configured dhcp server, see
+<a href="https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot">
+https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot</a> for
+details.
+""")
+
+
 class NodeView(UpdateView):
 
     template_name = 'maasserver/node_view.html'
@@ -133,6 +146,12 @@ class NodeView(UpdateView):
             NODE_PERMISSION.EDIT, node)
         context['can_delete'] = self.request.user.has_perm(
             NODE_PERMISSION.ADMIN, node)
+        if node.status in (NODE_STATUS.COMMISSIONING, NODE_STATUS.READY):
+            messages.info(self.request, NODE_BOOT_INFO)
+        context['error_text'] = (
+            node.error if node.status == NODE_STATUS.FAILED_TESTS else None)
+        context['status_text'] = (
+            node.error if node.status != NODE_STATUS.FAILED_TESTS else None)
         return context
 
     def get_success_url(self):

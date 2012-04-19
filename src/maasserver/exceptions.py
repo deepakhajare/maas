@@ -4,12 +4,14 @@
 """Exceptions."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
 
 __metaclass__ = type
 __all__ = [
+    "ExternalComponentException",
     "MAASException",
     "MAASAPIBadRequest",
     "MAASAPIException",
@@ -41,6 +43,10 @@ class MAASAPIException(Exception):
 
     """
     api_error = httplib.INTERNAL_SERVER_ERROR
+
+
+class ExternalComponentException(MAASAPIException):
+    """An external component failed."""
 
 
 class MAASAPIBadRequest(MAASAPIException):

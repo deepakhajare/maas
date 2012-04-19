@@ -4,6 +4,7 @@
 """Django settings for maas project."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -174,6 +175,12 @@ STATICFILES_DIRS = (
     # Don't forget to use absolute paths, not relative paths.
 )
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # List of finder classes that know how to find static files in
 # various locations.
 STATICFILES_FINDERS = (
@@ -208,7 +215,12 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # ErrorsMiddleware catches ExternalComponentException and redirects.
+    # Specialised error handling middleware (like APIErrorsMiddleware)
+    # should be placed after it.
+    'maasserver.middleware.ErrorsMiddleware',
     'maasserver.middleware.APIErrorsMiddleware',
+    'maasserver.middleware.ExternalComponentsMiddleware',
     'metadataserver.middleware.MetadataErrorsMiddleware',
     'django.middleware.transaction.TransactionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -256,6 +268,9 @@ LOGGING = {
 # The location of the Provisioning API XML-RPC endpoint.  This should
 # match the setting in etc/pserv.yaml.
 PSERV_URL = "http://%s:test@localhost:5241/api" % getuser()
+
+# Time-out for socket operations against the Provisioning API.
+PSERV_TIMEOUT = 7.0  # seconds.
 
 # Use a real provisioning server?  If yes, the URL for the provisioning
 # server's API should be set in PSERV_URL.  If this is set to False, for

@@ -4,6 +4,7 @@
 """MAAS model objects."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -386,7 +387,7 @@ class NodeManager(models.Manager):
 
         if constraints.get('name'):
             available_nodes = available_nodes.filter(
-                system_id=constraints['name'])
+                hostname=constraints['name'])
 
         available_nodes = list(available_nodes[:1])
         if len(available_nodes) == 0:
@@ -1066,7 +1067,7 @@ class FileStorage(models.Model):
 
     # Unix filenames can be longer than this (e.g. 255 bytes), but leave
     # some extra room for the full path, as well as a versioning suffix.
-    filename = models.CharField(max_length=100, unique=True, editable=False)
+    filename = models.CharField(max_length=200, unique=True, editable=False)
     data = models.FileField(
         upload_to=upload_dir, storage=storage, max_length=255)
 

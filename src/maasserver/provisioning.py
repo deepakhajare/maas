@@ -4,18 +4,22 @@
 """Interact with the Provisioning API."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
 
 __metaclass__ = type
 __all__ = [
+    'check_profiles',
     'get_provisioning_api_proxy',
+    'get_all_profile_names',
     'present_detailed_user_friendly_fault',
     'ProvisioningProxy',
     ]
 
 from functools import partial
+import itertools
 from logging import getLogger
 from textwrap import dedent
 from urllib import urlencode
@@ -28,13 +32,15 @@ from django.db.models.signals import (
     post_save,
     )
 from django.dispatch import receiver
+from django.utils.safestring import mark_safe
 from maasserver.components import (
     COMPONENT,
     discard_persistent_error,
     register_persistent_error,
     )
-from maasserver.exceptions import MAASAPIException
+from maasserver.exceptions import ExternalComponentException
 from maasserver.models import (
+    ARCHITECTURE_CHOICES,
     Config,
     MACAddress,
     Node,
@@ -142,7 +148,7 @@ def _present_user_friendly_fault(fault, presentations):
     if user_friendly_text is None:
         return None
     else:
-        return MAASAPIException(dedent(
+        return ExternalComponentException(dedent(
             user_friendly_text.lstrip('\n') % params))
 
 
@@ -181,6 +187,7 @@ METHOD_COMPONENTS = {
     'add_node': [COMPONENT.PSERV, COMPONENT.COBBLER, COMPONENT.IMPORT_ISOS],
     'modify_nodes': [COMPONENT.PSERV, COMPONENT.COBBLER],
     'delete_nodes_by_name': [COMPONENT.PSERV, COMPONENT.COBBLER],
+    'get_profiles_by_name': [COMPONENT.PSERV, COMPONENT.COBBLER],
 }
 
 # A mapping exception -> component.
@@ -233,13 +240,9 @@ class ProvisioningCaller:
         self.method_name = method_name
         self.method = method
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args):
         try:
-            result = self.method(*args, **kwargs)
-            # The call was a success, discard persistent errors for
-            # components referenced by this method.
-            register_working_components(self.method_name)
-            return result
+            result = self.method(*args)
         except xmlrpclib.Fault as e:
             # Register failing component.
             register_failing_component(e)
@@ -249,6 +252,11 @@ class ProvisioningCaller:
                 raise
             else:
                 raise friendly_fault
+        else:
+            # The call was a success, discard persistent errors for
+            # components referenced by this method.
+            register_working_components(self.method_name)
+            return result
 
 
 class ProvisioningProxy:
@@ -262,18 +270,32 @@ class ProvisioningProxy:
     def __init__(self, xmlrpc_proxy):
         self.proxy = xmlrpc_proxy
 
-    def patch(self, method, replacement):
-        setattr(self.proxy, method, replacement)
-
     def __getattr__(self, attribute_name):
         """Return a wrapped version of the requested method."""
         attribute = getattr(self.proxy, attribute_name)
-        if getattr(attribute, '__call__', None) is None:
-            # This is a regular attribute.  Return it as-is.
-            return attribute
-        else:
+        if callable(attribute):
             # This attribute is callable.  Wrap it in a caller.
             return ProvisioningCaller(attribute_name, attribute)
+        else:
+            # This is a regular attribute.  Return it as-is.
+            return attribute
+
+
+class ProvisioningTransport(xmlrpclib.Transport):
+    """An XML-RPC transport that sets a low socket timeout."""
+
+    @property
+    def timeout(self):
+        return settings.PSERV_TIMEOUT
+
+    def make_connection(self, host):
+        """See `xmlrpclib.Transport.make_connection`.
+
+        This also sets the desired socket timeout.
+        """
+        connection = xmlrpclib.Transport.make_connection(self, host)
+        connection.timeout = self.timeout
+        return connection
 
 
 def get_provisioning_api_proxy():
@@ -286,8 +308,9 @@ def get_provisioning_api_proxy():
     if settings.USE_REAL_PSERV:
         # Use a real provisioning server.  This requires PSERV_URL to be
         # set.
+        xmlrpc_transport = ProvisioningTransport(use_datetime=True)
         xmlrpc_proxy = xmlrpclib.ServerProxy(
-            settings.PSERV_URL, allow_none=True, use_datetime=True)
+            settings.PSERV_URL, transport=xmlrpc_transport, allow_none=True)
     else:
         # Create a fake.  The code that provides the testing fake is not
         # available in an installed production system, so import it only
@@ -399,14 +422,55 @@ def name_arch_in_cobbler_style(architecture):
     return conversions.get(architecture, architecture)
 
 
+def check_profiles():
+    """Check that Cobbler has profiles defined for all the profiles used by
+    MAAS.  If a profile is missing, display a persistent error with an invite
+    to run the maas-import-isos script.
+    """
+    all_profiles = get_all_profile_names()
+    papi = get_provisioning_api_proxy()
+    existing_profiles = set(papi.get_profiles_by_name(all_profiles))
+    missing_profiles = set(all_profiles) - existing_profiles
+    if len(missing_profiles) != 0:
+        # Some profiles are missing: display a persistent component
+        # error.
+        register_persistent_error(
+            COMPONENT.IMPORT_ISOS,
+            mark_safe(
+                """
+                Some of the required system profiles are missing.
+                Run the maas-import-isos script to import Ubuntu isos and
+                create the related profiles:
+                <pre>sudo maas-import-isos</pre>
+                """))
+
+
+def get_all_profile_names():
+    """Return all the names of the profiles used by MAAS."""
+    architectures = {arch[0] for arch in ARCHITECTURE_CHOICES}
+    commissioning = {True, False}
+    product = itertools.product(architectures, commissioning)
+    profiles = [
+        get_profile_name(architecture, commissioning)
+        for architecture, commissioning in product]
+    return profiles
+
+
+def get_profile_name(architecture, commissioning=False):
+    """Return the profile name for a given architecture and whether the node
+    is commissioning or not."""
+    cobbler_arch = name_arch_in_cobbler_style(architecture)
+    profile = "maas-%s-%s" % ("precise", cobbler_arch)
+    if commissioning:
+        profile += "-commissioning"
+    return profile
+
+
 def select_profile_for_node(node):
     """Select which profile a node should be configured for."""
     assert node.architecture, "Node's architecture is not known."
-    cobbler_arch = name_arch_in_cobbler_style(node.architecture)
-    profile = "maas-%s-%s" % ("precise", cobbler_arch)
-    if node.status == NODE_STATUS.COMMISSIONING:
-        profile += "-commissioning"
-    return profile
+    commissioning = node.status == NODE_STATUS.COMMISSIONING
+    return get_profile_name(node.architecture, commissioning)
 
 
 @receiver(post_save, sender=Node)
@@ -429,13 +493,10 @@ def provision_post_save_Node(sender, instance, created, **kwargs):
     # all other statuses... with one exception; retired nodes are never
     # netbooted.
     if instance.status != NODE_STATUS.ALLOCATED:
-        deltas = {
-            instance.system_id: {
-                "netboot_enabled":
-                    instance.status != NODE_STATUS.RETIRED,
-                }
-            }
-        papi.modify_nodes(deltas)
+        netboot_enabled = instance.status not in (
+            NODE_STATUS.DECLARED, NODE_STATUS.RETIRED)
+        delta = {"netboot_enabled": netboot_enabled}
+        papi.modify_nodes({instance.system_id: delta})
 
 
 def set_node_mac_addresses(node):

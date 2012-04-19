@@ -4,6 +4,7 @@
 """Test maasserver API."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -15,6 +16,7 @@ from collections import namedtuple
 import httplib
 import os
 import urllib2
+from urlparse import urlparse
 from xmlrpclib import Fault
 
 from django.conf import settings
@@ -29,10 +31,14 @@ from maasserver import (
     views,
     )
 from maasserver.components import register_persistent_error
-from maasserver.exceptions import NoRabbit
+from maasserver.exceptions import (
+    ExternalComponentException,
+    NoRabbit,
+    )
 from maasserver.forms import NodeActionForm
 from maasserver.models import (
     Config,
+    Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     POWER_TYPE_CHOICES,
@@ -56,6 +62,7 @@ from maasserver.urls import (
 from maasserver.views import (
     get_longpoll_context,
     get_yui_location,
+    NodeEdit,
     proxy_to_longpoll,
     )
 from maastesting.rabbit import uses_rabbit_fixture
@@ -501,10 +508,10 @@ class AdminLoggedInTestCase(LoggedInTestCase):
         self.logged_in_user.save()
 
 
-def get_content_links(response):
-    """Extract links from :class:`HttpResponse` HTML body."""
+def get_content_links(response, element='#content'):
+    """Extract links from :class:`HttpResponse` #content element."""
     doc = fromstring(response.content)
-    [content_node] = doc.cssselect('#content')
+    [content_node] = doc.cssselect(element)
     return [elem.get('href') for elem in content_node.cssselect('a')]
 
 
@@ -575,6 +582,20 @@ class NodeViewsTest(LoggedInTestCase):
         response = self.client.get(node_delete_link)
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def test_view_node_shows_message_for_commissioning_node(self):
+        statuses_with_message = (
+            NODE_STATUS.READY, NODE_STATUS.COMMISSIONING)
+        help_link = "https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot"
+        for status in map_enum(NODE_STATUS).values():
+            node = factory.make_node(status=status)
+            node_link = reverse('node-view', args=[node.system_id])
+            response = self.client.get(node_link)
+            links = get_content_links(response, '#flash-messages')
+            if status in statuses_with_message:
+                self.assertIn(help_link, links)
+            else:
+                self.assertNotIn(help_link, links)
+
     def test_view_node_shows_link_to_delete_node_for_admin(self):
         self.become_admin()
         node = factory.make_node()
@@ -589,7 +610,7 @@ class NodeViewsTest(LoggedInTestCase):
         node_delete_link = reverse('node-delete', args=[node.system_id])
         response = self.client.post(node_delete_link, {'post': 'yes'})
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertFalse(User.objects.filter(id=node.id).exists())
+        self.assertFalse(Node.objects.filter(id=node.id).exists())
 
     def test_allocated_node_view_page_says_node_cannot_be_deleted(self):
         self.become_admin()
@@ -670,15 +691,30 @@ class NodeViewsTest(LoggedInTestCase):
 
         self.assertEqual(0, len(doc.cssselect('form#node_actions input')))
 
-    def test_view_node_shows_error_if_set(self):
+    def test_view_node_shows_console_output_if_error_set(self):
+        # When node.error is set but the node's status does not indicate an
+        # error condition, the contents of node.error are displayed as console
+        # output.
         node = factory.make_node(
-            owner=self.logged_in_user, error=factory.getRandomString())
+            owner=self.logged_in_user, error=factory.getRandomString(),
+            status=NODE_STATUS.READY)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
-        doc = fromstring(response.content)
-        content_text = doc.cssselect('#content')[0].text_content()
-        self.assertIn("Error output", content_text)
-        self.assertIn(node.error, content_text)
+        console_output = fromstring(response.content).xpath(
+            '//h4[text()="Console output"]/following-sibling::span/text()')
+        self.assertEqual([node.error], console_output)
+
+    def test_view_node_shows_error_output_if_error_set(self):
+        # When node.error is set and the node's status indicates an error
+        # condition, the contents of node.error are displayed as error output.
+        node = factory.make_node(
+            owner=self.logged_in_user, error=factory.getRandomString(),
+            status=NODE_STATUS.FAILED_TESTS)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        error_output = fromstring(response.content).xpath(
+            '//h4[text()="Error output"]/following-sibling::span/text()')
+        self.assertEqual([node.error], error_output)
 
     def test_view_node_shows_no_error_if_no_error_set(self):
         node = factory.make_node(owner=self.logged_in_user)
@@ -716,8 +752,8 @@ class NodeViewsTest(LoggedInTestCase):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         response = self.perform_action_and_get_node_page(
             node, "Accept & commission")
-        self.assertEqual(
-            ["Node commissioning started."],
+        self.assertIn(
+            "Node commissioning started.",
             [message.message for message in response.context['messages']])
 
     def test_start_node_from_ready_displays_message(self):
@@ -725,8 +761,8 @@ class NodeViewsTest(LoggedInTestCase):
             status=NODE_STATUS.READY, owner=self.logged_in_user)
         response = self.perform_action_and_get_node_page(
             node, "Start node")
-        self.assertEqual(
-            ["Node started."],
+        self.assertIn(
+            "Node started.",
             [message.message for message in response.context['messages']])
 
     def test_start_node_from_allocated_displays_message(self):
@@ -736,6 +772,43 @@ class NodeViewsTest(LoggedInTestCase):
             node, "Start node")
         self.assertEqual(
             ["Node started."],
+            [message.message for message in response.context['messages']])
+
+
+class MAASExceptionHandledInView(LoggedInTestCase):
+
+    def test_raised_MAASException_redirects(self):
+        # When a ExternalComponentException is raised in a POST request, the
+        # response is a redirect to the same page.
+
+        # Patch NodeEdit to error on post.
+        def post(self, request, *args, **kwargs):
+            raise ExternalComponentException()
+        self.patch(NodeEdit, 'post', post)
+        node = factory.make_node(owner=self.logged_in_user)
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        response = self.client.post(node_edit_link, {})
+        redirect_url = urlparse(response['Location']).path
+        self.assertEqual(
+            (httplib.FOUND, redirect_url),
+            (response.status_code, node_edit_link))
+
+    def test_raised_ExternalComponentException_publishes_message(self):
+        # When a ExternalComponentException is raised in a POST request, a
+        # message is published with the error message.
+        error_message = factory.getRandomString()
+
+        # Patch NodeEdit to error on post.
+        def post(self, request, *args, **kwargs):
+            raise ExternalComponentException(error_message)
+        self.patch(NodeEdit, 'post', post)
+        node = factory.make_node(owner=self.logged_in_user)
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        self.client.post(node_edit_link, {})
+        # Manually perform the redirect: i.e. get the same page.
+        response = self.client.get(node_edit_link, {})
+        self.assertEqual(
+            [error_message],
             [message.message for message in response.context['messages']])
 
 

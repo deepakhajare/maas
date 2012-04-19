@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     "AccessMiddleware",
     "APIErrorsMiddleware",
+    "ErrorsMiddleware",
     "ExceptionMiddleware",
     ]
 
@@ -25,6 +27,8 @@ import logging
 import re
 
 from django.conf import settings
+from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -37,7 +41,10 @@ from django.http import (
     HttpResponseRedirect,
     )
 from django.utils.http import urlquote_plus
-from maasserver.exceptions import MAASAPIException
+from maasserver.exceptions import (
+    ExternalComponentException,
+    MAASAPIException,
+    )
 
 
 def get_relative_path(path):
@@ -92,6 +99,47 @@ class AccessMiddleware:
                     settings.LOGIN_URL, urlquote_plus(request.path)))
             else:
                 return None
+
+
+PROFILES_CHECK_DONE_KEY = 'profile-check-done'
+
+# The profiles check done by check_profiles_cached is only done at most once
+# every PROFILE_CHECK_DELAY seconds for efficiency.
+PROFILE_CHECK_DELAY = 2 * 60
+
+
+def check_profiles_cached():
+    """Check Cobbler's profiles. The check is actually done at most once every
+    PROFILE_CHECK_DELAY seconds for performance reasons.
+    """
+    # Avoid circular imports.
+    from maasserver.provisioning import check_profiles
+    if not cache.get(PROFILES_CHECK_DONE_KEY, False):
+        # Mark the profile check as done beforehand as the actual check
+        # might raise an exception.
+        cache.set(PROFILES_CHECK_DONE_KEY, True, PROFILE_CHECK_DELAY)
+        check_profiles()
+
+
+def clear_profiles_check_cache():
+    """Force a profile check next time the MAAS server is accessed."""
+    cache.delete(PROFILES_CHECK_DONE_KEY)
+
+
+class ExternalComponentsMiddleware:
+    """This middleware performs checks for external components (right
+    now only Cobbler is checked) at regular intervals.
+    """
+    def process_request(self, request):
+        # This middleware hijacks the request to perform checks.  Any
+        # error raised during these checks should be caught to avoid
+        # disturbing the handling of the request.  Proper error reporting
+        # should be handled in the check method itself.
+        try:
+            check_profiles_cached()
+        except Exception:
+            pass
+        return None
 
 
 class ExceptionMiddleware:
@@ -161,6 +209,24 @@ class APIErrorsMiddleware(ExceptionMiddleware):
     """Report exceptions from API requests as HTTP error responses."""
 
     path_regex = settings.API_URL_REGEXP
+
+
+class ErrorsMiddleware:
+    """Handle ExternalComponentException exceptions in POST requests: add a
+    message with the error string and redirect to the same page (using GET).
+    """
+
+    def process_exception(self, request, exception):
+        should_process_exception = (
+            request.method == 'POST' and
+            isinstance(exception, ExternalComponentException))
+        if should_process_exception:
+            messages.error(request, unicode(exception))
+            return HttpResponseRedirect(request.path)
+        else:
+            # Not an ExternalComponentException or not a POST request: do not
+            # handle it.
+            return None
 
 
 class ExceptionLoggerMiddleware:
