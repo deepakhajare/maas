@@ -482,21 +482,45 @@ class KeyManagementTest(LoggedInTestCase):
             [elem.get('action').strip() for elem in doc.cssselect(
                 '#content form')])
 
-    def test_delete_key_GET_cannot_access_someoneelses_key(self):
+    def test_delete_key_GET_cannot_access_someone_elses_key(self):
         key = factory.make_sshkey(factory.make_user())
         del_link = reverse('prefs-delete-sshkey', args=[key.id])
         response = self.client.get(del_link)
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
+    def test_delete_key_GET_nonexistent_key_redirects_to_prefs(self):
+        # Deleting a nonexistent key requires no confirmation.  It just
+        # "succeeds" instantaneously.
+        key = factory.make_sshkey(self.logged_in_user)
+        del_link = reverse('prefs-delete-sshkey', args=[key.id])
+        key.delete()
+        response = self.client.get(del_link)
+        self.assertEqual(
+            (httplib.FOUND, '/account/prefs/'),
+            (response.status_code, urlparse(response['Location']).path))
+
     def test_delete_key_POST(self):
-        # A POST request deletes the key.
+        # A POST request deletes the key, and redirects to the prefs.
         key = factory.make_sshkey(self.logged_in_user)
         del_link = reverse('prefs-delete-sshkey', args=[key.id])
         response = self.client.post(del_link, {'post': 'yes'})
 
-        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            (httplib.FOUND, '/account/prefs/'),
+            (response.status_code, urlparse(response['Location']).path))
         self.assertFalse(SSHKey.objects.filter(id=key.id).exists())
+
+    def test_delete_key_POST_ignores_nonexistent_key(self):
+        # Deleting a key that's already been deleted?  Basically that's
+        # success.
+        key = factory.make_sshkey(self.logged_in_user)
+        del_link = reverse('prefs-delete-sshkey', args=[key.id])
+        key.delete()
+        response = self.client.post(del_link, {'post': 'yes'})
+        self.assertEqual(
+            (httplib.FOUND, '/account/prefs/'),
+            (response.status_code, urlparse(response['Location']).path))
 
 
 class AdminLoggedInTestCase(LoggedInTestCase):
