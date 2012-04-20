@@ -9,9 +9,9 @@ Service names should be provided on the command-line.
 
 If a service name is preceded by a "+" (plus) it is started in the
 foreground. For example, to start the `pserv` and `txlongpoll` services in the
-background and `web` in the foreground:
+background and `webapp` in the foreground:
 
-  $ services/run pserv txlongpoll +web
+  $ services/run pserv txlongpoll +webapp
 
 It does not matter if a service name appears twice in the list. If the service
 name appears once with a preceding "+" and once without, the "+" one takes

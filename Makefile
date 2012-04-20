@@ -124,14 +124,14 @@ endef
 # Development services.
 #
 
-service_names := pserv reloader txlongpoll web
+service_names := pserv reloader txlongpoll web webapp
 services := $(patsubst %,services/%/,$(service_names))
 
 run:
 	@services/run $(service_names)
 
-run+web:
-	@services/run $(service_names) +web
+runui+webapp:
+	@services/run $(service_names) +webapp
 
 start: $(addsuffix @start,$(services))
 
@@ -148,7 +148,7 @@ supervise: $(addsuffix @supervise,$(services))
 define phony_services_targets
   restart
   run
-  run+web
+  run+webapp
   shutdown
   start
   status
@@ -195,7 +195,9 @@ services/reloader/@deps:
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
-services/web/@deps: bin/maas dev-db
+services/web/@deps:
+
+services/webapp/@deps: bin/maas dev-db
 
 #
 # Phony stuff.

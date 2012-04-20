@@ -16,6 +16,7 @@
 ./media/demo/*
 ./media/development
 ./parts
+./run/*
 ./services/*/supervise
 ./TAGS
 ./tags
