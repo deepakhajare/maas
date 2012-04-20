@@ -154,7 +154,7 @@ endef
 services/%/@run: services/%/@stop services/%/@deps
 	cd services/$* && ./run
 
-services/%/@supervise:
+services/%/@supervise: services/%/@deps
 	@mkdir -p logs/$*
 	@touch $(@D)/down
 	@if ! svok $(@D); then \
@@ -180,7 +180,7 @@ services/web/@deps: bin/maas dev-db
 
 services/pserv/@deps: bin/twistd.pserv
 
-services/reloader/@deps:
+services/reloader/@deps: services/web/@supervise services/pserv/@supervise
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
