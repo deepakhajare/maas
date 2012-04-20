@@ -154,7 +154,7 @@ endef
 
 # Pseudo-magic targets for controlling individual services.
 
-service_lock = setlock -n /var/run/maas.dev.$(firstword $(1))
+service_lock = setlock -n /run/lock/maas.dev.$(firstword $(1))
 
 services/%/@run: services/%/@shutdown services/%/@deps
 	@$(call service_lock, $*) services/$*/run
