@@ -57,6 +57,18 @@ lint: bin/flake8
 	@find $(sources) -name '*.py' ! -path '*/migrations/*' \
 	    -print0 | xargs -r0 bin/flake8
 
+lint-css: sources = src/maasserver/static/css
+lint-css: /usr/bin/pocketlint
+	@find $(sources) -type f \
+	    -print0 | xargs -r0 pocketlint --max-length=120
+
+lint-js: sources = src/maasserver/static/js
+lint-js: /usr/bin/pocketlint
+	@find $(sources) -type f -print0 | xargs -r0 pocketlint
+
+/usr/bin/pocketlint:
+	sudo apt-get install python-pocket-lint
+
 check: clean test
 
 docs/api.rst: bin/maas src/maasserver/api.py syncdb
@@ -137,7 +149,25 @@ services/reloader/@deps:
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
-.PHONY: \
-    build check clean dev-db distclean doc \
-    harness lint run shutdown syncdb test \
-    sampledata start stop status
+define phony
+  build
+  check
+  clean
+  dev-db
+  distclean
+  doc
+  harness
+  lint
+  lint-css
+  lint-js
+  run
+  sampledata
+  shutdown
+  start
+  status
+  stop
+  syncdb
+  test
+endef
+
+.PHONY: $(phony)
