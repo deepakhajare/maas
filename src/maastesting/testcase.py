@@ -14,8 +14,11 @@ __all__ = [
     'TestCase',
     ]
 
+import os.path
 import unittest
 
+from fixtures import TempDir
+from maastesting.factory import factory
 import testresources
 import testtools
 
@@ -45,6 +48,23 @@ class TestCase(testtools.TestCase):
     def tearDownResources(self):
         testresources.tearDownResources(
             self, self.resources, testresources._get_result())
+
+    def make_dir(self):
+        """Create a temporary directory."""
+        return self.useFixture(TempDir()).path
+
+    def make_file(self, location=None, name=None, contents=None):
+        """Create, and write to, a file."""
+        if location is None:
+            location = self.make_dir()
+        if name is None:
+            name = factory.getRandomString()
+        if contents is None:
+            contents = factory.getRandomString().encode('ascii')
+        path = os.path.join(location, name)
+        with open(path, 'w') as f:
+            f.write(contents)
+        return path
 
     # Django's implementation for this seems to be broken and was
     # probably only added to support compatibility with python 2.6.
