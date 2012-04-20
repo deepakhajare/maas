@@ -149,8 +149,14 @@ define phony_services_targets
   supervise
 endef
 
-services/%/@supervise: services/%/@deps
+# Pseudo-magic targets for controlling individual services.
+
+services/%/@run: services/%/@stop services/%/@deps
+	cd services/$* && ./run
+
+services/%/@supervise:
 	@mkdir -p logs/$*
+	@touch $(@D)/down
 	@if ! svok $(@D); then \
 	    logdir=$(PWD)/logs/$* supervise $(@D) & fi
 	@while ! svok $(@D); do sleep 0.1; done
@@ -167,6 +173,8 @@ services/%/@shutdown:
 
 services/%/@status:
 	@svstat $(@D)
+
+# Dependencies for individual services.
 
 services/web/@deps: bin/maas dev-db
 
