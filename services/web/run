@@ -14,13 +14,6 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
-# Load common functions.
-source "services/functions"
-
-# The port should match the port set in etc/txlongpoll.yaml, or be the
-# default port for txlongpoll.
-wait_until_socket_closed "localhost" "5240"
-
 # Exec the MaaS API and Web UI Server.
 script="$(readlink -f bin/maas)"
 exec "${script}" runserver 5240 --settings=maas.demo --noreload
