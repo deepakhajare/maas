@@ -22,4 +22,4 @@ fi
 
 # Exec the MAAS API and Web UI Server.
 script="$(readlink -f bin/maas)"
-exec "${script}" runserver 5240 --settings=maas.demo "$@"
+exec "${script}" runserver 5243 --settings=maas.demo "$@"

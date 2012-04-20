@@ -12,13 +12,27 @@ cd "$(dirname "$0")/../.."
 
 # Start logging, if requested. Not using multilog here right now
 # because there are race issues when restarting.
-[ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
+if [ -n "${logdir:-}" ]
+then
+    logfile="${logdir}/current"
+    exec &>> "${logfile}"
+    set -- "$@" \
+        -c "ErrorLog ${logfile}" \
+        -c "CustomLog ${logfile} common"
+fi
 
 # Exec the Provisioning Server.
 apache="$(type -p apache2)"
 config="$(readlink -f etc/apache.conf)"
 
-start() { fghack "${apache}" -k start -f "${config}" -d "$(pwd)"; }
-stop() { "${apache}" -k stop -f "${config}" -d "$(pwd)"; }
+reload() { "${apache}" -k graceful -f "${config}" -d "$(pwd)"; }
+stop() { "${apache}" -k graceful-stop -f "${config}" -d "$(pwd)"; }
 
-trap stop EXIT && start
+# Run in debug mode unless this is running under supervise(8).
+if [ "/proc/${PPID}/exe" -ef "/usr/bin/supervise" ]
+then
+    trap stop INT HUP && trap reload HUP
+    fghack "${apache}" -k start -f "${config}" -d "$(pwd)" "$@"
+else
+    exec "${apache}" -k start -f "${config}" -d "$(pwd)" "$@" -X
+fi
