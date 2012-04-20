@@ -124,7 +124,7 @@ endef
 # Development services.
 #
 
-services := web pserv reloader txlongpoll
+services := pserv reloader txlongpoll web
 services := $(patsubst %,services/%/,$(services))
 
 run:
@@ -151,8 +151,21 @@ endef
 
 # Pseudo-magic targets for controlling individual services.
 
-services/%/@run: services/%/@stop services/%/@deps
+services/%/@run: services/%/@shutdown services/%/@deps
 	cd services/$* && ./run
+
+services/%/@start: services/%/@supervise
+	@svc -u $(@D)
+
+services/%/@stop: services/%/@supervise
+	@svc -d $(@D)
+
+services/%/@status:
+	@svstat $(@D)
+
+services/%/@shutdown:
+	@if svok $(@D); then svc -dx $(@D); fi
+	@while svok $(@D); do sleep 0.1; done
 
 services/%/@supervise: services/%/@deps
 	@mkdir -p logs/$*
@@ -161,28 +174,15 @@ services/%/@supervise: services/%/@deps
 	    logdir=$(PWD)/logs/$* supervise $(@D) & fi
 	@while ! svok $(@D); do sleep 0.1; done
 
-services/%/@start: services/%/@supervise
-	@svc -u $(@D)
-
-services/%/@stop: services/%/@supervise
-	@svc -d $(@D)
-
-services/%/@shutdown:
-	@if svok $(@D); then svc -dx $(@D); fi
-	@while svok $(@D); do sleep 0.1; done
-
-services/%/@status:
-	@svstat $(@D)
-
 # Dependencies for individual services.
-
-services/web/@deps: bin/maas dev-db
 
 services/pserv/@deps: bin/twistd.pserv
 
 services/reloader/@deps: services/web/@supervise services/pserv/@supervise
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
+
+services/web/@deps: bin/maas dev-db
 
 #
 # Phony stuff.
