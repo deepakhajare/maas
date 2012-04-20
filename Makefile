@@ -155,7 +155,7 @@ endef
 # Pseudo-magic targets for controlling individual services.
 
 services/%/@run: services/%/@shutdown services/%/@deps
-	cd services/$* && ./run
+	@$(PWD)/services/$*/run
 
 services/%/@start: services/%/@supervise
 	@svc -u $(@D)

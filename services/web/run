@@ -8,7 +8,7 @@ set -o errexit
 set -o nounset
 
 # Move to the project root.
-cd ../..
+cd "$(dirname "$0")/../.."
 
 # Start logging, if requested. Not using multilog here right now
 # because there are race issues when restarting.

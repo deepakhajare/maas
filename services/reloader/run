@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # Check everything is hunky-dory.
     self_test()
     # Move to the project root.
-    chdir(path.join(pardir, pardir))
+    chdir(path.join(path.dirname(__file__), pardir, pardir))
     # Start watch src/ for changes.
     wm = pyinotify.WatchManager(
         exclude_filter=lambda path: (
