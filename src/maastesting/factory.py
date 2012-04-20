@@ -73,6 +73,11 @@ class Factory:
 
         :param location: Directory.  Use a temporary directory for this, and
             make sure it gets cleaned up after the test!
+        :param name: Optional name for the file.  If none is given, one will
+            be made up.
+        :param contents: Optional contents for the file.  If omitted, some
+            arbitrary ASCII text will be written.
+        :type contents: unicode, but containing only ASCII characters.
         :return: Path to the file.
         """
         if name is None:

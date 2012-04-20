@@ -51,6 +51,11 @@ class TestFactory(TestCase):
             factory.make_file(self.make_dir(), contents=contents),
             FileContains(contents))
 
+    def test_make_file_makes_up_contents_if_none_given(self):
+        with open(factory.make_file(self.make_dir())) as temp_file:
+            contents = temp_file.read()
+        self.assertNotEqual('', contents)
+
     def test_make_file_uses_given_name(self):
         name = factory.getRandomString()
         self.assertEqual(
