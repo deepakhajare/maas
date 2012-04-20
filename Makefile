@@ -187,7 +187,7 @@ services/%/@supervise: services/%/@deps
 
 services/pserv/@deps: bin/twistd.pserv
 
-services/reloader/@deps: services/web/@supervise services/pserv/@supervise
+services/reloader/@deps:
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
