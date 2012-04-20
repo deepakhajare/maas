@@ -14,6 +14,12 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
+# Prevent reloading if this is running under supervise(8).
+if [ "/proc/${PPID}/exe" -ef "/usr/bin/supervise" ]
+then
+    set -- "$@" --noreload
+fi
+
 # Exec the MaaS API and Web UI Server.
 script="$(readlink -f bin/maas)"
-exec "${script}" runserver 5240 --settings=maas.demo --noreload
+exec "${script}" runserver 5240 --settings=maas.demo "$@"
