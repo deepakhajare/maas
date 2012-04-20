@@ -566,10 +566,8 @@ class FakeCobblerSession(CobblerSession):
         super(FakeCobblerSession, self).__init__(url, user, password)
 
     def _make_twisted_proxy(self):
+        """Override for CobblerSession's proxy factory."""
         return self.fake_proxy
-
-    def _login(self):
-        self.token = self.proxy.fake_cobbler.login(self.user, self.password)
 
 
 def make_fake_cobbler_session(url=None, user=None, password=None,
