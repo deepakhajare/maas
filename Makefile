@@ -124,11 +124,14 @@ endef
 # Development services.
 #
 
-services := pserv reloader txlongpoll web
-services := $(patsubst %,services/%/,$(services))
+service_names := pserv reloader txlongpoll web
+services := $(patsubst %,services/%/,$(service_names))
 
 run:
-	@services/run
+	@services/run $(service_names)
+
+run+web:
+	@services/run $(service_names) +web
 
 start: $(addsuffix @start,$(services))
 
@@ -145,6 +148,7 @@ supervise: $(addsuffix @supervise,$(services))
 define phony_services_targets
   restart
   run
+  run+web
   shutdown
   start
   status
