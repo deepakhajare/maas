@@ -176,17 +176,11 @@ services/reloader/@deps:
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
-define phony_services_action_targets
-  $(foreach target, $(phony_services_targets),
-    $(addsuffix @$(target),$(services)))
-endef
-
 #
 # Phony stuff.
 #
 
 define phony
-  $(phony_services_action_targets)
   $(phony_services_targets)
   $(phony_targets)
 endef
