@@ -31,7 +31,7 @@ stop() { "${apache}" -k graceful-stop -f "${config}" -d "$(pwd)"; }
 # Run in debug mode unless this is running under supervise(8).
 if [ "/proc/${PPID}/exe" -ef "/usr/bin/supervise" ]
 then
-    trap stop INT HUP && trap reload HUP
+    trap stop EXIT; trap reload HUP
     fghack "${apache}" -k start -f "${config}" -d "$(pwd)" "$@"
 else
     exec "${apache}" -k start -f "${config}" -d "$(pwd)" "$@" -X
