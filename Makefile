@@ -154,8 +154,10 @@ endef
 
 # Pseudo-magic targets for controlling individual services.
 
+service_lock = setlock -n /var/run/maas.dev.$(firstword $(1))
+
 services/%/@run: services/%/@shutdown services/%/@deps
-	@$(PWD)/services/$*/run
+	@$(call service_lock, $*) services/$*/run
 
 services/%/@start: services/%/@supervise
 	@svc -u $(@D)
@@ -177,7 +179,8 @@ services/%/@supervise: services/%/@deps
 	@mkdir -p logs/$*
 	@touch $(@D)/down
 	@if ! svok $(@D); then \
-	    logdir=$(PWD)/logs/$* supervise $(@D) & fi
+	    logdir=$(PWD)/logs/$* \
+	        $(call service_lock, $*) supervise $(@D) & fi
 	@while ! svok $(@D); do sleep 0.1; done
 
 # Dependencies for individual services.
