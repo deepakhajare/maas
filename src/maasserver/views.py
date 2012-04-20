@@ -28,7 +28,10 @@ __all__ = [
     "SSHKeyDeleteView",
     ]
 
-from abc import ABCMeta
+from abc import (
+    ABCMeta,
+    abstractmethod,
+    )
 from logging import getLogger
 import mimetypes
 import os
@@ -129,6 +132,14 @@ class HelpfulDeleteView(DeleteView):
 
     __metaclass__ = ABCMeta
 
+    @abstractmethod
+    def get_object(self):
+        """Retrieve the object to be deleted."""
+
+    @abstractmethod
+    def get_next_url(self):
+        """URL of page to proceed to after deleting."""
+
     def delete(self, *args, **kwargs):
         """Delete result of self.get_object(), if any."""
         try:
@@ -160,7 +171,7 @@ class HelpfulDeleteView(DeleteView):
 
     def compose_feedback_deleted(self, obj):
         """Compose feedback message: "obj has been deleted"."""
-        return "%s deleted." % self.name_object(obj).capitalize()
+        return ("%s deleted." % self.name_object(obj)).capitalize()
 
     def name_object(self, obj):
         """Overridable: describe object being deleted to the user.
@@ -174,9 +185,13 @@ class HelpfulDeleteView(DeleteView):
         """
         return obj._meta.verbose_name
 
+    def show_notice(self, notice):
+        """Wrapper for messages.info."""
+        messages.info(self.request, notice)
+
     def move_on(self, feedback_message):
         """Redirect to the post-deletion page, showing the given message."""
-        messages.info(self.request, feedback_message)
+        self.show_notice(feedback_message)
         return HttpResponseRedirect(self.get_next_url())
 
 
