@@ -93,7 +93,7 @@ distclean: clean shutdown
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
-	$(RM) -r services/*/supervise
+	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
 
 harness: bin/maas dev-db
