@@ -130,7 +130,7 @@ services := $(patsubst %,services/%/,$(service_names))
 run:
 	@services/run $(service_names)
 
-runui+webapp:
+run+webapp:
 	@services/run $(service_names) +webapp
 
 start: $(addsuffix @start,$(services))
