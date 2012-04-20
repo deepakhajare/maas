@@ -22,7 +22,10 @@ from os import (
     pardir,
     path,
     )
-from subprocess import check_call
+from subprocess import (
+    call,
+    check_call,
+    )
 import sys
 import unittest
 
@@ -44,16 +47,24 @@ def is_interesting_python_change(filename):
         not filename.endswith("_flymake.py"))
 
 
+def is_supervised(dirname):
+    return call(("svok", dirname)) == 0
+
+
 def handle_web_change(event):
+    service_dir = "services/web"
     if is_interesting_python_change(event.name):
-        print("<-- {0.pathname} changed; reloading web.".format(event))
-        check_call(("svc", "-du", "services/web"))
+        if is_supervised(service_dir):
+            print("<-- {0.pathname} changed; reloading web.".format(event))
+            check_call(("svc", "-du", service_dir))
 
 
 def handle_pserv_change(event):
+    service_dir = "services/pserv"
     if is_interesting_python_change(event.name):
-        print("<-- {0.pathname} changed; reloading pserv.".format(event))
-        check_call(("svc", "-du", "services/pserv"))
+        if is_supervised(service_dir):
+            print("<-- {0.pathname} changed; reloading pserv.".format(event))
+            check_call(("svc", "-du", service_dir))
 
 
 class TestReloader(unittest.TestCase):
