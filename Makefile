@@ -104,23 +104,50 @@ syncdb: bin/maas dev-db
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
 
+define phony_targets
+  build
+  check
+  clean
+  dev-db
+  distclean
+  doc
+  harness
+  lint
+  lint-css
+  lint-js
+  sampledata
+  syncdb
+  test
+endef
+
+#
+# Development services.
+#
+
 services := web pserv reloader txlongpoll
 services := $(patsubst %,services/%/,$(services))
 
-# The services/*/@something targets below are phony - they will never
-# correspond to an existing file - but we want them to be evaluated
-# for building, hence they are not added as .PHONY.
+run:
+	@utilities/run
 
 start: $(addsuffix @start,$(services))
 
 stop: $(addsuffix @stop,$(services))
 
-run:
-	@utilities/run
-
 status: $(addsuffix @status,$(services))
 
 shutdown: $(addsuffix @shutdown,$(services))
+
+supervise: $(addsuffix @supervise,$(services))
+
+define phony_services_targets
+  run
+  shutdown
+  start
+  status
+  stop
+  supervise
+endef
 
 services/%/@supervise: services/%/@deps
 	@mkdir -p logs/$*
@@ -149,25 +176,21 @@ services/reloader/@deps:
 
 services/txlongpoll/@deps: bin/twistd.txlongpoll
 
-define phony
-  build
-  check
-  clean
-  dev-db
-  distclean
-  doc
-  harness
-  lint
-  lint-css
-  lint-js
-  run
-  sampledata
-  shutdown
-  start
-  status
-  stop
-  syncdb
-  test
+define phony_services_action_targets
+  $(foreach target, $(phony_services_targets),
+    $(addsuffix @$(target),$(services)))
 endef
+
+#
+# Phony stuff.
+#
+
+define phony
+  $(phony_services_action_targets)
+  $(phony_services_targets)
+  $(phony_targets)
+endef
+
+phony := $(sort $(strip $(phony)))
 
 .PHONY: $(phony)
