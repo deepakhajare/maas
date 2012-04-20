@@ -102,17 +102,17 @@ txlongpoll-stop: pidfile=run/txlongpoll.pid
 txlongpoll-stop:
 	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
-run/nginx.pid: | etc/nginx.conf
-	nginx -c etc/nginx.conf -p `pwd`/
+run/apache.pid: | etc/apache.conf
+	apache2 -k start -f etc/apache.conf -d `pwd`/
 
-nginx-start: run/nginx.pid
+apache-start: run/apache.pid
 
-nginx-stop: pidfile=run/nginx.pid
-nginx-stop:
+apache-stop: pidfile=run/apache.pid
+apache-stop:
 	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
 
 
-run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid run/nginx.pid
+run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid run/apache.pid
 	bin/maas runserver 0.0.0.0:5244 --settings=maas.demo
 
 harness: bin/maas dev-db
