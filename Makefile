@@ -128,7 +128,7 @@ services := pserv reloader txlongpoll web
 services := $(patsubst %,services/%/,$(services))
 
 run:
-	@utilities/run
+	@services/run
 
 start: $(addsuffix @start,$(services))
 
