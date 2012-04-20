@@ -136,11 +136,14 @@ stop: $(addsuffix @stop,$(services))
 
 status: $(addsuffix @status,$(services))
 
+restart: $(addsuffix @restart,$(services))
+
 shutdown: $(addsuffix @shutdown,$(services))
 
 supervise: $(addsuffix @supervise,$(services))
 
 define phony_services_targets
+  restart
   run
   shutdown
   start
@@ -162,6 +165,9 @@ services/%/@stop: services/%/@supervise
 
 services/%/@status:
 	@svstat $(@D)
+
+services/%/@restart: services/%/@supervise
+	@svc -du $(@D)
 
 services/%/@shutdown:
 	@if svok $(@D); then svc -dx $(@D); fi
