@@ -853,7 +853,7 @@ class TestNodesAPI(APITestCase):
     """Tests for /api/1.0/nodes/."""
 
     def test_POST_new_creates_node(self):
-        # The API allows a regular logged-in user to create a Node.
+        # The API allows a non-admin logged-in user to create a Node.
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         response = self.client.post(
             self.get_uri('nodes/'),
