@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import httplib
 import os
 
 from django.conf import settings
@@ -75,6 +76,3 @@ class TestComboLoaderView(TestCase):
         response = self.client.get('/combo/?file.wrongextension')
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual("Invalid file type requested.", response.content)
-
-
-

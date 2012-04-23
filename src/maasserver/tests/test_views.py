@@ -116,6 +116,7 @@ class TestSnippets(LoggedInTestCase):
             response.content, '#add-node',
             'select#id_after_commissioning_action')
 
+
 class FakeDeletableModel:
     """A fake model class, with a delete method."""
 
