@@ -1754,3 +1754,10 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         # Anything that's not commissioning should be ignored.
         self.assertEqual(NODE_STATUS.READY, node.status)
+
+    def test_check_with_commissioning_but_not_expired_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
