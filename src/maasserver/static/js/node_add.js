@@ -106,8 +106,6 @@ Y.extend(AddNodeWidget, Y.Widget, {
         }
     },
 
-    // XXX JeroenVermeulen 2012-04-23, bug=987092: Restore the
-    // after-commissioning dropdown.
     createForm: function() {
         var addnode_button = Y.Node.create('<button />')
             .addClass('add-node-button')

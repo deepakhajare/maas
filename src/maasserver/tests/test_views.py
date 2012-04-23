@@ -166,9 +166,7 @@ class TestSnippets(LoggedInTestCase):
         self.assertTemplateExistsAndContains(
             response.content, '#add-node', 'input#id_hostname')
 
-    # XXX JeroenVermeulen 2012-04-23, bug=987092: Add back the
-    # after-commissioning dropdown, and re-enable this test.
-    def t_e_s_t_after_commissioning_action_snippet(self):
+    def test_after_commissioning_action_snippet(self):
         response = self.client.get('/')
         self.assertTemplateExistsAndContains(
             response.content, '#add-node',
