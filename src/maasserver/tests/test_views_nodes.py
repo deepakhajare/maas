@@ -16,7 +16,10 @@ import httplib
 
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver.enum import NODE_STATUS
+from maasserver.enum import (
+    NODE_AFTER_COMMISSIONING_ACTION,
+    NODE_STATUS,
+    )
 from maasserver.forms import NodeActionForm
 from maasserver.models import Node
 from maasserver.testing import (
@@ -185,9 +188,8 @@ class NodeViewsTest(LoggedInTestCase):
         node_edit_link = reverse('node-edit', args=[node.system_id])
         params = {
             'hostname': factory.getRandomString(),
-            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
-            #'after_commissioning_action': factory.getRandomEnum(
-            #    NODE_AFTER_COMMISSIONING_ACTION),
+            'after_commissioning_action': factory.getRandomEnum(
+                NODE_AFTER_COMMISSIONING_ACTION),
         }
         response = self.client.post(node_edit_link, params)
 

@@ -146,8 +146,7 @@ class TestSnippets(LoggedInTestCase):
         self.assertTemplateExistsAndContains(
             response.content, '#add-node', 'input#id_hostname')
 
-    # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
-    def t_e_s_t_after_commissioning_action_snippet(self):
+    def test_after_commissioning_action_snippet(self):
         response = self.client.get('/')
         self.assertTemplateExistsAndContains(
             response.content, '#add-node',
@@ -597,9 +596,8 @@ class AdminNodeViewsTest(AdminLoggedInTestCase):
         node_edit_link = reverse('node-edit', args=[node.system_id])
         params = {
             'hostname': factory.getRandomString(),
-            # XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable.
-            #'after_commissioning_action': factory.getRandomEnum(
-            #    NODE_AFTER_COMMISSIONING_ACTION),
+            'after_commissioning_action': factory.getRandomEnum(
+                NODE_AFTER_COMMISSIONING_ACTION),
             'power_type': factory.getRandomChoice(POWER_TYPE_CHOICES),
         }
         response = self.client.post(node_edit_link, params)
