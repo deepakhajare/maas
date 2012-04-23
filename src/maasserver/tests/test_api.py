@@ -1743,3 +1743,14 @@ class APIErrorsTest(APIv10TestMixin, TransactionTestCase):
             (response.status_code, response.content))
         self.assertRaises(
             Node.DoesNotExist, Node.objects.get, hostname=hostname)
+
+
+class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
+    """Testing of commissioning timeout API."""
+
+    def test_check_with_no_action(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        # Anything that's not commissioning should be ignored.
+        self.assertEqual(NODE_STATUS.READY, node.status)
