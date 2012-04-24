@@ -114,13 +114,14 @@ class CommonInfo(models.Model):
     class Meta(DefaultMeta):
         abstract = True
 
-    created = models.DateField(editable=False)
+    created = models.DateTimeField(editable=False)
     updated = models.DateTimeField(editable=False)
 
     def save(self, skip_check=False, *args, **kwargs):
+        now = datetime.datetime.today()
         if not self.id:
-            self.created = datetime.date.today()
-        self.updated = datetime.datetime.today()
+            self.created = now
+        self.updated = now
         if not skip_check:
             self.full_clean()
         return super(CommonInfo, self).save(*args, **kwargs)

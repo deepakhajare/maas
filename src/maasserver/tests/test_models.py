@@ -61,7 +61,11 @@ from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import get_data
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import TestCase
+from maasserver.testing.testcase import (
+    TestCase,
+    TestModelTestCase,
+    )
+from maasserver.tests.models import CommonInfoTestModel
 from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
@@ -79,6 +83,41 @@ from testtools.matchers import (
     GreaterThan,
     LessThan,
     )
+
+
+class CommonInfoTest(TestModelTestCase):
+    """Testing for the class `CommonInfo`."""
+
+    app = 'maasserver.tests'
+
+    def test_created_populated_when_object_saved(self):
+        obj = CommonInfoTestModel()
+        obj.save()
+        self.assertIsNotNone(obj.created)
+
+    def test_updated_populated_when_object_saved(self):
+        obj = CommonInfoTestModel()
+        obj.save()
+        self.assertIsNotNone(obj.updated)
+
+    def test_updated_and_created_are_the_same_after_first_save(self):
+        obj = CommonInfoTestModel()
+        obj.save()
+        self.assertEqual(obj.created, obj.updated)
+
+    def test_updated_is_updated(self):
+        obj = CommonInfoTestModel()
+        obj.save()
+        updated = obj.updated
+        obj.save()
+        self.assertTrue(updated < obj.updated)
+
+    def test_created_not_modified_by_subsequent_call_to_save(self):
+        obj = CommonInfoTestModel()
+        obj.save()
+        created = obj.created
+        obj.save()
+        self.assertEqual(created, obj.created)
 
 
 class NodeTest(TestCase):
