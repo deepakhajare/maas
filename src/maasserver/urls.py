@@ -27,24 +27,29 @@ from django.views.generic.simple import (
     )
 from maasserver.maasavahi import setup_maas_avahi_service
 from maasserver.models import Node
-from maasserver.views import (
+from maasserver.views.account import (
+    login,
+    logout,
+    )
+from maasserver.views.combo import combo_view
+from maasserver.views.nodes import (
+    NodeDelete,
+    NodeEdit,
+    NodeListView,
+    NodeView,
+    )
+from maasserver.views.prefs import (
+    SSHKeyCreateView,
+    SSHKeyDeleteView,
+    userprefsview,
+    )
+from maasserver.views.settings import (
     AccountsAdd,
     AccountsDelete,
     AccountsEdit,
     AccountsView,
-    combo_view,
-    login,
-    logout,
-    NodeDelete,
-    NodeEdit,
-    NodeListView,
-    NodesCreateView,
-    NodeView,
     settings,
     settings_add_archive,
-    SSHKeyCreateView,
-    SSHKeyDeleteView,
-    userprefsview,
     )
 
 
@@ -53,7 +58,7 @@ def adminurl(regexp, view, *args, **kwargs):
     return url(regexp, view, *args, **kwargs)
 
 
-# URLs accessible to anonymous users.
+## URLs accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
     url(
         r'^%s' % re.escape(django_settings.YUI_COMBO_URL), combo_view,
@@ -68,7 +73,8 @@ urlpatterns = patterns('maasserver.views',
         name='favicon'),
 )
 
-# URLs for logged-in users.
+## URLs for logged-in users.
+# Preferences views.
 urlpatterns += patterns('maasserver.views',
     url(r'^account/prefs/$', userprefsview, name='prefs'),
     url(
@@ -77,7 +83,15 @@ urlpatterns += patterns('maasserver.views',
     url(
         r'^account/prefs/sshkey/delete/(?P<keyid>\d*)/$',
         SSHKeyDeleteView.as_view(), name='prefs-delete-sshkey'),
+    )
+
+# Logout view.
+urlpatterns += patterns('maasserver.views',
     url(r'^accounts/logout/$', logout, name='logout'),
+)
+
+# Nodes views.
+urlpatterns += patterns('maasserver.views',
     url(
         r'^$',
         NodeListView.as_view(template_name="maasserver/index.html"),
@@ -92,12 +106,11 @@ urlpatterns += patterns('maasserver.views',
     url(
         r'^nodes/(?P<system_id>[\w\-]+)/delete/$', NodeDelete.as_view(),
         name='node-delete'),
-     url(
-        r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
 )
 
 
-# URLs for admin users.
+## URLs for admin users.
+# Settings views.
 urlpatterns += patterns('maasserver.views',
     adminurl(r'^settings/$', settings, name='settings'),
     adminurl(

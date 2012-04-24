@@ -11,8 +11,10 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "get_content_links",
     "get_data",
     "get_fake_provisioning_api_proxy",
+    "get_prefixed_form_data",
     "reload_object",
     "reload_objects",
     ]
@@ -20,6 +22,7 @@ __all__ = [
 import os
 from uuid import uuid1
 
+from lxml.html import fromstring
 from provisioningserver.testing import fakeapi
 
 # Current (singleton) fake provisioning API server.
@@ -106,3 +109,28 @@ def get_data(filename):
     path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..', 'tests', filename)
     return file(path).read()
+
+
+def get_prefixed_form_data(prefix, data):
+    """Prefix entries in a dict of form parameters with a form prefix.
+
+    Also, add a parameter "<prefix>_submit" to indicate that the form with
+    the given prefix is being submitted.
+
+    Use this to construct a form submission if the form uses a prefix (as it
+    would if there are multiple forms on the page).
+
+    :param prefix: Form prefix string.
+    :param data: A dict of form parameters.
+    :return: A new dict of prefixed form parameters.
+    """
+    result = {'%s-%s' % (prefix, key): value for key, value in data.items()}
+    result.update({'%s_submit' % prefix: 1})
+    return result
+
+
+def get_content_links(response, element='#content'):
+    """Extract links from :class:`HttpResponse` #content element."""
+    doc = fromstring(response.content)
+    [content_node] = doc.cssselect(element)
+    return [elem.get('href') for elem in content_node.cssselect('a')]
