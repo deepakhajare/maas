@@ -232,9 +232,23 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
-def start_node(node, user):
+def start_node(node, user, request=None):
     """Start a node from the UI.  It will have no meta_data."""
     Node.objects.start_nodes([node.system_id], user)
+
+
+def acquire_and_start_node(node, user, request=None):
+    """Acquire and start a node from the UI.  It will have no meta_data."""
+    # Avoid circular imports.
+    from maasserver.api import get_oauth_token
+
+    node.acquire(get_oauth_token(request))
+    start_node(node=node, user=user, request=request)
+
+
+def start_commissioning_node(node, user, request=None):
+    """Start the commissioning process for a node."""
+    Node.start_commissioning(node, user)
 
 
 # Node actions per status.
@@ -268,16 +282,18 @@ NODE_ACTIONS = {
         {
             'display': "Accept & commission",
             'permission': NODE_PERMISSION.ADMIN,
-            'execute': lambda node, user: Node.start_commissioning(node, user),
+            'execute': start_commissioning_node,
             'message': "Node commissioning started."
         },
     ],
     NODE_STATUS.READY: [
         {
             'display': "Start node",
-            'permission': NODE_PERMISSION.EDIT,
-            'execute': start_node,
-            'message': "Node started."
+            'permission': NODE_PERMISSION.VIEW,
+            'execute': acquire_and_start_node,
+            'message': (
+                "This node is now allocated to you.  "
+                "It has been asked to start up."),
         },
     ],
     NODE_STATUS.ALLOCATED: [
@@ -285,7 +301,7 @@ NODE_ACTIONS = {
             'display': "Start node",
             'permission': NODE_PERMISSION.EDIT,
             'execute': start_node,
-            'message': "Node started."
+            'message': "The node has been asked to start up.",
         },
     ],
 }
@@ -346,7 +362,7 @@ class NodeActionForm(forms.Form):
             raise PermissionDenied()
         if not self.user.has_perm(permission, self.node):
             raise PermissionDenied()
-        execute(self.node, self.user)
+        execute(node=self.node, user=self.user, request=self.request)
         self.display_message(message)
 
 

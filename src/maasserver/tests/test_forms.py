@@ -18,6 +18,7 @@ from django.core.exceptions import (
     ValidationError,
     )
 from django.http import QueryDict
+import maasserver.api
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -340,14 +341,19 @@ class TestNodeActionForm(TestCase):
 
         self.assertRaises(PermissionDenied, form.save)
 
-    def test_start_action_starts_ready_node_for_admin(self):
+    def test_start_action_acquires_and_starts_ready_node_for_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
-        form = get_action_form(factory.make_admin())(
+        user = factory.make_user()
+        consumer, token = user.get_profile().create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
+        form = get_action_form(user)(
             node, {NodeActionForm.input_name: "Start node"})
         form.save()
 
         power_status = get_provisioning_api_proxy().power_status
         self.assertEqual('start', power_status.get(node.system_id))
+        self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
+        self.assertEqual(user, node.owner)
 
     def test_start_action_starts_allocated_node_for_owner(self):
         node = factory.make_node(
