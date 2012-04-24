@@ -18,6 +18,7 @@ import BaseHTTPServer
 import json
 import logging
 import os
+from os.path import dirname
 import SimpleHTTPServer
 import SocketServer
 
@@ -108,6 +109,9 @@ class SSTFixture(Fixture):
         self.addCleanup(stop)
 
 
+project_home = dirname(dirname(dirname(dirname(__file__))))
+
+
 class TestYUIUnitTests(TestCase):
 
     def setUp(self):
@@ -136,8 +140,6 @@ class TestYUIUnitTests(TestCase):
 
     def test_YUI3_unit_tests(self):
         # Find all the HTML files in BASE_PATH.
-        project_home = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         for fname in os.listdir(BASE_PATH):
             if fname.endswith('.html'):
                 # Load the page and then wait for #suite to contain
