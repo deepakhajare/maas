@@ -13,6 +13,10 @@ __metaclass__ = type
 __all__ = []
 
 from base64 import b64encode
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import httplib
 import json
 import os
@@ -20,6 +24,7 @@ import random
 import shutil
 
 from django.conf import settings
+from django.db import models
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
@@ -1761,3 +1766,17 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
         response = self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
+
+    def test_check_with_commissioning_and_expired_node(self):
+        # Remove the custom save() method that updates "updated".
+        self.patch(Node, models.Model.save)
+
+        # Have an interval 1 second longer than the timeout.
+        interval = timedelta(seconds=1, minutes=settings.COMMISSIONING_TIMEOUT)
+        updated_at = updated=datetime.now() - interval
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, updated=datetime.now())
+
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, node.status)
