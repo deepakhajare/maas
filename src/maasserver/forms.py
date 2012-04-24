@@ -272,7 +272,11 @@ def start_commissioning_node(node, user, request=None):
 #     'display': "Paint node",
 #     # Permission required to perform action.
 #     'permission': NODE_PERMISSION.EDIT,
-#     # Callable that performs action.  Takes parameters (node, user).
+#     # Callable that performs action.
+#     # Takes parameters (node, user, request).
+#     # Even though this is not the API, the action may raise a
+#     # MAASAPIException if it wants to convey failure with a specific
+#     # http status code.
 #     'execute': lambda node, user: paint_node(
 #                    node, favourite_colour(user)),
 # }
