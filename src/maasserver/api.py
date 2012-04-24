@@ -427,7 +427,6 @@ class NodeHandler(BaseHandler):
             pass
         elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
             node.release()
-            node.save()
         else:
             raise NodeStateViolation(
                 "Node cannot be released in its current state ('%s')."
@@ -593,7 +592,6 @@ class NodesHandler(BaseHandler):
         if node is None:
             raise NodesNotAvailable("No matching node is available.")
         node.acquire(get_oauth_token(request))
-        node.save()
         return node
 
     @classmethod
