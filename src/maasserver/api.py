@@ -326,8 +326,8 @@ def extract_oauth_key(request):
 def get_oauth_token(request):
     """Get the OAuth :class:`piston.models.Token` used for `request`.
 
-    Raises :class:`Unauthorized` if no key is found, or
-    :class:`piston.models.Token.DoesNotExist` if the token is unknown.
+    Raises :class:`Unauthorized` if no key is found, or if the token is
+    unknown.
     """
     try:
         return Token.objects.get(key=extract_oauth_key(request))
