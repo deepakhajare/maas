@@ -105,14 +105,14 @@ class CommonInfoTest(TestModelTestCase):
         obj.save()
         self.assertEqual(obj.created, obj.updated)
 
-    def test_updated_is_updated(self):
+    def test_updated_is_updated_when_object_saved(self):
         obj = CommonInfoTestModel()
         obj.save()
         updated = obj.updated
         obj.save()
         self.assertTrue(updated < obj.updated)
 
-    def test_created_not_modified_by_subsequent_call_to_save(self):
+    def test_created_not_modified_by_subsequent_calls_to_save(self):
         obj = CommonInfoTestModel()
         obj.save()
         created = obj.created
