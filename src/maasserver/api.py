@@ -329,7 +329,10 @@ def get_oauth_token(request):
     Raises :class:`Unauthorized` if no key is found, or
     :class:`piston.models.Token.DoesNotExist` if the token is unknown.
     """
-    return Token.objects.get(key=extract_oauth_key(request))
+    try:
+        return Token.objects.get(key=extract_oauth_key(request))
+    except Token.DoesNotExist:
+        raise Unauthorized("Unknown OAuth token.")
 
 
 NODE_FIELDS = (

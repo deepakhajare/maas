@@ -63,7 +63,6 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
-from piston.models import Token
 from provisioningserver.enum import POWER_TYPE
 
 
@@ -121,11 +120,11 @@ class TestModuleHelpers(TestCase):
                 self.make_fake_request(
                     factory.make_oauth_header(oauth_token=token.key))))
 
-    def test_get_oauth_token_raises_DoesNotExist_for_unknown_token(self):
+    def test_get_oauth_token_raises_Unauthorized_for_unknown_token(self):
         fake_token = factory.getRandomString(18)
         header = factory.make_oauth_header(oauth_token=fake_token)
         self.assertRaises(
-            Token.DoesNotExist,
+            Unauthorized,
             get_oauth_token, self.make_fake_request(header))
 
     def test_extract_constraints_ignores_unknown_parameters(self):
