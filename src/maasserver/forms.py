@@ -248,7 +248,7 @@ def acquire_and_start_node(node, user, request=None):
 
 def start_commissioning_node(node, user, request=None):
     """Start the commissioning process for a node."""
-    Node.start_commissioning(node, user)
+    node.start_commissioning(user)
 
 
 # Node actions per status.

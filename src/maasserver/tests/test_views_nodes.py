@@ -298,8 +298,8 @@ class NodeViewsTest(LoggedInTestCase):
         self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
         node = factory.make_node(status=NODE_STATUS.READY)
         response = self.perform_action_and_get_node_page(node, "Start node")
-        notices = '\n'.join([
-            message.message for message in response.context['messages']])
+        notices = '\n'.join(
+            message.message for message in response.context['messages'])
         self.assertIn("This node is now allocated to you.", notices)
         self.assertIn("asked to start up.", notices)
 

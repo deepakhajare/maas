@@ -365,6 +365,14 @@ class TestNodeActionForm(TestCase):
         power_status = get_provisioning_api_proxy().power_status
         self.assertEqual('start', power_status.get(node.system_id))
 
+    def test_accept_and_commission_starts_commissioning(self):
+        admin = factory.make_admin()
+        node = factory.make_node(status=NODE_STATUS.DECLARED)
+        form = get_action_form(admin)(
+            node, {NodeActionForm.input_name: "Accept & commission"})
+        form.save()
+        self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
+
 
 class TestHostnameFormField(TestCase):
 
