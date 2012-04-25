@@ -192,8 +192,8 @@ argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
     "--leave", dest="leave", action="store_true",
     default=False, help=(
-        "leave the cluster behind, even if it was "
-        "necessary to create it"))
+        "leave the cluster and its databases behind, "
+        "even if it was necessary to create it"))
 
 
 if __name__ == "__main__":
