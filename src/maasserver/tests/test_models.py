@@ -19,7 +19,6 @@ import os
 import random
 import shutil
 from socket import gethostname
-from time import sleep
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -110,8 +109,7 @@ class UtilitiesTransactionalTest(TransactionTestCase):
         # Perform a write database operation.
         factory.make_node()
         transaction.commit()
-        sleep(0.1)
-        self.assertNotEqual(date_now, now())
+        self.assertLessEqual(date_now, now())
 
 
 class CommonInfoTest(TestModelTestCase):
@@ -160,9 +158,8 @@ class CommonInfoTransactionalTest(TestModelTransactionalTestCase):
         obj.save()
         old_updated = obj.updated
         transaction.commit()
-        sleep(0.1)
         obj.save()
-        self.assertLess(old_updated, obj.updated)
+        self.assertLessEqual(old_updated, obj.updated)
 
 
 class NodeTest(TestCase):
