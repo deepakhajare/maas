@@ -156,14 +156,17 @@ define phony_services_targets
   supervise
 endef
 
-# Pseudo-magic targets for controlling individual services.
+# Convenient variables and functions for service control.
 
+setlock = $(call available,setlock,daemontools)
 supervise = $(call available,supervise,daemontools)
 svc = $(call available,svc,daemontools)
 svok = $(call available,svok,daemontools)
 svstat = $(call available,svstat,daemontools)
 
-service_lock = setlock -n /run/lock/maas.dev.$(firstword $(1))
+service_lock = $(setlock) -n /run/lock/maas.dev.$(firstword $(1))
+
+# Pseudo-magic targets for controlling individual services.
 
 services/%/@run: services/%/@stop services/%/@deps
 	@$(call service_lock, $*) services/$*/run
