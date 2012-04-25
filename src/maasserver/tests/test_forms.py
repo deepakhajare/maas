@@ -435,6 +435,7 @@ class TestNodeActionForm(TestCase):
     def test_start_action_acquires_and_starts_ready_node_for_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
+        factory.make_sshkey(user)
         consumer, token = user.get_profile().create_authorisation_token()
         self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
         form = get_action_form(user)(
@@ -449,12 +450,30 @@ class TestNodeActionForm(TestCase):
     def test_start_action_starts_allocated_node_for_owner(self):
         node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        factory.make_sshkey(node.owner)
         form = get_action_form(node.owner)(
             node, {NodeActionForm.input_name: "Start node"})
         form.save()
 
         power_status = get_provisioning_api_proxy().power_status
         self.assertEqual('start', power_status.get(node.system_id))
+
+    def test_start_action_on_ready_node_is_enabled_for_user_with_key(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        user = factory.make_user()
+        factory.make_sshkey(user)
+        consumer, token = user.get_profile().create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
+        form = get_action_form(user)(node)
+        self.assertIs(None, form.find_action("Start node")['inhibition'])
+
+    def test_start_action_on_ready_node_is_disabled_for_keyless_user(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        user = factory.make_user()
+        consumer, token = user.get_profile().create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
+        form = get_action_form(user)(node)
+        self.assertIn("SSH key", form.find_action("Start node")['inhibition'])
 
     def test_accept_and_commission_starts_commissioning(self):
         admin = factory.make_admin()
