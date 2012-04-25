@@ -239,6 +239,16 @@ def start_node(node, user, request=None):
     Node.objects.start_nodes([node.system_id], user)
 
 
+def inhibit_acquisition(node, user, request=None):
+    """Give me one reason why `user` can't acquire and start `node`."""
+    if SSHKey.objects.get_keys_for_user(user).exists():
+        return None
+    else:
+        return (
+            "You have no means of accessing the node after starting it. "
+            "Register an SSH key first.")
+
+
 def acquire_and_start_node(node, user, request=None):
     """Acquire and start a node from the UI.  It will have no meta_data."""
     # Avoid circular imports.
@@ -287,16 +297,23 @@ def delete_node(node, user, request=None):
 # Each action is a dict:
 #
 # {
-#     # Action's display name; will be shown in the button.
+#     # Action's display name; will be the button's label.
 #     'display': "Paint node",
-#     # Permission required to perform action.
+#
+#     # Permission required on the node to perform the action.
 #     'permission': NODE_PERMISSION.EDIT,
+#
+#     # Function that looks for reasons to disable the action.
+#     # If it returns None, the action is available; otherwise, it is
+#     # shown but disabled.  A tooltip shows the inhibiting reason.
+#     'inhibit': lambda node, user, request=None: None,
+#
 #     # Callable that performs action.
 #     # Takes parameters (node, user, request).
 #     # Even though this is not the API, the action may raise a
 #     # MAASAPIException if it wants to convey failure with a specific
 #     # http status code.
-#     'execute': lambda node, user: paint_node(
+#     'execute': lambda node, user, request=None: paint_node(
 #                    node, favourite_colour(user)),
 # }
 #
@@ -343,6 +360,7 @@ NODE_ACTIONS = {
             'message': (
                 "This node is now allocated to you.  "
                 "It has been asked to start up."),
+            'inhibit': inhibit_acquisition,
         },
     ],
     NODE_STATUS.RESERVED: [
