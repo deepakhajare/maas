@@ -18,7 +18,12 @@ __all__ = [
     ]
 
 from django.conf import settings
+from django.core.management import call_command
 from django.core.management.commands import syncdb
+from django.db import (
+    connections,
+    DEFAULT_DB_ALIAS,
+    )
 from django.db.models import loading
 import django.test
 from maastesting.testcase import TestCase
@@ -50,6 +55,21 @@ class TransactionTestCase(TestCase, django.test.TransactionTestCase):
     The basic Django TestCase class uses transactions to speed up tests
     so this class should be used when tests involve transactions.
     """
+
+    def _fixture_teardown(self):
+        # Force a flush of the db: this is done by
+        # django.test.TransactionTestCase at the beginning of each
+        # TransactionTestCase test but not at the end.  The Django test runner
+        # avoids any problem by running all the TestCase tests and *then*
+        # all the TransactionTestCase tests.  Since we use nose, we don't
+        # have that ordering and thus we need to manually flush the db after
+        # each TransactionTestCase test.  Le Sigh.
+        if getattr(self, 'multi_db', False):
+            databases = connections
+        else:
+            databases = [DEFAULT_DB_ALIAS]
+        for db in databases:
+            call_command('flush', verbosity=0, interactive=False, database=db)
 
 
 class TestModelMixin:
