@@ -57,17 +57,16 @@ lint: bin/flake8
 	@find $(sources) -name '*.py' ! -path '*/migrations/*' \
 	    -print0 | xargs -r0 bin/flake8
 
+pocketlint = $(call available,pocketlint,python-pocket-lint)
+
 lint-css: sources = src/maasserver/static/css
-lint-css: /usr/bin/pocketlint
+lint-css:
 	@find $(sources) -type f \
-	    -print0 | xargs -r0 pocketlint --max-length=120
+	    -print0 | xargs -r0 $(pocketlint) --max-length=120
 
 lint-js: sources = src/maasserver/static/js
-lint-js: /usr/bin/pocketlint
-	@find $(sources) -type f -print0 | xargs -r0 pocketlint
-
-/usr/bin/pocketlint:
-	sudo apt-get install python-pocket-lint
+lint-js:
+	@find $(sources) -type f -print0 | xargs -r0 $(pocketlint)
 
 check: clean test
 
