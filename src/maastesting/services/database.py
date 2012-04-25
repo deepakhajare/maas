@@ -15,17 +15,14 @@ __all__ = [
     "ClusterFixture",
     ]
 
-from contextlib import (
-    closing,
-    contextmanager,
-    )
+import argparse
+from contextlib import closing
 from os import (
     devnull,
     environ,
     fdopen,
     makedirs,
     path,
-    unlink,
     )
 import pipes
 from shutil import rmtree
@@ -150,10 +147,15 @@ class Cluster:
 
 class ClusterFixture(Cluster, Fixture):
 
+    def __init__(self, datadir, leave=False):
+        super(ClusterFixture, self).__init__(datadir)
+        self.leave = leave
+
     def setUp(self):
         super(ClusterFixture, self).setUp()
         if not self.exists:
-            self.addCleanup(self.destroy)
+            if not self.leave:
+                self.addCleanup(self.destroy)
             self.create()
         if not self.running:
             self.addCleanup(self.stop)
@@ -162,31 +164,12 @@ class ClusterFixture(Cluster, Fixture):
     def createdb(self, name):
         if name not in self.databases:
             super(ClusterFixture, self).createdb(name)
-            self.addCleanup(self.dropdb, name)
+            if not self.leave:
+                self.addCleanup(self.dropdb, name)
 
     def dropdb(self, name):
         if name in self.databases:
             super(ClusterFixture, self).dropdb(name)
-
-
-def touch(filename):
-    with open(filename, "ab"):
-        pass  # Opening it is enough.
-
-
-@contextmanager
-def database(cluster, name):
-    databases = cluster.databases
-    marker = path.join(cluster.datadir, "%s-created" % name)
-    if name not in databases:
-        cluster.createdb(name)
-        touch(marker)
-    try:
-        yield
-    finally:
-        if name not in databases:
-            cluster.dropdb(name)
-            unlink(marker)
 
 
 def setup():
@@ -197,17 +180,26 @@ def setup():
     signal.signal(signal.SIGTERM, signal.default_int_handler)
 
 
-def main():
+def main(leave):
     datadir = path.abspath("db")
-    with ClusterFixture(datadir) as cluster:
-        with database(cluster, "maas"):
-            while cluster.running:
-                sleep(5.0)
+    with ClusterFixture(datadir, leave) as cluster:
+        cluster.createdb("maas")
+        while cluster.running:
+            sleep(5.0)
+
+
+argument_parser = argparse.ArgumentParser(description=__doc__)
+argument_parser.add_argument(
+    "--leave", dest="leave", action="store_true",
+    default=False, help=(
+        "leave the cluster behind, even if it was "
+        "necessary to create it"))
 
 
 if __name__ == "__main__":
     try:
         setup()
-        main()
+        args = argument_parser.parse_args()
+        main(leave=args.leave)
     except KeyboardInterrupt:
         pass

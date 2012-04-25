@@ -24,7 +24,7 @@ class TestRunner(NoseTestSuiteRunner):
 
     def setup_databases(self, *args, **kwargs):
         """Fire up the db cluster, then punt to original implementation."""
-        self.cluster = ClusterFixture("db")
+        self.cluster = ClusterFixture("db", leave=True)
         self.cluster.setUp()
         for database in settings.DATABASES.values():
             if database["HOST"] == self.cluster.datadir:
