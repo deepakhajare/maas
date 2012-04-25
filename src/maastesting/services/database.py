@@ -10,6 +10,10 @@ from __future__ import (
     )
 
 __metaclass__ = type
+__all__ = [
+    "Cluster",
+    "ClusterFixture",
+    ]
 
 from contextlib import (
     closing,
@@ -31,11 +35,9 @@ from subprocess import (
     check_call,
     )
 import sys
-from time import (
-    sleep,
-    time,
-    )
+from time import sleep
 
+from fixtures import Fixture
 import psycopg2
 
 
@@ -49,14 +51,6 @@ def path_with_pg_bin(exe_path):
     if PG_BIN not in exe_path:
         exe_path.insert(0, PG_BIN)
     return path.pathsep.join(exe_path)
-
-
-@contextmanager
-def timing(message="%.1f seconds."):
-    assert isinstance(message % 1.0, (str, unicode))
-    start = time()
-    yield lambda: time() - start
-    print(message % (time() - start))
 
 
 class Cluster:
@@ -153,28 +147,26 @@ class Cluster:
             self.stop()
             rmtree(self.datadir)
 
-    @classmethod
-    @contextmanager
-    def use(cls, datadir):
-        cluster = cls(datadir)
-        exists = cluster.exists
-        running = cluster.running
 
-        if not exists:
-            with timing("Cluster created in %.1f seconds."):
-                cluster.create()
-        if not running:
-            with timing("Cluster started in %.1f seconds."):
-                cluster.start()
-        try:
-            yield cluster
-        finally:
-            if not running:
-                with timing("Cluster stopped in %.1f seconds."):
-                    cluster.stop()
-            if not exists:
-                with timing("Cluster destroyed in %.1f seconds."):
-                    cluster.destroy()
+class ClusterFixture(Cluster, Fixture):
+
+    def setUp(self):
+        super(ClusterFixture, self).setUp()
+        if not self.exists:
+            self.addCleanup(self.destroy)
+            self.create()
+        if not self.running:
+            self.addCleanup(self.stop)
+            self.start()
+
+    def createdb(self, name):
+        if name not in self.databases:
+            super(ClusterFixture, self).createdb(name)
+            self.addCleanup(self.dropdb, name)
+
+    def dropdb(self, name):
+        if name in self.databases:
+            super(ClusterFixture, self).dropdb(name)
 
 
 def touch(filename):
@@ -207,7 +199,7 @@ def setup():
 
 def main():
     datadir = path.abspath("db")
-    with Cluster.use(datadir) as cluster:
+    with ClusterFixture(datadir) as cluster:
         with database(cluster, "maas"):
             while cluster.running:
                 sleep(5.0)
