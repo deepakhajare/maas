@@ -45,9 +45,6 @@ bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install repl
 	@touch --no-create bin/py bin/ipy
 
-dev-db:
-	utilities/maasdb start ./db/ disposable
-
 test: bin/test.maas bin/test.pserv
 	bin/test.maas
 	bin/test.pserv
@@ -86,7 +83,6 @@ clean:
 	$(RM) -r media/demo/* media/development
 
 distclean: clean stop
-	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
@@ -96,10 +92,10 @@ distclean: clean stop
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
 
-harness: bin/maas dev-db
+harness: bin/maas services/database/@start
 	bin/maas shell --settings=maas.demo
 
-syncdb: bin/maas dev-db
+syncdb: bin/maas services/database/@start
 	bin/maas syncdb --noinput
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
@@ -108,7 +104,6 @@ define phony_targets
   build
   check
   clean
-  dev-db
   distclean
   doc
   harness
@@ -124,7 +119,7 @@ endef
 # Development services.
 #
 
-service_names := pserv reloader txlongpoll web webapp
+service_names := database pserv reloader txlongpoll web webapp
 services := $(patsubst %,services/%/,$(service_names))
 
 run:
@@ -189,6 +184,8 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
+services/database/@deps:
+
 services/pserv/@deps: bin/twistd.pserv
 
 services/reloader/@deps:
@@ -197,7 +194,7 @@ services/txlongpoll/@deps: bin/twistd.txlongpoll
 
 services/web/@deps:
 
-services/webapp/@deps: bin/maas dev-db
+services/webapp/@deps: bin/maas
 
 #
 # Phony stuff.
