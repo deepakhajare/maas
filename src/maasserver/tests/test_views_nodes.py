@@ -18,11 +18,13 @@ from datetime import (
     )
 import httplib
 import random
+from urlparse import urlparse
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import messages
+import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
@@ -274,17 +276,36 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(
             NODE_STATUS.COMMISSIONING, reload_object(node).status)
 
-    def perform_action_and_get_node_page(self, node, action_name):
+    def test_view_node_POST_admin_can_retry_failed_commissioning(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.FAILED_TESTS)
         node_link = reverse('node-view', args=[node.system_id])
-        self.client.post(
+        response = self.client.post(
+            node_link,
+            data={NodeActionForm.input_name: "Retry commissioning"})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def perform_action_and_get_node_page(self, node, action_name):
+        """POST to perform a node action, then load the resulting page."""
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.post(
             node_link,
             data={
                 NodeActionForm.input_name: action_name,
             })
-        response = self.client.get(node_link)
-        return response
+        if response.status_code != httplib.FOUND:
+            self.fail(
+                "POST failed with code %d: '%s'"
+                % (response.status_code, response.content))
+        redirect = urlparse(response['Location']).path
+        if redirect != node_link:
+            self.fail(
+                "Odd: POST on %s redirected to %s." % (node_link, redirect))
+        return self.client.get(redirect)
 
-    def test_start_commisionning_displays_message(self):
+    def test_start_commisioning_displays_message(self):
         self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         response = self.perform_action_and_get_node_page(
@@ -294,22 +315,30 @@ class NodeViewsTest(LoggedInTestCase):
             [message.message for message in response.context['messages']])
 
     def test_start_node_from_ready_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.READY, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
-        self.assertIn(
-            "Node started.",
-            [message.message for message in response.context['messages']])
+        profile = self.logged_in_user.get_profile()
+        consumer, token = profile.create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.perform_action_and_get_node_page(node, "Start node")
+        notices = '\n'.join(
+            message.message for message in response.context['messages'])
+        self.assertIn("This node is now allocated to you.", notices)
+        self.assertIn("asked to start up.", notices)
 
     def test_start_node_from_allocated_displays_message(self):
         node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
+        response = self.perform_action_and_get_node_page(node, "Start node")
         self.assertEqual(
-            ["Node started."],
+            ["The node has been asked to start up."],
             [message.message for message in response.context['messages']])
+
+    def test_start_node_without_auth_returns_Unauthorized(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Start node"})
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):

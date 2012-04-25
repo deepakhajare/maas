@@ -168,6 +168,11 @@ NODE_TRANSITIONS = {
         NODE_STATUS.RETIRED,
         NODE_STATUS.MISSING,
         ],
+    NODE_STATUS.FAILED_TESTS: [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
+        ],
     NODE_STATUS.READY: [
         NODE_STATUS.ALLOCATED,
         NODE_STATUS.RESERVED,
@@ -599,12 +604,14 @@ class Node(CommonInfo):
         self.status = NODE_STATUS.ALLOCATED
         self.owner = token.user
         self.token = token
+        self.save()
 
     def release(self):
         """Mark allocated or reserved node as available again."""
         self.status = NODE_STATUS.READY
         self.owner = None
         self.token = None
+        self.save()
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
