@@ -60,7 +60,7 @@ class NodeViewsTest(LoggedInTestCase):
         # be created in the same transaction and thus have the same
         # 'created' value by default.
         for node in nodes:
-            created = factory.getRadomDate()
+            created = factory.getRandomDate()
             # Update node.created without calling node.save().
             Node.objects.filter(id=node.id).update(created=created)
         nodes = reload_objects(Node, nodes)
