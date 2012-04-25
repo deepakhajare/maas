@@ -95,6 +95,9 @@ distclean: clean stop
 harness: bin/maas services/database/@start
 	bin/maas shell --settings=maas.demo
 
+dbharness: services/database/@start
+	@psql -h $(abspath db) maas
+
 syncdb: bin/maas services/database/@start
 	bin/maas syncdb --noinput
 	bin/maas migrate maasserver --noinput
@@ -104,6 +107,7 @@ define phony_targets
   build
   check
   clean
+  dbharness
   distclean
   doc
   harness
