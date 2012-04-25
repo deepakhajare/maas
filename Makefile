@@ -227,5 +227,6 @@ phony := $(sort $(strip $(phony)))
 # the package to install. Return the command otherwise.
 # Usage: $(call available,<command>,<package>)
 define available
-  $(if $(shell which $(1)),$(1),$(error $(1) not found; install $(2)))
+  $(if $(shell which $(1)),$(1),$(error $(1) not found; \
+    install it with 'sudo apt-get install $(2)'))
 endef
