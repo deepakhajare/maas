@@ -14,6 +14,7 @@ __all__ = [
     "factory",
     ]
 
+from datetime import datetime
 from functools import partial
 import httplib
 from itertools import (
@@ -24,6 +25,7 @@ from itertools import (
 import os.path
 import random
 import string
+import time
 
 
 class Factory:
@@ -63,6 +65,14 @@ class Factory:
     def getRandomMACAddress(self):
         octets = islice(self.random_octets, 6)
         return b":".join(format(octet, b"02x") for octet in octets)
+
+    def _year_start(year):
+        return time.mktime(datetime.date(year, 1, 1).timetuple())
+
+    def getRandomDate(self, year=2011):
+        stamp = random.randrange(
+            self._year_start(year), self._year_start(year + 1))
+        return datetime.date.fromtimestamp(stamp)
 
     def make_file(self, location, name=None, contents=None):
         """Create a file, and write data to it.
