@@ -33,8 +33,9 @@ from time import (
     )
 import unittest
 
-from van.pg import Cluster
 import psycopg2
+from van.pg import Cluster
+
 
 PG_VERSION = "9.1"
 PG_BIN = "/usr/lib/postgresql/%s/bin" % PG_VERSION
@@ -83,18 +84,28 @@ def symlinked(src, dst):
         unlink(dst)
 
 
+def execute(cluster, query, parameters=None):
+    conn = psycopg2.connect(database="template1", host=cluster.dbdir)
+    try:
+        conn.autocommit = True
+        conn.cursor().execute(query, parameters)
+    finally:
+        conn.close()
+
+
 @contextmanager
 def database(cluster, name):
-    conn = psycopg2.connect(
-        database="template1", host=cluster.dbdir)
-    conn.autocommit = True
-    cur = conn.cursor()
-    cur.execute("CREATE DATABASE %s" % name)
+    with timing("Database '%s' created in %%.1f seconds." % name):
+        execute(cluster, "CREATE DATABASE %s" % name)
+        marker = path.join(cluster.dbdir, "%s-created" % name)
+        with open(marker, "wb") as fd:
+            fd.write(path.abspath(__file__))
     try:
         yield
     finally:
-        cur.execute("DROP DATABASE %s" % name)
-        conn.close()
+        with timing("Database '%s' dropped in %%.1f seconds." % name):
+            execute(cluster, "DROP DATABASE %s" % name)
+            unlink(marker)
 
 
 class TestDatabase(unittest.TestCase):
