@@ -14,7 +14,7 @@ __all__ = [
     "factory",
     ]
 
-from datetime import datetime
+import datetime
 from functools import partial
 import httplib
 from itertools import (
@@ -66,13 +66,11 @@ class Factory:
         octets = islice(self.random_octets, 6)
         return b":".join(format(octet, b"02x") for octet in octets)
 
-    def _year_start(year):
-        return time.mktime(datetime.date(year, 1, 1).timetuple())
-
     def getRandomDate(self, year=2011):
-        stamp = random.randrange(
-            self._year_start(year), self._year_start(year + 1))
-        return datetime.date.fromtimestamp(stamp)
+        start = time.mktime(datetime.datetime(year, 1, 1).timetuple())
+        end = time.mktime(datetime.datetime(year + 1, 1, 1).timetuple())
+        stamp = random.randrange(start, end)
+        return datetime.datetime.fromtimestamp(stamp)
 
     def make_file(self, location, name=None, contents=None):
         """Create a file, and write data to it.
