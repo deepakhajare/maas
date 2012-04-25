@@ -48,10 +48,6 @@ from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
-from testtools.matchers import (
-    AllMatch,
-    Equals,
-    )
 
 
 class NodeWithMACAddressesFormTest(TestCase):
@@ -248,15 +244,20 @@ class NodeActionsTests(TestCase):
 
     def test_NODE_ACTIONS_initial_states(self):
         allowed_states = set(NODE_STATUS_CHOICES_DICT.keys() + [None])
-
         self.assertTrue(set(NODE_ACTIONS.keys()) <= allowed_states)
 
-    def test_NODE_ACTIONS_dict(self):
+    def test_NODE_ACTIONS_dict_contains_only_accepted_keys(self):
         actions = sum(NODE_ACTIONS.values(), [])
-        keys = ['permission', 'display', 'execute', 'message']
-        self.assertThat(
-            [sorted(action.keys()) for action in actions],
-            AllMatch(Equals(sorted(keys))))
+        accepted_keys = set([
+            'permission',
+            'inhibit',
+            'display',
+            'execute',
+            'message',
+            ])
+        actual_keys = set(sum([action.keys() for action in actions], []))
+        unknown_keys = actual_keys - accepted_keys
+        self.assertEqual(set(), unknown_keys)
 
 
 class TestNodeActionForm(TestCase):
@@ -267,9 +268,9 @@ class TestNodeActionForm(TestCase):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(admin)(node)
-        actions = form.available_action_methods(node, admin)
-        self.assertEqual(
-            ["Accept & commission"],
+        actions = form.compile_actions()
+        self.assertItemsEqual(
+            ["Accept & commission", "Delete node"],
             [action['display'] for action in actions])
         # All permissions should be ADMIN.
         self.assertEqual(
@@ -281,8 +282,7 @@ class TestNodeActionForm(TestCase):
         user = factory.make_user()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(user)(node)
-        self.assertItemsEqual(
-            [], form.available_action_methods(node, user))
+        self.assertItemsEqual([], form.compile_actions())
 
     def test_get_action_form_creates_form_class_with_attributes(self):
         user = factory.make_admin()
@@ -304,8 +304,8 @@ class TestNodeActionForm(TestCase):
         form = get_action_form(admin)(node)
 
         self.assertItemsEqual(
-            ["Accept & commission"],
-            form.action_dict)
+            ["Accept & commission", "Delete node"],
+            [action['display'] for action in form.action_buttons])
 
     def test_get_action_form_for_user(self):
         user = factory.make_user()
@@ -314,7 +314,7 @@ class TestNodeActionForm(TestCase):
 
         self.assertIsInstance(form, NodeActionForm)
         self.assertEqual(node, form.node)
-        self.assertItemsEqual({}, form.action_dict)
+        self.assertItemsEqual({}, form.action_buttons)
 
     def test_get_action_form_node_for_admin_save(self):
         admin = factory.make_admin()
