@@ -136,14 +136,6 @@ class NodeViewsTest(LoggedInTestCase):
             else:
                 self.assertNotIn(help_link, links)
 
-    def test_view_node_shows_link_to_delete_node_for_admin(self):
-        self.become_admin()
-        node = factory.make_node()
-        node_link = reverse('node-view', args=[node.system_id])
-        response = self.client.get(node_link)
-        node_delete_link = reverse('node-delete', args=[node.system_id])
-        self.assertIn(node_delete_link, get_content_links(response))
-
     def test_admin_can_delete_nodes(self):
         self.become_admin()
         node = factory.make_node()
@@ -163,7 +155,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertNotIn(node_delete_link, get_content_links(response))
         self.assertIn(
-            "You cannot delete this node because it's in use.",
+            "You cannot delete this node because",
             response.content)
 
     def test_allocated_node_cannot_be_deleted(self):
@@ -296,6 +288,26 @@ class NodeViewsTest(LoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertNotIn("Error output", content_text)
 
+    def test_view_node_POST_admin_can_delete_unused_node(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Delete node"})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            reverse('node-delete', args=[node.system_id]),
+            urlparse(response['Location']).path)
+
+    def test_view_node_POST_admin_cannot_delete_used_node(self):
+        self.become_admin()
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Delete node"})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
     def test_view_node_POST_admin_can_start_commissioning_node(self):
         self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
@@ -347,7 +359,8 @@ class NodeViewsTest(LoggedInTestCase):
             "Node commissioning started.",
             [message.message for message in response.context['messages']])
 
-    def test_start_node_from_ready_displays_message(self):
+    def test_start_node_displays_message(self):
+        factory.make_sshkey(self.logged_in_user)
         profile = self.logged_in_user.get_profile()
         consumer, token = profile.create_authorisation_token()
         self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
@@ -358,15 +371,8 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn("This node is now allocated to you.", notices)
         self.assertIn("asked to start up.", notices)
 
-    def test_start_node_from_allocated_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(node, "Start node")
-        self.assertEqual(
-            ["The node has been asked to start up."],
-            [message.message for message in response.context['messages']])
-
     def test_start_node_without_auth_returns_Unauthorized(self):
+        factory.make_sshkey(self.logged_in_user)
         node = factory.make_node(status=NODE_STATUS.READY)
         response = self.client.post(
             reverse('node-view', args=[node.system_id]),
