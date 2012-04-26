@@ -447,18 +447,7 @@ class TestNodeActionForm(TestCase):
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
         self.assertEqual(user, node.owner)
 
-    def test_start_action_starts_allocated_node_for_owner(self):
-        node = factory.make_node(
-            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
-        factory.make_sshkey(node.owner)
-        form = get_action_form(node.owner)(
-            node, {NodeActionForm.input_name: "Start node"})
-        form.save()
-
-        power_status = get_provisioning_api_proxy().power_status
-        self.assertEqual('start', power_status.get(node.system_id))
-
-    def test_start_action_on_ready_node_is_enabled_for_user_with_key(self):
+    def test_start_action_is_enabled_for_user_with_key(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
         factory.make_sshkey(user)
@@ -469,7 +458,7 @@ class TestNodeActionForm(TestCase):
         # them from starting a node.
         self.assertIsNone(form.find_action("Start node")['inhibition'])
 
-    def test_start_action_on_ready_node_is_disabled_for_keyless_user(self):
+    def test_start_action_is_disabled_for_keyless_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
         consumer, token = user.get_profile().create_authorisation_token()
