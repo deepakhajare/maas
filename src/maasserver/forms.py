@@ -343,6 +343,9 @@ NODE_ACTIONS = {
     NODE_STATUS.RESERVED: [
         DELETE_ACTION,
     ],
+    NODE_STATUS.ALLOCATED: [
+        DELETE_ACTION,
+    ],
     NODE_STATUS.RETIRED: [
         DELETE_ACTION,
     ],
