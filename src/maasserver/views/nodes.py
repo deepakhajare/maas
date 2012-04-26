@@ -202,10 +202,10 @@ class MacAdd(CreateView):
         kwargs['node'] = self.get_node()
         return kwargs
 
-    def post(self, *args, **kwargs):
-        post = super(MacAdd, self).post(*args, **kwargs)
+    def form_valid(self, form):
+        res = super(MacAdd, self).form_valid(form)
         messages.info(self.request, "MAC Address added.")
-        return post
+        return res
 
     def get_success_url(self):
         node = self.get_node()
