@@ -465,7 +465,9 @@ class TestNodeActionForm(TestCase):
         consumer, token = user.get_profile().create_authorisation_token()
         self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
         form = get_action_form(user)(node)
-        self.assertIs(None, form.find_action("Start node")['inhibition'])
+        # The user has an SSH key, so there is no inhibition to stop
+        # them from starting a node.
+        self.assertIsNone(form.find_action("Start node")['inhibition'])
 
     def test_start_action_on_ready_node_is_disabled_for_keyless_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
