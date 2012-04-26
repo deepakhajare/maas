@@ -23,6 +23,8 @@ __all__ = [
     "UINodeEditForm",
     ]
 
+from textwrap import dedent
+
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.forms import (
@@ -244,9 +246,12 @@ def inhibit_acquisition(node, user, request=None):
     if SSHKey.objects.get_keys_for_user(user).exists():
         return None
     else:
-        return (
-            "You have no means of accessing the node after starting it. "
-            "Register an SSH key first.")
+        return dedent("""
+            You have no means of accessing the node after starting it.
+            Register an SSH key first.  Do this on your Preferences screen:
+            click on the menu with your name at the top of the page, select
+            Preferences, and look for the "SSH keys" section.
+            """)
 
 
 def acquire_and_start_node(node, user, request=None):
