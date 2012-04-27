@@ -1302,7 +1302,7 @@ class MACAddressAPITest(APITestCase):
         return node, mac1, mac2
 
     def test_macs_GET(self):
-        # The api allows for fetching the list of the MAC addresss for a node.
+        # The api allows for fetching the list of the MAC address for a node.
         node, mac1, mac2 = self.createNodeWithMacs()
         response = self.client.get(
             self.get_uri('nodes/%s/macs/') % node.system_id)
