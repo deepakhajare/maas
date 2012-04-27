@@ -40,7 +40,7 @@ ALL_STATUSES = NODE_STATUS_CHOICES_DICT.keys()
 
 class FakeNodeAction(NodeAction):
     display = "Action label"
-    statuses = ALL_STATUSES
+    actionable_statuses = ALL_STATUSES
     permission = NODE_PERMISSION.VIEW
 
     # For testing: an inhibition for inhibit() to return.
@@ -49,7 +49,7 @@ class FakeNodeAction(NodeAction):
     def inhibit(self):
         return self.fake_inhibition
 
-    def perform(self):
+    def execute(self):
         pass
 
 
@@ -67,7 +67,7 @@ class TestNodeAction(TestCase):
     def test_compile_node_actions_checks_node_status(self):
 
         class MyAction(FakeNodeAction):
-            statuses = (NODE_STATUS.READY, )
+            actionable_statuses = (NODE_STATUS.READY, )
 
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         actions = compile_node_actions(
@@ -181,7 +181,7 @@ class TestNodeAction(TestCase):
         node = factory.make_node()
         action = Delete(node, factory.make_admin())
         try:
-            action.perform()
+            action.execute()
         except Redirect as e:
             pass
         self.assertEqual(
@@ -191,7 +191,7 @@ class TestNodeAction(TestCase):
     def test_AcceptAndCommission_starts_commissioning(self):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         action = AcceptAndCommission(node, factory.make_admin())
-        action.perform()
+        action.execute()
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
         self.assertEqual(
             'start',
@@ -200,7 +200,7 @@ class TestNodeAction(TestCase):
     def test_RetryCommissioning_starts_commissioning(self):
         node = factory.make_node(status=NODE_STATUS.FAILED_TESTS)
         action = RetryCommissioning(node, factory.make_admin())
-        action.perform()
+        action.execute()
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
         self.assertEqual(
             'start',
@@ -224,7 +224,7 @@ class TestNodeAction(TestCase):
         user = factory.make_user()
         consumer, token = user.get_profile().create_authorisation_token()
         self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
-        StartNode(node, user).perform()
+        StartNode(node, user).execute()
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
         self.assertEqual(user, node.owner)
         self.assertEqual(

@@ -58,11 +58,11 @@ class NodeAction:
         Will be used as the label for the action's button.
         """)
 
-    statuses = abstractproperty("""
-        Node states that this action makes sense for.
+    actionable_statuses = abstractproperty("""
+        Node states for which this action makes sense.
 
         A collection of NODE_STATUS values.  The action will be available
-        only if `node.status in action.statuses`.
+        only if `node.status in action.actionable_statuses`.
         """)
 
     permission = abstractproperty("""
@@ -95,7 +95,7 @@ class NodeAction:
         return None
 
     @abstractmethod
-    def perform(self):
+    def execute(self):
         """Perform this action.
 
         Even though this is not the API, the action may raise
@@ -125,7 +125,7 @@ class NodeAction:
 class Delete(NodeAction):
     """Delete a node."""
     display = "Delete node"
-    statuses = ALL_STATUSES
+    actionable_statuses = ALL_STATUSES
     permission = NODE_PERMISSION.ADMIN
 
     def inhibit(self):
@@ -133,7 +133,7 @@ class Delete(NodeAction):
             return "You cannot delete this node because it's in use."
         return None
 
-    def perform(self):
+    def execute(self):
         """Redirect to the delete view's confirmation page.
 
         The rest of deletion is handled by a specialized deletion view.
@@ -146,10 +146,10 @@ class Delete(NodeAction):
 class AcceptAndCommission(NodeAction):
     """Accept a node into the MAAS, and start the commissioning process."""
     display = "Accept & commission"
-    statuses = (NODE_STATUS.DECLARED, )
+    actionable_statuses = (NODE_STATUS.DECLARED, )
     permission = NODE_PERMISSION.ADMIN
 
-    def perform(self):
+    def execute(self):
         self.node.start_commissioning(self.user)
         return "Node commissioning started."
 
@@ -157,10 +157,10 @@ class AcceptAndCommission(NodeAction):
 class RetryCommissioning(NodeAction):
     """Retry commissioning of a node that failed previously."""
     display = "Retry commissioning"
-    statuses = (NODE_STATUS.FAILED_TESTS, )
+    actionable_statuses = (NODE_STATUS.FAILED_TESTS, )
     permission = NODE_PERMISSION.ADMIN
 
-    def perform(self):
+    def execute(self):
         self.node.start_commissioning(self.user)
         return "Started a new attempt to commission this node."
 
@@ -168,13 +168,13 @@ class RetryCommissioning(NodeAction):
 class StartNode(NodeAction):
     """Acquire and start a node."""
     display = "Start node"
-    statuses = (NODE_STATUS.READY, )
+    actionable_statuses = (NODE_STATUS.READY, )
     permission = NODE_PERMISSION.VIEW
 
     def inhibit(self):
         """The user must have an SSH key, so that they access the node."""
         if not SSHKey.objects.get_keys_for_user(self.user).exists():
-            return dedent("""
+            return dedent("""\
                 You have no means of accessing the node after starting it.
                 Register an SSH key first.  Do this on your Preferences
                 screen: click on the menu with your name at the top of the
@@ -182,7 +182,7 @@ class StartNode(NodeAction):
                 """)
         return None
 
-    def perform(self):
+    def execute(self):
         # Avoid circular imports.
         from maasserver.api import get_oauth_token
 
@@ -190,7 +190,7 @@ class StartNode(NodeAction):
         # the node ineligible based on its un-acquired status.
         self.node.acquire(get_oauth_token(self.request))
         Node.objects.start_nodes([self.node.system_id], self.user)
-        return dedent("""
+        return dedent("""\
             This node is now allocated to you.
             It has been asked to start up.
             """)
@@ -218,7 +218,7 @@ def compile_node_actions(node, user, request=None, classes=ACTION_CLASSES):
     applicable_actions = (
         action_class(node, user, request)
         for action_class in classes
-            if node.status in action_class.statuses)
+            if node.status in action_class.actionable_statuses)
     return OrderedDict(
         (action.display, action)
         for action in applicable_actions

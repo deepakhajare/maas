@@ -263,7 +263,7 @@ class NodeActionForm(forms.Form):
             raise PermissionDenied("Not a permitted action: %s" % action_name)
         if action.inhibition is not None:
             raise PermissionDenied(action.inhibition)
-        message = action.perform()
+        message = action.execute()
         self.display_message(message)
 
 
