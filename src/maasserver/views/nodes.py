@@ -31,7 +31,10 @@ from maasserver.enum import (
     NODE_PERMISSION,
     NODE_STATUS,
     )
-from maasserver.exceptions import NoRabbit
+from maasserver.exceptions import (
+    MAASAPIException,
+    NoRabbit,
+    )
 from maasserver.forms import (
     get_action_form,
     UIAdminNodeEditForm,
@@ -65,7 +68,7 @@ class NodeListView(ListView):
         # Return node list sorted, newest first.
         return Node.objects.get_nodes(
             user=self.request.user,
-            perm=NODE_PERMISSION.VIEW).order_by('-id')
+            perm=NODE_PERMISSION.VIEW).order_by('-created')
 
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)
@@ -76,11 +79,10 @@ class NodeListView(ListView):
 # Info message displayed on the node page for COMMISSIONING
 # or READY nodes.
 NODE_BOOT_INFO = mark_safe("""
-You can boot this node using Avahi enabled boot media or an
-adequately configured dhcp server, see
+You can boot this node using Avahi-enabled boot media or an adequately
+configured dhcp server.  See
 <a href="https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot">
-https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot</a> for
-details.
+https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot</a> for instructions.
 """)
 
 
@@ -105,8 +107,6 @@ class NodeView(UpdateView):
         node = self.get_object()
         context['can_edit'] = self.request.user.has_perm(
             NODE_PERMISSION.EDIT, node)
-        context['can_delete'] = self.request.user.has_perm(
-            NODE_PERMISSION.ADMIN, node)
         if node.status in (NODE_STATUS.COMMISSIONING, NODE_STATUS.READY):
             messages.info(self.request, NODE_BOOT_INFO)
         context['error_text'] = (
@@ -114,6 +114,18 @@ class NodeView(UpdateView):
         context['status_text'] = (
             node.error if node.status != NODE_STATUS.FAILED_TESTS else None)
         return context
+
+    def dispatch(self, *args, **kwargs):
+        """Override from Django `View`: Handle MAAS exceptions.
+
+        Node actions may raise exceptions derived from
+        :class:`MAASAPIException`.  This type of exception contains an
+        http status code that we will forward to the client.
+        """
+        try:
+            return super(NodeView, self).dispatch(*args, **kwargs)
+        except MAASAPIException as e:
+            return e.make_http_response()
 
     def get_success_url(self):
         return reverse('node-view', args=[self.get_object().system_id])

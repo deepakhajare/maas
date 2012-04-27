@@ -33,7 +33,6 @@ import binascii
 from cgi import escape
 from collections import defaultdict
 import copy
-import datetime
 from errno import ENOENT
 from logging import getLogger
 import os
@@ -53,7 +52,10 @@ from django.core.exceptions import (
     )
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
-from django.db import models
+from django.db import (
+    connection,
+    models,
+    )
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from django.utils.safestring import mark_safe
@@ -100,6 +102,12 @@ SYSTEM_USERS = [
 logger = getLogger('maasserver')
 
 
+def now():
+    cursor = connection.cursor()
+    cursor.execute("select now()")
+    return cursor.fetchone()[0]
+
+
 # Due for model migration on 2012-04-30.
 class CommonInfo(models.Model):
     """A base model which:
@@ -114,13 +122,14 @@ class CommonInfo(models.Model):
     class Meta(DefaultMeta):
         abstract = True
 
-    created = models.DateField(editable=False)
+    created = models.DateTimeField(editable=False)
     updated = models.DateTimeField(editable=False)
 
     def save(self, skip_check=False, *args, **kwargs):
+        date_now = now()
         if not self.id:
-            self.created = datetime.date.today()
-        self.updated = datetime.datetime.today()
+            self.created = date_now
+        self.updated = date_now
         if not skip_check:
             self.full_clean()
         return super(CommonInfo, self).save(*args, **kwargs)
@@ -158,6 +167,11 @@ NODE_TRANSITIONS = {
         NODE_STATUS.READY,
         NODE_STATUS.RETIRED,
         NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.FAILED_TESTS: [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.READY: [
         NODE_STATUS.ALLOCATED,
@@ -590,12 +604,14 @@ class Node(CommonInfo):
         self.status = NODE_STATUS.ALLOCATED
         self.owner = token.user
         self.token = token
+        self.save()
 
     def release(self):
         """Mark allocated or reserved node as available again."""
         self.status = NODE_STATUS.READY
         self.owner = None
         self.token = None
+        self.save()
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')

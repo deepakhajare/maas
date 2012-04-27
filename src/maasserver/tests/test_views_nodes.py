@@ -13,11 +13,13 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
+from urlparse import urlparse
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import messages
+import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
@@ -28,6 +30,7 @@ from maasserver.models import Node
 from maasserver.testing import (
     get_content_links,
     reload_object,
+    reload_objects,
     )
 from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
@@ -53,16 +56,19 @@ class NodeViewsTest(LoggedInTestCase):
     def test_node_list_displays_sorted_list_of_nodes(self):
         # Nodes are sorted on the node list page, newest first.
         nodes = [factory.make_node() for i in range(3)]
-        nodes.reverse()
-        # Modify one node to make sure that the default db ordering
-        # (by modification date) is not used.
-        node = nodes[1]
-        node.hostname = factory.getRandomString()
-        node.save()
+        # Explicitely set node.created since all of these node will
+        # be created in the same transaction and thus have the same
+        # 'created' value by default.
+        for node in nodes:
+            created = factory.getRandomDate()
+            # Update node.created without calling node.save().
+            Node.objects.filter(id=node.id).update(created=created)
+        nodes = reload_objects(Node, nodes)
+        sorted_nodes = sorted(nodes, key=lambda x: x.created, reverse=True)
         response = self.client.get(reverse('node-list'))
         node_links = [
             reverse('node-view', args=[node.system_id])
-            for node in nodes]
+            for node in sorted_nodes]
         self.assertEqual(
             node_links,
             [link for link in get_content_links(response)
@@ -123,14 +129,6 @@ class NodeViewsTest(LoggedInTestCase):
             else:
                 self.assertNotIn(help_link, links)
 
-    def test_view_node_shows_link_to_delete_node_for_admin(self):
-        self.become_admin()
-        node = factory.make_node()
-        node_link = reverse('node-view', args=[node.system_id])
-        response = self.client.get(node_link)
-        node_delete_link = reverse('node-delete', args=[node.system_id])
-        self.assertIn(node_delete_link, get_content_links(response))
-
     def test_admin_can_delete_nodes(self):
         self.become_admin()
         node = factory.make_node()
@@ -150,7 +148,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertNotIn(node_delete_link, get_content_links(response))
         self.assertIn(
-            "You cannot delete this node because it's in use.",
+            "You cannot delete this node because",
             response.content)
 
     def test_allocated_node_cannot_be_deleted(self):
@@ -250,6 +248,26 @@ class NodeViewsTest(LoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertNotIn("Error output", content_text)
 
+    def test_view_node_POST_admin_can_delete_unused_node(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Delete node"})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            reverse('node-delete', args=[node.system_id]),
+            urlparse(response['Location']).path)
+
+    def test_view_node_POST_admin_cannot_delete_used_node(self):
+        self.become_admin()
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Delete node"})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
     def test_view_node_POST_admin_can_start_commissioning_node(self):
         self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
@@ -263,17 +281,36 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(
             NODE_STATUS.COMMISSIONING, reload_object(node).status)
 
-    def perform_action_and_get_node_page(self, node, action_name):
+    def test_view_node_POST_admin_can_retry_failed_commissioning(self):
+        self.become_admin()
+        node = factory.make_node(status=NODE_STATUS.FAILED_TESTS)
         node_link = reverse('node-view', args=[node.system_id])
-        self.client.post(
+        response = self.client.post(
+            node_link,
+            data={NodeActionForm.input_name: "Retry commissioning"})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+
+    def perform_action_and_get_node_page(self, node, action_name):
+        """POST to perform a node action, then load the resulting page."""
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.post(
             node_link,
             data={
                 NodeActionForm.input_name: action_name,
             })
-        response = self.client.get(node_link)
-        return response
+        if response.status_code != httplib.FOUND:
+            self.fail(
+                "POST failed with code %d: '%s'"
+                % (response.status_code, response.content))
+        redirect = urlparse(response['Location']).path
+        if redirect != node_link:
+            self.fail(
+                "Odd: POST on %s redirected to %s." % (node_link, redirect))
+        return self.client.get(redirect)
 
-    def test_start_commisionning_displays_message(self):
+    def test_start_commisioning_displays_message(self):
         self.become_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         response = self.perform_action_and_get_node_page(
@@ -282,23 +319,25 @@ class NodeViewsTest(LoggedInTestCase):
             "Node commissioning started.",
             [message.message for message in response.context['messages']])
 
-    def test_start_node_from_ready_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.READY, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
-        self.assertIn(
-            "Node started.",
-            [message.message for message in response.context['messages']])
+    def test_start_node_displays_message(self):
+        factory.make_sshkey(self.logged_in_user)
+        profile = self.logged_in_user.get_profile()
+        consumer, token = profile.create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.perform_action_and_get_node_page(node, "Start node")
+        notices = '\n'.join(
+            message.message for message in response.context['messages'])
+        self.assertIn("This node is now allocated to you.", notices)
+        self.assertIn("asked to start up.", notices)
 
-    def test_start_node_from_allocated_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
-        self.assertEqual(
-            ["Node started."],
-            [message.message for message in response.context['messages']])
+    def test_start_node_without_auth_returns_Unauthorized(self):
+        factory.make_sshkey(self.logged_in_user)
+        node = factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(
+            reverse('node-view', args=[node.system_id]),
+            data={NodeActionForm.input_name: "Start node"})
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
 
 class AdminNodeViewsTest(AdminLoggedInTestCase):
