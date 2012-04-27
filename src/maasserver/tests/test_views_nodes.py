@@ -237,14 +237,15 @@ class NodeViewsTest(LoggedInTestCase):
             response.content,
             MatchesAll(
                 *[Contains(
-                    reverse('mac-delete', args=[node, mac]))
+                    reverse('mac-delete', args=[node.system_id, mac]))
                     for mac in macs]))
 
     def test_edit_nodes_contains_link_to_add_a_macaddresses(self):
         node = factory.make_node(owner=self.logged_in_user)
         node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.get(node_edit_link)
-        self.assertIn(reverse('mac-add', args=[node]), response.content)
+        self.assertIn(
+            reverse('mac-add', args=[node.system_id]), response.content)
 
     def test_view_node_has_button_to_accept_enlistement_for_user(self):
         # A simple user can't see the button to enlist a declared node.
@@ -442,7 +443,7 @@ class NodeDeleteMacTest(LoggedInTestCase):
             [message.message for message in response.context['messages']])
 
 
-class NodeAddeMacTest(LoggedInTestCase):
+class NodeAddMacTest(LoggedInTestCase):
 
     def test_node_add_mac_contains_form(self):
         node = factory.make_node(owner=self.logged_in_user)
