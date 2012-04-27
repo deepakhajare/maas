@@ -12,9 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import httplib
-from urlparse import urlparse
-
 from django import forms
 from django.core.exceptions import (
     PermissionDenied,
@@ -54,6 +51,7 @@ from maasserver.models import (
     MACAddress,
     )
 from maasserver.provisioning import get_provisioning_api_proxy
+from maasserver.testing import extract_redirect
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
@@ -295,10 +293,9 @@ class TestNodeActionForm(TestCase):
         else:
             self.fail("delete_node should have raised a Redirect.")
         response = e.make_http_response()
-        self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
             reverse('node-delete', args=[node.system_id]),
-            urlparse(response['Location']).path)
+            extract_redirect(response))
 
     def have_permission_returns_False_if_action_is_None(self):
         admin = factory.make_admin()
