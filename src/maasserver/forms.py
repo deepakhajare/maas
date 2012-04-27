@@ -139,6 +139,15 @@ class MACAddressForm(ModelForm):
     class Meta:
         model = MACAddress
 
+    def __init__(self, node, *args, **kwargs):
+        super(MACAddressForm, self).__init__(*args, **kwargs)
+        self.node = node
+
+    def save(self, *args, **kwargs):
+        mac = super(MACAddressForm, self).save(commit=False)
+        mac.node = self.node
+        return mac.save(*args, **kwargs)
+
 
 class SSHKeyForm(ModelForm):
     key = forms.CharField(
@@ -203,14 +212,14 @@ class NodeWithMACAddressesForm(NodeForm):
 
     def is_valid(self):
         valid = super(NodeWithMACAddressesForm, self).is_valid()
-        # If the number of MAC Address fields is > 1, provide a unified
+        # If the number of MAC address fields is > 1, provide a unified
         # error message if the validation has failed.
         reformat_mac_address_error = (
             self.errors.get('mac_addresses', None) is not None and
             len(self.data['mac_addresses']) > 1)
         if reformat_mac_address_error:
             self.errors['mac_addresses'] = (
-                ['One or more MAC Addresses is invalid.'])
+                ['One or more MAC addresses is invalid.'])
         return valid
 
     def clean_mac_addresses(self):

@@ -28,6 +28,7 @@ from maasserver.forms import (
     EditUserForm,
     get_action_form,
     HostnameFormField,
+    MACAddressForm,
     NewUserCreationForm,
     NodeActionForm,
     NodeWithMACAddressesForm,
@@ -39,6 +40,7 @@ from maasserver.forms import (
 from maasserver.models import (
     Config,
     DEFAULT_CONFIG,
+    MACAddress,
     )
 from maasserver.node_action import (
     AcceptAndCommission,
@@ -76,7 +78,7 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertEqual(ARCHITECTURE.i386, form.cleaned_data['architecture'])
 
     def test_NodeWithMACAddressesForm_simple_invalid(self):
-        # If the form only has one (invalid) MAC Address field to validate,
+        # If the form only has one (invalid) MAC address field to validate,
         # the error message in form.errors['mac_addresses'] is the
         # message from the field's validation error.
         form = NodeWithMACAddressesForm(
@@ -92,7 +94,7 @@ class NodeWithMACAddressesFormTest(TestCase):
             form.errors['mac_addresses'])
 
     def test_NodeWithMACAddressesForm_multiple_invalid(self):
-        # If the form has multiple MAC Address fields to validate,
+        # If the form has multiple MAC address fields to validate,
         # if one or more fields are invalid, a single error message is
         # present in form.errors['mac_addresses'] after validation.
         form = NodeWithMACAddressesForm(
@@ -104,11 +106,11 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(['mac_addresses'], list(form.errors))
         self.assertEqual(
-            ['One or more MAC Addresses is invalid.'],
+            ['One or more MAC addresses is invalid.'],
             form.errors['mac_addresses'])
 
     def test_NodeWithMACAddressesForm_empty(self):
-        # Empty values in the list of MAC Addresses are simply ignored.
+        # Empty values in the list of MAC addresses are simply ignored.
         form = NodeWithMACAddressesForm(
             self.get_QueryDict({
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', ''],
@@ -401,3 +403,26 @@ class TestNewUserCreationForm(TestCase):
             ['username', 'last_name', 'email', 'password1', 'password2',
                 'is_superuser'],
             list(form.fields))
+
+
+class TestMACAddressForm(TestCase):
+
+    def test_MACAddressForm_creates_mac_address(self):
+        node = factory.make_node()
+        mac = factory.getRandomMACAddress()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        form.save()
+        self.assertTrue(
+            MACAddress.objects.filter(node=node, mac_address=mac).exists())
+
+    def test_MACAddressForm_displays_error_message_if_mac_already_used(self):
+        mac = factory.getRandomMACAddress()
+        node = factory.make_mac_address(address=mac)
+        node = factory.make_node()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        self.assertFalse(form.is_valid())
+        self.assertEquals(
+            {'mac_address': ['This MAC address is already registered.']},
+            form._errors)
+        self.assertFalse(
+            MACAddress.objects.filter(node=node, mac_address=mac).exists())
