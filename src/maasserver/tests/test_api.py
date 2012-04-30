@@ -25,7 +25,6 @@ import random
 import shutil
 
 from django.conf import settings
-from django.db import models
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
@@ -1811,7 +1810,7 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
 
     def test_check_with_no_action(self):
         node = factory.make_node(status=NODE_STATUS.READY)
-        response = self.client.post(
+        self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         # Anything that's not commissioning should be ignored.
         self.assertEqual(NODE_STATUS.READY, node.status)
@@ -1819,19 +1818,19 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
     def test_check_with_commissioning_but_not_expired_node(self):
         node = factory.make_node(
             status=NODE_STATUS.COMMISSIONING)
-        response = self.client.post(
+        self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
 
     def test_check_with_commissioning_and_expired_node(self):
         # Have an interval 1 second longer than the timeout.
         interval = timedelta(seconds=1, minutes=settings.COMMISSIONING_TIMEOUT)
-        updated_at = updated=datetime.now() - interval
+        updated_at = datetime.now() - interval
         node = factory.make_node(
             status=NODE_STATUS.COMMISSIONING, created=datetime.now(),
             updated=updated_at)
 
-        response = self.client.post(
+        self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         node = reload_object(node)
         self.assertEqual(NODE_STATUS.FAILED_TESTS, node.status)
