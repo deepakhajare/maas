@@ -44,8 +44,16 @@ header = dedent("""\
     on %(timestamp)s.
     */
 
+    YUI.add('maas.enum', function(Y) {
+    Y.log('loading maas.enum');
+    var module = Y.namespace('maas.enum');
     """
     % {'script': sys.argv[0], 'timestamp': datetime.now()})
+
+
+footer = dedent("""\
+    }, '0.1');
+    """)
 
 
 def get_module(src_path, package, name='enum'):
@@ -124,7 +132,7 @@ def serialize_enum(enum):
     # Import lazily to make use of initialized path.
     from maasserver import map_enum
 
-    head = "var %s = {\n" % enum.__name__
+    head = "module.%s = {\n" % enum.__name__
     foot = "\n};"
     return head + serialize_dict_items(map_enum(enum)) + foot
 

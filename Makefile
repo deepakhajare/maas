@@ -91,7 +91,7 @@ JSENUMS=src/maasserver/static/js/enum.js
 # Generate JavaScript enums from python enums.
 enums: $(JSENUMS)
 
-$(JSENUMS): src/*/enum.py
+$(JSENUMS): utilities/convert-enums.py src/*/enum.py
 	utilities/convert-enums.py --src=src >$@
 
 distclean: clean stop
