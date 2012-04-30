@@ -59,7 +59,6 @@ from django.db import (
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from django.utils.safestring import mark_safe
-from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
@@ -78,6 +77,7 @@ from maasserver.fields import (
     JSONObjectField,
     MACAddressField,
     )
+from maasserver.models.commoninfo import CommonInfo
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -106,33 +106,6 @@ def now():
     cursor = connection.cursor()
     cursor.execute("select now()")
     return cursor.fetchone()[0]
-
-
-# Due for model migration on 2012-04-30.
-class CommonInfo(models.Model):
-    """A base model which:
-    - calls full_clean before saving the model (by default).
-    - records the creation date and the last modification date.
-
-    :ivar created: The creation date.
-    :ivar updated: The last modification date.
-
-    """
-
-    class Meta(DefaultMeta):
-        abstract = True
-
-    created = models.DateTimeField(editable=False)
-    updated = models.DateTimeField(editable=False)
-
-    def save(self, skip_check=False, *args, **kwargs):
-        date_now = now()
-        if not self.id:
-            self.created = date_now
-        self.updated = date_now
-        if not skip_check:
-            self.full_clean()
-        return super(CommonInfo, self).save(*args, **kwargs)
 
 
 def generate_node_system_id():
@@ -598,11 +571,12 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, token):
-        """Mark commissioned node as acquired by the given user's token."""
+    def acquire(self, user, token=None):
+        """Mark commissioned node as acquired by the given user and token."""
         assert self.owner is None
+        assert token is None or token.user == user
         self.status = NODE_STATUS.ALLOCATED
-        self.owner = token.user
+        self.owner = user
         self.token = token
         self.save()
 

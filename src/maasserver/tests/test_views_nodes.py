@@ -13,7 +13,6 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
-from urlparse import urlparse
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -32,6 +31,7 @@ from maasserver.models import (
     )
 from maasserver.node_action import StartNode
 from maasserver.testing import (
+    extract_redirect,
     get_content_links,
     reload_object,
     reload_objects,
@@ -305,9 +305,7 @@ class NodeViewsTest(LoggedInTestCase):
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.post(
             node_link, data={NodeActionForm.input_name: action_name})
-        if response.status_code != httplib.FOUND:
-            self.fail("%d: '%s'" % (response.status_code, response.content))
-        redirect = urlparse(response['Location']).path
+        redirect = extract_redirect(response)
         if redirect != node_link:
             self.fail("Odd: %s redirected to %s." % (node_link, redirect))
         return self.client.get(redirect)
@@ -321,14 +319,6 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(
             "This node is now allocated to you.",
             '\n'.join(msg.message for msg in response.context['messages']))
-
-    def test_view_node_POST_without_oauth_returns_Unauthorized(self):
-        factory.make_sshkey(self.logged_in_user)
-        node = factory.make_node(status=NODE_STATUS.READY)
-        response = self.client.post(
-            reverse('node-view', args=[node.system_id]),
-            data={NodeActionForm.input_name: StartNode.display})
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
 
 class NodeDeleteMacTest(LoggedInTestCase):
@@ -349,10 +339,9 @@ class NodeDeleteMacTest(LoggedInTestCase):
         mac = factory.getRandomMACAddress()
         mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
         response = self.client.get(mac_delete_link)
-        next_url = reverse('node-edit', args=[node.system_id])
         self.assertEqual(
-            (httplib.FOUND, next_url),
-            (response.status_code, urlparse(response['Location']).path))
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
 
     def test_node_delete_access_denied_if_user_cannot_edit_node(self):
         node = factory.make_node(owner=factory.make_user())
@@ -376,10 +365,9 @@ class NodeDeleteMacTest(LoggedInTestCase):
         mac = factory.make_mac_address(node=node)
         mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
         response = self.client.post(mac_delete_link, {'post': 'yes'})
-        next_url = reverse('node-edit', args=[node.system_id])
         self.assertEqual(
-            (httplib.FOUND, next_url),
-            (response.status_code, urlparse(response['Location']).path))
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
         self.assertFalse(MACAddress.objects.filter(id=mac.id).exists())
 
     def test_node_delete_mac_POST_displays_message(self):
@@ -387,7 +375,8 @@ class NodeDeleteMacTest(LoggedInTestCase):
         mac = factory.make_mac_address(node=node)
         mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
         response = self.client.post(mac_delete_link, {'post': 'yes'})
-        response = self.client.get(urlparse(response['Location']).path)
+        redirect = extract_redirect(response)
+        response = self.client.get(redirect)
         self.assertEqual(
             ["Mac address %s deleted." % mac.mac_address],
             [message.message for message in response.context['messages']])
@@ -407,10 +396,9 @@ class NodeAddMacTest(LoggedInTestCase):
         mac_add_link = reverse('mac-add', args=[node.system_id])
         mac = factory.getRandomMACAddress()
         response = self.client.post(mac_add_link, {'mac_address': mac})
-        next_url = reverse('node-edit', args=[node.system_id])
         self.assertEqual(
-            (httplib.FOUND, next_url),
-            (response.status_code, urlparse(response['Location']).path))
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
         self.assertTrue(
             MACAddress.objects.filter(node=node, mac_address=mac).exists())
 
@@ -419,7 +407,8 @@ class NodeAddMacTest(LoggedInTestCase):
         mac_add_link = reverse('mac-add', args=[node.system_id])
         mac = factory.getRandomMACAddress()
         response = self.client.post(mac_add_link, {'mac_address': mac})
-        response = self.client.get(urlparse(response['Location']).path)
+        redirect = extract_redirect(response)
+        response = self.client.get(redirect)
         self.assertEqual(
             ["MAC address added."],
             [message.message for message in response.context['messages']])
