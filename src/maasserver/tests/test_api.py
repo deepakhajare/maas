@@ -1820,6 +1820,7 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
             status=NODE_STATUS.COMMISSIONING)
         self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        node = reload_object(node)
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
 
     def test_check_with_commissioning_and_expired_node(self):
