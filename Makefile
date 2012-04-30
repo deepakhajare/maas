@@ -80,19 +80,20 @@ sampledata: bin/maas syncdb
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
 
-clean:
-	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
-	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
-	$(RM) -r media/demo/* media/development
-
 # JavaScript enums module, generated from python enums modules.
-JSENUMS=src/maasserver/static/js/enum.js
+JSENUMS=src/maasserver/static/js/enums.js
 
 # Generate JavaScript enums from python enums.
 enums: $(JSENUMS)
 
 $(JSENUMS): utilities/convert-enums.py src/*/enum.py
 	utilities/convert-enums.py --src=src >$@
+
+clean:
+	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
+	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
+	$(RM) -r media/demo/* media/development
+	$(RM) $(JSENUMS)
 
 distclean: clean stop
 	utilities/maasdb delete-cluster ./db/
@@ -104,7 +105,6 @@ distclean: clean stop
 	$(RM) -r docs/_build/
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
-	$(RM) $(JSENUMS)
 
 harness: bin/maas dev-db
 	bin/maas shell --settings=maas.demo

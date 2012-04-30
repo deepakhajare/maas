@@ -34,7 +34,6 @@ import os.path
 import sys
 from textwrap import dedent
 
-
 # Header.  Will be written on top of the output.
 header = dedent("""\
     /*
@@ -44,14 +43,14 @@ header = dedent("""\
     on %(timestamp)s.
     */
 
-    YUI.add('maas.enum', function(Y) {
-    Y.log('loading maas.enum');
-    var module = Y.namespace('maas.enum');
+    YUI.add('maas.enums', function(Y) {
+    Y.log('loading maas.enums');
+    var module = Y.namespace('maas.enums');
     """
     % {'script': sys.argv[0], 'timestamp': datetime.now()})
 
 
-footer = dedent("""\
+footer = dedent("""
     }, '0.1');
     """)
 
@@ -123,7 +122,6 @@ def serialize_item(key, value):
 def serialize_dict_items(enum):
     """Represent the items of a dict as a block of JavaScript."""
     items = sorted(enum.items(), key=itemgetter(1))
-    lines = [("    %s: %s" % (key, value)) for key, value in items]
     return ',\n'.join(serialize_item(key, value) for key, value in items)
 
 
@@ -152,7 +150,7 @@ def main(args):
     enum_modules = find_enum_modules(args.src)
     enums = sum((get_enum_classes(module) for module in enum_modules), [])
     dumps = (serialize_enum(enum) for enum in enums)
-    print(header + "\n\n".join(dumps))
+    print(header + "\n\n".join(dumps) + footer)
 
 
 if __name__ == "__main__":

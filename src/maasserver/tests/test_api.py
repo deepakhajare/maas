@@ -13,11 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 from base64 import b64encode
+from collections import namedtuple
 from datetime import (
     datetime,
     timedelta,
     )
-from collections import namedtuple
 import httplib
 import json
 import os
@@ -28,7 +28,10 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import api
+from maasserver import (
+    api,
+    map_enum,
+    )
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -53,7 +56,6 @@ from maasserver.testing import (
     reload_object,
     reload_objects,
     )
-from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maasserver.testing.testcase import (
