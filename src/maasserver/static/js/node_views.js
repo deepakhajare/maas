@@ -314,9 +314,6 @@ module.NodesDashboard = Y.Base.create(
             node_counter = -1;
         }
 
-        /* TODO: The commissioned status currently doesn't exist, but once it
-           does it should be added here too.
-        */
         if (status === 0) {
             // Added nodes
             this.added_nodes += node_counter;

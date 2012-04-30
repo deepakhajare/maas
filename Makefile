@@ -5,7 +5,8 @@ build: \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
     bin/twistd.txlongpoll \
-    bin/py bin/ipy
+    bin/py bin/ipy \
+    enums
 
 all: build doc
 
@@ -13,11 +14,11 @@ bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/maas: bin/buildout buildout.cfg versions.cfg setup.py
+bin/maas: bin/buildout buildout.cfg versions.cfg setup.py enums
 	bin/buildout install maas
 	@touch --no-create $@
 
-bin/test.maas: bin/buildout buildout.cfg versions.cfg setup.py
+bin/test.maas: bin/buildout buildout.cfg versions.cfg setup.py enums
 	bin/buildout install maas-test
 	@touch --no-create $@
 
@@ -48,7 +49,7 @@ bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
 dev-db:
 	utilities/maasdb start ./db/ disposable
 
-test: bin/test.maas bin/test.pserv
+test: bin/test.maas bin/test.pserv enums
 	bin/test.maas
 	bin/test.pserv
 
@@ -84,6 +85,15 @@ clean:
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 
+# JavaScript enums module, generated from python enums modules.
+JSENUMS=src/maasserver/static/js/enum.js
+
+# Generate JavaScript enums from python enums.
+enums: $(JSENUMS)
+
+$(JSENUMS): src/*/enum.py
+	utilities/convert-enums.py --src=src >$@
+
 distclean: clean stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
@@ -94,6 +104,7 @@ distclean: clean stop
 	$(RM) -r docs/_build/
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
+	$(RM) $(JSENUMS)
 
 harness: bin/maas dev-db
 	bin/maas shell --settings=maas.demo
@@ -110,6 +121,7 @@ define phony_targets
   dev-db
   distclean
   doc
+  enums
   harness
   lint
   lint-css

@@ -26,7 +26,7 @@ from maasserver import components
 from maasserver.components import register_persistent_error
 from maasserver.exceptions import ExternalComponentException
 from maasserver.testing import extract_redirect
-from maasserver.testing.enum import map_enum
+from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
