@@ -55,3 +55,14 @@ class TestApiExported(TestCase):
         self.assertEqual(
             random_exported_name, decorated._api_exported["POST"])
 
+    def test_export_as_is_optional(self):
+        # If export_as is not passed then we expect the function to be
+        # exported in the API using the actual function name itself.
+
+        def exported_function():
+            pass
+
+        decorate = api_exported(method="POST")
+        decorated = decorate(exported_function)
+
+        self.assertEqual("exported_function", decorated._api_exported["POST"])
