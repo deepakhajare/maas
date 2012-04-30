@@ -22,10 +22,7 @@ from django.http import Http404
 from django.test.client import RequestFactory
 from django.utils.html import escape
 from lxml.html import fromstring
-from maasserver import (
-    components,
-    map_enum,
-    )
+from maasserver import components
 from maasserver.components import register_persistent_error
 from maasserver.exceptions import ExternalComponentException
 from maasserver.testing import extract_redirect
@@ -36,6 +33,7 @@ from maasserver.testing.testcase import (
     )
 from maasserver.views import HelpfulDeleteView
 from maasserver.views.nodes import NodeEdit
+from maasserver.utils import map_enum
 from maastesting.matchers import ContainsAll
 from provisioningserver.enum import PSERV_FAULT
 

@@ -32,7 +32,6 @@ from django.db import (
     )
 from django.utils.safestring import SafeUnicode
 from fixtures import TestWithFixtures
-from maasserver import map_enum
 from maasserver.enum import (
     NODE_PERMISSION,
     NODE_STATUS,
@@ -71,6 +70,7 @@ from maasserver.testing.testcase import (
     TestModelTestCase,
     )
 from maasserver.tests.models import CommonInfoTestModel
+from maasserver.utils import map_enum
 from maastesting.djangotestcase import (
     TestModelTransactionalTestCase,
     TransactionTestCase,

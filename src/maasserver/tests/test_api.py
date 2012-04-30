@@ -28,10 +28,7 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import (
-    api,
-    map_enum,
-    )
+from maasserver import api
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -63,6 +60,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.utils import map_enum
 from maastesting.djangotestcase import TransactionTestCase
 from metadataserver.models import (
     NodeKey,

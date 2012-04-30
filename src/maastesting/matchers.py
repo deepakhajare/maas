@@ -12,7 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'ContainsAll',
-]
+    ]
 
 from testtools.matchers import (
     Contains,
