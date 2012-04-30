@@ -167,14 +167,14 @@ def api_exported(method='POST', exported_as=None):
     def _decorator(func):
         if method not in dispatch_methods:
             raise ValueError("Invalid method: '%s'" % method)
-        if exported_as == dispatch_methods.get(method):
-            raise ValueError(
-                "Cannot define a '%s' operation." % dispatch_methods.get(
-                    method))
         if exported_as is None:
             func._api_exported = {method: func.__name__}
         else:
             func._api_exported = {method: exported_as}
+        if func._api_exported.get(method) == dispatch_methods.get(method):
+            raise ValueError(
+                "Cannot define a '%s' operation." % dispatch_methods.get(
+                    method))
         return func
     return _decorator
 
@@ -769,7 +769,7 @@ class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
     allowed_methods = ('POST',)
 
-    @api_exported(method='POST')
+    @api_exported('POST')
     def create_authorisation_token(self, request):
         """Create an authorisation OAuth token and OAuth consumer.
 
@@ -787,7 +787,7 @@ class AccountHandler(BaseHandler):
             'consumer_key': consumer.key,
             }
 
-    @api_exported(method='POST')
+    @api_exported('POST')
     def delete_authorisation_token(self, request):
         """Delete an authorisation OAuth token and the related OAuth consumer.
 
@@ -809,7 +809,7 @@ class MAASHandler(BaseHandler):
     """Manage the MAAS' itself."""
     allowed_methods = ('POST', 'GET')
 
-    @api_exported(method='POST')
+    @api_exported('POST')
     def set_config(self, request):
         """Set a config value.
 
@@ -824,7 +824,7 @@ class MAASHandler(BaseHandler):
         Config.objects.set_config(name, value)
         return rc.ALL_OK
 
-    @api_exported(method='GET')
+    @api_exported('GET')
     def get_config(self, request):
         """Get a config value.
 
