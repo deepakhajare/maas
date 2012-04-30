@@ -251,10 +251,9 @@ def api_operations(cls):
         cls._available_api_methods = getattr(
             cls, "_available_api_methods", {}).copy()
         cls._available_api_methods[method] = {
-            (name if op._api_exported[method] is True
-                else op._api_exported[method]): op
-            for name, op in operations.items()
-            if method in op._api_exported}
+            op._api_exported[method]: op
+                for name, op in operations.items()
+                if method in op._api_exported}
 
         def dispatcher(self, request, *args, **kwargs):
             return perform_api_operation(
