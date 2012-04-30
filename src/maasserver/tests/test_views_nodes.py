@@ -36,7 +36,7 @@ from maasserver.testing import (
     reload_object,
     reload_objects,
     )
-from maasserver.testing.enum import map_enum
+from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     AdminLoggedInTestCase,
