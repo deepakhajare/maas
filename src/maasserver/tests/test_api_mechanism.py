@@ -27,7 +27,7 @@ class TestApiExported(TestCase):
     """Testing for the api_exported decorator."""
 
     def test_invalid_method(self):
-        # If the supplied HTPP method is not in the allowed set, it should
+        # If the supplied HTTP method is not in the allowed set, it should
         # raise a ValueError.
         random_method = "method" + factory.getRandomString(4)
         decorate = api_exported(method=random_method)
@@ -47,14 +47,10 @@ class TestApiExported(TestCase):
 
     def test_can_pass_export_as(self):
         # Test that passing the optional "export_as" works as expected.
-
-        def foo():
-            pass
-
         random_exported_name = "exportedas" + factory.getRandomString()
         decorate = api_exported(
             exported_as=random_exported_name, method="POST")
-        decorated = decorate(foo)
+        decorated = decorate(lambda: None)
 
         self.assertEqual(
             random_exported_name, decorated._api_exported["POST"])
