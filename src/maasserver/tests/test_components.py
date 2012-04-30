@@ -15,14 +15,16 @@ __all__ = []
 
 import random
 
-from maasserver import components
+from maasserver import (
+    components,
+    map_enum,
+    )
 from maasserver.components import (
     COMPONENT,
     discard_persistent_error,
     get_persistent_errors,
     register_persistent_error,
     )
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 

@@ -32,6 +32,7 @@ from django.db import (
     )
 from django.utils.safestring import SafeUnicode
 from fixtures import TestWithFixtures
+from maasserver import map_enum
 from maasserver.enum import (
     NODE_PERMISSION,
     NODE_STATUS,
@@ -64,7 +65,6 @@ from maasserver.models import (
     )
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import get_data
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     TestCase,

@@ -17,7 +17,10 @@ import httplib
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver import messages
+from maasserver import (
+    map_enum,
+    messages,
+    )
 import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -36,7 +39,6 @@ from maasserver.testing import (
     reload_object,
     reload_objects,
     )
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     AdminLoggedInTestCase,

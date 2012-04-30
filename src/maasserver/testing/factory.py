@@ -19,6 +19,7 @@ import random
 import time
 
 from django.contrib.auth.models import User
+from maasserver import map_enum
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_STATUS,
@@ -33,7 +34,6 @@ from maasserver.testing import (
     get_data,
     reload_object,
     )
-from maasserver import map_enum
 import maastesting.factory
 from metadataserver.models import NodeCommissionResult
 

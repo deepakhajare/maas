@@ -15,10 +15,9 @@ __all__ = [
 ]
 
 from testtools.matchers import (
-    MatchesAll,
     Contains,
+    MatchesAll,
     )
-
 
 # XXX: rvb 2012-04-30 bug=991743:  This matcher has been submitted
 # upstream.  If it gets included in the next version of testtools, this code
