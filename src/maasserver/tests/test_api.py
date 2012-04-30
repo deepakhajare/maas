@@ -1824,11 +1824,6 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
 
     def test_check_with_commissioning_and_expired_node(self):
-        # Remove the custom save() method that updates "updated".
-        def fake_save(self, skip_check=None, *args, **kwargs):
-            models.Model.save(self, *args, **kwargs)
-        self.patch(Node, 'save', fake_save)
-
         # Have an interval 1 second longer than the timeout.
         interval = timedelta(seconds=1, minutes=settings.COMMISSIONING_TIMEOUT)
         updated_at = updated=datetime.now() - interval
