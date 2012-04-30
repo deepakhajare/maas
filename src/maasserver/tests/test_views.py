@@ -22,11 +22,13 @@ from django.http import Http404
 from django.test.client import RequestFactory
 from django.utils.html import escape
 from lxml.html import fromstring
-from maasserver import components
+from maasserver import (
+    components,
+    map_enum,
+    )
 from maasserver.components import register_persistent_error
 from maasserver.exceptions import ExternalComponentException
 from maasserver.testing import extract_redirect
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
@@ -34,11 +36,8 @@ from maasserver.testing.testcase import (
     )
 from maasserver.views import HelpfulDeleteView
 from maasserver.views.nodes import NodeEdit
+from maastesting.matchers import ContainsAll
 from provisioningserver.enum import PSERV_FAULT
-from testtools.matchers import (
-    Contains,
-    MatchesAll,
-    )
 
 
 class Test404500(LoggedInTestCase):
@@ -266,7 +265,5 @@ class PermanentErrorDisplayTest(LoggedInTestCase):
             response = self.client.get(link)
             self.assertThat(
                 response.content,
-                MatchesAll(
-                    *[Contains(
-                          escape(error.faultString))
-                     for error in errors]))
+                ContainsAll(
+                    [escape(error.faultString) for error in errors]))

@@ -19,6 +19,7 @@ from xmlrpclib import Fault
 from django.conf import settings
 from maasserver import (
     components,
+    map_enum,
     provisioning,
     )
 from maasserver.components import (
@@ -56,7 +57,6 @@ from maasserver.provisioning import (
     select_profile_for_node,
     SHORT_PRESENTATIONS,
     )
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from metadataserver.models import NodeKey

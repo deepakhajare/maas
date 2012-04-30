@@ -17,7 +17,10 @@ import httplib
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver import messages
+from maasserver import (
+    map_enum,
+    messages,
+    )
 import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -36,7 +39,6 @@ from maasserver.testing import (
     reload_object,
     reload_objects,
     )
-from maasserver import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     AdminLoggedInTestCase,
@@ -45,12 +47,9 @@ from maasserver.testing.testcase import (
     )
 from maasserver.views import nodes as nodes_views
 from maasserver.views.nodes import get_longpoll_context
+from maastesting.matchers import ContainsAll
 from maastesting.rabbit import uses_rabbit_fixture
 from provisioningserver.enum import POWER_TYPE_CHOICES
-from testtools.matchers import (
-    Contains,
-    MatchesAll,
-    )
 
 
 class NodeViewsTest(LoggedInTestCase):
@@ -228,9 +227,7 @@ class NodeViewsTest(LoggedInTestCase):
         ]
         node_edit_link = reverse('node-edit', args=[node.system_id])
         response = self.client.get(node_edit_link)
-        self.assertThat(
-            response.content,
-            MatchesAll(*[Contains(mac) for mac in macs]))
+        self.assertThat(response.content, ContainsAll(macs))
 
     def test_edit_nodes_contains_links_to_delete_the_macaddresses(self):
         node = factory.make_node(owner=self.logged_in_user)
@@ -242,10 +239,9 @@ class NodeViewsTest(LoggedInTestCase):
         response = self.client.get(node_edit_link)
         self.assertThat(
             response.content,
-            MatchesAll(
-                *[Contains(
-                    reverse('mac-delete', args=[node.system_id, mac]))
-                    for mac in macs]))
+            ContainsAll(
+                [reverse('mac-delete', args=[node.system_id, mac])
+                for mac in macs]))
 
     def test_edit_nodes_contains_link_to_add_a_macaddresses(self):
         node = factory.make_node(owner=self.logged_in_user)
