@@ -155,7 +155,7 @@ class AdminRestrictedResource(RestrictedResource):
             return actor, anonymous
 
 
-def api_exported(exported_as=True, method='POST'):
+def api_exported(exported_as=None, method='POST'):
     def _decorator(func):
         if method not in dispatch_methods:
             raise ValueError("Invalid method: '%s'" % method)
@@ -163,7 +163,10 @@ def api_exported(exported_as=True, method='POST'):
             raise ValueError(
                 "Cannot define a '%s' operation." % dispatch_methods.get(
                     method))
-        func._api_exported = {method: exported_as}
+        if exported_as is None:
+            func._api_exported = {method: func.__name__}
+        else:
+            func._api_exported = {method: exported_as}
         return func
     return _decorator
 
