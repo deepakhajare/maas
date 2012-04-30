@@ -23,7 +23,6 @@ class TestContainsAll(TestCase):
     def test_ContainsAll_passes_if_all_elements_are_present(self):
         items = [factory.getRandomString() for i in range(3)]
         self.assertThat(items, ContainsAll([items[0], items[2]]))
-        # No exception.
 
     def test_ContainsAll_raises_if_one_element_is_missing(self):
         items = [factory.getRandomString() for i in range(3)]
