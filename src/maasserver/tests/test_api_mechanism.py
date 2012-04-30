@@ -30,7 +30,7 @@ class TestApiExported(TestCase):
         # If the supplied HTTP method is not in the allowed set, it should
         # raise a ValueError.
         random_method = "method" + factory.getRandomString(4)
-        decorate = api_exported(method=random_method)
+        decorate = api_exported(random_method)
         self.assertRaises(ValueError, decorate, lambda: None)
 
     def test_allowed_methods(self):
@@ -49,7 +49,7 @@ class TestApiExported(TestCase):
         # Test that passing the optional "export_as" works as expected.
         random_exported_name = "exportedas" + factory.getRandomString()
         decorate = api_exported(
-            exported_as=random_exported_name, method="POST")
+            "POST", exported_as=random_exported_name)
         decorated = decorate(lambda: None)
 
         self.assertEqual(
@@ -62,7 +62,7 @@ class TestApiExported(TestCase):
         def exported_function():
             pass
 
-        decorate = api_exported(method="POST")
+        decorate = api_exported("POST")
         decorated = decorate(exported_function)
 
         self.assertEqual("exported_function", decorated._api_exported["POST"])
