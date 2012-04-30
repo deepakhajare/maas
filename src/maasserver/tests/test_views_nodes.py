@@ -17,10 +17,7 @@ import httplib
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver import (
-    map_enum,
-    messages,
-    )
+from maasserver import messages
 import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
@@ -45,6 +42,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.utils import map_enum
 from maasserver.views import nodes as nodes_views
 from maasserver.views.nodes import get_longpoll_context
 from maastesting.matchers import ContainsAll

@@ -15,10 +15,7 @@ __all__ = []
 
 import random
 
-from maasserver import (
-    components,
-    map_enum,
-    )
+from maasserver import components
 from maasserver.components import (
     COMPONENT,
     discard_persistent_error,
@@ -27,6 +24,7 @@ from maasserver.components import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maasserver.utils import map_enum
 
 
 def simple_error_display(error):
