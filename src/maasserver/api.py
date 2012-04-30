@@ -158,7 +158,6 @@ class AdminRestrictedResource(RestrictedResource):
 def api_exported(method='POST', exported_as=None):
     def _decorator(func):
         if method not in dispatch_methods:
-            import pdb; pdb.set_trace()
             raise ValueError("Invalid method: '%s'" % method)
         if exported_as == dispatch_methods.get(method):
             raise ValueError(
