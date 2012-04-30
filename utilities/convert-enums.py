@@ -128,7 +128,7 @@ def serialize_dict_items(enum):
 def serialize_enum(enum):
     """Represent a MAAS enum class in JavaScript."""
     # Import lazily to make use of initialized path.
-    from maasserver import map_enum
+    from maasserver.utils import map_enum
 
     head = "module.%s = {\n" % enum.__name__
     foot = "\n};"
