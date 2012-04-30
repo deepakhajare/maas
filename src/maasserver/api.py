@@ -156,6 +156,14 @@ class AdminRestrictedResource(RestrictedResource):
 
 
 def api_exported(method='POST', exported_as=None):
+    """Decorator to make a method available on the API.
+
+    :param method: The HTTP method over which to export the operation.
+    :param exported_as: Optional operation name; defaults to the name of the
+        exported method.
+
+    See also _`api_operations`.
+    """
     def _decorator(func):
         if method not in dispatch_methods:
             raise ValueError("Invalid method: '%s'" % method)
@@ -217,11 +225,11 @@ def api_operations(cls):
     >>> @api_operations
     >>> class MyHandler(BaseHandler):
     >>>
-    >>>    @api_exported('exported_post_name', method='POST')
+    >>>    @api_exported(method='POST', exported_as='exported_post_name')
     >>>    def do_x(self, request):
     >>>        # process request...
     >>>
-    >>>    @api_exported('exported_get_name', method='GET')
+    >>>    @api_exported(method='GET')
     >>>    def do_y(self, request):
     >>>        # process request...
 
@@ -232,9 +240,9 @@ def api_operations(cls):
     op=exported_post_name&param1=1
 
     MyHandler's method 'do_y' will service GET requests with
-    'op=exported_get_name' in its request parameters.
+    'op=do_y' in its request parameters.
 
-    GET /api/path/to/MyHandler/?op=exported_get_name&param1=1
+    GET /api/path/to/MyHandler/?op=do_y&param1=1
 
     """
     # Compute the list of methods ('GET', 'POST', etc.) that need to be
