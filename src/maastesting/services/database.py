@@ -51,11 +51,13 @@ def path_with_pg_bin(exe_path):
 
 
 class Cluster:
+    """Represents a PostgreSQL cluster, running or not."""
 
     def __init__(self, datadir):
         self.datadir = path.abspath(datadir)
 
     def execute(self, *command, **options):
+        """Execute a command with an environment suitable for this cluster."""
         env = options.pop("env", environ).copy()
         env["PATH"] = path_with_pg_bin(env.get("PATH", ""))
         env["PGDATA"] = env["PGHOST"] = self.datadir
@@ -63,19 +65,26 @@ class Cluster:
 
     @property
     def exists(self):
+        """Whether or not this cluster exists on disk."""
         version_file = path.join(self.datadir, "PG_VERSION")
         return path.exists(version_file)
 
     @property
     def pidfile(self):
+        """The (expected) pidfile for a running cluster.
+
+        Does *not* guarantee that the pidfile exists.
+        """
         return path.join(self.datadir, "postmaster.pid")
 
     @property
     def logfile(self):
+        """The log file used (or will be used) by this cluster."""
         return path.join(self.datadir, "backend.log")
 
     @property
     def running(self):
+        """Whether this cluster is running or not."""
         with open(devnull, "rb") as null:
             try:
                 self.execute("pg_ctl", "status", stdout=null)
@@ -88,12 +97,14 @@ class Cluster:
                 return True
 
     def create(self):
+        """Create this cluster, if it does not exist."""
         if not self.exists:
             if not path.isdir(self.datadir):
                 makedirs(self.datadir)
             self.execute("pg_ctl", "init", "-s", "-o", "-E utf8 -A trust")
 
     def start(self):
+        """Start this cluster, if it's not already started."""
         if not self.running:
             self.create()
             # pg_ctl options:
@@ -109,6 +120,10 @@ class Cluster:
                 "-o", "-h '' -F -k %s" % pipes.quote(self.datadir))
 
     def connect(self, database="template1", autocommit=True):
+        """Connect to this cluster.
+
+        Starts the cluster if necessary.
+        """
         self.start()
         connection = psycopg2.connect(
             database=database, host=self.datadir)
@@ -116,26 +131,34 @@ class Cluster:
         return connection
 
     def shell(self, database):
+        """Spawn a ``psql`` shell for `database` in this cluster.
+
+        Does not guarantee that `database` exists.
+        """
         self.execute("psql", "--", database)
 
     @property
     def databases(self):
+        """The names of databases in this cluster."""
         with closing(self.connect("postgres")) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("SELECT datname FROM pg_catalog.pg_database")
                 return {name for (name,) in cur.fetchall()}
 
     def createdb(self, name):
+        """Create the named database."""
         with closing(self.connect()) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("CREATE DATABASE %s" % name)
 
     def dropdb(self, name):
+        """Drop the named database."""
         with closing(self.connect()) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("DROP DATABASE %s" % name)
 
     def stop(self):
+        """Stop this cluster, if started."""
         if self.running:
             # pg_ctl options:
             #  -w -- wait for shutdown to complete.
@@ -143,14 +166,23 @@ class Cluster:
             self.execute("pg_ctl", "stop", "-s", "-w", "-m", "fast")
 
     def destroy(self):
+        """Destory this cluster, if it exists.
+
+        The cluster will be stopped if it's started.
+        """
         if self.exists:
             self.stop()
             rmtree(self.datadir)
 
 
 class ClusterFixture(Cluster, Fixture):
+    """A fixture for a `Cluster`."""
 
     def __init__(self, datadir, leave=False):
+        """
+        @param leave: Leave the cluster and its databases behind, even if this
+            fixture creates them.
+        """
         super(ClusterFixture, self).__init__(datadir)
         self.leave = leave
 
@@ -165,12 +197,18 @@ class ClusterFixture(Cluster, Fixture):
             self.start()
 
     def createdb(self, name):
+        """Create the named database if it does not exist already.
+
+        Arranges to drop the named database during clean-up, unless `leave`
+        has been specified.
+        """
         if name not in self.databases:
             super(ClusterFixture, self).createdb(name)
             if not self.leave:
                 self.addCleanup(self.dropdb, name)
 
     def dropdb(self, name):
+        """Drop the named database if it exists."""
         if name in self.databases:
             super(ClusterFixture, self).dropdb(name)
 
