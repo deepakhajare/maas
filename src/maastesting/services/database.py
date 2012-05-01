@@ -183,18 +183,6 @@ def setup():
     signal.signal(signal.SIGTERM, signal.default_int_handler)
 
 
-def main(args):
-    cluster = ClusterFixture(
-        datadir=args.datadir, leave=args.leave)
-    with cluster:
-        cluster.createdb("maas")
-        if args.action == "run":
-            while cluster.running:
-                sleep(5.0)
-        elif args.action == "shell":
-            cluster.shell("maas")
-
-
 argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
     "action", choices=("shell", "run"),
@@ -212,12 +200,25 @@ argument_parser.add_argument(
         "was necessary to create it (default: %(default)s)"))
 
 
-if __name__ == "__main__":
+def main(args=None):
+    args = argument_parser.parse_args(args)
     try:
         setup()
-        args = argument_parser.parse_args()
-        main(args)
+        cluster = ClusterFixture(
+            datadir=args.datadir,
+            leave=args.leave)
+        with cluster:
+            cluster.createdb("maas")
+            if args.action == "run":
+                while cluster.running:
+                    sleep(5.0)
+            elif args.action == "shell":
+                cluster.shell("maas")
     except CalledProcessError, error:
         raise SystemExit(error.returncode)
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    main()
