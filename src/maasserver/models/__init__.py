@@ -1116,10 +1116,6 @@ class ConfigManager(models.Manager):
 
 
 # Due for model migration on 2012-04-08
-config_manager = ConfigManager()
-
-
-# Due for model migration on 2012-04-08
 class Config(models.Model):
     """Configuration settings.
 
@@ -1135,15 +1131,15 @@ class Config(models.Model):
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
 
-    objects = config_manager
+    objects = ConfigManager()
 
     def __unicode__(self):
         return "%s: %s" % (self.name, self.value)
 
 
 # Due for model migration on 2012-04-08
-# Connect config_manager._config_changed the post save signal of Config.
-post_save.connect(config_manager._config_changed, sender=Config)
+# Connect config manager's _config_changed to Config's post-save signal.
+post_save.connect(Config.objects._config_changed, sender=Config)
 
 
 # Register the models in the admin site.
