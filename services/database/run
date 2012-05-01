@@ -16,4 +16,4 @@ cd "$(dirname "$0")/../.."
 
 # Exec the Provisioning Server.
 script="$(readlink -f bin/py)"
-exec "${script}" -m maastesting/services/database --leave
+exec "${script}" -m maastesting/services/database run --leave

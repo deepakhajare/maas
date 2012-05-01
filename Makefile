@@ -95,8 +95,8 @@ distclean: clean stop
 harness: bin/maas services/database/@start
 	bin/maas shell --settings=maas.demo
 
-dbharness: services/database/@start
-	@psql -h $(abspath db) maas
+dbharness: bin/py services/database/@start
+	bin/py -m maastesting/services/database shell --leave
 
 syncdb: bin/maas services/database/@start
 	bin/maas syncdb --noinput
@@ -188,7 +188,7 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
-services/database/@deps:
+services/database/@deps: bin/py
 
 services/pserv/@deps: bin/twistd.pserv
 
