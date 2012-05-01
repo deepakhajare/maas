@@ -2,6 +2,7 @@ PYTHON = python2.7
 
 build: \
     bin/buildout \
+    bin/database \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
     bin/twistd.txlongpoll \
@@ -12,6 +13,10 @@ all: build doc
 bin/buildout: bootstrap.py distribute_setup.py
 	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
+
+bin/database: bin/buildout buildout.cfg versions.cfg setup.py
+	bin/buildout install database
+	@touch --no-create $@
 
 bin/maas: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install maas
@@ -95,8 +100,8 @@ distclean: clean stop
 harness: bin/maas services/database/@start
 	bin/maas shell --settings=maas.demo
 
-dbharness: bin/py services/database/@start
-	bin/py -m maastesting/services/database shell --leave
+dbharness: bin/database
+	bin/database shell --leave
 
 syncdb: bin/maas services/database/@start
 	bin/maas syncdb --noinput
@@ -188,7 +193,7 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
-services/database/@deps: bin/py
+services/database/@deps: bin/database
 
 services/pserv/@deps: bin/twistd.pserv
 

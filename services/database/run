@@ -14,6 +14,6 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
-# Exec the Provisioning Server.
-script="$(readlink -f bin/py)"
-exec "${script}" -m maastesting/services/database run --leave
+# Start the database.
+script="$(readlink -f bin/database)"
+exec "${script}" run --leave
