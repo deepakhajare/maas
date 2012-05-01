@@ -1009,7 +1009,7 @@ class FileStorage(models.Model):
         return self.filename
 
 
-# Due for model migration on 2012-04-08
+# Due for model migration on 2012-05-08
 def get_default_config():
     return {
         ## settings default values.
@@ -1034,12 +1034,12 @@ def get_default_config():
         }
 
 
-# Due for model migration on 2012-04-08
+# Due for model migration on 2012-05-08
 # Default values for config options.
 DEFAULT_CONFIG = get_default_config()
 
 
-# Due for model migration on 2012-04-08
+# Due for model migration on 2012-05-08
 class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
@@ -1115,7 +1115,7 @@ class ConfigManager(models.Manager):
             connection(sender, instance, created, **kwargs)
 
 
-# Due for model migration on 2012-04-08
+# Due for model migration on 2012-05-08
 class Config(models.Model):
     """Configuration settings.
 
@@ -1137,7 +1137,7 @@ class Config(models.Model):
         return "%s: %s" % (self.name, self.value)
 
 
-# Due for model migration on 2012-04-08
+# Due for model migration on 2012-05-08
 # Connect config manager's _config_changed to Config's post-save signal.
 post_save.connect(Config.objects._config_changed, sender=Config)
 
