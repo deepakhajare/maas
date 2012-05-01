@@ -58,7 +58,7 @@ class Cluster:
     def execute(self, *command, **options):
         env = options.pop("env", environ).copy()
         env["PATH"] = path_with_pg_bin(env.get("PATH", ""))
-        env["PGDATA"] = self.datadir
+        env["PGDATA"] = env["PGHOST"] = self.datadir
         check_call(command, env=env, **options)
 
     @property
@@ -114,6 +114,9 @@ class Cluster:
             database=database, host=self.datadir)
         connection.autocommit = autocommit
         return connection
+
+    def shell(self, database):
+        self.execute("psql", "--", database)
 
     @property
     def databases(self):
@@ -180,26 +183,41 @@ def setup():
     signal.signal(signal.SIGTERM, signal.default_int_handler)
 
 
-def main(leave):
-    datadir = path.abspath("db")
-    with ClusterFixture(datadir, leave) as cluster:
+def main(args):
+    cluster = ClusterFixture(
+        datadir=args.datadir, leave=args.leave)
+    with cluster:
         cluster.createdb("maas")
-        while cluster.running:
-            sleep(5.0)
+        if args.action == "run":
+            while cluster.running:
+                sleep(5.0)
+        elif args.action == "shell":
+            cluster.shell("maas")
 
 
 argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
+    "action", choices=("shell", "run"),
+    default="run", help=(
+        "the action to perform (default: %(default)s)"))
+argument_parser.add_argument(
+    "-D", "--datadir", dest="datadir", action="store_true",
+    default="db", help=(
+        "the directory in which to place, or find, the cluster "
+        "(default: %(default)s)"))
+argument_parser.add_argument(
     "--leave", dest="leave", action="store_true",
     default=False, help=(
-        "leave the cluster and its databases behind, "
-        "even if it was necessary to create it"))
+        "leave the cluster and its databases behind, even if it "
+        "was necessary to create it (default: %(default)s)"))
 
 
 if __name__ == "__main__":
     try:
         setup()
         args = argument_parser.parse_args()
-        main(leave=args.leave)
+        main(args)
+    except CalledProcessError, error:
+        raise SystemExit(error.returncode)
     except KeyboardInterrupt:
         pass
