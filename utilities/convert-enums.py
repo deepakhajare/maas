@@ -83,7 +83,8 @@ def find_enum_modules(src_path):
     :param src_path: The path to search in.
     :return: An iterable of "enum" modules found in packages in src_path.
     """
-    return filter(None, [
+    not_none = lambda item: item is not None
+    return filter(not_none, [
         get_module(src_path, package, 'enum')
         for package in os.listdir(src_path)])
 
