@@ -81,7 +81,7 @@ def find_enum_modules(src_path):
     <src_path>/<package>/enum.py.
 
     :param src_path: The path to search in.
-    :return: A list of "enum" modules found in packages in src_path.
+    :return: An iterable of "enum" modules found in packages in src_path.
     """
     return filter(None, [
         get_module(src_path, package, 'enum')
@@ -99,7 +99,7 @@ def is_enum(item):
 
 def get_enum_classes(module):
     """Collect all enum classes exported from loaded `module`."""
-    return filter(is_enum, (module.__dict__[name] for name in module.__all__))
+    return filter(is_enum, [module.__dict__[name] for name in module.__all__])
 
 
 def serialize_enum(enum):
