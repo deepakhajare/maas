@@ -96,7 +96,7 @@ def is_enum(item):
     :param item: An item imported from a MAAS enum module.
     :return: Bool.
     """
-    return isinstance(item, type) and item.__name__ == item.__name__.upper()
+    return isinstance(item, type) and item.__name__.isupper()
 
 
 def get_enum_classes(module):

@@ -81,7 +81,7 @@ doc: bin/sphinx docs/api.rst
 	bin/sphinx
 
 # JavaScript enums module, generated from python enums modules.
-JSENUMS=src/maasserver/static/js/enums.js
+JSENUMS = src/maasserver/static/js/enums.js
 
 # Generate JavaScript enums from python enums.
 enums: $(JSENUMS)
