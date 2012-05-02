@@ -25,8 +25,8 @@ __metaclass__ = type
 from argparse import ArgumentParser
 from datetime import datetime
 from imp import (
-    find_module,
     load_module,
+    PY_SOURCE,
     )
 import json
 import os.path
@@ -65,13 +65,12 @@ def get_module(src_path, package, name='enum'):
     :param name: Name of module to load.
     :return: The imported module, or None if it was not found.
     """
-    path = os.path.join(src_path, package)
-    try:
-        found_module = find_module(name, [path])
-    except ImportError:
-        # No enum module here.  Ignore this package or directory.
+    path = os.path.join(src_path, package, "%s.py" % name)
+    if not os.path.isfile(path):
         return None
-    return load_module(name, *found_module)
+    full_name = '.'.join([package, name])
+    description = ('.py', 'r', PY_SOURCE)
+    return load_module(full_name, open(path), path, description)
 
 
 def find_enum_modules(src_path):
