@@ -306,11 +306,11 @@ module.NodesDashboard = Y.Base.create(
     */
     updateStatus: function(action, status) {
         var update_chart = false;
+        var node_counter;
 
         /* This seems like an ugly way to calculate the change, but it stops
            duplication of checking for the action for each status.
         */
-        var node_counter;
         if (action === 'add') {
             node_counter = 1;
         }
