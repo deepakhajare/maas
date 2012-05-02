@@ -13,6 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 from base64 import b64encode
+from collections import namedtuple
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import httplib
 import json
 import os
@@ -27,6 +32,8 @@ from maasserver import api
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
+    extract_oauth_key_from_auth_header,
+    get_oauth_token,
     )
 from maasserver.enum import (
     ARCHITECTURE_CHOICES,
@@ -34,6 +41,7 @@ from maasserver.enum import (
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
     )
+from maasserver.exceptions import Unauthorized
 from maasserver.models import (
     Config,
     create_auth_token,
@@ -45,7 +53,6 @@ from maasserver.testing import (
     reload_object,
     reload_objects,
     )
-from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maasserver.testing.testcase import (
@@ -53,6 +60,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.utils import map_enum
 from maastesting.djangotestcase import TransactionTestCase
 from metadataserver.models import (
     NodeKey,
@@ -75,14 +83,53 @@ class APIv10TestMixin:
 
 class TestModuleHelpers(TestCase):
 
-    def test_extract_oauth_key_extracts_oauth_token_from_oauth_header(self):
+    def make_fake_request(self, auth_header):
+        """Create a very simple fake request, with just an auth header."""
+        FakeRequest = namedtuple('FakeRequest', ['META'])
+        return FakeRequest(META={'HTTP_AUTHORIZATION': auth_header})
+
+    def test_extract_oauth_key_from_auth_header_returns_key(self):
         token = factory.getRandomString(18)
         self.assertEqual(
             token,
-            extract_oauth_key(factory.make_oauth_header(oauth_token=token)))
+            extract_oauth_key_from_auth_header(
+                factory.make_oauth_header(oauth_token=token)))
 
-    def test_extract_oauth_key_returns_None_without_oauth_key(self):
-        self.assertIs(None, extract_oauth_key(''))
+    def test_extract_oauth_key_from_auth_header_returns_None_if_missing(self):
+        self.assertIs(None, extract_oauth_key_from_auth_header(''))
+
+    def test_extract_oauth_key_raises_Unauthorized_if_no_auth_header(self):
+        self.assertRaises(
+            Unauthorized,
+            extract_oauth_key, self.make_fake_request(None))
+
+    def test_extract_oauth_key_raises_Unauthorized_if_no_key(self):
+        self.assertRaises(
+            Unauthorized,
+            extract_oauth_key, self.make_fake_request(''))
+
+    def test_extract_oauth_key_returns_key(self):
+        token = factory.getRandomString(18)
+        self.assertEqual(
+            token,
+            extract_oauth_key(self.make_fake_request(
+                factory.make_oauth_header(oauth_token=token))))
+
+    def test_get_oauth_token_finds_token(self):
+        user = factory.make_user()
+        consumer, token = user.get_profile().create_authorisation_token()
+        self.assertEqual(
+            token,
+            get_oauth_token(
+                self.make_fake_request(
+                    factory.make_oauth_header(oauth_token=token.key))))
+
+    def test_get_oauth_token_raises_Unauthorized_for_unknown_token(self):
+        fake_token = factory.getRandomString(18)
+        header = factory.make_oauth_header(oauth_token=fake_token)
+        self.assertRaises(
+            Unauthorized,
+            get_oauth_token, self.make_fake_request(header))
 
     def test_extract_constraints_ignores_unknown_parameters(self):
         unknown_parameter = "%s=%s" % (
@@ -270,7 +317,7 @@ class EnlistmentAPITest(APIv10TestMixin):
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual(
-            ["One or more MAC Addresses is invalid."],
+            ["One or more MAC addresses is invalid."],
             parsed_result['mac_addresses'])
 
     def test_POST_invalid_architecture_returns_bad_request(self):
@@ -461,7 +508,7 @@ class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
             (response.status_code, response.content))
 
     def test_is_registered_normalizes_mac_address(self):
-        # These two non-normalized MAC Addresses are the same.
+        # These two non-normalized MAC addresses are the same.
         non_normalized_mac_address = 'AA-bb-cc-dd-ee-ff'
         non_normalized_mac_address2 = 'aabbccddeeff'
         factory.make_mac_address(non_normalized_mac_address)
@@ -1259,7 +1306,7 @@ class MACAddressAPITest(APITestCase):
         return node, mac1, mac2
 
     def test_macs_GET(self):
-        # The api allows for fetching the list of the MAC Addresss for a node.
+        # The api allows for fetching the list of the MAC address for a node.
         node, mac1, mac2 = self.createNodeWithMacs()
         response = self.client.get(
             self.get_uri('nodes/%s/macs/') % node.system_id)
@@ -1273,7 +1320,7 @@ class MACAddressAPITest(APITestCase):
             mac2.mac_address, parsed_result[1]['mac_address'])
 
     def test_macs_GET_forbidden(self):
-        # When fetching MAC Addresses, the api returns a 'Forbidden' (403)
+        # When fetching MAC addresses, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         other_node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
@@ -1283,15 +1330,15 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_GET_not_found(self):
-        # When fetching MAC Addresses, the api returns a 'Not Found' (404)
+        # When fetching MAC addresses, the api returns a 'Not Found' (404)
         # error if no node is found.
         response = self.client.get(self.get_uri('nodes/invalid-id/macs/'))
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_GET_node_not_found(self):
-        # When fetching a MAC Address, the api returns a 'Not Found' (404)
-        # error if the MAC Address does not exist.
+        # When fetching a MAC address, the api returns a 'Not Found' (404)
+        # error if the MAC address does not exist.
         node = factory.make_node()
         response = self.client.get(
             self.get_uri(
@@ -1300,7 +1347,7 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_GET_node_forbidden(self):
-        # When fetching a MAC Address, the api returns a 'Forbidden' (403)
+        # When fetching a MAC address, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         other_node = factory.make_node(
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
@@ -1311,8 +1358,8 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_GET_node_bad_request(self):
-        # When fetching a MAC Address, the api returns a 'Bad Request' (400)
-        # error if the MAC Address is not valid.
+        # When fetching a MAC address, the api returns a 'Bad Request' (400)
+        # error if the MAC address is not valid.
         node = factory.make_node()
         response = self.client.get(
             self.get_uri('nodes/%s/macs/invalid-mac/') % node.system_id)
@@ -1320,7 +1367,7 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(400, response.status_code)
 
     def test_macs_POST_add_mac(self):
-        # The api allows to add a MAC Address to an existing node.
+        # The api allows to add a MAC address to an existing node.
         node = factory.make_node(owner=self.logged_in_user)
         nb_macs = MACAddress.objects.filter(node=node).count()
         response = self.client.post(
@@ -1335,7 +1382,7 @@ class MACAddressAPITest(APITestCase):
             MACAddress.objects.filter(node=node).count())
 
     def test_macs_POST_add_mac_without_edit_perm(self):
-        # Adding a MAC Address to a node requires the NODE_PERMISSION.EDIT
+        # Adding a MAC address to a node requires the NODE_PERMISSION.EDIT
         # permission.
         node = factory.make_node()
         response = self.client.post(
@@ -1346,7 +1393,7 @@ class MACAddressAPITest(APITestCase):
 
     def test_macs_POST_add_mac_invalid(self):
         # A 'Bad Request' response is returned if one tries to add an invalid
-        # MAC Address to a node.
+        # MAC address to a node.
         node = self.createNodeWithMacs(self.logged_in_user)[0]
         response = self.client.post(
             self.get_uri('nodes/%s/macs/') % node.system_id,
@@ -1360,7 +1407,7 @@ class MACAddressAPITest(APITestCase):
             parsed_result['mac_address'])
 
     def test_macs_DELETE_mac(self):
-        # The api allows to delete a MAC Address.
+        # The api allows to delete a MAC address.
         node, mac1, mac2 = self.createNodeWithMacs(self.logged_in_user)
         nb_macs = node.macaddress_set.count()
         response = self.client.delete(
@@ -1373,7 +1420,7 @@ class MACAddressAPITest(APITestCase):
             node.macaddress_set.count())
 
     def test_macs_DELETE_mac_forbidden(self):
-        # When deleting a MAC Address, the api returns a 'Forbidden' (403)
+        # When deleting a MAC address, the api returns a 'Forbidden' (403)
         # error if the node is not visible to the logged-in user.
         node, mac1, _ = self.createNodeWithMacs()
         other_node = factory.make_node(
@@ -1385,8 +1432,8 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_macs_DELETE_not_found(self):
-        # When deleting a MAC Address, the api returns a 'Not Found' (404)
-        # error if no existing MAC Address is found.
+        # When deleting a MAC address, the api returns a 'Not Found' (404)
+        # error if no existing MAC address is found.
         node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
@@ -1395,7 +1442,7 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_DELETE_forbidden(self):
-        # When deleting a MAC Address, the api returns a 'Forbidden'
+        # When deleting a MAC address, the api returns a 'Forbidden'
         # (403) error if the user does not have the 'edit' permission on the
         # node.
         node = factory.make_node(owner=self.logged_in_user)
@@ -1406,8 +1453,8 @@ class MACAddressAPITest(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_macs_DELETE_bad_request(self):
-        # When deleting a MAC Address, the api returns a 'Bad Request' (400)
-        # error if the provided MAC Address is not valid.
+        # When deleting a MAC address, the api returns a 'Bad Request' (400)
+        # error if the provided MAC address is not valid.
         node = factory.make_node()
         response = self.client.delete(
             self.get_uri('nodes/%s/macs/%s/') % (
@@ -1717,7 +1764,7 @@ class MAASAPITest(APITestCase):
 
 class APIErrorsTest(APIv10TestMixin, TransactionTestCase):
 
-    def test_internal_error_generate_proper_api_response(self):
+    def test_internal_error_generates_proper_api_response(self):
         error_message = factory.getRandomString()
 
         # Monkey patch api.create_node to have it raise a RuntimeError.
@@ -1756,3 +1803,36 @@ class APIErrorsTest(APIv10TestMixin, TransactionTestCase):
             (response.status_code, response.content))
         self.assertRaises(
             Node.DoesNotExist, Node.objects.get, hostname=hostname)
+
+
+class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
+    """Testing of commissioning timeout API."""
+
+    def test_check_with_no_action(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        # Anything that's not commissioning should be ignored.
+        node = reload_object(node)
+        self.assertEqual(NODE_STATUS.READY, node.status)
+
+    def test_check_with_commissioning_but_not_expired_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING)
+        self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        node = reload_object(node)
+        self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
+
+    def test_check_with_commissioning_and_expired_node(self):
+        # Have an interval 1 second longer than the timeout.
+        interval = timedelta(seconds=1, minutes=settings.COMMISSIONING_TIMEOUT)
+        updated_at = datetime.now() - interval
+        node = factory.make_node(
+            status=NODE_STATUS.COMMISSIONING, created=datetime.now(),
+            updated=updated_at)
+
+        self.client.post(
+            self.get_uri('nodes/'), {'op': 'check_commissioning'})
+        node = reload_object(node)
+        self.assertEqual(NODE_STATUS.FAILED_TESTS, node.status)

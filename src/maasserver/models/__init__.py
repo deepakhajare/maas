@@ -33,7 +33,6 @@ import binascii
 from cgi import escape
 from collections import defaultdict
 import copy
-import datetime
 from errno import ENOENT
 from logging import getLogger
 import os
@@ -53,7 +52,10 @@ from django.core.exceptions import (
     )
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
-from django.db import models
+from django.db import (
+    connection,
+    models,
+    )
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from django.utils.safestring import mark_safe
@@ -76,6 +78,7 @@ from maasserver.fields import (
     JSONObjectField,
     MACAddressField,
     )
+from maasserver.models.commoninfo import CommonInfo
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -100,30 +103,10 @@ SYSTEM_USERS = [
 logger = getLogger('maasserver')
 
 
-# Due for model migration on 2012-04-30.
-class CommonInfo(models.Model):
-    """A base model which:
-    - calls full_clean before saving the model (by default).
-    - records the creation date and the last modification date.
-
-    :ivar created: The creation date.
-    :ivar updated: The last modification date.
-
-    """
-
-    class Meta(DefaultMeta):
-        abstract = True
-
-    created = models.DateField(editable=False)
-    updated = models.DateTimeField(editable=False)
-
-    def save(self, skip_check=False, *args, **kwargs):
-        if not self.id:
-            self.created = datetime.date.today()
-        self.updated = datetime.datetime.today()
-        if not skip_check:
-            self.full_clean()
-        return super(CommonInfo, self).save(*args, **kwargs)
+def now():
+    cursor = connection.cursor()
+    cursor.execute("select now()")
+    return cursor.fetchone()[0]
 
 
 def generate_node_system_id():
@@ -158,6 +141,11 @@ NODE_TRANSITIONS = {
         NODE_STATUS.READY,
         NODE_STATUS.RETIRED,
         NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.FAILED_TESTS: [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.READY: [
         NODE_STATUS.ALLOCATED,
@@ -400,6 +388,9 @@ class Node(CommonInfo):
 
     """
 
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
     system_id = models.CharField(
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
@@ -478,9 +469,9 @@ class Node(CommonInfo):
             return status_text
 
     def add_mac_address(self, mac_address):
-        """Add a new MAC Address to this `Node`.
+        """Add a new MAC address to this `Node`.
 
-        :param mac_address: The MAC Address to be added.
+        :param mac_address: The MAC address to be added.
         :type mac_address: basestring
         :raises: django.core.exceptions.ValidationError_
 
@@ -494,9 +485,9 @@ class Node(CommonInfo):
         return mac
 
     def remove_mac_address(self, mac_address):
-        """Remove a MAC Address from this `Node`.
+        """Remove a MAC address from this `Node`.
 
-        :param mac_address: The MAC Address to be removed.
+        :param mac_address: The MAC address to be removed.
         :type mac_address: str
 
         """
@@ -584,39 +575,49 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, token):
-        """Mark commissioned node as acquired by the given user's token."""
+    def acquire(self, user, token=None):
+        """Mark commissioned node as acquired by the given user and token."""
         assert self.owner is None
+        assert token is None or token.user == user
         self.status = NODE_STATUS.ALLOCATED
-        self.owner = token.user
+        self.owner = user
         self.token = token
+        self.save()
 
     def release(self):
         """Mark allocated or reserved node as available again."""
         self.status = NODE_STATUS.READY
         self.owner = None
         self.token = None
+        self.save()
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
 class MACAddress(CommonInfo):
-    """A `MACAddress` represents a `MAC Address
+    """A `MACAddress` represents a `MAC address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
 
-    :ivar mac_address: The MAC Address.
+    :ivar mac_address: The MAC address.
     :ivar node: The `Node` related to this `MACAddress`.
 
     """
     mac_address = MACAddressField(unique=True)
     node = models.ForeignKey(Node, editable=False)
 
-    class Meta:
+    class Meta(DefaultMeta):
+        verbose_name = "MAC address"
         verbose_name_plural = "MAC addresses"
 
     def __unicode__(self):
         return self.mac_address
+
+    def unique_error_message(self, model_class, unique_check):
+        if unique_check == ('mac_address',):
+                return "This MAC address is already registered."
+        return super(
+            MACAddress, self).unique_error_message(model_class, unique_check)
 
 
 GENERIC_CONSUMER = 'MAAS consumer'
@@ -692,6 +693,9 @@ class UserProfile(models.Model):
        #storing-additional-information-about-users
 
     """
+
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
 
     objects = UserProfileManager()
     user = models.OneToOneField(User)
@@ -843,6 +847,10 @@ class SSHKey(CommonInfo):
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
     """
+
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
     objects = SSHKeyManager()
 
     user = models.ForeignKey(User, null=False, editable=False)
@@ -982,6 +990,9 @@ class FileStorage(models.Model):
     :ivar data: The file's actual data.
     """
 
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
     storage = FileSystemStorage()
 
     upload_dir = "storage"
@@ -998,6 +1009,7 @@ class FileStorage(models.Model):
         return self.filename
 
 
+# Due for model migration on 2012-05-08
 def get_default_config():
     return {
         ## settings default values.
@@ -1022,10 +1034,12 @@ def get_default_config():
         }
 
 
+# Due for model migration on 2012-05-08
 # Default values for config options.
 DEFAULT_CONFIG = get_default_config()
 
 
+# Due for model migration on 2012-05-08
 class ConfigManager(models.Manager):
     """A utility to manage the configuration settings.
 
@@ -1101,9 +1115,7 @@ class ConfigManager(models.Manager):
             connection(sender, instance, created, **kwargs)
 
 
-config_manager = ConfigManager()
-
-
+# Due for model migration on 2012-05-08
 class Config(models.Model):
     """Configuration settings.
 
@@ -1113,17 +1125,21 @@ class Config(models.Model):
     :type value: Any pickleable python object.
     """
 
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
     name = models.CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
 
-    objects = config_manager
+    objects = ConfigManager()
 
     def __unicode__(self):
         return "%s: %s" % (self.name, self.value)
 
 
-# Connect config_manager._config_changed the post save signal of Config.
-post_save.connect(config_manager._config_changed, sender=Config)
+# Due for model migration on 2012-05-08
+# Connect config manager's _config_changed to Config's post-save signal.
+post_save.connect(Config.objects._config_changed, sender=Config)
 
 
 # Register the models in the admin site.

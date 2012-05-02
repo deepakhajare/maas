@@ -17,7 +17,6 @@ __all__ = [
     "NodeForm",
     "MACAddressForm",
     "MAASAndNetworkForm",
-    "NodeActionForm",
     "SSHKeyForm",
     "UbuntuForm",
     "UIAdminNodeEditForm",
@@ -49,8 +48,6 @@ from maasserver.enum import (
     ARCHITECTURE_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
-    NODE_PERMISSION,
-    NODE_STATUS,
     )
 from maasserver.fields import MACAddressFormField
 from maasserver.models import (
@@ -59,6 +56,7 @@ from maasserver.models import (
     Node,
     SSHKey,
     )
+from maasserver.node_action import compile_node_actions
 
 
 def compose_invalid_choice_text(choice_of_what, valid_choices):
@@ -141,6 +139,15 @@ class MACAddressForm(ModelForm):
     class Meta:
         model = MACAddress
 
+    def __init__(self, node, *args, **kwargs):
+        super(MACAddressForm, self).__init__(*args, **kwargs)
+        self.node = node
+
+    def save(self, *args, **kwargs):
+        mac = super(MACAddressForm, self).save(commit=False)
+        mac.node = self.node
+        return mac.save(*args, **kwargs)
+
 
 class SSHKeyForm(ModelForm):
     key = forms.CharField(
@@ -205,14 +212,14 @@ class NodeWithMACAddressesForm(NodeForm):
 
     def is_valid(self):
         valid = super(NodeWithMACAddressesForm, self).is_valid()
-        # If the number of MAC Address fields is > 1, provide a unified
+        # If the number of MAC address fields is > 1, provide a unified
         # error message if the validation has failed.
         reformat_mac_address_error = (
             self.errors.get('mac_addresses', None) is not None and
             len(self.data['mac_addresses']) > 1)
         if reformat_mac_address_error:
             self.errors['mac_addresses'] = (
-                ['One or more MAC Addresses is invalid.'])
+                ['One or more MAC addresses is invalid.'])
         return valid
 
     def clean_mac_addresses(self):
@@ -233,65 +240,6 @@ class NodeWithMACAddressesForm(NodeForm):
         return node
 
 
-def start_node(node, user):
-    """Start a node from the UI.  It will have no meta_data."""
-    Node.objects.start_nodes([node.system_id], user)
-
-
-# Node actions per status.
-#
-# This maps each NODE_STATUS to a list of actions applicable to a node
-# in that state:
-#
-# {
-#     NODE_STATUS.<statusX>: [action1, action2],
-#     NODE_STATUS.<statusY>: [action1],
-#     NODE_STATUS.<statusZ>: [action1, action2, action3],
-# }
-#
-# The available actions (insofar as the user has privileges to use them)
-# show up in the user interface as buttons on the node page.
-#
-# Each action is a dict:
-#
-# {
-#     # Action's display name; will be shown in the button.
-#     'display': "Paint node",
-#     # Permission required to perform action.
-#     'permission': NODE_PERMISSION.EDIT,
-#     # Callable that performs action.  Takes parameters (node, user).
-#     'execute': lambda node, user: paint_node(
-#                    node, favourite_colour(user)),
-# }
-#
-NODE_ACTIONS = {
-    NODE_STATUS.DECLARED: [
-        {
-            'display': "Accept & commission",
-            'permission': NODE_PERMISSION.ADMIN,
-            'execute': lambda node, user: Node.start_commissioning(node, user),
-            'message': "Node commissioning started."
-        },
-    ],
-    NODE_STATUS.READY: [
-        {
-            'display': "Start node",
-            'permission': NODE_PERMISSION.EDIT,
-            'execute': start_node,
-            'message': "Node started."
-        },
-    ],
-    NODE_STATUS.ALLOCATED: [
-        {
-            'display': "Start node",
-            'permission': NODE_PERMISSION.EDIT,
-            'execute': start_node,
-            'message': "Node started."
-        },
-    ],
-}
-
-
 class NodeActionForm(forms.Form):
     """Base form for performing a node action.
 
@@ -308,46 +256,24 @@ class NodeActionForm(forms.Form):
     def __init__(self, instance, *args, **kwargs):
         super(NodeActionForm, self).__init__(*args, **kwargs)
         self.node = instance
-        self.action_buttons = self.available_action_methods(
-            self.node, self.user)
-        # Create a convenient dict to fetch the action's name and
-        # the permission to be checked from the button name.
-        self.action_dict = {
-            action['display']: (
-                action['permission'], action['execute'], action['message'])
-            for action in self.action_buttons
-        }
-
-    def available_action_methods(self, node, user):
-        """Return the actions that this user is allowed to perform on a node.
-
-        :param node: The node for which the check should be performed.
-        :type node: :class:`maasserver.models.Node`
-        :param user: The user who would be performing the action.  Only the
-            actions available to this user will be returned.
-        :type user: :class:`django.contrib.auth.models.User`
-        :return: Any applicable action dicts, as found in NODE_ACTIONS.
-        :rtype: Sequence
-        """
-        return [
-            action for action in NODE_ACTIONS.get(node.status, ())
-            if user.has_perm(action['permission'], node)]
+        self.actions = compile_node_actions(instance, self.user, self.request)
+        self.action_buttons = self.actions.values()
 
     def display_message(self, message):
+        """Show `message` as feedback after performing an action."""
         if self.request is not None:
             messages.add_message(self.request, messages.INFO, message)
 
     def save(self):
+        """An action was requested.  Perform it."""
         action_name = self.data.get(self.input_name)
-        permission, execute, message = (
-            self.action_dict.get(action_name, (None, None, None)))
-        if execute is not None:
-            if not self.user.has_perm(permission, self.node):
-                raise PermissionDenied()
-            execute(self.node, self.user)
-            self.display_message(message)
-        else:
-            raise PermissionDenied()
+        action = self.actions.get(action_name)
+        if action is None or not action.is_permitted():
+            raise PermissionDenied("Not a permitted action: %s" % action_name)
+        if action.inhibition is not None:
+            raise PermissionDenied(action.inhibition)
+        message = action.execute()
+        self.display_message(message)
 
 
 def get_action_form(user, request=None):

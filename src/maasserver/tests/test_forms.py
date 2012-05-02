@@ -21,17 +21,15 @@ from django.http import QueryDict
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
-    NODE_PERMISSION,
     NODE_STATUS,
-    NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.forms import (
     ConfigForm,
     EditUserForm,
     get_action_form,
     HostnameFormField,
+    MACAddressForm,
     NewUserCreationForm,
-    NODE_ACTIONS,
     NodeActionForm,
     NodeWithMACAddressesForm,
     ProfileForm,
@@ -42,15 +40,16 @@ from maasserver.forms import (
 from maasserver.models import (
     Config,
     DEFAULT_CONFIG,
+    MACAddress,
     )
-from maasserver.provisioning import get_provisioning_api_proxy
+from maasserver.node_action import (
+    AcceptAndCommission,
+    Delete,
+    )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
-from testtools.matchers import (
-    AllMatch,
-    Equals,
-    )
+from testtools.testcase import ExpectedException
 
 
 class NodeWithMACAddressesFormTest(TestCase):
@@ -79,7 +78,7 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertEqual(ARCHITECTURE.i386, form.cleaned_data['architecture'])
 
     def test_NodeWithMACAddressesForm_simple_invalid(self):
-        # If the form only has one (invalid) MAC Address field to validate,
+        # If the form only has one (invalid) MAC address field to validate,
         # the error message in form.errors['mac_addresses'] is the
         # message from the field's validation error.
         form = NodeWithMACAddressesForm(
@@ -95,7 +94,7 @@ class NodeWithMACAddressesFormTest(TestCase):
             form.errors['mac_addresses'])
 
     def test_NodeWithMACAddressesForm_multiple_invalid(self):
-        # If the form has multiple MAC Address fields to validate,
+        # If the form has multiple MAC address fields to validate,
         # if one or more fields are invalid, a single error message is
         # present in form.errors['mac_addresses'] after validation.
         form = NodeWithMACAddressesForm(
@@ -107,11 +106,11 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(['mac_addresses'], list(form.errors))
         self.assertEqual(
-            ['One or more MAC Addresses is invalid.'],
+            ['One or more MAC addresses is invalid.'],
             form.errors['mac_addresses'])
 
     def test_NodeWithMACAddressesForm_empty(self):
-        # Empty values in the list of MAC Addresses are simply ignored.
+        # Empty values in the list of MAC addresses are simply ignored.
         form = NodeWithMACAddressesForm(
             self.get_QueryDict({
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', ''],
@@ -242,46 +241,7 @@ class NodeEditForms(TestCase):
         self.assertEqual(power_type, node.power_type)
 
 
-class NodeActionsTests(TestCase):
-    """Test the structure of NODE_ACTIONS."""
-
-    def test_NODE_ACTIONS_initial_states(self):
-        allowed_states = set(NODE_STATUS_CHOICES_DICT.keys() + [None])
-
-        self.assertTrue(set(NODE_ACTIONS.keys()) <= allowed_states)
-
-    def test_NODE_ACTIONS_dict(self):
-        actions = sum(NODE_ACTIONS.values(), [])
-        keys = ['permission', 'display', 'execute', 'message']
-        self.assertThat(
-            [sorted(action.keys()) for action in actions],
-            AllMatch(Equals(sorted(keys))))
-
-
 class TestNodeActionForm(TestCase):
-
-    def test_available_action_methods_for_declared_node_admin(self):
-        # Check which transitions are available for an admin on a
-        # 'Declared' node.
-        admin = factory.make_admin()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        form = get_action_form(admin)(node)
-        actions = form.available_action_methods(node, admin)
-        self.assertEqual(
-            ["Accept & commission"],
-            [action['display'] for action in actions])
-        # All permissions should be ADMIN.
-        self.assertEqual(
-            [NODE_PERMISSION.ADMIN] * len(actions),
-            [action['permission'] for actions in actions])
-
-    def test_available_action_methods_for_declared_node_simple_user(self):
-        # A simple user sees no actions for a 'Declared' node.
-        user = factory.make_user()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        form = get_action_form(user)(node)
-        self.assertItemsEqual(
-            [], form.available_action_methods(node, user))
 
     def test_get_action_form_creates_form_class_with_attributes(self):
         user = factory.make_admin()
@@ -303,8 +263,8 @@ class TestNodeActionForm(TestCase):
         form = get_action_form(admin)(node)
 
         self.assertItemsEqual(
-            ["Accept & commission"],
-            form.action_dict)
+            [AcceptAndCommission.display, Delete.display],
+            form.actions)
 
     def test_get_action_form_for_user(self):
         user = factory.make_user()
@@ -313,51 +273,38 @@ class TestNodeActionForm(TestCase):
 
         self.assertIsInstance(form, NodeActionForm)
         self.assertEqual(node, form.node)
-        self.assertItemsEqual({}, form.action_dict)
+        self.assertItemsEqual({}, form.actions)
 
-    def test_get_action_form_node_for_admin_save(self):
+    def test_save_performs_requested_action(self):
         admin = factory.make_admin()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(admin)(
-            node, {NodeActionForm.input_name: "Accept & commission"})
+            node, {NodeActionForm.input_name: AcceptAndCommission.display})
         form.save()
-
         self.assertEqual(NODE_STATUS.COMMISSIONING, node.status)
 
-    def test_get_action_form_for_user_save(self):
+    def test_save_refuses_disallowed_action(self):
         user = factory.make_user()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(user)(
-            node, {NodeActionForm.input_name: "Enlist node"})
-
+            node, {NodeActionForm.input_name: AcceptAndCommission.display})
         self.assertRaises(PermissionDenied, form.save)
 
-    def test_get_action_form_for_user_save_unknown_trans(self):
+    def test_save_refuses_unknown_action(self):
         user = factory.make_user()
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         form = get_action_form(user)(
             node, {NodeActionForm.input_name: factory.getRandomString()})
-
         self.assertRaises(PermissionDenied, form.save)
 
-    def test_start_action_starts_ready_node_for_admin(self):
-        node = factory.make_node(status=NODE_STATUS.READY)
-        form = get_action_form(factory.make_admin())(
-            node, {NodeActionForm.input_name: "Start node"})
-        form.save()
-
-        power_status = get_provisioning_api_proxy().power_status
-        self.assertEqual('start', power_status.get(node.system_id))
-
-    def test_start_action_starts_allocated_node_for_owner(self):
+    def test_save_double_checks_for_inhibitions(self):
+        admin = factory.make_admin()
         node = factory.make_node(
-            status=NODE_STATUS.READY, owner=factory.make_user())
-        form = get_action_form(node.owner)(
-            node, {NodeActionForm.input_name: "Start node"})
-        form.save()
-
-        power_status = get_provisioning_api_proxy().power_status
-        self.assertEqual('start', power_status.get(node.system_id))
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        form = get_action_form(admin)(
+            node, {NodeActionForm.input_name: Delete.display})
+        with ExpectedException(PermissionDenied, "You cannot delete.*"):
+            form.save()
 
 
 class TestHostnameFormField(TestCase):
@@ -456,3 +403,26 @@ class TestNewUserCreationForm(TestCase):
             ['username', 'last_name', 'email', 'password1', 'password2',
                 'is_superuser'],
             list(form.fields))
+
+
+class TestMACAddressForm(TestCase):
+
+    def test_MACAddressForm_creates_mac_address(self):
+        node = factory.make_node()
+        mac = factory.getRandomMACAddress()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        form.save()
+        self.assertTrue(
+            MACAddress.objects.filter(node=node, mac_address=mac).exists())
+
+    def test_MACAddressForm_displays_error_message_if_mac_already_used(self):
+        mac = factory.getRandomMACAddress()
+        node = factory.make_mac_address(address=mac)
+        node = factory.make_node()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        self.assertFalse(form.is_valid())
+        self.assertEquals(
+            {'mac_address': ['This MAC address is already registered.']},
+            form._errors)
+        self.assertFalse(
+            MACAddress.objects.filter(node=node, mac_address=mac).exists())

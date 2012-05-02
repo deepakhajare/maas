@@ -18,31 +18,45 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
 from maasserver import messages
+import maasserver.api
 from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     )
 from maasserver.exceptions import NoRabbit
 from maasserver.forms import NodeActionForm
-from maasserver.models import Node
+from maasserver.models import (
+    MACAddress,
+    Node,
+    )
+from maasserver.node_action import StartNode
 from maasserver.testing import (
+    extract_redirect,
     get_content_links,
     reload_object,
+    reload_objects,
     )
-from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     AdminLoggedInTestCase,
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.utils import map_enum
 from maasserver.views import nodes as nodes_views
 from maasserver.views.nodes import get_longpoll_context
+from maastesting.matchers import ContainsAll
 from maastesting.rabbit import uses_rabbit_fixture
 from provisioningserver.enum import POWER_TYPE_CHOICES
 
 
 class NodeViewsTest(LoggedInTestCase):
+
+    def set_up_oauth_token(self):
+        """Set up an oauth token to be used for requests."""
+        profile = self.logged_in_user.get_profile()
+        consumer, token = profile.create_authorisation_token()
+        self.patch(maasserver.api, 'get_oauth_token', lambda request: token)
 
     def test_node_list_contains_link_to_node_view(self):
         node = factory.make_node()
@@ -53,16 +67,19 @@ class NodeViewsTest(LoggedInTestCase):
     def test_node_list_displays_sorted_list_of_nodes(self):
         # Nodes are sorted on the node list page, newest first.
         nodes = [factory.make_node() for i in range(3)]
-        nodes.reverse()
-        # Modify one node to make sure that the default db ordering
-        # (by modification date) is not used.
-        node = nodes[1]
-        node.hostname = factory.getRandomString()
-        node.save()
+        # Explicitely set node.created since all of these node will
+        # be created in the same transaction and thus have the same
+        # 'created' value by default.
+        for node in nodes:
+            created = factory.getRandomDate()
+            # Update node.created without calling node.save().
+            Node.objects.filter(id=node.id).update(created=created)
+        nodes = reload_objects(Node, nodes)
+        sorted_nodes = sorted(nodes, key=lambda x: x.created, reverse=True)
         response = self.client.get(reverse('node-list'))
         node_links = [
             reverse('node-view', args=[node.system_id])
-            for node in nodes]
+            for node in sorted_nodes]
         self.assertEqual(
             node_links,
             [link for link in get_content_links(response)
@@ -123,14 +140,6 @@ class NodeViewsTest(LoggedInTestCase):
             else:
                 self.assertNotIn(help_link, links)
 
-    def test_view_node_shows_link_to_delete_node_for_admin(self):
-        self.become_admin()
-        node = factory.make_node()
-        node_link = reverse('node-view', args=[node.system_id])
-        response = self.client.get(node_link)
-        node_delete_link = reverse('node-delete', args=[node.system_id])
-        self.assertIn(node_delete_link, get_content_links(response))
-
     def test_admin_can_delete_nodes(self):
         self.become_admin()
         node = factory.make_node()
@@ -150,7 +159,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertNotIn(node_delete_link, get_content_links(response))
         self.assertIn(
-            "You cannot delete this node because it's in use.",
+            "You cannot delete this node because",
             response.content)
 
     def test_allocated_node_cannot_be_deleted(self):
@@ -208,6 +217,37 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertAttributes(node, params)
 
+    def test_edit_nodes_contains_list_of_macaddresses(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        macs = [
+            factory.make_mac_address(node=node).mac_address
+            for i in range(3)
+        ]
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        response = self.client.get(node_edit_link)
+        self.assertThat(response.content, ContainsAll(macs))
+
+    def test_edit_nodes_contains_links_to_delete_the_macaddresses(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        macs = [
+            factory.make_mac_address(node=node).mac_address
+            for i in range(3)
+        ]
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        response = self.client.get(node_edit_link)
+        self.assertThat(
+            response.content,
+            ContainsAll(
+                [reverse('mac-delete', args=[node.system_id, mac])
+                for mac in macs]))
+
+    def test_edit_nodes_contains_link_to_add_a_macaddresses(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        node_edit_link = reverse('node-edit', args=[node.system_id])
+        response = self.client.get(node_edit_link)
+        self.assertIn(
+            reverse('mac-add', args=[node.system_id]), response.content)
+
     def test_view_node_has_button_to_accept_enlistement_for_user(self):
         # A simple user can't see the button to enlist a declared node.
         node = factory.make_node(status=NODE_STATUS.DECLARED)
@@ -250,54 +290,127 @@ class NodeViewsTest(LoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertNotIn("Error output", content_text)
 
-    def test_view_node_POST_admin_can_start_commissioning_node(self):
-        self.become_admin()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
+    def test_view_node_POST_performs_action(self):
+        factory.make_sshkey(self.logged_in_user)
+        self.set_up_oauth_token()
+        node = factory.make_node(status=NODE_STATUS.READY)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.post(
-            node_link,
-            data={
-                NodeActionForm.input_name: "Accept & commission",
-            })
+            node_link, data={NodeActionForm.input_name: StartNode.display})
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertEqual(
-            NODE_STATUS.COMMISSIONING, reload_object(node).status)
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
 
     def perform_action_and_get_node_page(self, node, action_name):
+        """POST to perform a node action, then load the resulting page."""
         node_link = reverse('node-view', args=[node.system_id])
-        self.client.post(
-            node_link,
-            data={
-                NodeActionForm.input_name: action_name,
-            })
-        response = self.client.get(node_link)
-        return response
+        response = self.client.post(
+            node_link, data={NodeActionForm.input_name: action_name})
+        redirect = extract_redirect(response)
+        if redirect != node_link:
+            self.fail("Odd: %s redirected to %s." % (node_link, redirect))
+        return self.client.get(redirect)
 
-    def test_start_commisionning_displays_message(self):
-        self.become_admin()
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
+    def test_view_node_POST_action_displays_message(self):
+        factory.make_sshkey(self.logged_in_user)
+        self.set_up_oauth_token()
+        node = factory.make_node(status=NODE_STATUS.READY)
         response = self.perform_action_and_get_node_page(
-            node, "Accept & commission")
+            node, StartNode.display)
         self.assertIn(
-            "Node commissioning started.",
-            [message.message for message in response.context['messages']])
+            "This node is now allocated to you.",
+            '\n'.join(msg.message for msg in response.context['messages']))
 
-    def test_start_node_from_ready_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.READY, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
-        self.assertIn(
-            "Node started.",
-            [message.message for message in response.context['messages']])
 
-    def test_start_node_from_allocated_displays_message(self):
-        node = factory.make_node(
-            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
-        response = self.perform_action_and_get_node_page(
-            node, "Start node")
+class NodeDeleteMacTest(LoggedInTestCase):
+
+    def test_node_delete_not_found_if_node_does_not_exist(self):
+        # This returns a 404 rather than returning to the node page
+        # with a nice error message because the node could not be found.
+        node_id = factory.getRandomString()
+        mac = factory.getRandomMACAddress()
+        mac_delete_link = reverse('mac-delete', args=[node_id, mac])
+        response = self.client.get(mac_delete_link)
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_node_delete_redirects_if_mac_does_not_exist(self):
+        # If the MAC address does not exist, the user is redirected
+        # to the node edit page.
+        node = factory.make_node(owner=self.logged_in_user)
+        mac = factory.getRandomMACAddress()
+        mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
+        response = self.client.get(mac_delete_link)
         self.assertEqual(
-            ["Node started."],
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
+
+    def test_node_delete_access_denied_if_user_cannot_edit_node(self):
+        node = factory.make_node(owner=factory.make_user())
+        mac = factory.make_mac_address(node=node)
+        mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
+        response = self.client.get(mac_delete_link)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_node_delete_mac_contains_mac(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac = factory.make_mac_address(node=node)
+        mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
+        response = self.client.get(mac_delete_link)
+        self.assertIn(
+            'Are you sure you want to delete the MAC address "%s"' %
+                mac.mac_address,
+            response.content)
+
+    def test_node_delete_mac_POST_deletes_mac(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac = factory.make_mac_address(node=node)
+        mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
+        response = self.client.post(mac_delete_link, {'post': 'yes'})
+        self.assertEqual(
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
+        self.assertFalse(MACAddress.objects.filter(id=mac.id).exists())
+
+    def test_node_delete_mac_POST_displays_message(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac = factory.make_mac_address(node=node)
+        mac_delete_link = reverse('mac-delete', args=[node.system_id, mac])
+        response = self.client.post(mac_delete_link, {'post': 'yes'})
+        redirect = extract_redirect(response)
+        response = self.client.get(redirect)
+        self.assertEqual(
+            ["Mac address %s deleted." % mac.mac_address],
+            [message.message for message in response.context['messages']])
+
+
+class NodeAddMacTest(LoggedInTestCase):
+
+    def test_node_add_mac_contains_form(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac_add_link = reverse('mac-add', args=[node.system_id])
+        response = self.client.get(mac_add_link)
+        doc = fromstring(response.content)
+        self.assertEqual(1, len(doc.cssselect('form input#id_mac_address')))
+
+    def test_node_add_mac_POST_adds_mac(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac_add_link = reverse('mac-add', args=[node.system_id])
+        mac = factory.getRandomMACAddress()
+        response = self.client.post(mac_add_link, {'mac_address': mac})
+        self.assertEqual(
+            reverse('node-edit', args=[node.system_id]),
+            extract_redirect(response))
+        self.assertTrue(
+            MACAddress.objects.filter(node=node, mac_address=mac).exists())
+
+    def test_node_add_mac_POST_displays_message(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        mac_add_link = reverse('mac-add', args=[node.system_id])
+        mac = factory.getRandomMACAddress()
+        response = self.client.post(mac_add_link, {'mac_address': mac})
+        redirect = extract_redirect(response)
+        response = self.client.get(redirect)
+        self.assertEqual(
+            ["MAC address added."],
             [message.message for message in response.context['messages']])
 
 
