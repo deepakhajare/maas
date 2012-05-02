@@ -62,7 +62,7 @@ def get_module(src_path, package):
     :return: The imported module, or None if it was not found.
     """
     if os.path.isfile(os.path.join(src_path, package, "enum.py")):
-        return __import__('.'.join([package, 'enum'])).enum
+        return __import__('.'.join([package, 'enum']), level=0, fromlist=True)
     else:
         return None
 
