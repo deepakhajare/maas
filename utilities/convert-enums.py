@@ -29,7 +29,6 @@ from imp import (
     load_module,
     )
 import json
-from operator import itemgetter
 import os.path
 import sys
 from textwrap import dedent
@@ -50,9 +49,8 @@ header = dedent("""\
     % {'script': sys.argv[0], 'timestamp': datetime.now()})
 
 
-footer = dedent("""
-    }, '0.1');
-    """)
+# Footer.  Will be written at the bottom.
+footer = "}, '0.1');"
 
 
 def get_module(src_path, package, name='enum'):
@@ -104,35 +102,14 @@ def get_enum_classes(module):
     return filter(is_enum, (module.__dict__[name] for name in module.__all__))
 
 
-def serialize_value(value):
-    """Represent an enumeration item's value in JavaScript."""
-    if value is None:
-        return 'null'
-    elif isinstance(value, basestring):
-        return json.dumps(value)
-    else:
-        return value
-
-
-def serialize_item(key, value):
-    """Represent one key/value pair as a line in a JavaScript enum."""
-    return "    %s: %s" % (key, serialize_value(value))
-
-
-def serialize_dict_items(enum):
-    """Represent the items of a dict as a block of JavaScript."""
-    items = sorted(enum.items(), key=itemgetter(1))
-    return ',\n'.join(serialize_item(key, value) for key, value in items)
-
-
 def serialize_enum(enum):
     """Represent a MAAS enum class in JavaScript."""
     # Import lazily to make use of initialized path.
     from maasserver.utils import map_enum
 
-    head = "module.%s = {\n" % enum.__name__
-    foot = "\n};"
-    return head + serialize_dict_items(map_enum(enum)) + foot
+    return "module.%s = %s;\n" % (
+        enum.__name__,
+        json.dumps(map_enum(enum), indent=4, sort_keys=True))
 
 
 def parse_args():
@@ -149,8 +126,8 @@ def parse_args():
 def main(args):
     enum_modules = find_enum_modules(args.src)
     enums = sum((get_enum_classes(module) for module in enum_modules), [])
-    dumps = (serialize_enum(enum) for enum in enums)
-    print(header + "\n\n".join(dumps) + footer)
+    dumps = [serialize_enum(enum) for enum in enums]
+    print("\n".join([header] + dumps + [footer]))
 
 
 if __name__ == "__main__":
