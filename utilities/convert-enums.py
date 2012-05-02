@@ -70,7 +70,8 @@ def get_module(src_path, package, name='enum'):
         return None
     full_name = '.'.join([package, name])
     description = ('.py', 'r', PY_SOURCE)
-    return load_module(full_name, open(path), path, description)
+    with open(path) as module_file:
+        return load_module(full_name, module_file, path, description)
 
 
 def find_enum_modules(src_path):
@@ -82,10 +83,9 @@ def find_enum_modules(src_path):
     :param src_path: The path to search in.
     :return: An iterable of "enum" modules found in packages in src_path.
     """
-    not_none = lambda item: item is not None
-    return filter(not_none, [
-        get_module(src_path, package, 'enum')
-        for package in os.listdir(src_path)])
+    dirs = sorted(os.listdir(src_path))
+    modules = [get_module(src_path, package, 'enum') for package in dirs]
+    return filter(None, modules)
 
 
 def is_enum(item):
