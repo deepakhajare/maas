@@ -228,9 +228,12 @@ class ClusterFixture(Cluster, Fixture):
 
     def setUp(self):
         super(ClusterFixture, self).setUp()
-        if not self.preserve:
-            self.addCleanup(self.destroy)
-        self.create()
+        # Only destroy the cluster if we create it...
+        if not self.exists:
+            # ... unless we've been asked to preserve it.
+            if not self.preserve:
+                self.addCleanup(self.destroy)
+            self.create()
         self.addCleanup(self.stop)
         self.start()
         self.addCleanup(self.unlock)
@@ -253,10 +256,12 @@ class ClusterFixture(Cluster, Fixture):
             super(ClusterFixture, self).dropdb(name)
 
     def stop(self):
+        """Stop the cluster, but only if there are no other users."""
         if not self.locked:
             super(ClusterFixture, self).stop()
 
     def destroy(self):
+        """Destroy the cluster, but only if there are no other users."""
         if not self.locked:
             super(ClusterFixture, self).destroy()
 
@@ -308,8 +313,9 @@ argument_parser.add_argument(
 argument_parser.add_argument(
     "--preserve", dest="preserve", action="store_true",
     default=False, help=(
-        "preserve the cluster and its databases behind, even if it "
-        "was necessary to create it (default: %(default)s)"))
+        "preserve the cluster and its databases when exiting, "
+        "even if it was necessary to create and start it "
+        "(default: %(default)s)"))
 
 
 def main(args=None):
