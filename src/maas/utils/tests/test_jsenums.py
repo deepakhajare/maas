@@ -12,10 +12,15 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.testcase import TestCase
-
-from maas.utils.jsenums import serialize_enum, get_enums, dump, header, footer
+from maas.utils.jsenums import (
+    dump,
+    footer,
+    get_enums,
+    header,
+    serialize_enum,
+    )
 from maasserver.utils import map_enum
+from maastesting.testcase import TestCase
 
 
 class ENUM:
