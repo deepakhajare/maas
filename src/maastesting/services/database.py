@@ -270,6 +270,7 @@ def setup():
 
 
 def action_run(cluster):
+    """Create and run a cluster."""
     with cluster:
         cluster.createdb("maas")
         while cluster.running:
@@ -284,6 +285,7 @@ def action_shell(cluster):
 
 
 def action_stop(cluster):
+    """Stop a cluster."""
     cluster.stop()
 
 
@@ -314,10 +316,9 @@ def main(args=None):
     args = argument_parser.parse_args(args)
     try:
         setup()
-        cluster = ClusterFixture(
-            datadir=args.datadir,
-            leave=args.leave)
         action = actions[args.action]
+        cluster = ClusterFixture(
+            datadir=args.datadir, leave=args.leave)
         action(cluster)
     except CalledProcessError, error:
         raise SystemExit(error.returncode)
