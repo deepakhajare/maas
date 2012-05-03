@@ -51,7 +51,7 @@ PG_BIN = "/usr/lib/postgresql/%s/bin" % PG_VERSION
 
 
 def path_with_pg_bin(exe_path):
-    """Ensure that `PG_BIN` is in `PATH`."""
+    """Return `exe_path` with `PG_BIN` added."""
     exe_path = exe_path.split(path.pathsep)
     if PG_BIN not in exe_path:
         exe_path.insert(0, PG_BIN)
