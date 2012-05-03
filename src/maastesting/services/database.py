@@ -138,13 +138,6 @@ class Cluster:
         connection.autocommit = autocommit
         return connection
 
-    def shell(self, database):
-        """Spawn a ``psql`` shell for `database` in this cluster.
-
-        Does not guarantee that `database` exists.
-        """
-        self.execute("psql", "--", database)
-
     @property
     def databases(self):
         """The names of databases in this cluster."""
@@ -276,10 +269,39 @@ def setup():
     signal.signal(signal.SIGTERM, signal.default_int_handler)
 
 
+def action_run(cluster):
+    with cluster:
+        cluster.createdb("maas")
+        while cluster.running:
+            sleep(5.0)
+
+
+def action_shell(cluster):
+    """Spawn a ``psql`` shell for `maas` in the cluster."""
+    with cluster:
+        cluster.createdb("maas")
+        cluster.execute("psql", "--", "maas")
+
+
+def action_start(cluster):
+    cluster.stop()
+
+
+def action_stop(cluster):
+    cluster.stop()
+
+
+actions = {
+    "run": action_run,
+    "shell": action_shell,
+    "start": action_start,
+    "stop": action_stop,
+    }
+
+
 argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
-    "action", choices=("shell", "stop", "run"),
-    default="run", help=(
+    "action", choices=sorted(actions), default="run", help=(
         "the action to perform (default: %(default)s)"))
 argument_parser.add_argument(
     "-D", "--datadir", dest="datadir", action="store_true",
@@ -300,18 +322,8 @@ def main(args=None):
         cluster = ClusterFixture(
             datadir=args.datadir,
             leave=args.leave)
-
-        if args.action == "stop":
-            cluster.stop()
-        else:
-            with cluster:
-                cluster.createdb("maas")
-                if args.action == "run":
-                    while cluster.running:
-                        sleep(5.0)
-                elif args.action == "shell":
-                    cluster.shell("maas")
-
+        action = actions[args.action]
+        action(cluster)
     except CalledProcessError, error:
         raise SystemExit(error.returncode)
     except KeyboardInterrupt:
