@@ -112,7 +112,7 @@ harness: bin/maas services/database/@start
 	bin/maas shell --settings=maas.demo
 
 dbharness: bin/database
-	bin/database shell --leave
+	bin/database shell --preserve
 
 syncdb: bin/maas services/database/@start
 	bin/maas syncdb --noinput

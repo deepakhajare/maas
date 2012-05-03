@@ -179,13 +179,13 @@ class Cluster:
 class ClusterFixture(Cluster, Fixture):
     """A fixture for a `Cluster`."""
 
-    def __init__(self, datadir, leave=False):
+    def __init__(self, datadir, preserve=False):
         """
-        @param leave: Leave the cluster and its databases behind, even if this
+        @param preserve: Leave the cluster and its databases behind, even if this
             fixture creates them.
         """
         super(ClusterFixture, self).__init__(datadir)
-        self.leave = leave
+        self.preserve = preserve
 
     @property
     def lockdir(self):
@@ -228,7 +228,7 @@ class ClusterFixture(Cluster, Fixture):
 
     def setUp(self):
         super(ClusterFixture, self).setUp()
-        if not self.leave:
+        if not self.preserve:
             self.addCleanup(self.destroy)
         self.create()
         self.addCleanup(self.stop)
@@ -239,12 +239,12 @@ class ClusterFixture(Cluster, Fixture):
     def createdb(self, name):
         """Create the named database if it does not exist already.
 
-        Arranges to drop the named database during clean-up, unless `leave`
+        Arranges to drop the named database during clean-up, unless `preserve`
         has been specified.
         """
         if name not in self.databases:
             super(ClusterFixture, self).createdb(name)
-            if not self.leave:
+            if not self.preserve:
                 self.addCleanup(self.dropdb, name)
 
     def dropdb(self, name):
@@ -306,9 +306,9 @@ argument_parser.add_argument(
         "the directory in which to place, or find, the cluster "
         "(default: %(default)s)"))
 argument_parser.add_argument(
-    "--leave", dest="leave", action="store_true",
+    "--preserve", dest="preserve", action="store_true",
     default=False, help=(
-        "leave the cluster and its databases behind, even if it "
+        "preserve the cluster and its databases behind, even if it "
         "was necessary to create it (default: %(default)s)"))
 
 
@@ -318,7 +318,7 @@ def main(args=None):
         setup()
         action = actions[args.action]
         cluster = ClusterFixture(
-            datadir=args.datadir, leave=args.leave)
+            datadir=args.datadir, preserve=args.preserve)
         action(cluster)
     except CalledProcessError, error:
         raise SystemExit(error.returncode)
