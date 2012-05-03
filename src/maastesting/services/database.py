@@ -17,12 +17,20 @@ __all__ = [
 
 import argparse
 from contextlib import closing
+from errno import (
+    EEXIST,
+    ENOENT,
+    ENOTEMPTY,
+    )
 from os import (
     devnull,
     environ,
     fdopen,
+    getpid,
     makedirs,
     path,
+    rmdir,
+    unlink,
     )
 import pipes
 from shutil import rmtree
@@ -166,7 +174,7 @@ class Cluster:
             self.execute("pg_ctl", "stop", "-s", "-w", "-m", "fast")
 
     def destroy(self):
-        """Destory this cluster, if it exists.
+        """Destroy this cluster, if it exists.
 
         The cluster will be stopped if it's started.
         """
@@ -186,15 +194,54 @@ class ClusterFixture(Cluster, Fixture):
         super(ClusterFixture, self).__init__(datadir)
         self.leave = leave
 
+    @property
+    def lockdir(self):
+        return path.join(self.datadir, "locks")
+
+    @property
+    def lockfile(self):
+        return path.join(self.lockdir, "%d" % getpid())
+
+    def lock(self):
+        # Declare self as a user.
+        try:
+            makedirs(self.lockdir)
+        except OSError, error:
+            if error.errno != EEXIST:
+                raise
+        open(self.lockfile, "w").close()
+
+    def unlock(self):
+        # Remove self as a user.
+        try:
+            unlink(self.lockfile)
+        except OSError, error:
+            if error.errno != ENOENT:
+                raise
+
+    @property
+    def locked(self):
+        try:
+            rmdir(self.lockdir)
+        except OSError, error:
+            if error.errno == ENOTEMPTY:
+                return True
+            elif error.errno == ENOENT:
+                return False
+            else:
+                raise
+        else:
+            return False
+
     def setUp(self):
         super(ClusterFixture, self).setUp()
-        if not self.exists:
-            if not self.leave:
-                self.addCleanup(self.destroy)
-            self.create()
-        if not self.running:
-            self.addCleanup(self.stop)
-            self.start()
+        if not self.leave:
+            self.addCleanup(self.destroy)
+        self.create()
+        self.addCleanup(self.stop)
+        self.start()
+        self.addCleanup(self.unlock)
+        self.lock()
 
     def createdb(self, name):
         """Create the named database if it does not exist already.
@@ -212,6 +259,14 @@ class ClusterFixture(Cluster, Fixture):
         if name in self.databases:
             super(ClusterFixture, self).dropdb(name)
 
+    def stop(self):
+        if not self.locked:
+            super(ClusterFixture, self).stop()
+
+    def destroy(self):
+        if not self.locked:
+            super(ClusterFixture, self).destroy()
+
 
 def setup():
     # Ensure stdout and stderr are line-bufferred.
@@ -223,7 +278,7 @@ def setup():
 
 argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
-    "action", choices=("shell", "run"),
+    "action", choices=("shell", "stop", "run"),
     default="run", help=(
         "the action to perform (default: %(default)s)"))
 argument_parser.add_argument(
@@ -245,13 +300,18 @@ def main(args=None):
         cluster = ClusterFixture(
             datadir=args.datadir,
             leave=args.leave)
-        with cluster:
-            cluster.createdb("maas")
-            if args.action == "run":
-                while cluster.running:
-                    sleep(5.0)
-            elif args.action == "shell":
-                cluster.shell("maas")
+
+        if args.action == "stop":
+            cluster.stop()
+        else:
+            with cluster:
+                cluster.createdb("maas")
+                if args.action == "run":
+                    while cluster.running:
+                        sleep(5.0)
+                elif args.action == "shell":
+                    cluster.shell("maas")
+
     except CalledProcessError, error:
         raise SystemExit(error.returncode)
     except KeyboardInterrupt:
