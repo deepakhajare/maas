@@ -8,8 +8,9 @@ MAAS defines its enums as simple classes, with the enum items as attributes.
 Running this script produces a source text containing the JavaScript
 equivalents of the same enums, so that JavaScript code can make use of them.
 
-The script takes one option: --src=DIRECTORY.  DIRECTORY is where the MAAS
-modules (maasserver, metadataserver, provisioningserver) can be found.
+The script takes the filename of the enum modules. Each will be compiled and
+executed in an empty namespace, though they will have access to other MAAS
+libraries, though not necessarily their dependencies.
 
 The resulting JavaScript module is printed to standard output.
 """
@@ -24,8 +25,10 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 from datetime import datetime
+from itertools import chain
 import json
-import os.path
+from operator import attrgetter
+from os.path import dirname, abspath, pardir, join
 import sys
 from textwrap import dedent
 
@@ -44,41 +47,8 @@ header = dedent("""\
     """
     % {'script': sys.argv[0], 'timestamp': datetime.now()})
 
-
 # Footer.  Will be written at the bottom.
 footer = "}, '0.1');"
-
-
-def get_module(src_path, package):
-    """Attempt to load a given module.
-
-    This makes some assumptions about directory structure: it is assumed
-    that the module is directly in a package of the given name, which in turn
-    should be directly in the search path.
-
-    :param src_path: The path to search in.
-    :param package: The package to load the requested module from.
-    :param name: Name of module to load.
-    :return: The imported module, or None if it was not found.
-    """
-    if os.path.isfile(os.path.join(src_path, package, "enum.py")):
-        return __import__('.'.join([package, 'enum']), level=0, fromlist=True)
-    else:
-        return None
-
-
-def find_enum_modules(src_path):
-    """Find MAAS "enum" modules in the packages in src_path.
-
-    This assumes that all MAAS enums can be found in
-    <src_path>/<package>/enum.py.
-
-    :param src_path: The path to search in.
-    :return: An iterable of "enum" modules found in packages in src_path.
-    """
-    dirs = sorted(os.listdir(src_path))
-    modules = [get_module(src_path, package) for package in dirs]
-    return filter(None, modules)
 
 
 def is_enum(item):
@@ -90,9 +60,18 @@ def is_enum(item):
     return isinstance(item, type) and item.__name__.isupper()
 
 
-def get_enum_classes(module):
-    """Collect all enum classes exported from loaded `module`."""
-    return filter(is_enum, [module.__dict__[name] for name in module.__all__])
+def get_enum_classes(namespace):
+    """Collect all enum classes exported from `namespace`."""
+    return filter(is_enum, namespace.values())
+
+
+def get_enums(filename):
+    namespace = {}
+    with open(filename, "rbU") as fd:
+        source = fd.read()
+    code = compile(source, filename, "exec")
+    exec(code, namespace)
+    return get_enum_classes(namespace)
 
 
 def serialize_enum(enum):
@@ -107,18 +86,18 @@ def serialize_enum(enum):
 
 def parse_args():
     """Parse options & arguments."""
-    default_src = os.path.join(os.path.dirname(sys.path[0]), 'src')
     parser = ArgumentParser(
         "Generate JavaScript enums based on python enums modules")
     parser.add_argument(
-        '--src', metavar='SOURCE_DIRECTORY', type=str, default=default_src,
-        help="Look for the MAAS packages in SOURCE_DIRECTORY.")
+        'sources', metavar="FILENAME", nargs='+',
+        help="File to search for enums.")
     return parser.parse_args()
 
 
-def main(args):
-    enum_modules = find_enum_modules(args.src)
-    enums = sum((get_enum_classes(module) for module in enum_modules), [])
+def main(source_filenames):
+    enums = chain.from_iterable(
+        get_enums(filename) for filename in source_filenames)
+    enums = sorted(enums, key=attrgetter("__name__"))
     dumps = [serialize_enum(enum) for enum in enums]
     print("\n".join([header] + dumps + [footer]))
 
@@ -126,5 +105,6 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     # Add src directory so that we can import from MAAS packages.
-    sys.path.append(args.src)
-    main(args)
+    src = join(dirname(__file__), pardir, "src")
+    sys.path.insert(0, abspath(src))
+    main(args.sources)
