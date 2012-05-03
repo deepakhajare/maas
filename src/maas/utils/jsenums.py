@@ -1,8 +1,7 @@
-#!/usr/bin/env python2.7
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Generate JavaScript enum definitions based on their python definitions.
+"""Generate JavaScript enum definitions based on Python definitions.
 
 MAAS defines its enums as simple classes, with the enum items as attributes.
 Running this script produces a source text containing the JavaScript
@@ -10,7 +9,7 @@ equivalents of the same enums, so that JavaScript code can make use of them.
 
 The script takes the filename of the enum modules. Each will be compiled and
 executed in an empty namespace, though they will have access to other MAAS
-libraries, though not necessarily their dependencies.
+libraries, including their dependencies.
 
 The resulting JavaScript module is printed to standard output.
 """
@@ -85,8 +84,7 @@ def serialize_enum(enum):
 
 def parse_args():
     """Parse options & arguments."""
-    parser = ArgumentParser(
-        "Generate JavaScript enums based on python enums modules")
+    parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         'sources', metavar="FILENAME", nargs='+',
         help="File to search for enums.")
