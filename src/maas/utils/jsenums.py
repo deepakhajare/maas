@@ -28,9 +28,10 @@ from datetime import datetime
 from itertools import chain
 import json
 from operator import attrgetter
-from os.path import dirname, abspath, pardir, join
 import sys
 from textwrap import dedent
+
+from maasserver.utils import map_enum
 
 # Header.  Will be written on top of the output.
 header = dedent("""\
@@ -76,9 +77,6 @@ def get_enums(filename):
 
 def serialize_enum(enum):
     """Represent a MAAS enum class in JavaScript."""
-    # Import lazily to make use of initialized path.
-    from maasserver.utils import map_enum
-
     return "module.%s = %s;\n" % (
         enum.__name__,
         json.dumps(map_enum(enum), indent=4, sort_keys=True))
@@ -104,7 +102,4 @@ def main(source_filenames):
 
 if __name__ == "__main__":
     args = parse_args()
-    # Add src directory so that we can import from MAAS packages.
-    src = join(dirname(__file__), pardir, "src")
-    sys.path.insert(0, abspath(src))
     main(args.sources)

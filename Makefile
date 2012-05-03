@@ -87,8 +87,8 @@ doc: bin/sphinx docs/api.rst
 
 enums: $(js_enums)
 
-$(js_enums): utilities/convert-enums.py $(py_enums)
-	utilities/convert-enums.py $(py_enums) > $@
+$(js_enums): bin/py src/maas/utils/jsenums.py $(py_enums)
+	 bin/py -m src/maas/utils/jsenums $(py_enums) > $@
 
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
