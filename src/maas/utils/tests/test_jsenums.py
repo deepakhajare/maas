@@ -1,0 +1,54 @@
+# Copyright 2012 Canonical Ltd.  This software is licensed under the
+# GNU Affero General Public License version 3 (see the file LICENSE).
+
+"""Tests for `maas.utils.jsenums`."""
+
+from __future__ import (
+    absolute_import,
+    print_function,
+    unicode_literals,
+    )
+
+__metaclass__ = type
+__all__ = []
+
+from maastesting.testcase import TestCase
+
+from maas.utils.jsenums import serialize_enum, get_enums, dump, header, footer
+from maasserver.utils import map_enum
+
+
+class ENUM:
+    ALICE = 1
+    BOB = 2
+
+
+class TestSomething(TestCase):
+
+    def test_serialize_enum(self):
+        # The name is used correctly, the keys are sorted, and everything is
+        # indented correctly.
+        self.assertEqual(
+            u'module.ENUM = {\n'
+            u'    "ALICE": 1, \n'
+            u'    "BOB": 2\n'
+            u'};\n',
+            serialize_enum(ENUM))
+
+    def test_get_enums(self):
+        # This file contains a single enum, named "ENUM".
+        enums = get_enums(__file__)
+        self.assertEqual(["ENUM"], [enum.__name__ for enum in enums])
+        [enum] = enums
+        # Because the module has been executed in a different namespace, the
+        # enum we've found is not the same object as the one in the current
+        # global namespace.
+        self.assertIsNot(ENUM, enum)
+        # It does, however, have the same values.
+        self.assertEqual(map_enum(ENUM), map_enum(enum))
+
+    def test_dump(self):
+        self.assertEqual(header + "\n" + footer, dump([]))
+        self.assertEqual(
+            header + "\n" + serialize_enum(ENUM) + "\n" + footer,
+            dump([__file__]))

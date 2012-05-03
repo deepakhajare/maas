@@ -22,6 +22,7 @@ from __future__ import (
     )
 
 __metaclass__ = type
+__all__ = []
 
 from argparse import ArgumentParser
 from datetime import datetime
@@ -92,14 +93,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(source_filenames):
+def dump(source_filenames):
     enums = chain.from_iterable(
         get_enums(filename) for filename in source_filenames)
     enums = sorted(enums, key=attrgetter("__name__"))
     dumps = [serialize_enum(enum) for enum in enums]
-    print("\n".join([header] + dumps + [footer]))
+    return "\n".join([header] + dumps + [footer])
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args.sources)
+    print(dump(args.sources))
