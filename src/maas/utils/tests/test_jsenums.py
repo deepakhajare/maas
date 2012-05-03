@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from inspect import getsourcefile
+
 from maas.utils.jsenums import (
     dump,
     footer,
@@ -42,7 +44,7 @@ class Test(TestCase):
 
     def test_get_enums(self):
         # This file contains a single enum, named "ENUM".
-        enums = get_enums(__file__)
+        enums = get_enums(getsourcefile(Test))
         self.assertEqual(["ENUM"], [enum.__name__ for enum in enums])
         [enum] = enums
         # Because the module has been executed in a different namespace, the
@@ -56,4 +58,4 @@ class Test(TestCase):
         self.assertEqual(header + "\n" + footer, dump([]))
         self.assertEqual(
             header + "\n" + serialize_enum(ENUM) + "\n" + footer,
-            dump([__file__]))
+            dump([getsourcefile(Test)]))
