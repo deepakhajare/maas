@@ -283,10 +283,6 @@ def action_shell(cluster):
         cluster.execute("psql", "--", "maas")
 
 
-def action_start(cluster):
-    cluster.stop()
-
-
 def action_stop(cluster):
     cluster.stop()
 
@@ -294,15 +290,14 @@ def action_stop(cluster):
 actions = {
     "run": action_run,
     "shell": action_shell,
-    "start": action_start,
     "stop": action_stop,
     }
 
 
 argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_parser.add_argument(
-    "action", choices=sorted(actions), default="run", help=(
-        "the action to perform (default: %(default)s)"))
+    "action", choices=sorted(actions), nargs="?", default="shell",
+    help="the action to perform (default: %(default)s)")
 argument_parser.add_argument(
     "-D", "--datadir", dest="datadir", action="store_true",
     default="db", help=(
