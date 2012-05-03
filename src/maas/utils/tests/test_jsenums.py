@@ -28,7 +28,7 @@ class ENUM:
     BOB = 2
 
 
-class TestSomething(TestCase):
+class Test(TestCase):
 
     def test_serialize_enum(self):
         # The name is used correctly, the keys are sorted, and everything is
