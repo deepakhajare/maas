@@ -298,12 +298,27 @@ def setup():
 
 def repr_pid(pid):
     if isinstance(pid, int) or pid.isdigit():
-        if path.isdir("/proc/%s" % pid):
-            return "%s" % pid
+        try:
+            with open("/proc/%s/cmdline" % pid, "rb") as fd:
+                cmdline = fd.read().rstrip("\0").split("\0")
+        except IOError:
+            return "%s (*unknown*)" % pid
         else:
-            return "%s (not running)" % pid
+            return "%s (%s)" % (
+                pid, " ".join(imap(pipes.quote, cmdline)))
     else:
         return pipes.quote(pid)
+
+
+def locked_by_description(lock):
+    pids = sorted(lock.locked_by)
+    return "locked by:\n* %s" % (
+        "\n* ".join(imap(repr_pid, pids)))
+
+
+def error(*args, **kwargs):
+    kwargs.setdefault("file", sys.stderr)
+    return print(*args, **kwargs)
 
 
 def action_run(cluster):
@@ -326,12 +341,11 @@ def action_stop(cluster):
     cluster.stop()
     if cluster.running:
         if cluster.lock.locked:
-            pids = sorted(cluster.lock.locked_by)
-            message = "%s: cluster is locked by: %s" % (
-                cluster.datadir, ", ".join(imap(repr_pid, pids)))
+            message = "%s: cluster is %s" % (
+                cluster.datadir, locked_by_description(cluster.lock))
         else:
             message = "%s: cluster is still running." % cluster.datadir
-        print(message)
+        error(message)
         raise SystemExit(2)
 
 
@@ -341,12 +355,11 @@ def action_destroy(cluster):
     cluster.destroy()
     if cluster.exists:
         if cluster.lock.locked:
-            pids = sorted(cluster.lock.locked_by)
-            message = "%s: cluster is locked by: %s" % (
-                cluster.datadir, ", ".join(imap(repr_pid, pids)))
+            message = "%s: cluster is %s" % (
+                cluster.datadir, locked_by_description(cluster.lock))
         else:
             message = "%s: cluster could not be removed." % cluster.datadir
-        print(message)
+        error(message)
         raise SystemExit(2)
 
 
