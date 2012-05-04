@@ -227,12 +227,12 @@ class ProcessSemaphore:
     @property
     def locked_by(self):
         try:
-            return {
+            return [
                 int(name) if name.isdigit() else name
                 for name in listdir(self.lockdir)
-                }
+                ]
         except OSError, error:
-            if error == ENOENT:
+            if error.errno == ENOENT:
                 return []
             else:
                 raise

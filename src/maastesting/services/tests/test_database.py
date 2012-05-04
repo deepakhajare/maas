@@ -20,10 +20,15 @@ from os import (
 from maastesting.services.database import (
     path_with_pg_bin,
     PG_BIN,
+    ProcessSemaphore,
     repr_pid,
     )
 from maastesting.testcase import TestCase
-from testtools.matchers import StartsWith
+from testtools.matchers import (
+    FileExists,
+    Not,
+    StartsWith,
+    )
 
 
 class TestFunctions(TestCase):
@@ -44,3 +49,31 @@ class TestFunctions(TestCase):
     def test_repr_pid_this_process(self):
         pid = getpid()
         self.assertThat(repr_pid(pid), StartsWith("%d (" % pid))
+
+
+class TestProcessSemaphore(TestCase):
+
+    def test_init(self):
+        lockdir = self.make_dir()
+        psem = ProcessSemaphore(lockdir)
+        self.assertEqual(lockdir, psem.lockdir)
+        self.assertEqual(
+            path.join(lockdir, "%s" % getpid()),
+            psem.lockfile)
+
+    def test_acquire(self):
+        psem = ProcessSemaphore(
+            path.join(self.make_dir(), "locks"))
+        psem.acquire()
+        self.assertThat(psem.lockfile, FileExists())
+        self.assertTrue(psem.locked)
+        self.assertEqual([getpid()], psem.locked_by)
+
+    def test_release(self):
+        psem = ProcessSemaphore(
+            path.join(self.make_dir(), "locks"))
+        psem.acquire()
+        psem.release()
+        self.assertThat(psem.lockfile, Not(FileExists()))
+        self.assertFalse(psem.locked)
+        self.assertEqual([], psem.locked_by)
