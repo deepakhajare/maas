@@ -16,6 +16,7 @@ from os import (
     getpid,
     path,
     )
+from subprocess import CalledProcessError
 
 from maastesting.services import database
 from maastesting.services.database import (
@@ -90,16 +91,19 @@ class TestCluster(TestCase):
         cluster = Cluster(path.relpath(datadir))
         self.assertEqual(datadir, cluster.datadir)
 
-    def patch_check_calls(self):
+    def patch_check_call(self, returncode=0):
         calls = []
-        self.patch(
-            database, "check_call",
-            lambda command, **options:
-                calls.append((command, options)))
+
+        def check_call(command, **options):
+            calls.append((command, options))
+            if returncode != 0:
+                raise CalledProcessError(returncode, command)
+
+        self.patch(database, "check_call", check_call)
         return calls
 
     def test_execute(self):
-        calls = self.patch_check_calls()
+        calls = self.patch_check_call()
         cluster = Cluster(self.make_dir())
         cluster.execute("true")
         [(command, options)] = calls
@@ -111,3 +115,40 @@ class TestCluster(TestCase):
         self.assertThat(
             env.get("PATH", ""),
             StartsWith(PG_BIN + path.pathsep))
+
+    def test_exists(self):
+        cluster = Cluster(self.make_dir())
+        # The PG_VERSION file is used as a marker of existence.
+        version_file = path.join(cluster.datadir, "PG_VERSION")
+        self.assertThat(version_file, Not(FileExists()))
+        self.assertFalse(cluster.exists)
+        open(version_file, "wb").close()
+        self.assertTrue(cluster.exists)
+
+    def test_pidfile(self):
+        self.assertEqual(
+            "/some/where/postmaster.pid",
+            Cluster("/some/where").pidfile)
+
+    def test_logfile(self):
+        self.assertEqual(
+            "/some/where/backend.log",
+            Cluster("/some/where").logfile)
+
+    def test_running(self):
+        calls = self.patch_check_call(returncode=0)
+        cluster = Cluster("/some/where")
+        self.assertTrue(cluster.running)
+        [(command, options)] = calls
+        self.assertEqual(("pg_ctl", "status"), command)
+
+    def test_running_not(self):
+        self.patch_check_call(returncode=1)
+        cluster = Cluster("/some/where")
+        self.assertFalse(cluster.running)
+
+    def test_running_error(self):
+        self.patch_check_call(returncode=2)
+        cluster = Cluster("/some/where")
+        self.assertRaises(
+            CalledProcessError, getattr, cluster, "running")
