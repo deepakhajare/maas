@@ -297,6 +297,17 @@ class TestClusterFixture(TestCluster):
         self.assertFalse(fixture.exists)
         self.assertFalse(fixture.running)
 
+    def test_use_no_preserve_cluster_already_exists(self):
+        # The cluster is stopped but *not* destroyed when preserve=False if it
+        # existed before the fixture was put into use.
+        fixture = self.make(self.make_dir(), preserve=False)
+        fixture.create()
+        with fixture:
+            self.assertTrue(fixture.exists)
+            self.assertTrue(fixture.running)
+        self.assertTrue(fixture.exists)
+        self.assertFalse(fixture.running)
+
     def test_use_preserve(self):
         # The cluster is not stopped and destroyed when preserve=True.
         with self.make(self.make_dir(), preserve=True) as fixture:
