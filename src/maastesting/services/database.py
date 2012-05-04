@@ -342,6 +342,28 @@ def action_shell(cluster):
         cluster.shell("maas")
 
 
+def action_status(cluster):
+    """Display a message about the state of the cluster.
+
+    The return code is also set:
+
+    - 0: cluster is running.
+    - 1: cluster exists, but is not running.
+    - 2: cluster does not exist.
+
+    """
+    if cluster.exists:
+        if cluster.running:
+            print("%s: running" % cluster.datadir)
+            raise SystemExit(0)
+        else:
+            print("%s: not running" % cluster.datadir)
+            raise SystemExit(1)
+    else:
+        print("%s: not created" % cluster.datadir)
+        raise SystemExit(2)
+
+
 def action_stop(cluster):
     """Stop a cluster."""
     cluster.stop()
@@ -373,6 +395,7 @@ actions = {
     "destroy": action_destroy,
     "run": action_run,
     "shell": action_shell,
+    "status": action_status,
     "stop": action_stop,
     }
 

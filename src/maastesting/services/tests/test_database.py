@@ -350,6 +350,39 @@ class TestActions(TestCase):
         self.patch(cluster, "shell", shell_patch)
         self.assertRaises(self.Finished, database.action_shell, cluster)
 
+    def test_status_running(self):
+        cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        self.patch(sys, "stdout", StringIO())
+        code = self.assertRaises(
+            SystemExit, database.action_status, cluster).code
+        self.assertEqual(0, code)
+        self.assertEqual(
+            "%s: running\n" % cluster.datadir,
+            sys.stdout.getvalue())
+
+    def test_status_not_running(self):
+        cluster = ClusterFixture(self.make_dir())
+        cluster.create()
+        self.patch(sys, "stdout", StringIO())
+        code = self.assertRaises(
+            SystemExit, database.action_status, cluster).code
+        self.assertEqual(1, code)
+        self.assertEqual(
+            "%s: not running\n" % cluster.datadir,
+            sys.stdout.getvalue())
+
+    def test_status_not_created(self):
+        cluster = ClusterFixture(self.make_dir())
+        self.patch(sys, "stdout", StringIO())
+        code = self.assertRaises(
+            SystemExit, database.action_status, cluster).code
+        self.assertEqual(2, code)
+        self.assertEqual(
+            "%s: not created\n" % cluster.datadir,
+            sys.stdout.getvalue())
+
     def test_stop(self):
         cluster = ClusterFixture(self.make_dir())
         self.addCleanup(cluster.stop)
