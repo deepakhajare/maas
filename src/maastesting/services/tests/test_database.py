@@ -17,7 +17,9 @@ from os import (
     path,
     )
 
+from maastesting.services import database
 from maastesting.services.database import (
+    Cluster,
     path_with_pg_bin,
     PG_BIN,
     ProcessSemaphore,
@@ -77,3 +79,35 @@ class TestProcessSemaphore(TestCase):
         self.assertThat(psem.lockfile, Not(FileExists()))
         self.assertFalse(psem.locked)
         self.assertEqual([], psem.locked_by)
+
+
+class TestCluster(TestCase):
+
+    def test_init(self):
+        # The datadir passed into the Cluster constructor is resolved to an
+        # absolute path.
+        datadir = path.join(self.make_dir(), "locks")
+        cluster = Cluster(path.relpath(datadir))
+        self.assertEqual(datadir, cluster.datadir)
+
+    def patch_check_calls(self):
+        calls = []
+        self.patch(
+            database, "check_call",
+            lambda command, **options:
+                calls.append((command, options)))
+        return calls
+
+    def test_execute(self):
+        calls = self.patch_check_calls()
+        cluster = Cluster(self.make_dir())
+        cluster.execute("true")
+        [(command, options)] = calls
+        self.assertEqual(("true",), command)
+        self.assertIn("env", options)
+        env = options["env"]
+        self.assertEqual(cluster.datadir, env.get("PGDATA"))
+        self.assertEqual(cluster.datadir, env.get("PGHOST"))
+        self.assertThat(
+            env.get("PATH", ""),
+            StartsWith(PG_BIN + path.pathsep))
