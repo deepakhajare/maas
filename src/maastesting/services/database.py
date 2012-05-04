@@ -327,6 +327,20 @@ def error(*args, **kwargs):
     return print(*args, **kwargs)
 
 
+def action_destroy(cluster):
+    """Destroy a cluster."""
+    action_stop(cluster)
+    cluster.destroy()
+    if cluster.exists:
+        if cluster.lock.locked:
+            message = "%s: cluster is %s" % (
+                cluster.datadir, locked_by_description(cluster.lock))
+        else:
+            message = "%s: cluster could not be removed." % cluster.datadir
+        error(message)
+        raise SystemExit(2)
+
+
 def action_run(cluster):
     """Create and run a cluster."""
     with cluster:
@@ -373,20 +387,6 @@ def action_stop(cluster):
                 cluster.datadir, locked_by_description(cluster.lock))
         else:
             message = "%s: cluster is still running." % cluster.datadir
-        error(message)
-        raise SystemExit(2)
-
-
-def action_destroy(cluster):
-    """Destroy a cluster."""
-    action_stop(cluster)
-    cluster.destroy()
-    if cluster.exists:
-        if cluster.lock.locked:
-            message = "%s: cluster is %s" % (
-                cluster.datadir, locked_by_description(cluster.lock))
-        else:
-            message = "%s: cluster could not be removed." % cluster.datadir
         error(message)
         raise SystemExit(2)
 
