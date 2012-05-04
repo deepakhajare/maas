@@ -27,6 +27,7 @@ from os import (
     environ,
     fdopen,
     getpid,
+    listdir,
     makedirs,
     path,
     rmdir,
@@ -176,27 +177,21 @@ class Cluster:
             rmtree(self.datadir)
 
 
-class ClusterFixture(Cluster, Fixture):
-    """A fixture for a `Cluster`."""
+class ProcessSemaphore:
+    """A sort-of-semaphore where it is considered locked if a directory cannot
+    be removed.
 
-    def __init__(self, datadir, preserve=False):
-        """
-        @param preserve: Leave the cluster and its databases behind, even if this
-            fixture creates them.
-        """
-        super(ClusterFixture, self).__init__(datadir)
-        self.preserve = preserve
+    The locks are taken out one per-process, so this is a way of keeping a
+    reference to a shared resource between processes.
+    """
 
-    @property
-    def lockdir(self):
-        return path.join(self.datadir, "locks")
+    def __init__(self, lockdir):
+        super(ProcessSemaphore, self).__init__()
+        self.lockdir = lockdir
+        self.lockfile = path.join(
+            self.lockdir, "%d" % getpid())
 
-    @property
-    def lockfile(self):
-        return path.join(self.lockdir, "%d" % getpid())
-
-    def lock(self):
-        # Declare self as a user.
+    def acquire(self):
         try:
             makedirs(self.lockdir)
         except OSError, error:
@@ -204,8 +199,7 @@ class ClusterFixture(Cluster, Fixture):
                 raise
         open(self.lockfile, "w").close()
 
-    def unlock(self):
-        # Remove self as a user.
+    def release(self):
         try:
             unlink(self.lockfile)
         except OSError, error:
@@ -226,6 +220,33 @@ class ClusterFixture(Cluster, Fixture):
         else:
             return False
 
+    @property
+    def locked_by(self):
+        try:
+            return {
+                int(name) if name.isdigit() else name
+                for name in listdir(self.lockdir)
+                }
+        except OSError, error:
+            if error == ENOENT:
+                return []
+            else:
+                raise
+
+
+class ClusterFixture(Cluster, Fixture):
+    """A fixture for a `Cluster`."""
+
+    def __init__(self, datadir, preserve=False):
+        """
+        @param preserve: Leave the cluster and its databases behind, even if
+            this fixture creates them.
+        """
+        super(ClusterFixture, self).__init__(datadir)
+        self.preserve = preserve
+        self.lock = ProcessSemaphore(
+            path.join(self.datadir, "locks"))
+
     def setUp(self):
         super(ClusterFixture, self).setUp()
         # Only destroy the cluster if we create it...
@@ -236,8 +257,8 @@ class ClusterFixture(Cluster, Fixture):
             self.create()
         self.addCleanup(self.stop)
         self.start()
-        self.addCleanup(self.unlock)
-        self.lock()
+        self.addCleanup(self.lock.release)
+        self.lock.acquire()
 
     def createdb(self, name):
         """Create the named database if it does not exist already.
@@ -257,12 +278,12 @@ class ClusterFixture(Cluster, Fixture):
 
     def stop(self):
         """Stop the cluster, but only if there are no other users."""
-        if not self.locked:
+        if not self.lock.locked:
             super(ClusterFixture, self).stop()
 
     def destroy(self):
         """Destroy the cluster, but only if there are no other users."""
-        if not self.locked:
+        if not self.lock.locked:
             super(ClusterFixture, self).destroy()
 
 
