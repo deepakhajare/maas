@@ -318,7 +318,7 @@ def action_shell(cluster):
     """Spawn a ``psql`` shell for `maas` in the cluster."""
     with cluster:
         cluster.createdb("maas")
-        cluster.execute("psql", "--", "maas")
+        cluster.execute("psql", "--quiet", "--", "maas")
 
 
 def action_stop(cluster):
