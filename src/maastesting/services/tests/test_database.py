@@ -22,6 +22,7 @@ from subprocess import CalledProcessError
 from maastesting.services import database
 from maastesting.services.database import (
     Cluster,
+    ClusterFixture,
     path_with_pg_bin,
     PG_BIN,
     ProcessSemaphore,
@@ -86,11 +87,13 @@ class TestProcessSemaphore(TestCase):
 
 class TestCluster(TestCase):
 
+    make = Cluster
+
     def test_init(self):
         # The datadir passed into the Cluster constructor is resolved to an
         # absolute path.
         datadir = path.join(self.make_dir(), "locks")
-        cluster = Cluster(path.relpath(datadir))
+        cluster = self.make(path.relpath(datadir))
         self.assertEqual(datadir, cluster.datadir)
 
     def patch_check_call(self, returncode=0):
@@ -106,7 +109,7 @@ class TestCluster(TestCase):
 
     def test_execute(self):
         calls = self.patch_check_call()
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.execute("true")
         [(command, options)] = calls
         self.assertEqual(("true",), command)
@@ -119,7 +122,7 @@ class TestCluster(TestCase):
             StartsWith(PG_BIN + path.pathsep))
 
     def test_exists(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         # The PG_VERSION file is used as a marker of existence.
         version_file = path.join(cluster.datadir, "PG_VERSION")
         self.assertThat(version_file, Not(FileExists()))
@@ -130,39 +133,39 @@ class TestCluster(TestCase):
     def test_pidfile(self):
         self.assertEqual(
             "/some/where/postmaster.pid",
-            Cluster("/some/where").pidfile)
+            self.make("/some/where").pidfile)
 
     def test_logfile(self):
         self.assertEqual(
             "/some/where/backend.log",
-            Cluster("/some/where").logfile)
+            self.make("/some/where").logfile)
 
     def test_running(self):
         calls = self.patch_check_call(returncode=0)
-        cluster = Cluster("/some/where")
+        cluster = self.make("/some/where")
         self.assertTrue(cluster.running)
         [(command, options)] = calls
         self.assertEqual(("pg_ctl", "status"), command)
 
     def test_running_not(self):
         self.patch_check_call(returncode=1)
-        cluster = Cluster("/some/where")
+        cluster = self.make("/some/where")
         self.assertFalse(cluster.running)
 
     def test_running_error(self):
         self.patch_check_call(returncode=2)
-        cluster = Cluster("/some/where")
+        cluster = self.make("/some/where")
         self.assertRaises(
             CalledProcessError, getattr, cluster, "running")
 
     def test_create(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         self.assertTrue(cluster.exists)
         self.assertFalse(cluster.running)
 
     def test_start_and_stop(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         try:
             cluster.start()
@@ -172,7 +175,7 @@ class TestCluster(TestCase):
             self.assertFalse(cluster.running)
 
     def test_connect(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         self.addCleanup(cluster.stop)
         cluster.start()
@@ -182,7 +185,7 @@ class TestCluster(TestCase):
                 self.assertEqual([(1,)], cur.fetchall())
 
     def test_databases(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         self.addCleanup(cluster.stop)
         cluster.start()
@@ -191,7 +194,7 @@ class TestCluster(TestCase):
             cluster.databases)
 
     def test_createdb_and_dropdb(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         self.addCleanup(cluster.stop)
         cluster.start()
@@ -205,9 +208,103 @@ class TestCluster(TestCase):
             cluster.databases)
 
     def test_destroy(self):
-        cluster = Cluster(self.make_dir())
+        cluster = self.make(self.make_dir())
         cluster.create()
         cluster.destroy()
         self.assertFalse(cluster.exists)
         self.assertFalse(cluster.running)
         self.assertThat(cluster.datadir, Not(DirExists()))
+
+
+class TestClusterFixture(TestCluster):
+
+    def make(self, *args, **kwargs):
+        fixture = ClusterFixture(*args, **kwargs)
+        # Run the basic fixture set-up so that clean-ups can be added.
+        super(ClusterFixture, fixture).setUp()
+        return fixture
+
+    def test_init_fixture(self):
+        fixture = self.make("/some/where")
+        self.assertEqual(False, fixture.preserve)
+        self.assertIsInstance(fixture.lock, ProcessSemaphore)
+        self.assertEqual(
+            path.join(fixture.datadir, "locks"),
+            fixture.lock.lockdir)
+
+    def test_createdb_no_preserve(self):
+        fixture = self.make(self.make_dir(), preserve=False)
+        self.addCleanup(fixture.stop)
+        fixture.start()
+        fixture.createdb("danzig")
+        self.assertIn("danzig", fixture.databases)
+        # The database is only created if it does not already exist.
+        fixture.createdb("danzig")
+        # Creating a database arranges for it to be dropped when stopping the
+        # fixture.
+        fixture.cleanUp()
+        self.assertNotIn("danzig", fixture.databases)
+
+    def test_createdb_preserve(self):
+        fixture = self.make(self.make_dir(), preserve=True)
+        self.addCleanup(fixture.stop)
+        fixture.start()
+        fixture.createdb("emperor")
+        self.assertIn("emperor", fixture.databases)
+        # The database is only created if it does not already exist.
+        fixture.createdb("emperor")
+        # Creating a database arranges for it to be dropped when stopping the
+        # fixture.
+        fixture.cleanUp()
+        self.assertIn("emperor", fixture.databases)
+
+    def test_dropdb(self):
+        fixture = self.make(self.make_dir())
+        self.addCleanup(fixture.stop)
+        fixture.start()
+        # The database is only dropped if it exists.
+        fixture.dropdb("diekrupps")
+        fixture.dropdb("diekrupps")
+
+    def test_stop_locked(self):
+        # The cluster is not stopped if a lock is held.
+        fixture = self.make(self.make_dir())
+        self.addCleanup(fixture.stop)
+        fixture.start()
+        fixture.lock.acquire()
+        fixture.stop()
+        self.assertTrue(fixture.running)
+        fixture.lock.release()
+        fixture.stop()
+        self.assertFalse(fixture.running)
+
+    def test_destroy_locked(self):
+        # The cluster is not destroyed if a lock is held.
+        fixture = self.make(self.make_dir())
+        fixture.create()
+        fixture.lock.acquire()
+        fixture.destroy()
+        self.assertTrue(fixture.exists)
+        fixture.lock.release()
+        fixture.destroy()
+        self.assertFalse(fixture.exists)
+
+    def test_use_no_preserve(self):
+        # The cluster is stopped and destroyed when preserve=False.
+        with self.make(self.make_dir(), preserve=False) as fixture:
+            self.assertTrue(fixture.exists)
+            self.assertTrue(fixture.running)
+        self.assertFalse(fixture.exists)
+        self.assertFalse(fixture.running)
+
+    def test_use_preserve(self):
+        # The cluster is not stopped and destroyed when preserve=True.
+        with self.make(self.make_dir(), preserve=True) as fixture:
+            self.assertTrue(fixture.exists)
+            self.assertTrue(fixture.running)
+            fixture.createdb("gallhammer")
+        self.assertTrue(fixture.exists)
+        self.assertFalse(fixture.running)
+        self.addCleanup(fixture.stop)
+        fixture.start()
+        self.assertIn("gallhammer", fixture.databases)
