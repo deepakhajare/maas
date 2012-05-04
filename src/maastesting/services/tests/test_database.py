@@ -17,7 +17,9 @@ from os import (
     getpid,
     path,
     )
+from StringIO import StringIO
 from subprocess import CalledProcessError
+import sys
 
 from maastesting.services import database
 from maastesting.services.database import (
@@ -319,3 +321,74 @@ class TestClusterFixture(TestCluster):
         self.addCleanup(fixture.stop)
         fixture.start()
         self.assertIn("gallhammer", fixture.databases)
+
+
+class TestActions(TestCase):
+
+    class Finished(Exception):
+        """A marker exception used for breaking out."""
+
+    def test_run(self):
+        cluster = ClusterFixture(self.make_dir())
+
+        # Instead of sleeping, check the cluster is running, then break out.
+        def sleep_patch(time):
+            self.assertTrue(cluster.running)
+            self.assertIn("maas", cluster.databases)
+            raise self.Finished
+
+        self.patch(database, "sleep", sleep_patch)
+        self.assertRaises(self.Finished, database.action_run, cluster)
+
+    def test_shell(self):
+        cluster = ClusterFixture(self.make_dir())
+
+        def shell_patch(database):
+            self.assertEqual("maas", database)
+            raise self.Finished
+
+        self.patch(cluster, "shell", shell_patch)
+        self.assertRaises(self.Finished, database.action_shell, cluster)
+
+    def test_stop(self):
+        cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        database.action_stop(cluster)
+        self.assertFalse(cluster.running)
+        self.assertTrue(cluster.exists)
+
+    def test_stop_when_locked(self):
+        cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        cluster.lock.acquire()
+        self.patch(sys, "stderr", StringIO())
+        error = self.assertRaises(
+            SystemExit, database.action_stop, cluster)
+        self.assertEqual(2, error.code)
+        self.assertThat(
+            sys.stderr.getvalue(), StartsWith(
+                "%s: cluster is locked by:" % cluster.datadir))
+        self.assertTrue(cluster.running)
+
+    def test_destroy(self):
+        cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        database.action_destroy(cluster)
+        self.assertFalse(cluster.running)
+        self.assertFalse(cluster.exists)
+
+    def test_destroy_when_locked(self):
+        cluster = ClusterFixture(self.make_dir())
+        cluster.create()
+        cluster.lock.acquire()
+        self.patch(sys, "stderr", StringIO())
+        error = self.assertRaises(
+            SystemExit, database.action_destroy, cluster)
+        self.assertEqual(2, error.code)
+        self.assertThat(
+            sys.stderr.getvalue(), StartsWith(
+                "%s: cluster is locked by:" % cluster.datadir))
+        self.assertTrue(cluster.exists)
