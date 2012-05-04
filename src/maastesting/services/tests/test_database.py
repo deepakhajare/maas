@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from contextlib import closing
 from os import (
     getpid,
     path,
@@ -28,6 +29,7 @@ from maastesting.services.database import (
     )
 from maastesting.testcase import TestCase
 from testtools.matchers import (
+    DirExists,
     FileExists,
     Not,
     StartsWith,
@@ -152,3 +154,60 @@ class TestCluster(TestCase):
         cluster = Cluster("/some/where")
         self.assertRaises(
             CalledProcessError, getattr, cluster, "running")
+
+    def test_create(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        self.assertTrue(cluster.exists)
+        self.assertFalse(cluster.running)
+
+    def test_start_and_stop(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        try:
+            cluster.start()
+            self.assertTrue(cluster.running)
+        finally:
+            cluster.stop()
+            self.assertFalse(cluster.running)
+
+    def test_connect(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        with closing(cluster.connect()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("SELECT 1")
+                self.assertEqual([(1,)], cur.fetchall())
+
+    def test_databases(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        self.assertEqual(
+            {"postgres", "template0", "template1"},
+            cluster.databases)
+
+    def test_createdb_and_dropdb(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        self.addCleanup(cluster.stop)
+        cluster.start()
+        cluster.createdb("setherial")
+        self.assertEqual(
+            {"postgres", "template0", "template1", "setherial"},
+            cluster.databases)
+        cluster.dropdb("setherial")
+        self.assertEqual(
+            {"postgres", "template0", "template1"},
+            cluster.databases)
+
+    def test_destroy(self):
+        cluster = Cluster(self.make_dir())
+        cluster.create()
+        cluster.destroy()
+        self.assertFalse(cluster.exists)
+        self.assertFalse(cluster.running)
+        self.assertThat(cluster.datadir, Not(DirExists()))
