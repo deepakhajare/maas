@@ -330,6 +330,7 @@ class TestActions(TestCase):
 
     def test_run(self):
         cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
 
         # Instead of sleeping, check the cluster is running, then break out.
         def sleep_patch(time):
@@ -342,6 +343,7 @@ class TestActions(TestCase):
 
     def test_shell(self):
         cluster = ClusterFixture(self.make_dir())
+        self.addCleanup(cluster.stop)
 
         def shell_patch(database):
             self.assertEqual("maas", database)
@@ -395,6 +397,7 @@ class TestActions(TestCase):
         cluster = ClusterFixture(self.make_dir())
         self.addCleanup(cluster.stop)
         cluster.start()
+        self.addCleanup(cluster.lock.release)
         cluster.lock.acquire()
         self.patch(sys, "stderr", StringIO())
         error = self.assertRaises(
