@@ -22,6 +22,7 @@ from errno import (
     ENOENT,
     ENOTEMPTY,
     )
+from itertools import imap
 from os import (
     devnull,
     environ,
@@ -295,6 +296,16 @@ def setup():
     signal.signal(signal.SIGTERM, signal.default_int_handler)
 
 
+def repr_pid(pid):
+    if isinstance(pid, int) or pid.isdigit():
+        if path.isdir("/proc/%s" % pid):
+            return "%s" % pid
+        else:
+            return "%s (not running)" % pid
+    else:
+        return pipes.quote(pid)
+
+
 def action_run(cluster):
     """Create and run a cluster."""
     with cluster:
@@ -313,9 +324,34 @@ def action_shell(cluster):
 def action_stop(cluster):
     """Stop a cluster."""
     cluster.stop()
+    if cluster.running:
+        if cluster.lock.locked:
+            pids = sorted(cluster.lock.locked_by)
+            message = "%s: cluster is locked by: %s" % (
+                cluster.datadir, ", ".join(imap(repr_pid, pids)))
+        else:
+            message = "%s: cluster is still running." % cluster.datadir
+        print(message)
+        raise SystemExit(2)
+
+
+def action_destroy(cluster):
+    """Destroy a cluster."""
+    action_stop(cluster)
+    cluster.destroy()
+    if cluster.exists:
+        if cluster.lock.locked:
+            pids = sorted(cluster.lock.locked_by)
+            message = "%s: cluster is locked by: %s" % (
+                cluster.datadir, ", ".join(imap(repr_pid, pids)))
+        else:
+            message = "%s: cluster could not be removed." % cluster.datadir
+        print(message)
+        raise SystemExit(2)
 
 
 actions = {
+    "destroy": action_destroy,
     "run": action_run,
     "shell": action_shell,
     "stop": action_stop,
