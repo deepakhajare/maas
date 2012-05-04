@@ -143,6 +143,9 @@ class Cluster:
         connection.autocommit = autocommit
         return connection
 
+    def shell(self, database="template1"):
+        self.execute("psql", "--quiet", "--", database)
+
     @property
     def databases(self):
         """The names of databases in this cluster."""
@@ -336,7 +339,7 @@ def action_shell(cluster):
     """Spawn a ``psql`` shell for `maas` in the cluster."""
     with cluster:
         cluster.createdb("maas")
-        cluster.execute("psql", "--quiet", "--", "maas")
+        cluster.shell("maas")
 
 
 def action_stop(cluster):

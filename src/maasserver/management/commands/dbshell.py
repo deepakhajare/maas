@@ -25,10 +25,11 @@ class Command(dbshell.Command):
     """Customized "dbshell" command."""
 
     def handle(self, **options):
+        # Don't call up to Django's dbshell, because that ends up exec'ing the
+        # shell, preventing this from clearing down the fixture.
         connection = connections[options.get('database', DEFAULT_DB_ALIAS)]
-        #import pdb; pdb.set_trace()
-        cluster = ClusterFixture(
-            datadir=connection.settings_dict["host"], preserve=True)
-        with cluster:
-            cluster.createdb(connection.settings_dict["name"])
-            super(Command, self).handle(**options)
+        datadir = connection.settings_dict["HOST"]
+        with ClusterFixture(datadir, preserve=True) as cluster:
+            dbname = connection.settings_dict["NAME"]
+            cluster.createdb(dbname)
+            cluster.shell(dbname)
