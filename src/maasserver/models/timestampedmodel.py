@@ -39,7 +39,7 @@ class TimestampedModel(Model):
         from maasserver.models import now
 
         current_time = now()
-        if not self.id:
+        if self.id is None:
             self.created = current_time
         self.updated = current_time
         return super(TimestampedModel, self).save(*args, **kwargs)
