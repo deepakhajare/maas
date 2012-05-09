@@ -30,21 +30,21 @@ class ENUM:
     BOB = 2
 
 
-class Test(TestCase):
+class TestFunctions(TestCase):
 
     def test_serialize_enum(self):
         # The name is used correctly, the keys are sorted, and everything is
         # indented correctly.
         self.assertEqual(
-            u'module.ENUM = {\n'
-            u'    "ALICE": 1, \n'
-            u'    "BOB": 2\n'
-            u'};\n',
+            'module.ENUM = {\n'
+            '    "ALICE": 1, \n'
+            '    "BOB": 2\n'
+            '};\n',
             serialize_enum(ENUM))
 
     def test_get_enums(self):
         # This file contains a single enum, named "ENUM".
-        enums = get_enums(getsourcefile(Test))
+        enums = get_enums(getsourcefile(TestFunctions))
         self.assertEqual(["ENUM"], [enum.__name__ for enum in enums])
         [enum] = enums
         # Because the module has been executed in a different namespace, the
@@ -58,4 +58,4 @@ class Test(TestCase):
         self.assertEqual(header + "\n" + footer, dump([]))
         self.assertEqual(
             header + "\n" + serialize_enum(ENUM) + "\n" + footer,
-            dump([getsourcefile(Test)]))
+            dump([getsourcefile(TestFunctions)]))
