@@ -18,6 +18,7 @@ from os import (
     environ,
     path,
     )
+import signal
 import subprocess
 from time import (
     sleep,
@@ -66,6 +67,12 @@ def retries(timeout=30, delay=1):
             break
 
 
+def preexec_fn():
+    # Revert Python's handling of SIGPIPE. See
+    # http://bugs.python.org/issue1652 for more info.
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
+
 class SauceConnectFixture(Fixture):
     """Start up a Sauce Connect server.
 
@@ -105,8 +112,8 @@ class SauceConnectFixture(Fixture):
                     path.basename(self.logfile),
                     content_from_file(self.logfile))
                 self.process = subprocess.Popen(
-                    self.command, stdin=devnull, stdout=log,
-                    stderr=log, cwd=self.workdir)
+                    self.command, stdin=devnull, stdout=log, stderr=log,
+                    cwd=self.workdir, preexec_fn=preexec_fn)
         for elapsed, remaining in retries(120):
             if self.process.poll() is None:
                 if path.isfile(self.readyfile):
