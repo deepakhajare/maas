@@ -11,7 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "TestSauce",
+    "SauceOnDemandFixture",
     ]
 
 from os import environ
