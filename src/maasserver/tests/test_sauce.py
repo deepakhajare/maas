@@ -38,11 +38,16 @@ from testtools.content_type import UTF8_TEXT
 
 
 def content_from_file(path):
+    """Alternative to testtools' version.
+
+    This keeps an open file-handle, so it can obtain the log even when the
+    file has been unlinked.
+    """
     fd = open(path, "rb")
-    def lines():
+    def iterate():
         fd.seek(0)
-        return fd.readlines()
-    return Content(UTF8_TEXT, lines)
+        return iter(fd)
+    return Content(UTF8_TEXT, iterate)
 
 
 def retries(timeout=30, delay=1):
