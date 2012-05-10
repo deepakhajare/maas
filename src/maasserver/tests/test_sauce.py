@@ -28,8 +28,8 @@ from time import (
 from fixtures import (
     Fixture,
     TempDir,
-    TimeoutException,
     )
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from selenium import webdriver
 from testtools.content import Content
@@ -43,9 +43,11 @@ def content_from_file(path):
     file has been unlinked.
     """
     fd = open(path, "rb")
+
     def iterate():
         fd.seek(0)
         return iter(fd)
+
     return Content(UTF8_TEXT, iterate)
 
 
@@ -73,6 +75,10 @@ def preexec_fn():
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
+class TimeoutException(Exception):
+    """An operation has timed-out."""
+
+
 class SauceConnectFixture(Fixture):
     """Start up a Sauce Connect server.
 
@@ -83,16 +89,18 @@ class SauceConnectFixture(Fixture):
 
     """
 
-    def __init__(self, jarfile, username, api_key):
+    def __init__(self, jarfile, username, api_key, se_port=4445):
         """
         @param jarfile: The path to the ``Sauce-Connect.jar`` file.
         @param username: The username to connect to SauceLabs with.
         @param api_key: The API key for the SauceLabs service.
+        @param se_port: The port on which to accept Selenium commands.
         """
         super(SauceConnectFixture, self).__init__()
         self.jarfile = path.abspath(jarfile)
         self.username = username
         self.api_key = api_key
+        self.se_port = se_port
 
     def setUp(self):
         super(SauceConnectFixture, self).setUp()
@@ -100,8 +108,10 @@ class SauceConnectFixture(Fixture):
         self.logfile = path.join(self.workdir, "connect.log")
         self.readyfile = path.join(self.workdir, "ready")
         self.command = (
-            "java", "-jar", self.jarfile, self.username,
-            self.api_key, "--readyfile", self.readyfile)
+            "java", "-jar", self.jarfile,
+            self.username, self.api_key,
+            "--se-port", "%d" % self.se_port,
+            "--readyfile", self.readyfile)
         self.start()
         self.addCleanup(self.stop)
 
@@ -143,6 +153,19 @@ class SauceConnectFixture(Fixture):
                 raise TimeoutException(
                     "%s took too long to stop (more than %d seconds)" % (
                         path.relpath(self.jarfile), elapsed))
+
+
+class TestSauceConnectFixture(TestCase):
+
+    def test_init(self):
+        port = factory.getRandomPort()
+        fixture = SauceConnectFixture(
+            "path/to/jar", "jaz", "youth", port)
+        self.assertEqual(
+            path.abspath("path/to/jar"), fixture.jarfile)
+        self.assertEqual("jaz", fixture.username)
+        self.assertEqual("youth", fixture.api_key)
+        self.assertEqual(port, fixture.se_port)
 
 
 if __name__ == "__main__":
