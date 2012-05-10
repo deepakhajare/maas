@@ -19,17 +19,48 @@ from os import (
     path,
     )
 import subprocess
-from time import sleep
+from time import (
+    sleep,
+    time,
+    )
 
 from fixtures import (
     Fixture,
     TempDir,
+    TimeoutException,
     )
 from maastesting.testcase import TestCase
 from selenium import webdriver
-from testtools.content import content_from_file
+from testtools.content import Content
+from testtools.content_type import UTF8_TEXT
 
 # TODO: Rename password to api_key, or access_key, or something.
+
+
+def content_from_file(path):
+    fd = open(path, "rb")
+    def lines():
+        fd.seek(0)
+        return fd.readlines()
+    return Content(UTF8_TEXT, lines)
+
+
+def retries(timeout=30, delay=1):
+    """Helper for retrying something, sleeping between attempts.
+
+    Yields ``(elapsed, remaining)`` tuples, giving times in seconds.
+
+    @param timeout: From now, how long to keep iterating, in seconds.
+    @param delay: The sleep between each iteration, in seconds.
+    """
+    start = time()
+    end = start + timeout + (delay / 2.0)
+    for now in iter(time, None):
+        if now < end:
+            yield now - start, end - now
+            sleep(min(delay, end - now))
+        else:
+            break
 
 
 class SauceConnectFixture(Fixture):
@@ -73,21 +104,35 @@ class SauceConnectFixture(Fixture):
                 self.process = subprocess.Popen(
                     self.command, stdin=devnull, stdout=log,
                     stderr=log, cwd=self.workdir)
-        while self.process.poll() is None:  # TODO: Time-out
-            if path.isfile(self.readyfile):
-                break
+        for elapsed, remaining in retries(120):
+            if self.process.poll() is None:
+                if path.isfile(self.readyfile):
+                    break
             else:
-                sleep(2.0)
+                raise subprocess.CalledProcessError(
+                    self.process.returncode, self.command)
         else:
-            raise subprocess.CalledProcessError(
-                self.process.returncode, self.command)
+            self.stop()
+            raise TimeoutException(
+                "%s took too long to start (more than %d seconds)" % (
+                    path.relpath(self.jarfile), elapsed))
 
     def stop(self):
         if self.process.poll() is None:
             self.process.terminate()
-            if self.process.wait() not in (0, 143):  # TODO: Why 143?
-                raise subprocess.CalledProcessError(
-                    self.process.returncode, self.command)
+            for elapsed, remaining in retries(60):
+                returncode = self.process.poll()
+                # Sauce-Connect.jar appears to exit cleanly with code 143.
+                if returncode in (0, 143):
+                    break
+                if returncode is not None:
+                    raise subprocess.CalledProcessError(
+                        self.process.returncode, self.command)
+            else:
+                self.process.kill()
+                raise TimeoutException(
+                    "%s took too long to stop (more than %d seconds)" % (
+                        path.relpath(self.jarfile), elapsed))
 
 
 if __name__ == "__main__":
