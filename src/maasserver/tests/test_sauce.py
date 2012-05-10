@@ -34,8 +34,6 @@ from selenium import webdriver
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
 
-# TODO: Rename password to api_key, or access_key, or something.
-
 
 def content_from_file(path):
     """Alternative to testtools' version.
@@ -78,16 +76,16 @@ class SauceConnectFixture(Fixture):
 
     """
 
-    def __init__(self, jarfile, username, password):
+    def __init__(self, jarfile, username, api_key):
         """
         @param jarfile: The path to the ``Sauce-Connect.jar`` file.
         @param username: The username to connect to SauceLabs with.
-        @param password: The API key for the SauceLabs service.
+        @param api_key: The API key for the SauceLabs service.
         """
         super(SauceConnectFixture, self).__init__()
         self.jarfile = path.abspath(jarfile)
         self.username = username
-        self.password = password
+        self.api_key = api_key
 
     def setUp(self):
         super(SauceConnectFixture, self).setUp()
@@ -96,7 +94,7 @@ class SauceConnectFixture(Fixture):
         self.readyfile = path.join(self.workdir, "ready")
         self.command = (
             "java", "-jar", self.jarfile, self.username,
-            self.password, "--readyfile", self.readyfile)
+            self.api_key, "--readyfile", self.readyfile)
         self.start()
         self.addCleanup(self.stop)
 
@@ -184,9 +182,8 @@ class SauceOnDemandFixture(Fixture):
         """
         @param capabilities: A member of `webdriver.DesiredCapabilities`, plus
             any additional configuration.
-        @param control_url: The URL, including username and password (aka
-            access-key) for the Sauce OnDemand service, or a local Sauce
-            Connect service.
+        @param control_url: The URL, including username and API key for the
+            Sauce OnDemand service, or a Sauce Connect service.
         """
         super(SauceOnDemandFixture, self).__init__()
         self.capabilities = self.capabilities.copy()
