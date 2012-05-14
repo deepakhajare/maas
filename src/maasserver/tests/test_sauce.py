@@ -34,6 +34,10 @@ from maastesting.testcase import TestCase
 from selenium import webdriver
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
+from testtools.matchers import (
+    DirExists,
+    Not,
+    )
 
 
 def content_from_file(path):
@@ -166,6 +170,35 @@ class TestSauceConnectFixture(TestCase):
         self.assertEqual("jaz", fixture.username)
         self.assertEqual("youth", fixture.api_key)
         self.assertEqual(port, fixture.se_port)
+
+    def test_setUp_and_cleanUp(self):
+        port = factory.getRandomPort()
+        fixture = SauceConnectFixture(
+            "path/to/jar", "jaz", "youth", port)
+        calls = []
+        self.patch(fixture, "start", lambda: calls.append("start"))
+        self.patch(fixture, "stop", lambda: calls.append("stop"))
+        # Setting up the fixture allocates a working directory, the command to
+        # run, and calls start().
+        fixture.setUp()
+        self.assertThat(fixture.workdir, DirExists())
+        self.assertEqual(
+            "connect.log", path.relpath(
+                fixture.logfile, fixture.workdir))
+        self.assertEqual(
+            "ready", path.relpath(
+                fixture.readyfile, fixture.workdir))
+        self.assertEqual(
+            ("java", "-jar", path.abspath("path/to/jar"),
+             "jaz", "youth", "--se-port", "%d" % port,
+            "--readyfile", fixture.readyfile),
+            fixture.command)
+        self.assertEqual(["start"], calls)
+        # Tearing down the fixture calls stop() and removes the working
+        # directory.
+        fixture.cleanUp()
+        self.assertThat(fixture.workdir, Not(DirExists()))
+        self.assertEqual(["start", "stop"], calls)
 
 
 if __name__ == "__main__":
