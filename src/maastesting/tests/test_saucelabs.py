@@ -246,7 +246,7 @@ class TestSauceOnDemandFixture(TestCase):
         self.patch(webdriver.Remote, "execute", execute)
 
         with fixture:
-            self.assertIsInstance(fixture.browser, webdriver.Remote)
-            self.assertEqual(url, fixture.browser.command_executor._url)
+            self.assertIsInstance(fixture.driver, webdriver.Remote)
+            self.assertEqual(url, fixture.driver.command_executor._url)
             self.assertEqual(["start_session"], calls)
         self.assertEqual(["start_session", "quit"], calls)

@@ -190,8 +190,8 @@ class SauceOnDemandFixture(Fixture):
 
     def setUp(self):
         super(SauceOnDemandFixture, self).setUp()
-        self.browser = webdriver.Remote(
+        self.driver = webdriver.Remote(
             desired_capabilities=self.capabilities,
             command_executor=self.control_url.encode("ascii"))
-        self.browser.implicitly_wait(30)  # TODO: Is this always needed?
-        self.addCleanup(self.browser.quit)
+        self.driver.implicitly_wait(30)  # TODO: Is this always needed?
+        self.addCleanup(self.driver.quit)
