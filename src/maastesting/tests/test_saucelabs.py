@@ -44,6 +44,10 @@ def one_retry(timeout, delay=1):
 
 def make_SauceConnectFixture(
     jarfile=None, username=None, api_key=None, se_port=None):
+    """
+    Create a `SauceConnectFixture`, using random values unless specified
+    otherwise.
+    """
     if jarfile is None:
         jarfile = factory.getRandomString()
     if username is None:
@@ -58,6 +62,7 @@ def make_SauceConnectFixture(
 
 
 class FakeProcess:
+    """A rudimentary fake for `subprocess.Popen`."""
 
     returncode = None
 
