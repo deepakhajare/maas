@@ -34,7 +34,6 @@ from sst.actions import (
     stop,
     wait_for,
     )
-from testscenarios import WithScenarios
 
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
@@ -119,7 +118,7 @@ def get_browser_names_from_env():
         os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))
 
 
-class TestYUIUnitTests(WithScenarios, TestCase):
+class TestYUIUnitTests(TestCase):
 
     scenarios = [
         (browser_name, {"browser_name": browser_name})
