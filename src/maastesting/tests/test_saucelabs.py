@@ -203,7 +203,7 @@ class TestSauceOnDemandFixture(TestCase):
 
     def test_init(self):
         # Default capabilities are added into the given ones.
-        url = "http://het:field@example.com/lars/"
+        url = "http://het:field@localhost/lars/"
         fixture = SauceOnDemandFixture({1: 2}, url)
         capabilities_default = SauceOnDemandFixture.capabilities
         capabilities_expected = capabilities_default.copy()
@@ -220,6 +220,32 @@ class TestSauceOnDemandFixture(TestCase):
         fixture = SauceOnDemandFixture(
             capabilities_override, factory.getRandomString())
         self.assertEqual(capabilities_override, fixture.capabilities)
+
+    def test_setUp_and_cleanUp(self):
+        calls = []
+        capabilities = webdriver.DesiredCapabilities.FIREFOX.copy()
+        url = "http://het:field@127.0.0.1/lars"
+        fixture = SauceOnDemandFixture(capabilities, url)
+
+        def start_session(driver, desired_capabilities, browser_profile=None):
+            self.assertEqual(fixture.capabilities, desired_capabilities)
+            calls.append("start_session")
+
+        def quit(driver):
+            calls.append("quit")
+
+        def execute(driver, driver_command, params=None):
+            pass  # Don't make any HTTP calls.
+
+        self.patch(webdriver.Remote, "start_session", start_session)
+        self.patch(webdriver.Remote, "quit", quit)
+        self.patch(webdriver.Remote, "execute", execute)
+
+        with fixture:
+            self.assertIsInstance(fixture.browser, webdriver.Remote)
+            self.assertEqual(url, fixture.browser.command_executor._url)
+            self.assertEqual(["start_session"], calls)
+        self.assertEqual(["start_session", "quit"], calls)
 
     def XXX_test_basic_functionality(self):
         # Browser and platform choices
