@@ -152,22 +152,6 @@ class SauceConnectFixture(Fixture):
                         path.relpath(self.jarfile), elapsed))
 
 
-if __name__ == "__main__":
-    from sys import argv
-    fixture = SauceConnectFixture(*argv[1:4])
-    try:
-        print("Setting up.")
-        fixture.setUp()
-        print("Ready.")
-    finally:
-        try:
-            print("Shutting down.")
-            details = fixture.getDetails()
-            fixture.cleanUp()
-        finally:
-            print(details)
-
-
 class SauceOnDemandFixture(Fixture):
     """Start up a driver for SauceLabs' Sauce OnDemand service.
 

@@ -246,16 +246,3 @@ class TestSauceOnDemandFixture(TestCase):
             self.assertEqual(url, fixture.browser.command_executor._url)
             self.assertEqual(["start_session"], calls)
         self.assertEqual(["start_session", "quit"], calls)
-
-    def XXX_test_basic_functionality(self):
-        # Browser and platform choices
-        # <http://saucelabs.com/docs/ondemand/browsers/env/python/se2/linux>.
-        capabilities = webdriver.DesiredCapabilities.FIREFOX.copy()
-        capabilities["platform"] = "LINUX"
-        ondemand = SauceOnDemandFixture(
-            control_url=environ.get("UI_TEST_SAUCE_ONDEMAND_URL"),
-            capabilities=capabilities)
-        browser = self.useFixture(ondemand).browser
-        browser.get("http://localhost/")
-        h1 = browser.find_element_by_xpath('//h1')
-        self.assertEqual("It works!", h1.text)
