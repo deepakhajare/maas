@@ -201,7 +201,27 @@ class TestSauceConnectFixture(TestCase):
 
 class TestSauceOnDemandFixture(TestCase):
 
-    def test_basic_functionality(self):
+    def test_init(self):
+        # Default capabilities are added into the given ones.
+        url = "http://het:field@example.com/lars/"
+        fixture = SauceOnDemandFixture({1: 2}, url)
+        capabilities_default = SauceOnDemandFixture.capabilities
+        capabilities_expected = capabilities_default.copy()
+        capabilities_expected[1] = 2
+        self.assertEqual(capabilities_expected, fixture.capabilities)
+        self.assertEqual(url, fixture.control_url)
+
+    def test_init_override_capabilities(self):
+        # Capabilities passed in override the defaults.
+        capabilities_override = {
+            name: factory.getRandomString()
+            for name in SauceOnDemandFixture.capabilities
+            }
+        fixture = SauceOnDemandFixture(
+            capabilities_override, factory.getRandomString())
+        self.assertEqual(capabilities_override, fixture.capabilities)
+
+    def XXX_test_basic_functionality(self):
         # Browser and platform choices
         # <http://saucelabs.com/docs/ondemand/browsers/env/python/se2/linux>.
         capabilities = webdriver.DesiredCapabilities.FIREFOX.copy()
