@@ -131,7 +131,7 @@ The JavaScript tests are run using Selenium_.  Firefox is the default
 browser but any browser supported by Selenium can be used to run the
 tests. Note that you might need to download the appropriate driver and
 make it available in the path.  You can then choose which browsers to use by
-setting the environment variable `MAAS_TEST_BROWSERS` to a comma-separated
+setting the environment variable ``MAAS_TEST_BROWSERS`` to a comma-separated
 list of the names of the browsers to use.  For instance, to run the tests
 with Firefox and Chrome::
 
