@@ -49,9 +49,17 @@ from django.core.exceptions import (
     )
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
-from django.db import (
-    connection,
-    models,
+from django.db import connection
+from django.db.models import (
+    CharField,
+    FileField,
+    ForeignKey,
+    IntegerField,
+    Manager,
+    Model,
+    OneToOneField,
+    Q,
+    TextField,
     )
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
@@ -72,6 +80,7 @@ from maasserver.exceptions import (
     NodeStateViolation,
     )
 from maasserver.fields import MACAddressField
+from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.timestampedmodel import TimestampedModel
 from metadataserver import nodeinituser
@@ -180,7 +189,7 @@ def get_papi():
     return get_provisioning_api_proxy()
 
 
-class NodeManager(models.Manager):
+class NodeManager(Manager):
     """A utility to manage the collection of Nodes."""
 
     def filter_by_ids(self, query, ids=None):
@@ -221,8 +230,7 @@ class NodeManager(models.Manager):
             nodes = self.all()
         else:
             if perm == NODE_PERMISSION.VIEW:
-                nodes = self.filter(
-                    models.Q(owner__isnull=True) | models.Q(owner=user))
+                nodes = self.filter(Q(owner__isnull=True) | Q(owner=user))
             elif perm == NODE_PERMISSION.EDIT:
                 nodes = self.filter(owner=user)
             elif perm == NODE_PERMISSION.ADMIN:
@@ -364,7 +372,7 @@ def get_db_state(instance, field_name):
         return None
 
 
-class Node(TimestampedModel):
+class Node(CleanSave, TimestampedModel):
     """A `Node` represents a physical machine used by the MAAS Server.
 
     :ivar system_id: The unique identifier for this `Node`.
@@ -386,37 +394,37 @@ class Node(TimestampedModel):
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
 
-    system_id = models.CharField(
+    system_id = CharField(
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
-    hostname = models.CharField(max_length=255, default='', blank=True)
+    hostname = CharField(max_length=255, default='', blank=True)
 
-    status = models.IntegerField(
+    status = IntegerField(
         max_length=10, choices=NODE_STATUS_CHOICES, editable=False,
         default=NODE_STATUS.DEFAULT_STATUS)
 
-    owner = models.ForeignKey(
+    owner = ForeignKey(
         User, default=None, blank=True, null=True, editable=False)
 
-    after_commissioning_action = models.IntegerField(
+    after_commissioning_action = IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
-    architecture = models.CharField(
+    architecture = CharField(
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
 
     # For strings, Django insists on abusing the empty string ("blank")
     # to mean "none."
-    power_type = models.CharField(
+    power_type = CharField(
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
 
-    token = models.ForeignKey(
+    token = ForeignKey(
         Token, db_index=True, null=True, editable=False, unique=False)
 
-    error = models.CharField(max_length=255, blank=True, default='')
+    error = CharField(max_length=255, blank=True, default='')
 
     objects = NodeManager()
 
@@ -425,11 +433,6 @@ class Node(TimestampedModel):
             return "%s (%s)" % (self.system_id, self.hostname)
         else:
             return self.system_id
-
-    def save(self, *args, **kwargs):
-        # Automatically check validity before saving.
-        self.full_clean()
-        return super(Node, self).save(*args, **kwargs)
 
     def clean_status(self):
         """Check a node's status transition against the node-status FSM."""
@@ -595,7 +598,7 @@ class Node(TimestampedModel):
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
-class MACAddress(TimestampedModel):
+class MACAddress(CleanSave, TimestampedModel):
     """A `MACAddress` represents a `MAC address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
 
@@ -604,7 +607,7 @@ class MACAddress(TimestampedModel):
 
     """
     mac_address = MACAddressField(unique=True)
-    node = models.ForeignKey(Node, editable=False)
+    node = ForeignKey(Node, editable=False)
 
     class Meta(DefaultMeta):
         verbose_name = "MAC address"
@@ -612,11 +615,6 @@ class MACAddress(TimestampedModel):
 
     def __unicode__(self):
         return self.mac_address
-
-    def save(self, *args, **kwargs):
-        # Automatically check validity before saving.
-        self.full_clean()
-        return super(MACAddress, self).save(*args, **kwargs)
 
     def unique_error_message(self, model_class, unique_check):
         if unique_check == ('mac_address',):
@@ -665,7 +663,7 @@ def get_auth_tokens(user):
         user=user, token_type=Token.ACCESS, is_approved=True).order_by('id')
 
 
-class UserProfileManager(models.Manager):
+class UserProfileManager(Manager):
     """A utility to manage the collection of UserProfile (or User).
 
     This should be used when dealing with UserProfiles or Users because it
@@ -688,7 +686,7 @@ class UserProfileManager(models.Manager):
         return User.objects.filter(id__in=user_ids)
 
 
-class UserProfile(models.Model):
+class UserProfile(CleanSave, Model):
     """A User profile to store MAAS specific methods and fields.
 
     :ivar user: The related User_.
@@ -703,7 +701,7 @@ class UserProfile(models.Model):
         """Needed for South to recognize this model."""
 
     objects = UserProfileManager()
-    user = models.OneToOneField(User)
+    user = OneToOneField(User)
 
     def delete(self):
         if self.user.node_set.exists():
@@ -775,7 +773,7 @@ post_save.connect(create_user, sender=User)
 User._meta.get_field('email')._unique = True
 
 
-class SSHKeyManager(models.Manager):
+class SSHKeyManager(Manager):
     """A utility to manage the colletion of `SSHKey`s."""
 
     def get_keys_for_user(self, user):
@@ -844,7 +842,7 @@ def get_html_display_for_key(key, size):
 MAX_KEY_DISPLAY = 50
 
 
-class SSHKey(TimestampedModel):
+class SSHKey(CleanSave, TimestampedModel):
     """A `SSHKey` represents a user public SSH key.
 
     Users will be able to access `Node`s using any of their registered keys.
@@ -853,24 +851,16 @@ class SSHKey(TimestampedModel):
     :ivar key: The ssh public key.
     """
 
-    class Meta(DefaultMeta):
-        """Needed for South to recognize this model."""
-
     objects = SSHKeyManager()
 
-    user = models.ForeignKey(User, null=False, editable=False)
+    user = ForeignKey(User, null=False, editable=False)
 
-    key = models.TextField(
+    key = TextField(
         null=False, editable=True, validators=[validate_ssh_public_key])
 
-    class Meta:
+    class Meta(DefaultMeta):
         verbose_name = "SSH key"
         unique_together = ('user', 'key')
-
-    def save(self, *args, **kwargs):
-        # Automatically check validity before saving.
-        self.full_clean()
-        return super(SSHKey, self).save(*args, **kwargs)
 
     def unique_error_message(self, model_class, unique_check):
         if unique_check == ('user', 'key'):
@@ -890,7 +880,8 @@ class SSHKey(TimestampedModel):
         return mark_safe(get_html_display_for_key(self.key, MAX_KEY_DISPLAY))
 
 
-class FileStorageManager(models.Manager):
+# Due for model migration on 2012-05-18
+class FileStorageManager(Manager):
     """Manager for `FileStorage` objects.
 
     Store files by calling `save_file`.  No two `FileStorage` objects can
@@ -993,7 +984,8 @@ class FileStorageManager(models.Manager):
                 FileStorage.storage.delete(path)
 
 
-class FileStorage(models.Model):
+# Due for model migration on 2012-05-18
+class FileStorage(CleanSave, Model):
     """A simple file storage keyed on file name.
 
     :ivar filename: A unique file name to use for the data being stored.
@@ -1009,9 +1001,8 @@ class FileStorage(models.Model):
 
     # Unix filenames can be longer than this (e.g. 255 bytes), but leave
     # some extra room for the full path, as well as a versioning suffix.
-    filename = models.CharField(max_length=200, unique=True, editable=False)
-    data = models.FileField(
-        upload_to=upload_dir, storage=storage, max_length=255)
+    filename = CharField(max_length=200, unique=True, editable=False)
+    data = FileField(upload_to=upload_dir, storage=storage, max_length=255)
 
     objects = FileStorageManager()
 
