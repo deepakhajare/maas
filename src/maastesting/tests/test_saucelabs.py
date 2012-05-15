@@ -14,7 +14,6 @@ __all__ = []
 
 from os import (
     devnull,
-    environ,
     path,
     )
 import subprocess
