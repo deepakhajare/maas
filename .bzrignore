@@ -1,11 +1,11 @@
 *.egg
 *.egg-info
+*.log
 ./.coverage
 ./.installed.cfg
 ./.noseids
 ./bin
 ./build
-./chromedriver.log
 ./db
 ./develop-eggs
 ./dist

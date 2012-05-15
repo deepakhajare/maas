@@ -94,6 +94,7 @@ clean:
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 	$(RM) $(JSENUMS)
+	$(RM) *.log
 
 distclean: clean stop
 	utilities/maasdb delete-cluster ./db/
