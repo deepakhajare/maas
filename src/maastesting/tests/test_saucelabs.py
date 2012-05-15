@@ -13,12 +13,15 @@ __metaclass__ = type
 __all__ = []
 
 from os import (
+    devnull,
     environ,
     path,
     )
+import subprocess
 
 from maastesting.factory import factory
 from maastesting.saucelabs import (
+    preexec_fn,
     SauceConnectFixture,
     SauceOnDemandFixture,
     )
@@ -28,6 +31,29 @@ from testtools.matchers import (
     DirExists,
     Not,
     )
+
+
+def touch(filename):
+    open(filename, "ab").close()
+
+
+class FakeProcess:
+
+    returncode = None
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.events = []
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.events.append("terminate")
+
+    def kill(self):
+        self.events.append("kill")
 
 
 class TestSauceConnectFixture(TestCase):
@@ -70,6 +96,31 @@ class TestSauceConnectFixture(TestCase):
         fixture.cleanUp()
         self.assertThat(fixture.workdir, Not(DirExists()))
         self.assertEqual(["start", "stop"], calls)
+
+    def test_start(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        start = fixture.start
+        self.patch(fixture, "start", lambda: None)
+        self.patch(fixture, "stop", lambda: None)
+        self.patch(subprocess, "Popen", FakeProcess)
+
+        with fixture:
+            # Create the readyfile to simulate a successful start.
+            touch(fixture.readyfile)
+            # Start using the real start method.
+            start()
+            self.assertEqual((fixture.command,), fixture.process.args)
+            kwargs = fixture.process.kwargs
+            self.assertEqual(fixture.workdir, kwargs["cwd"])
+            self.assertIs(preexec_fn, kwargs["preexec_fn"])
+            self.assertEqual(devnull, kwargs["stdin"].name)
+            self.assertEqual(fixture.logfile, kwargs["stdout"].name)
+            self.assertEqual(fixture.logfile, kwargs["stderr"].name)
+            self.assertEqual([], fixture.process.events)
+
 
 
 class TestSauceOnDemandFixture(TestCase):
