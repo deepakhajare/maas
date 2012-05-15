@@ -38,6 +38,26 @@ def touch(filename):
     open(filename, "ab").close()
 
 
+def one_retry(timeout, delay=1):
+    """Testing variant of `retries` that iterates once."""
+    yield timeout, 0
+
+
+def make_SauceConnectFixture(
+    jarfile=None, username=None, api_key=None, se_port=None):
+    if jarfile is None:
+        jarfile = factory.getRandomString()
+    if username is None:
+        username = factory.getRandomString()
+    if api_key is None:
+        api_key = factory.getRandomString()
+    if se_port is None:
+        se_port = factory.getRandomPort()
+    return SauceConnectFixture(
+        jarfile=jarfile, username=username, api_key=api_key,
+        se_port=se_port)
+
+
 class FakeProcess:
 
     returncode = None
@@ -61,19 +81,16 @@ class TestSauceConnectFixture(TestCase):
 
     def test_init(self):
         port = factory.getRandomPort()
-        fixture = SauceConnectFixture(
-            "path/to/jar", "jaz", "youth", port)
-        self.assertEqual(
-            path.abspath("path/to/jar"), fixture.jarfile)
+        fixture = make_SauceConnectFixture("pth/to/jar", "jaz", "youth", port)
+        self.assertEqual(path.abspath("pth/to/jar"), fixture.jarfile)
         self.assertEqual("jaz", fixture.username)
         self.assertEqual("youth", fixture.api_key)
         self.assertEqual(port, fixture.se_port)
 
     def test_setUp_and_cleanUp(self):
-        port = factory.getRandomPort()
-        fixture = SauceConnectFixture(
-            "path/to/jar", "jaz", "youth", port)
         calls = []
+        port = factory.getRandomPort()
+        fixture = make_SauceConnectFixture("pth/to/jar", "jaz", "youth", port)
         self.patch(fixture, "start", lambda: calls.append("start"))
         self.patch(fixture, "stop", lambda: calls.append("stop"))
         # Setting up the fixture allocates a working directory, the command to
@@ -87,9 +104,8 @@ class TestSauceConnectFixture(TestCase):
             "ready", path.relpath(
                 fixture.readyfile, fixture.workdir))
         self.assertEqual(
-            ("java", "-jar", path.abspath("path/to/jar"),
-             "jaz", "youth", "--se-port", "%d" % port,
-            "--readyfile", fixture.readyfile),
+            ("java", "-jar", path.abspath("pth/to/jar"), "jaz", "youth",
+             "--se-port", "%d" % port, "--readyfile", fixture.readyfile),
             fixture.command)
         self.assertEqual(["start"], calls)
         # Tearing down the fixture calls stop() and removes the working
@@ -99,10 +115,7 @@ class TestSauceConnectFixture(TestCase):
         self.assertEqual(["start", "stop"], calls)
 
     def test_start(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
-
+        fixture = make_SauceConnectFixture()
         start = fixture.start
         self.patch(fixture, "start", lambda: None)
         self.patch(fixture, "stop", lambda: None)
@@ -123,37 +136,28 @@ class TestSauceConnectFixture(TestCase):
             self.assertEqual([], fixture.process.events)
 
     def test_start_failure(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
-
+        fixture = make_SauceConnectFixture()
         start = fixture.start
         self.patch(fixture, "start", lambda: None)
         self.patch(fixture, "stop", lambda: None)
         self.patch(subprocess, "Popen", FakeProcess)
-
         # Pretend that processes immediately fail with return code 1.
         self.patch(FakeProcess, "returncode", 1)
 
         with fixture:
-            error = self.assertRaises(
-                subprocess.CalledProcessError, start)
+            error = self.assertRaises(subprocess.CalledProcessError, start)
             self.assertEqual(1, error.returncode)
             self.assertEqual(fixture.command, error.cmd)
             self.assertEqual([], fixture.process.events)
 
     def test_start_timeout(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
-
         calls = []
+        fixture = make_SauceConnectFixture()
         start = fixture.start
         self.patch(fixture, "start", lambda: None)
         self.patch(fixture, "stop", lambda: calls.append("stop"))
         self.patch(subprocess, "Popen", FakeProcess)
-        # Make retries() end after a single iteration.
-        self.patch(saucelabs, "retries", lambda timeout: [(timeout, 0)])
+        self.patch(saucelabs, "retries", one_retry)
 
         with fixture:
             self.assertRaises(TimeoutException, start)
@@ -161,14 +165,12 @@ class TestSauceConnectFixture(TestCase):
             self.assertEqual(["stop"], calls)
 
     def test_stop(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
 
         def terminate():
             # Simulate a successful stop.
             fixture.process.returncode = 0
 
+        fixture = make_SauceConnectFixture()
         fixture.process = FakeProcess()
         fixture.process.terminate = terminate
         fixture.stop()
@@ -177,35 +179,26 @@ class TestSauceConnectFixture(TestCase):
         self.assertEqual(0, fixture.process.returncode)
 
     def test_stop_failure(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
 
         def terminate():
             # Simulate a failure.
             fixture.process.returncode = 34
 
+        fixture = make_SauceConnectFixture()
         fixture.process = FakeProcess()
         fixture.process.terminate = terminate
         fixture.command = object()
 
-        error = self.assertRaises(
-            subprocess.CalledProcessError, fixture.stop)
+        error = self.assertRaises(subprocess.CalledProcessError, fixture.stop)
         self.assertEqual(34, error.returncode)
         self.assertEqual(fixture.command, error.cmd)
         self.assertEqual([], fixture.process.events)
 
     def test_stop_timeout(self):
-        fixture = SauceConnectFixture(
-            factory.getRandomString(), factory.getRandomString(),
-            factory.getRandomString(), factory.getRandomPort())
-
-        # Make retries() end after a single iteration.
-        self.patch(saucelabs, "retries", lambda timeout: [(timeout, 0)])
-
+        fixture = make_SauceConnectFixture()
         fixture.process = FakeProcess()
         fixture.command = object()
-
+        self.patch(saucelabs, "retries", one_retry)
         self.assertRaises(TimeoutException, fixture.stop)
         # terminate() and kill() were both called to ensure shutdown.
         self.assertEqual(["terminate", "kill"], fixture.process.events)
