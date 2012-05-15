@@ -24,6 +24,7 @@ import SocketServer
 import string
 
 from fixtures import Fixture
+from maastesting.testcase import TestCase
 from pyvirtualdisplay import Display
 from sst.actions import (
     assert_text,
@@ -33,8 +34,7 @@ from sst.actions import (
     stop,
     wait_for,
     )
-from testscenarios import TestWithScenarios
-from testtools import TestCase
+from testscenarios import WithScenarios
 
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
@@ -119,7 +119,7 @@ def get_browser_names_from_env():
         os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))
 
 
-class TestYUIUnitTests(TestWithScenarios, TestCase):
+class TestYUIUnitTests(WithScenarios, TestCase):
 
     scenarios = [
         (browser_name, {"browser_name": browser_name})
