@@ -115,6 +115,10 @@ project_home = dirname(dirname(dirname(dirname(__file__))))
 
 
 def get_drivers_from_env():
+    """Parse the environment variable MAAS_TEST_BROWSERS to get a list of
+    the browsers to use for the JavaScript tests.
+    Returns ['Firefox'] if the environment variable is not present.
+    """
     return map(
         string.strip,
         os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))

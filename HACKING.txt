@@ -132,8 +132,8 @@ browser but any browser supported by Selenium can be used to run the
 tests. Note that you will need to download the appropriate driver and
 make it available in the path for all browsers except from Firefox.
 You can then set which browsers to use by setting the environment
-variable `MAAS_TEST_BROWSERS`.  For instance, to run the tests with
-Firefox and Chrome::
+variable `MAAS_TEST_BROWSERS` to a comma-separated list of the names of the
+browsers to use.  For instance, to run the tests with Firefox and Chrome::
 
     $ export MAAS_TEST_BROWSERS="Firefox, Chrome"
 
