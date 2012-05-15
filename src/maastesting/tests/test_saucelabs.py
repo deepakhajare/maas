@@ -160,6 +160,55 @@ class TestSauceConnectFixture(TestCase):
             # stop() has also been called.
             self.assertEqual(["stop"], calls)
 
+    def test_stop(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        def terminate():
+            # Simulate a successful stop.
+            fixture.process.returncode = 0
+
+        fixture.process = FakeProcess()
+        fixture.process.terminate = terminate
+        fixture.stop()
+
+        # terminate() has been called during shutdown.
+        self.assertEqual(0, fixture.process.returncode)
+
+    def test_stop_failure(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        def terminate():
+            # Simulate a failure.
+            fixture.process.returncode = 34
+
+        fixture.process = FakeProcess()
+        fixture.process.terminate = terminate
+        fixture.command = object()
+
+        error = self.assertRaises(
+            subprocess.CalledProcessError, fixture.stop)
+        self.assertEqual(34, error.returncode)
+        self.assertEqual(fixture.command, error.cmd)
+        self.assertEqual([], fixture.process.events)
+
+    def test_stop_timeout(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        # Make retries() end after a single iteration.
+        self.patch(saucelabs, "retries", lambda timeout: [(timeout, 0)])
+
+        fixture.process = FakeProcess()
+        fixture.command = object()
+
+        self.assertRaises(TimeoutException, fixture.stop)
+        # terminate() and kill() were both called to ensure shutdown.
+        self.assertEqual(["terminate", "kill"], fixture.process.events)
 
 
 class TestSauceOnDemandFixture(TestCase):
