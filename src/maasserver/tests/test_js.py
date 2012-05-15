@@ -95,16 +95,12 @@ class SSTFixture(Fixture):
 
     logger_names = ['selenium.webdriver.remote.remote_connection']
 
-    def __init__(self, driver):
-        self.driver = driver
+    def __init__(self, browser_name):
+        self.browser_name = browser_name
 
     def setUp(self):
         super(SSTFixture, self).setUp()
-        start(
-              self.driver, '', 'ANY', session_name=None,
-              javascript_disabled=False,
-              assume_trusted_cert_issuer=False,
-              webdriver_remote=None)
+        start(self.browser_name)
         self.useFixture(LoggerSilencerFixture(self.logger_names))
         self.addCleanup(stop)
 
@@ -112,9 +108,10 @@ class SSTFixture(Fixture):
 project_home = dirname(dirname(dirname(dirname(__file__))))
 
 
-def get_drivers_from_env():
-    """Parse the environment variable MAAS_TEST_BROWSERS to get a list of
+def get_browser_names_from_env():
+    """Parse the environment variable ``MAAS_TEST_BROWSERS`` to get a list of
     the browsers to use for the JavaScript tests.
+
     Returns ['Firefox'] if the environment variable is not present.
     """
     return map(
@@ -125,12 +122,14 @@ def get_drivers_from_env():
 class TestYUIUnitTests(TestWithScenarios, TestCase):
 
     scenarios = [
-        (driver, dict(driver=driver)) for driver in get_drivers_from_env()]
+        (browser_name, {"browser_name": browser_name})
+        for browser_name in get_browser_names_from_env()
+        ]
 
     def setUp(self):
         super(TestYUIUnitTests, self).setUp()
         self.useFixture(DisplayFixture())
-        self.useFixture(SSTFixture(self.driver))
+        self.useFixture(SSTFixture(self.browser_name))
 
     def _get_failed_tests_message(self, results):
         """Return a readable error message with the list of the failed tests.
