@@ -57,7 +57,7 @@ def retries(timeout=30, delay=1):
     @param delay: The sleep between each iteration, in seconds.
     """
     start = time()
-    end = start + timeout + (delay / 2.0)
+    end = start + timeout
     for now in iter(time, None):
         if now < end:
             yield now - start, end - now
