@@ -5,6 +5,7 @@
 ./.noseids
 ./bin
 ./build
+./chromedriver.log
 ./db
 ./develop-eggs
 ./dist
