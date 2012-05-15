@@ -11,7 +11,9 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "SauceConnectFixture",
     "SauceOnDemandFixture",
+    "TimeoutException",
     ]
 
 from os import path

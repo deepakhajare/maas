@@ -19,11 +19,12 @@ from os import (
     )
 import subprocess
 
+from maastesting import saucelabs
 from maastesting.factory import factory
 from maastesting.saucelabs import (
-    preexec_fn,
     SauceConnectFixture,
     SauceOnDemandFixture,
+    TimeoutException,
     )
 from maastesting.testcase import TestCase
 from selenium import webdriver
@@ -115,11 +116,49 @@ class TestSauceConnectFixture(TestCase):
             self.assertEqual((fixture.command,), fixture.process.args)
             kwargs = fixture.process.kwargs
             self.assertEqual(fixture.workdir, kwargs["cwd"])
-            self.assertIs(preexec_fn, kwargs["preexec_fn"])
+            self.assertIs(saucelabs.preexec_fn, kwargs["preexec_fn"])
             self.assertEqual(devnull, kwargs["stdin"].name)
             self.assertEqual(fixture.logfile, kwargs["stdout"].name)
             self.assertEqual(fixture.logfile, kwargs["stderr"].name)
             self.assertEqual([], fixture.process.events)
+
+    def test_start_failure(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        start = fixture.start
+        self.patch(fixture, "start", lambda: None)
+        self.patch(fixture, "stop", lambda: None)
+        self.patch(subprocess, "Popen", FakeProcess)
+
+        # Pretend that processes immediately fail with return code 1.
+        self.patch(FakeProcess, "returncode", 1)
+
+        with fixture:
+            error = self.assertRaises(
+                subprocess.CalledProcessError, start)
+            self.assertEqual(1, error.returncode)
+            self.assertEqual(fixture.command, error.cmd)
+            self.assertEqual([], fixture.process.events)
+
+    def test_start_timeout(self):
+        fixture = SauceConnectFixture(
+            factory.getRandomString(), factory.getRandomString(),
+            factory.getRandomString(), factory.getRandomPort())
+
+        calls = []
+        start = fixture.start
+        self.patch(fixture, "start", lambda: None)
+        self.patch(fixture, "stop", lambda: calls.append("stop"))
+        self.patch(subprocess, "Popen", FakeProcess)
+        # Make retries() end after a single iteration.
+        self.patch(saucelabs, "retries", lambda timeout: [(timeout, 0)])
+
+        with fixture:
+            self.assertRaises(TimeoutException, start)
+            # stop() has also been called.
+            self.assertEqual(["stop"], calls)
 
 
 
