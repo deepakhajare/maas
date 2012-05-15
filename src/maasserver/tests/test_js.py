@@ -15,10 +15,15 @@ __all__ = [
     ]
 
 import BaseHTTPServer
+from glob import iglob
 import json
 import logging
 import os
-from os.path import dirname
+from os.path import (
+    abspath,
+    dirname,
+    join,
+    )
 import SimpleHTTPServer
 import SocketServer
 import string
@@ -118,6 +123,26 @@ def get_browser_names_from_env():
         os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))
 
 
+def get_failed_tests_message(results):
+    """Return a readable error message with the list of the failed tests.
+
+    Given a YUI3 results_ json object, return a readable error message.
+
+    .. _results: http://yuilibrary.com/yui/docs/test/
+    """
+    result = []
+    suites = [item for item in results.values() if isinstance(item, dict)]
+    for suite in suites:
+        if suite['failed'] != 0:
+            tests = [item for item in suite.values()
+                     if isinstance(item, dict)]
+            for test in tests:
+                if test['result'] != 'pass':
+                    result.append('\n%s.%s: %s\n' % (
+                        suite['name'], test['name'], test['message']))
+    return ''.join(result)
+
+
 class TestYUIUnitTests(TestCase):
 
     scenarios = [
@@ -130,37 +155,15 @@ class TestYUIUnitTests(TestCase):
         self.useFixture(DisplayFixture())
         self.useFixture(SSTFixture(self.browser_name))
 
-    def _get_failed_tests_message(self, results):
-        """Return a readable error message with the list of the failed tests.
-
-        Given a YUI3 results_ json object, return a readable error message.
-
-        .. _results: http://yuilibrary.com/yui/docs/test/
-        """
-        result = []
-        suites = [item for item in results.values() if isinstance(item, dict)]
-        for suite in suites:
-            if suite['failed'] != 0:
-                tests = [item for item in suite.values()
-                         if isinstance(item, dict)]
-                for test in tests:
-                    if test['result'] != 'pass':
-                        result.append('\n%s.%s: %s\n' % (
-                            suite['name'], test['name'], test['message']))
-        return ''.join(result)
-
     def test_YUI3_unit_tests(self):
         # Find all the HTML files in BASE_PATH.
-        for fname in os.listdir(BASE_PATH):
-            if fname.endswith('.html'):
-                # Load the page and then wait for #suite to contain
-                # 'done'.  Read the results in '#test_results'.
-                file_path = os.path.join(project_home, BASE_PATH, fname)
-                go_to('file://%s' % file_path)
-                wait_for(assert_text, 'suite', 'done')
-                results = json.loads(get_element(id='test_results').text)
-                if results['failed'] != 0:
-                    raise AssertionError(
-                        '%d test(s) failed.\n%s' % (
-                            results['failed'],
-                            self._get_failed_tests_message(results)))
+        for test_page in iglob(join(BASE_PATH, "*.html")):
+            # Load the page and then wait for #suite to contain
+            # 'done'.  Read the results in '#test_results'.
+            go_to('file://%s' % abspath(test_page))
+            wait_for(assert_text, 'suite', 'done')
+            results = json.loads(get_element(id='test_results').text)
+            if results['failed'] != 0:
+                message = '%d test(s) failed.\n%s' % (
+                    results['failed'], get_failed_tests_message(results))
+                self.fail(message)
