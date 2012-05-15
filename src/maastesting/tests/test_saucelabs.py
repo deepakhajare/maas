@@ -120,20 +120,19 @@ class TestSauceConnectFixture(TestCase):
         self.patch(fixture, "start", lambda: None)
         self.patch(fixture, "stop", lambda: None)
         self.patch(subprocess, "Popen", FakeProcess)
-
-        with fixture:
-            # Create the readyfile to simulate a successful start.
-            touch(fixture.readyfile)
-            # Start using the real start method.
-            start()
-            self.assertEqual((fixture.command,), fixture.process.args)
-            kwargs = fixture.process.kwargs
-            self.assertEqual(fixture.workdir, kwargs["cwd"])
-            self.assertIs(saucelabs.preexec_fn, kwargs["preexec_fn"])
-            self.assertEqual(devnull, kwargs["stdin"].name)
-            self.assertEqual(fixture.logfile, kwargs["stdout"].name)
-            self.assertEqual(fixture.logfile, kwargs["stderr"].name)
-            self.assertEqual([], fixture.process.events)
+        fixture.setUp()
+        # Create the readyfile to simulate a successful start.
+        touch(fixture.readyfile)
+        # Use the real start() method.
+        start()
+        self.assertEqual((fixture.command,), fixture.process.args)
+        kwargs = fixture.process.kwargs
+        self.assertEqual(fixture.workdir, kwargs["cwd"])
+        self.assertIs(saucelabs.preexec_fn, kwargs["preexec_fn"])
+        self.assertEqual(devnull, kwargs["stdin"].name)
+        self.assertEqual(fixture.logfile, kwargs["stdout"].name)
+        self.assertEqual(fixture.logfile, kwargs["stderr"].name)
+        self.assertEqual([], fixture.process.events)
 
     def test_start_failure(self):
         fixture = make_SauceConnectFixture()
@@ -143,12 +142,11 @@ class TestSauceConnectFixture(TestCase):
         self.patch(subprocess, "Popen", FakeProcess)
         # Pretend that processes immediately fail with return code 1.
         self.patch(FakeProcess, "returncode", 1)
-
-        with fixture:
-            error = self.assertRaises(subprocess.CalledProcessError, start)
-            self.assertEqual(1, error.returncode)
-            self.assertEqual(fixture.command, error.cmd)
-            self.assertEqual([], fixture.process.events)
+        fixture.setUp()
+        error = self.assertRaises(subprocess.CalledProcessError, start)
+        self.assertEqual(1, error.returncode)
+        self.assertEqual(fixture.command, error.cmd)
+        self.assertEqual([], fixture.process.events)
 
     def test_start_timeout(self):
         calls = []
@@ -158,11 +156,10 @@ class TestSauceConnectFixture(TestCase):
         self.patch(fixture, "stop", lambda: calls.append("stop"))
         self.patch(subprocess, "Popen", FakeProcess)
         self.patch(saucelabs, "retries", one_retry)
-
-        with fixture:
-            self.assertRaises(TimeoutException, start)
-            # stop() has also been called.
-            self.assertEqual(["stop"], calls)
+        fixture.setUp()
+        self.assertRaises(TimeoutException, start)
+        # stop() has also been called.
+        self.assertEqual(["stop"], calls)
 
     def test_stop(self):
 
@@ -174,7 +171,6 @@ class TestSauceConnectFixture(TestCase):
         fixture.process = FakeProcess()
         fixture.process.terminate = terminate
         fixture.stop()
-
         # terminate() has been called during shutdown.
         self.assertEqual(0, fixture.process.returncode)
 
@@ -188,7 +184,6 @@ class TestSauceConnectFixture(TestCase):
         fixture.process = FakeProcess()
         fixture.process.terminate = terminate
         fixture.command = object()
-
         error = self.assertRaises(subprocess.CalledProcessError, fixture.stop)
         self.assertEqual(34, error.returncode)
         self.assertEqual(fixture.command, error.cmd)
