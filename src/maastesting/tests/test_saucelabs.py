@@ -206,7 +206,7 @@ class TestSauceConnectFixture(TestCase):
         fixture = make_SauceConnectFixture(
             username="scott", api_key="ian", control_port=6456)
         self.assertEqual(
-            "http://scott:ian@localhost:6456/ws/hub",
+            "http://scott:ian@localhost:6456/wd/hub",
             fixture.control_url)
 
 

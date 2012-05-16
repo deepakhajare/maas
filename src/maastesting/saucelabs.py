@@ -157,7 +157,7 @@ class SauceConnectFixture(Fixture):
 
         Possibly suitable for use with Selenium 2 only.
         """
-        return "http://%s:%s@localhost:%d/ws/hub" % (
+        return "http://%s:%s@localhost:%d/wd/hub" % (
             self.username, self.api_key, self.control_port)
 
 
