@@ -12,7 +12,7 @@ var suite = new Y.Test.Suite("maas.node_views Tests");
 
 
 // Dump this HTML into #placeholder to get DOM hooks for the dashboard.
-var dashboard_hooks = Y.one('#dashboard-hooks').getContent()
+var dashboard_hooks = Y.one('#dashboard-hooks').getContent();
 
 
 suite.add(new Y.maas.testing.TestCase({
@@ -172,7 +172,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testHoverMouseover: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var number_node = view.srcNode.one('#nodes-number');
         var description_node = view.srcNode.one('#nodes-description');
@@ -180,7 +180,7 @@ suite.add(new Y.maas.testing.TestCase({
         // The dashboard sets up hover actions on the chart.  Hovering over a
         // chart segment causes its stats to fade in.
         view.fade_in.on('end', function() {
-            test.resume(function() {
+            self.resume(function() {
                 Y.Assert.areEqual(
                     '4',
                     number_node.get('text'),
@@ -198,13 +198,13 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testHoverMouseout: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var number_node = view.srcNode.one('#nodes-number');
         var description_node = view.srcNode.one('#nodes-description');
 
         view.fade_in.on('end', function() {
-            test.resume(function() {
+            self.resume(function() {
                 Y.Assert.areEqual(
                     '12',
                     number_node.get('text'),
@@ -271,7 +271,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testUpdateNodeCreation: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var node = {
             system_id: 'sys14',
@@ -290,7 +290,7 @@ suite.add(new Y.maas.testing.TestCase({
             view.added_nodes,
             "Check the initial number of nodes for the status.");
 
-        view.fade_in.on('end', function() { test.resume(function() {
+        view.fade_in.on('end', function() { self.resume(function() {
                 Y.Assert.areEqual(
                     'host14',
                     view.modelList.getById('sys14').get('hostname'),
@@ -315,7 +315,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testUpdateNodeUpdating: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var node = this.data[0];
         var number_node = view.srcNode.one('#nodes-number');
@@ -354,13 +354,13 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testUpdateNodeDeleting: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var node = this.data[12];
         var number_node = view.srcNode.one('#nodes-number');
 
         view.fade_in.on('end', function() {
-            test.resume(function() {
+            self.resume(function() {
                 Y.Assert.isNull(
                     view.modelList.getById('sys14'),
                     "The node should have been deleted.");
@@ -476,7 +476,7 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testSetSummaryAnimation: function() {
-        var test = this;
+        var self = this;
         var view = this.makeDashboard();
         var fade_out_anim = false;
         var fade_in_anim = false;
@@ -485,7 +485,7 @@ suite.add(new Y.maas.testing.TestCase({
         });
         view.fade_in.on('end', function() {
             fade_in_anim = true;
-            test.resume(function() {
+            self.resume(function() {
                 Y.Assert.isTrue(
                     fade_out_anim,
                     "The fade-out animation should have run.");
