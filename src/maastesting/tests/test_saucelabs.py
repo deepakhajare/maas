@@ -202,6 +202,13 @@ class TestSauceConnectFixture(TestCase):
         # terminate() and kill() were both called to ensure shutdown.
         self.assertEqual(["terminate", "kill"], fixture.process.events)
 
+    def test_se_url(self):
+        fixture = make_SauceConnectFixture(
+            username="scott", api_key="ian", se_port=6456)
+        self.assertEqual(
+            "http://scott:ian@localhost:6456/ws/hub",
+            fixture.se_url)
+
 
 class TestSauceOnDemandFixture(TestCase):
 

@@ -151,6 +151,15 @@ class SauceConnectFixture(Fixture):
                     "%s took too long to stop (more than %d seconds)" % (
                         path.relpath(self.jarfile), elapsed))
 
+    @property
+    def se_url(self):
+        """URL for Selenium to connect to so that commands are proxied.
+
+        Possibly Selenium 2 only.
+        """
+        return "http://%s:%s@localhost:%d/ws/hub" % (
+            self.username, self.api_key, self.se_port)
+
 
 class SauceOnDemandFixture(Fixture):
     """Start up a driver for SauceLabs' Sauce OnDemand service.
