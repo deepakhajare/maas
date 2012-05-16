@@ -212,6 +212,13 @@ class YUIUnitBase:
     # Indicates if this test has been cloned.
     cloned = False
 
+    def clone(self, suffix):
+        # Clone this test with a new suffix.
+        test = clone_test_with_new_id(
+            self, "%s#%s" % (self.id(), suffix))
+        test.cloned = True
+        return test
+
     def __call__(self, result=None):
         if self.cloned:
             # This test has been cloned; just call-up to run the test.
@@ -245,9 +252,7 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
         # stopping browsers is costly.
         with DisplayFixture():
             for browser_name in get_browser_names_from_env():
-                browser_test = clone_test_with_new_id(
-                    self, "%s#local:%s" % (self.id(), browser_name))
-                browser_test.cloned = True
+                browser_test = self.clone("local:%s" % browser_name)
                 with SSTFixture(browser_name):
                     browser_test.__call__(result)
 
@@ -261,13 +266,13 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
         if len(browser_names) == 0:
             return
 
-        ondemand_args = {
-            "jarfile": "saucelabs/connect/Sauce-Connect.jar",
-            "username": "allenap",
-            "api_key": "584e0c37-9088-49c3-bdc4-b075e2bf9f84",
-            }
+        # TODO: Obtain these settings from somewhere else.
+        sauce_connect = SauceConnectFixture(
+            jarfile="saucelabs/connect/Sauce-Connect.jar", username="allenap",
+            api_key="584e0c37-9088-49c3-bdc4-b075e2bf9f84")
 
-        # Careful when choosing web server ports:
+        # A web server is needed so the OnDemand service can obtain local
+        # tests. Be careful when choosing web server ports:
         #
         #   Sauce Connect proxies localhost ports 80, 443, 888, 2000, 2001,
         #   2020, 2222, 3000, 3001, 3030, 3333, 4000, 4001, 4040, 4502, 4503,
@@ -279,20 +284,18 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
         # From <https://saucelabs.com/docs/ondemand/connect>.
         with http_server(port=5555) as httpd:
             web_url_form = "http://%s:%d/%%s" % httpd.server_address
-            with SauceConnectFixture(**ondemand_args) as connect:
+            scenarios = tuple(
+                (path, {"test_url": web_url_form % path})
+                for path in self.test_paths)
+            with sauce_connect:
                 for browser_name in browser_names:
                     capabilities = remote_browsers[browser_name]
-                    ondemand = SauceOnDemandFixture(
-                        capabilities, connect.se_url)
-                    with ondemand:
-                        browser_test = clone_test_with_new_id(
-                            self, "%s#remote:%s" % (self.id(), browser_name))
-                        browser_test.cloned = True
-                        browser_test.scenarios = [
-                            (path, {"test_url": web_url_form % path})
-                            for path in YUIUnitBase.test_paths
-                            ]
+                    sauce_ondemand = SauceOnDemandFixture(
+                        capabilities, sauce_connect.control_url)
+                    with sauce_ondemand:
+                        browser_test = self.clone("remote:%s" % browser_name)
+                        browser_test.scenarios = scenarios
                         patcher = MonkeyPatcher(
-                            (actions, "browser", ondemand.driver),
+                            (actions, "browser", sauce_ondemand.driver),
                             (actions, "browsermob_proxy", None))
                         patcher.run_with_patches(browser_test, result)
