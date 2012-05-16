@@ -10,10 +10,12 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = [
-    'TestYUIUnitTests',
-    ]
+__all__ = []
 
+from abc import (
+    ABCMeta,
+    abstractmethod,
+    )
 import BaseHTTPServer
 from contextlib import contextmanager
 from glob import glob
@@ -207,6 +209,8 @@ def get_failed_tests_message(results):
 
 class YUIUnitBase:
 
+    __metaclass__ = ABCMeta
+
     test_paths = glob(join(BASE_PATH, "*.html"))
 
     # Indicates if this test has been cloned.
@@ -218,6 +222,13 @@ class YUIUnitBase:
             self, "%s#%s" % (self.id(), suffix))
         test.cloned = True
         return test
+
+    @abstractmethod
+    def execute(self, result):
+        """Run the test for each of a specified range of browsers.
+
+        This method should sort out shared fixtures.
+        """
 
     def __call__(self, result=None):
         if self.cloned:
@@ -240,10 +251,9 @@ class YUIUnitBase:
 
 class YUIUnitTestsLocal(YUIUnitBase, TestCase):
 
-    scenarios = [
+    scenarios = tuple(
         (path, {"test_url": "file://%s" % abspath(path)})
-        for path in YUIUnitBase.test_paths
-        ]
+        for path in YUIUnitBase.test_paths)
 
     def execute(self, result):
         # Run this test locally for each browser requested. Use the same
