@@ -110,7 +110,7 @@ class SilentHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
 @contextmanager
-def web_server(host="localhost", port=5555):
+def http_server(host="localhost", port=8080):
     server = ThreadingHTTPServer(
         (host, port), SilentHTTPRequestHandler)
     threading.Thread(target=server.serve_forever).start()
@@ -152,11 +152,21 @@ def get_browser_names_from_env():
     return extract_word_list(names)
 
 
+# See <https://saucelabs.com/docs/ondemand/browsers/env/python/se2/linux> for
+# more information on browser/platform choices.
 remote_browsers = {
-    "ie7": dict(DesiredCapabilities.INTERNETEXPLORER, version="7"),
-    "ie8": dict(DesiredCapabilities.INTERNETEXPLORER, version="8"),
-    "ie9": dict(DesiredCapabilities.INTERNETEXPLORER, version="9"),
-    "chrome": dict(DesiredCapabilities.CHROME),
+    "ie7": dict(
+        DesiredCapabilities.INTERNETEXPLORER,
+        version="7", platform="XP"),
+    "ie8": dict(
+        DesiredCapabilities.INTERNETEXPLORER,
+        version="8", platform="XP"),
+    "ie9": dict(
+        DesiredCapabilities.INTERNETEXPLORER,
+        version="9", platform="VISTA"),
+    "chrome": dict(
+        DesiredCapabilities.CHROME,
+        platform="VISTA"),
     }
 
 
@@ -253,26 +263,33 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
 
         ondemand_args = {
             "jarfile": "saucelabs/connect/Sauce-Connect.jar",
-            "username": "...",
-            "api_key": "...",
+            "username": "allenap",
+            "api_key": "584e0c37-9088-49c3-bdc4-b075e2bf9f84",
             }
 
-        with web_server() as webserv:
-            url_form = "http://%s:%d/%%s" % webserv.server_address
+        # Careful when choosing web server ports:
+        #
+        #   Sauce Connect proxies localhost ports 80, 443, 888, 2000, 2001,
+        #   2020, 2222, 3000, 3001, 3030, 3333, 4000, 4001, 4040, 4502, 4503,
+        #   5000, 5001, 5050, 5555, 6000, 6001, 6060, 6666, 7000, 7070, 7777,
+        #   8000, 8001, 8003, 8080, 8888, 9000, 9001, 9090, 9999 so when you
+        #   use it, your local web apps are available to test as if the cloud
+        #   was your local machine. Easy!
+        #
+        # From <https://saucelabs.com/docs/ondemand/connect>.
+        with http_server(port=5555) as httpd:
+            web_url_form = "http://%s:%d/%%s" % httpd.server_address
             with SauceConnectFixture(**ondemand_args) as connect:
-                control_url = (
-                    "http://%(username)s:%(api_key)s@"
-                    "localhost:%(port)d/wd/hub" % dict(
-                        ondemand_args, port=connect.se_port))
                 for browser_name in browser_names:
                     capabilities = remote_browsers[browser_name]
-                    ondemand = SauceOnDemandFixture(capabilities, control_url)
+                    ondemand = SauceOnDemandFixture(
+                        capabilities, connect.se_url)
                     with ondemand:
                         browser_test = clone_test_with_new_id(
                             self, "%s#remote:%s" % (self.id(), browser_name))
                         browser_test.clone = True
                         browser_test.scenarios = [
-                            (path, {"test_url": url_form % path})
+                            (path, {"test_url": web_url_form % path})
                             for path in YUIUnitBase.test_paths
                             ]
                         patcher = MonkeyPatcher(
