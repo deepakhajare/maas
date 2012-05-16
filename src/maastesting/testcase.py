@@ -20,9 +20,9 @@ import unittest
 from fixtures import TempDir
 from maastesting.factory import factory
 from maastesting.scenarios import WithScenarios
+from nose.proxy import ResultProxy
 import testresources
 import testtools
-from nose.proxy import ResultProxy
 
 
 @contextmanager
