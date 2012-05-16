@@ -16,6 +16,8 @@ __all__ = [
     "TimeoutException",
     ]
 
+from contextlib import closing
+from io import BytesIO
 from os import path
 import signal
 import subprocess
@@ -23,6 +25,8 @@ from time import (
     sleep,
     time,
     )
+from urllib2 import urlopen
+from zipfile import ZipFile
 
 from fixtures import (
     Fixture,
@@ -70,6 +74,20 @@ def preexec_fn():
     # Revert Python's handling of SIGPIPE. See
     # http://bugs.python.org/issue1652 for more info.
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
+
+def get_or_download_sauce_connect(
+    url="https://saucelabs.com/downloads/Sauce-Connect-latest.zip"):
+    """Find or download ``Sauce-Connect.jar`` to a shared location."""
+    sauce_connect_dir = path.expanduser("~/.saucelabs/connect")
+    sauce_connect_jarfile = path.join(
+        sauce_connect_dir, "Sauce-Connect.jar")
+    if not path.exists(sauce_connect_jarfile):
+        with closing(urlopen(url)) as fin:
+            buf = BytesIO(fin.read())
+        with ZipFile(buf) as zipfile:
+            zipfile.extractall(sauce_connect_dir)
+    return sauce_connect_jarfile
 
 
 class TimeoutException(Exception):
