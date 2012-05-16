@@ -43,7 +43,7 @@ def one_retry(timeout, delay=1):
 
 
 def make_SauceConnectFixture(
-    jarfile=None, username=None, api_key=None, se_port=None):
+    jarfile=None, username=None, api_key=None, control_port=None):
     """
     Create a `SauceConnectFixture`, using random values unless specified
     otherwise.
@@ -54,11 +54,11 @@ def make_SauceConnectFixture(
         username = factory.getRandomString()
     if api_key is None:
         api_key = factory.getRandomString()
-    if se_port is None:
-        se_port = factory.getRandomPort()
+    if control_port is None:
+        control_port = factory.getRandomPort()
     return SauceConnectFixture(
         jarfile=jarfile, username=username, api_key=api_key,
-        se_port=se_port)
+        control_port=control_port)
 
 
 class FakeProcess:
@@ -89,7 +89,7 @@ class TestSauceConnectFixture(TestCase):
         self.assertEqual(path.abspath("pth/to/jar"), fixture.jarfile)
         self.assertEqual("jaz", fixture.username)
         self.assertEqual("youth", fixture.api_key)
-        self.assertEqual(port, fixture.se_port)
+        self.assertEqual(port, fixture.control_port)
 
     def test_setUp_and_cleanUp(self):
         calls = []
@@ -202,12 +202,12 @@ class TestSauceConnectFixture(TestCase):
         # terminate() and kill() were both called to ensure shutdown.
         self.assertEqual(["terminate", "kill"], fixture.process.events)
 
-    def test_se_url(self):
+    def test_control_url(self):
         fixture = make_SauceConnectFixture(
-            username="scott", api_key="ian", se_port=6456)
+            username="scott", api_key="ian", control_port=6456)
         self.assertEqual(
             "http://scott:ian@localhost:6456/ws/hub",
-            fixture.se_url)
+            fixture.control_url)
 
 
 class TestSauceOnDemandFixture(TestCase):

@@ -86,18 +86,18 @@ class SauceConnectFixture(Fixture):
 
     """
 
-    def __init__(self, jarfile, username, api_key, se_port=4445):
+    def __init__(self, jarfile, username, api_key, control_port=4445):
         """
         @param jarfile: The path to the ``Sauce-Connect.jar`` file.
         @param username: The username to connect to SauceLabs with.
         @param api_key: The API key for the SauceLabs service.
-        @param se_port: The port on which to accept Selenium commands.
+        @param control_port: The port on which to accept Selenium commands.
         """
         super(SauceConnectFixture, self).__init__()
         self.jarfile = path.abspath(jarfile)
         self.username = username
         self.api_key = api_key
-        self.se_port = se_port
+        self.control_port = control_port
 
     def setUp(self):
         super(SauceConnectFixture, self).setUp()
@@ -107,7 +107,7 @@ class SauceConnectFixture(Fixture):
         self.command = (
             "java", "-jar", self.jarfile,
             self.username, self.api_key,
-            "--se-port", "%d" % self.se_port,
+            "--se-port", "%d" % self.control_port,
             "--readyfile", self.readyfile)
         self.start()
         self.addCleanup(self.stop)
@@ -152,13 +152,13 @@ class SauceConnectFixture(Fixture):
                         path.relpath(self.jarfile), elapsed))
 
     @property
-    def se_url(self):
+    def control_url(self):
         """URL for Selenium to connect to so that commands are proxied.
 
-        Possibly Selenium 2 only.
+        Possibly suitable for use with Selenium 2 only.
         """
         return "http://%s:%s@localhost:%d/ws/hub" % (
-            self.username, self.api_key, self.se_port)
+            self.username, self.api_key, self.control_port)
 
 
 class SauceOnDemandFixture(Fixture):
