@@ -156,8 +156,7 @@ class MultipleUsersScenarios:
     users.
 
     The scenarios should inject a `userfactory` variable that will
-    be called to produce the user used in the tests (if the returned user
-    is None then the tests will be performed as an anonymous user). e.g.:
+    be called to produce the user used in the tests e.g.:
 
     class ExampleTest(MultipleUsersScenarios, TestCase):
         scenarios = [
