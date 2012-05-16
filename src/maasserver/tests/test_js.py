@@ -210,10 +210,10 @@ class YUIUnitBase:
     test_paths = glob(join(BASE_PATH, "*.html"))
 
     # Indicates if this test has been cloned.
-    clone = False
+    cloned = False
 
     def __call__(self, result=None):
-        if self.clone:
+        if self.cloned:
             # This test has been cloned; just call-up to run the test.
             super(YUIUnitBase, self).__call__(result)
         else:
@@ -247,7 +247,7 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
             for browser_name in get_browser_names_from_env():
                 browser_test = clone_test_with_new_id(
                     self, "%s#local:%s" % (self.id(), browser_name))
-                browser_test.clone = True
+                browser_test.cloned = True
                 with SSTFixture(browser_name):
                     browser_test.__call__(result)
 
@@ -287,7 +287,7 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
                     with ondemand:
                         browser_test = clone_test_with_new_id(
                             self, "%s#remote:%s" % (self.id(), browser_name))
-                        browser_test.clone = True
+                        browser_test.cloned = True
                         browser_test.scenarios = [
                             (path, {"test_url": web_url_form % path})
                             for path in YUIUnitBase.test_paths
