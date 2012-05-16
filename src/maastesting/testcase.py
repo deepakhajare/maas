@@ -18,12 +18,12 @@ import unittest
 
 from fixtures import TempDir
 from maastesting.factory import factory
+from maastesting.scenarios import WithScenarios
 import testresources
-import testscenarios
 import testtools
 
 
-class TestCase(testscenarios.WithScenarios, testtools.TestCase):
+class TestCase(WithScenarios, testtools.TestCase):
     """Base `TestCase` for MAAS.
 
     Supports `test resources`_, `test scenarios`_, and `fixtures`_.
