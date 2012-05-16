@@ -30,6 +30,7 @@ import string
 
 from fixtures import Fixture
 from maastesting.testcase import TestCase
+from nose.tools import nottest
 from pyvirtualdisplay import Display
 from sst.actions import (
     assert_text,
@@ -39,9 +40,14 @@ from sst.actions import (
     stop,
     wait_for,
     )
+from testtools import clone_test_with_new_id
 
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
+
+
+# Nose is over-zealous.
+nottest(clone_test_with_new_id)
 
 
 class LoggerSilencerFixture(Fixture):
@@ -123,6 +129,7 @@ def get_browser_names_from_env():
         os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))
 
 
+@nottest
 def get_failed_tests_message(results):
     """Return a readable error message with the list of the failed tests.
 
@@ -146,24 +153,37 @@ def get_failed_tests_message(results):
 class TestYUIUnitTests(TestCase):
 
     scenarios = [
-        (browser_name, {"browser_name": browser_name})
-        for browser_name in get_browser_names_from_env()
+        (test_page, {"test_page": abspath(test_page)})
+        for test_page in iglob(join(BASE_PATH, "*.html"))
         ]
 
-    def setUp(self):
-        super(TestYUIUnitTests, self).setUp()
-        self.useFixture(DisplayFixture())
-        self.useFixture(SSTFixture(self.browser_name))
+    # Indicates if this test has been cloned.
+    clone = False
+
+    def __call__(self, result=None):
+        if self.clone:
+            # This test has been cloned; just call-up to run the test.
+            super(TestYUIUnitTests, self).__call__(result)
+        else:
+            # Run this test for each browser requested. Use the same display
+            # fixture for all browsers. This is done here so that all
+            # scenarios are played out for each browser in turn; starting and
+            # stopping browsers is costly.
+            with DisplayFixture():
+                for browser_name in get_browser_names_from_env():
+                    browser_test = clone_test_with_new_id(
+                        self, "%s#%s" % (self.id(), browser_name))
+                    browser_test.clone = True
+                    with SSTFixture(browser_name):
+                        browser_test.__call__(result)
 
     def test_YUI3_unit_tests(self):
-        # Find all the HTML files in BASE_PATH.
-        for test_page in iglob(join(BASE_PATH, "*.html")):
-            # Load the page and then wait for #suite to contain
-            # 'done'.  Read the results in '#test_results'.
-            go_to('file://%s' % abspath(test_page))
-            wait_for(assert_text, 'suite', 'done')
-            results = json.loads(get_element(id='test_results').text)
-            if results['failed'] != 0:
-                message = '%d test(s) failed.\n%s' % (
-                    results['failed'], get_failed_tests_message(results))
-                self.fail(message)
+        # Load the page and then wait for #suite to contain
+        # 'done'.  Read the results in '#test_results'.
+        go_to('file://%s' % self.test_page)
+        wait_for(assert_text, 'suite', 'done')
+        results = json.loads(get_element(id='test_results').text)
+        if results['failed'] != 0:
+            message = '%d test(s) failed.\n%s' % (
+                results['failed'], get_failed_tests_message(results))
+            self.fail(message)
