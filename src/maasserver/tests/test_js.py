@@ -193,7 +193,7 @@ class YUIUnitBase:
         return test
 
     @abstractmethod
-    def execute(self, result):
+    def multiply(self, result):
         """Run the test for each of a specified range of browsers.
 
         This method should sort out shared fixtures.
@@ -204,7 +204,7 @@ class YUIUnitBase:
             # This test has been cloned; just call-up to run the test.
             super(YUIUnitBase, self).__call__(result)
         else:
-            self.execute(result)
+            self.multiply(result)
 
     def test_YUI3_unit_tests(self):
         # Load the page and then wait for #suite to contain
@@ -224,7 +224,7 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
         (path, {"test_url": "file://%s" % abspath(path)})
         for path in YUIUnitBase.test_paths)
 
-    def execute(self, result):
+    def multiply(self, result):
         # Run this test locally for each browser requested. Use the same
         # display fixture for all browsers. This is done here so that all
         # scenarios are played out for each browser in turn; starting and
@@ -238,7 +238,7 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
 
 class YUIUnitTestsRemote(YUIUnitBase, TestCase):
 
-    def execute(self, result):
+    def multiply(self, result):
         # Now run this test remotely for each requested Sauce OnDemand
         # browser requested.
         browser_names = get_remote_browser_names_from_env()
