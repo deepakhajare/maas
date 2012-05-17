@@ -30,11 +30,23 @@ class PowerAction:
 
     def __init__(self, power_type):
         basedir = settings.POWER_TEMPLATES_DIR
-        path = os.path.join(basedir, power_type + ".template")
-        if not os.path.exists(path):
+        self.path = os.path.join(basedir, power_type + ".template")
+        if not os.path.exists(self.path):
             raise UnknownPowerType
-        with open(path, "r") as f:
-            pass
 
         self.power_type = power_type
         
+    def get_template(self):
+        with open(self.path, "r") as f:
+            template = f.read()
+        return template
+
+    def render_template(self, template, **kwargs):
+        rendered = template % kwargs
+        # TODO: how can we check for unused variables?
+        return rendered
+
+    def execute(self, **kwargs):
+        template = self.get_template()
+        rendered = self.render_template(template, kwargs)
+        # TODO: execute!  
