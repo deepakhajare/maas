@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     "SauceConnectFixture",
     "SauceOnDemandFixture",
+    "SSTOnDemandFixture",
     "TimeoutException",
     ]
 
@@ -41,6 +42,7 @@ from maastesting.utils import extract_word_list
 from selenium import webdriver
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
+from testtools.monkey import MonkeyPatcher
 
 
 def content_from_file(path):
@@ -244,3 +246,24 @@ class SauceOnDemandFixture(Fixture):
             command_executor=self.control_url.encode("ascii"))
         self.driver.implicitly_wait(30)  # TODO: Is this always needed?
         self.addCleanup(self.driver.quit)
+
+
+class SSTOnDemandFixture(SauceOnDemandFixture):
+    """Variant of `SauceOnDemandFixture` that also patches `sst`.
+
+    When this fixture is active you can use `sst` with the allocated driver
+    without calling `sst.actions.start` or `sst.actions.stop`.
+    """
+
+    noop = staticmethod(lambda *args, **kwargs: None)
+
+    def setUp(self):
+        from sst import actions
+        super(SSTOnDemandFixture, self).setUp()
+        patcher = MonkeyPatcher(
+            (actions, "browser", self.driver),
+            (actions, "browsermob_proxy", None),
+            (actions, "start", self.noop),
+            (actions, "stop", self.noop))
+        self.addCleanup(patcher.restore)
+        patcher.patch()

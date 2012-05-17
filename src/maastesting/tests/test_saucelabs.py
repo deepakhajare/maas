@@ -18,16 +18,19 @@ from os import (
     )
 import subprocess
 
+from fixtures import Fixture
 from maastesting import saucelabs
 from maastesting.factory import factory
 from maastesting.saucelabs import (
     get_credentials,
     SauceConnectFixture,
     SauceOnDemandFixture,
+    SSTOnDemandFixture,
     TimeoutException,
     )
 from maastesting.testcase import TestCase
 from selenium import webdriver
+from sst import actions
 from testtools.matchers import (
     DirExists,
     Not,
@@ -258,6 +261,34 @@ class TestSauceOnDemandFixture(TestCase):
             self.assertEqual(url, fixture.driver.command_executor._url)
             self.assertEqual(["start_session"], calls)
         self.assertEqual(["start_session", "quit"], calls)
+
+
+class TestSSTOnDemandFixture(TestSauceOnDemandFixture):
+
+    def test_patch_into_sst(self):
+        fixture = SSTOnDemandFixture({}, "")
+        fixture.driver = object()
+        # Disable SauceOnDemandFixture's setUp so we can see what
+        # SSTOnDemandFixture's is doing.
+        self.patch(SauceOnDemandFixture, "setUp", Fixture.setUp)
+        # Use a sentinel to help demonstrate the changes.
+        sentinel = object()
+        self.patch(actions, "browser", sentinel)
+        self.patch(actions, "browsermob_proxy", sentinel)
+        self.patch(actions, "start", sentinel)
+        self.patch(actions, "stop", sentinel)
+        # When the fixture is active the browser is set, the proxy is not set,
+        # and the start() and stop() functions are disabled.
+        with fixture:
+            self.assertIs(fixture.driver, actions.browser)
+            self.assertIs(None, actions.browsermob_proxy)
+            self.assertIs(SSTOnDemandFixture.noop, actions.start)
+            self.assertIs(SSTOnDemandFixture.noop, actions.stop)
+        # When the fixture deactivates things return to what they were before.
+        self.assertIs(sentinel, actions.browser)
+        self.assertIs(sentinel, actions.browsermob_proxy)
+        self.assertIs(sentinel, actions.start)
+        self.assertIs(sentinel, actions.stop)
 
 
 class TestFunctions(TestCase):
