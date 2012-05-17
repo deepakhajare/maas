@@ -295,7 +295,7 @@ class TestSSTOnDemandFixture(TestSauceOnDemandFixture):
 class TestFunctions(TestCase):
 
     def patch_creds_file(self, contents):
-        creds_file = self.make_file("creds", contents.encode("ascii"))
+        creds_file = self.make_file("credentials", contents.encode("ascii"))
         self.patch(saucelabs, "sauce_connect_dir", path.dirname(creds_file))
 
     def test_get_credentials(self):
