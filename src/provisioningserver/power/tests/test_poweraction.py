@@ -17,12 +17,18 @@ __all__ = []
 
 from testtools import TestCase
 
-from provisioningserver.power,poweraction import PowerAction
+from provisioningserver.power.poweraction import (
+    PowerAction,
+    UnknownPowerType,
+    )
 
 
 class TestPowerAction(TestCase):
     """Tests for PowerAction."""
 
-    def test_init_raises_for_unknown_action(self):
-        pass
+    def test_init_raises_for_unknown_powertype(self):
+        powertype = "schnitzel"
+        self.assertRaises(
+            UnknownPowerType,
+            PowerAction, powertype)
 
