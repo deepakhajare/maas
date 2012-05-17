@@ -27,7 +27,6 @@ from os.path import (
     dirname,
     join,
     )
-import re
 import SimpleHTTPServer
 import SocketServer
 import threading
@@ -38,6 +37,7 @@ from maastesting.saucelabs import (
     SauceOnDemandFixture,
     )
 from maastesting.testcase import TestCase
+from maastesting.utils import extract_word_list
 from nose.tools import nottest
 from pyvirtualdisplay import Display
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -138,10 +138,6 @@ class SSTFixture(Fixture):
 
 
 project_home = dirname(dirname(dirname(dirname(__file__))))
-
-
-def extract_word_list(string):
-    return re.findall("[^,;\s]+", string)
 
 
 def get_browser_names_from_env():
