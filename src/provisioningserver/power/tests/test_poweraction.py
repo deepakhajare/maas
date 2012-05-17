@@ -17,6 +17,7 @@ __all__ = []
 
 from testtools import TestCase
 
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import (
     PowerAction,
     UnknownPowerType,
@@ -32,3 +33,6 @@ class TestPowerAction(TestCase):
             UnknownPowerType,
             PowerAction, powertype)
 
+    def test_init_works_for_ether_wake(self):
+        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
+        self.assertEqual(POWER_TYPE.WAKE_ON_LAN, pa.power_type)
