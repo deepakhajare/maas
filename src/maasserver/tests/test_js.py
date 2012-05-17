@@ -16,8 +16,6 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-import BaseHTTPServer
-from contextlib import contextmanager
 from glob import glob
 import json
 import logging
@@ -27,11 +25,10 @@ from os.path import (
     dirname,
     join,
     )
-import SimpleHTTPServer
-import SocketServer
-import threading
+from urlparse import urljoin
 
 from fixtures import Fixture
+from maastesting.httpd import HTTPServerFixture
 from maastesting.saucelabs import (
     SauceConnectFixture,
     SSTOnDemandFixture,
@@ -96,28 +93,6 @@ class DisplayFixture(Fixture):
             visible=self.visible, size=self.size)
         self.display.start()
         self.addCleanup(self.display.stop)
-
-
-class ThreadingHTTPServer(SocketServer.ThreadingMixIn,
-                          BaseHTTPServer.HTTPServer):
-    """A simple HTTP Server that whill run in it's own thread."""
-
-
-class SilentHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
-    # SimpleHTTPRequestHandler logs to stdout: silence it.
-    log_request = lambda *args, **kwargs: None
-    log_error = lambda *args, **kwargs: None
-
-
-@contextmanager
-def http_server(host="localhost", port=8080):
-    server = ThreadingHTTPServer(
-        (host, port), SilentHTTPRequestHandler)
-    threading.Thread(target=server.serve_forever).start()
-    try:
-        yield server
-    finally:
-        server.shutdown()
 
 
 class SSTFixture(Fixture):
@@ -281,10 +256,9 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
         #   was your local machine. Easy!
         #
         # From <https://saucelabs.com/docs/ondemand/connect>.
-        with http_server(port=5555) as httpd:
-            web_url_form = "http://%s:%d/%%s" % httpd.server_address
+        with HTTPServerFixture(port=5555) as httpd:
             scenarios = tuple(
-                (path, {"test_url": web_url_form % path})
+                (path, {"test_url": urljoin(httpd.url, path)})
                 for path in self.test_paths)
             with SauceConnectFixture() as sauce_connect:
                 for browser_name in browser_names:
