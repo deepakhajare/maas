@@ -272,11 +272,6 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
         if len(browser_names) == 0:
             return
 
-        # TODO: Obtain these settings from somewhere else.
-        sauce_connect = SauceConnectFixture(
-            jarfile="saucelabs/connect/Sauce-Connect.jar", username="allenap",
-            api_key="584e0c37-9088-49c3-bdc4-b075e2bf9f84")
-
         # A web server is needed so the OnDemand service can obtain local
         # tests. Be careful when choosing web server ports:
         #
@@ -293,7 +288,7 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
             scenarios = tuple(
                 (path, {"test_url": web_url_form % path})
                 for path in self.test_paths)
-            with sauce_connect:
+            with SauceConnectFixture() as sauce_connect:
                 for browser_name in browser_names:
                     capabilities = remote_browsers[browser_name]
                     sauce_ondemand = SauceOnDemandFixture(

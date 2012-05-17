@@ -18,6 +18,11 @@ __all__ = [
 
 from contextlib import closing
 from io import BytesIO
+from itertools import (
+    chain,
+    islice,
+    repeat,
+    )
 from os import path
 import signal
 import subprocess
@@ -32,6 +37,7 @@ from fixtures import (
     Fixture,
     TempDir,
     )
+from maastesting.utils import extract_word_list
 from selenium import webdriver
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
@@ -76,10 +82,12 @@ def preexec_fn():
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
+sauce_connect_dir = path.expanduser("~/.saucelabs/connect")
+
+
 def get_or_download_sauce_connect(
     url="https://saucelabs.com/downloads/Sauce-Connect-latest.zip"):
     """Find or download ``Sauce-Connect.jar`` to a shared location."""
-    sauce_connect_dir = path.expanduser("~/.saucelabs/connect")
     sauce_connect_jarfile = path.join(
         sauce_connect_dir, "Sauce-Connect.jar")
     if not path.exists(sauce_connect_jarfile):
@@ -88,6 +96,17 @@ def get_or_download_sauce_connect(
         with ZipFile(buf) as zipfile:
             zipfile.extractall(sauce_connect_dir)
     return sauce_connect_jarfile
+
+
+def get_credentials():
+    """Load credentials for the SauceLabs Connect service.
+
+    @return: A ``(username, api_key)`` tuple.
+    """
+    sauce_connect_credentials_file = path.join(sauce_connect_dir, "creds")
+    with open(sauce_connect_credentials_file, "rb") as fd:
+        creds = extract_word_list(fd.read())
+    return tuple(islice(chain(creds, repeat(b"")), 2))
 
 
 class TimeoutException(Exception):
@@ -104,17 +123,20 @@ class SauceConnectFixture(Fixture):
 
     """
 
-    def __init__(self, jarfile, username, api_key, control_port=4445):
+    def __init__(self, jarfile=None, credentials=None, control_port=4445):
         """
         @param jarfile: The path to the ``Sauce-Connect.jar`` file.
-        @param username: The username to connect to SauceLabs with.
-        @param api_key: The API key for the SauceLabs service.
+        @param credentials: Credentials for the SauceLabs service, typically a
+            2-tuple of (username, api_key).
         @param control_port: The port on which to accept Selenium commands.
         """
         super(SauceConnectFixture, self).__init__()
+        if jarfile is None:
+            jarfile = get_or_download_sauce_connect()
+        if credentials is None:
+            credentials = get_credentials()
         self.jarfile = path.abspath(jarfile)
-        self.username = username
-        self.api_key = api_key
+        self.username, self.api_key = credentials
         self.control_port = control_port
 
     def setUp(self):

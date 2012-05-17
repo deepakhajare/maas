@@ -21,6 +21,7 @@ import subprocess
 from maastesting import saucelabs
 from maastesting.factory import factory
 from maastesting.saucelabs import (
+    get_credentials,
     SauceConnectFixture,
     SauceOnDemandFixture,
     TimeoutException,
@@ -43,21 +44,19 @@ def one_retry(timeout, delay=1):
 
 
 def make_SauceConnectFixture(
-    jarfile=None, username=None, api_key=None, control_port=None):
+    jarfile=None, credentials=None, control_port=None):
     """
     Create a `SauceConnectFixture`, using random values unless specified
     otherwise.
     """
     if jarfile is None:
         jarfile = factory.getRandomString()
-    if username is None:
-        username = factory.getRandomString()
-    if api_key is None:
-        api_key = factory.getRandomString()
+    if credentials is None:
+        credentials = factory.getRandomString(), factory.getRandomString()
     if control_port is None:
         control_port = factory.getRandomPort()
     return SauceConnectFixture(
-        jarfile=jarfile, username=username, api_key=api_key,
+        jarfile=jarfile, credentials=credentials,
         control_port=control_port)
 
 
@@ -85,8 +84,9 @@ class TestSauceConnectFixture(TestCase):
 
     def test_init(self):
         port = factory.getRandomPort()
-        fixture = make_SauceConnectFixture("pth/to/jar", "jaz", "youth", port)
-        self.assertEqual(path.abspath("pth/to/jar"), fixture.jarfile)
+        fixture = make_SauceConnectFixture(
+            "path/to/jar", ("jaz", "youth"), port)
+        self.assertEqual(path.abspath("path/to/jar"), fixture.jarfile)
         self.assertEqual("jaz", fixture.username)
         self.assertEqual("youth", fixture.api_key)
         self.assertEqual(port, fixture.control_port)
@@ -94,7 +94,8 @@ class TestSauceConnectFixture(TestCase):
     def test_setUp_and_cleanUp(self):
         calls = []
         port = factory.getRandomPort()
-        fixture = make_SauceConnectFixture("pth/to/jar", "jaz", "youth", port)
+        fixture = make_SauceConnectFixture(
+            "path/to/jar", ("jaz", "youth"), port)
         self.patch(fixture, "start", lambda: calls.append("start"))
         self.patch(fixture, "stop", lambda: calls.append("stop"))
         # Setting up the fixture allocates a working directory, the command to
@@ -108,7 +109,7 @@ class TestSauceConnectFixture(TestCase):
             "ready", path.relpath(
                 fixture.readyfile, fixture.workdir))
         self.assertEqual(
-            ("java", "-jar", path.abspath("pth/to/jar"), "jaz", "youth",
+            ("java", "-jar", path.abspath("path/to/jar"), "jaz", "youth",
              "--se-port", "%d" % port, "--readyfile", fixture.readyfile),
             fixture.command)
         self.assertEqual(["start"], calls)
@@ -204,7 +205,7 @@ class TestSauceConnectFixture(TestCase):
 
     def test_control_url(self):
         fixture = make_SauceConnectFixture(
-            username="scott", api_key="ian", control_port=6456)
+            credentials=("scott", "ian"), control_port=6456)
         self.assertEqual(
             "http://scott:ian@localhost:6456/wd/hub",
             fixture.control_url)
@@ -257,3 +258,28 @@ class TestSauceOnDemandFixture(TestCase):
             self.assertEqual(url, fixture.driver.command_executor._url)
             self.assertEqual(["start_session"], calls)
         self.assertEqual(["start_session", "quit"], calls)
+
+
+class TestFunctions(TestCase):
+
+    def patch_creds_file(self, contents):
+        creds_file = self.make_file("creds", contents.encode("ascii"))
+        self.patch(saucelabs, "sauce_connect_dir", path.dirname(creds_file))
+
+    def test_get_credentials(self):
+        self.patch_creds_file("metal licker")
+        self.assertEqual(("metal", "licker"), get_credentials())
+
+    def test_get_credentials_missing(self):
+        self.patch(saucelabs, "sauce_connect_dir", self.make_dir())
+        self.assertRaises(IOError, get_credentials)
+
+    def test_get_credentials_too_many_words(self):
+        # Only the first two words found in the credentials file are returned.
+        self.patch_creds_file("kill the lights")
+        self.assertEqual(("kill", "the"), get_credentials())
+
+    def test_get_credentials_too_few_words(self):
+        # Missing words are returned as the empty string.
+        self.patch_creds_file("kirk")
+        self.assertEqual(("kirk", ""), get_credentials())
