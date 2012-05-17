@@ -25,12 +25,7 @@ from itertools import (
     repeat,
     )
 from os import path
-import signal
 import subprocess
-from time import (
-    sleep,
-    time,
-    )
 from urllib2 import urlopen
 from zipfile import ZipFile
 
@@ -38,57 +33,21 @@ from fixtures import (
     Fixture,
     TempDir,
     )
-from maastesting.utils import extract_word_list
+from maastesting.utils import (
+    content_from_file,
+    extract_word_list,
+    preexec_fn,
+    retries,
+    )
 from selenium import webdriver
-from testtools.content import Content
-from testtools.content_type import UTF8_TEXT
 from testtools.monkey import MonkeyPatcher
 
 
-def content_from_file(path):
-    """Alternative to testtools' version.
-
-    This keeps an open file-handle, so it can obtain the log even when the
-    file has been unlinked.
-    """
-    fd = open(path, "rb")
-
-    def iterate():
-        fd.seek(0)
-        return iter(fd)
-
-    return Content(UTF8_TEXT, iterate)
-
-
-def retries(timeout=30, delay=1):
-    """Helper for retrying something, sleeping between attempts.
-
-    Yields ``(elapsed, remaining)`` tuples, giving times in seconds.
-
-    @param timeout: From now, how long to keep iterating, in seconds.
-    @param delay: The sleep between each iteration, in seconds.
-    """
-    start = time()
-    end = start + timeout
-    for now in iter(time, None):
-        if now < end:
-            yield now - start, end - now
-            sleep(min(delay, end - now))
-        else:
-            break
-
-
-def preexec_fn():
-    # Revert Python's handling of SIGPIPE. See
-    # http://bugs.python.org/issue1652 for more info.
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-
-
+sauce_connect_url = "https://saucelabs.com/downloads/Sauce-Connect-latest.zip"
 sauce_connect_dir = path.expanduser("~/.saucelabs/connect")
 
 
-def get_or_download_sauce_connect(
-    url="https://saucelabs.com/downloads/Sauce-Connect-latest.zip"):
+def get_or_download_sauce_connect(url=sauce_connect_url):
     """Find or download ``Sauce-Connect.jar`` to a shared location."""
     sauce_connect_jarfile = path.join(
         sauce_connect_dir, "Sauce-Connect.jar")
@@ -105,7 +64,8 @@ def get_credentials():
 
     @return: A ``(username, api_key)`` tuple.
     """
-    sauce_connect_credentials_file = path.join(sauce_connect_dir, "creds")
+    sauce_connect_credentials_file = path.join(
+        sauce_connect_dir, "credentials")
     with open(sauce_connect_credentials_file, "rb") as fd:
         creds = extract_word_list(fd.read())
     return tuple(islice(chain(creds, repeat(b"")), 2))
