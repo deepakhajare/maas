@@ -12,8 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.utils import extract_word_list
 from maastesting.testcase import TestCase
+from maastesting.utils import extract_word_list
 
 
 class TestFunctions(TestCase):
