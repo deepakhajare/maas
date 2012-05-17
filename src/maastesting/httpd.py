@@ -33,9 +33,13 @@ class SilentHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 
 class HTTPServerFixture(Fixture):
+    """Bring up a very simple, threaded, web server.
 
-    def __init__(self, host="localhost", port=8080):
-        super(HTTPServerFixture, self).__init__(self)
+    Files are served from the current working directory and below.
+    """
+
+    def __init__(self, host="localhost", port=0):
+        super(HTTPServerFixture, self).__init__()
         self.server = ThreadingHTTPServer(
             (host, port), SilentHTTPRequestHandler)
 
