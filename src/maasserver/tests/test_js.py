@@ -34,14 +34,13 @@ import threading
 from fixtures import Fixture
 from maastesting.saucelabs import (
     SauceConnectFixture,
-    SauceOnDemandFixture,
+    SSTOnDemandFixture,
     )
 from maastesting.testcase import TestCase
 from maastesting.utils import extract_word_list
 from nose.tools import nottest
 from pyvirtualdisplay import Display
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from sst import actions
 from sst.actions import (
     assert_text,
     get_element,
@@ -51,7 +50,6 @@ from sst.actions import (
     wait_for,
     )
 from testtools import clone_test_with_new_id
-from testtools.monkey import MonkeyPatcher
 
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
@@ -291,12 +289,9 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
             with SauceConnectFixture() as sauce_connect:
                 for browser_name in browser_names:
                     capabilities = remote_browsers[browser_name]
-                    sauce_ondemand = SauceOnDemandFixture(
+                    sst_ondemand = SSTOnDemandFixture(
                         capabilities, sauce_connect.control_url)
-                    with sauce_ondemand:
+                    with sst_ondemand:
                         browser_test = self.clone("remote:%s" % browser_name)
                         browser_test.scenarios = scenarios
-                        patcher = MonkeyPatcher(
-                            (actions, "browser", sauce_ondemand.driver),
-                            (actions, "browsermob_proxy", None))
-                        patcher.run_with_patches(browser_test, result)
+                        browser_test(result)
