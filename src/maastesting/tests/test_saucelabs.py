@@ -277,8 +277,9 @@ class TestSSTOnDemandFixture(TestSauceOnDemandFixture):
         self.patch(actions, "browsermob_proxy", sentinel)
         self.patch(actions, "start", sentinel)
         self.patch(actions, "stop", sentinel)
-        # When the fixture is active the browser is set, the proxy is not set,
-        # and the start() and stop() functions are disabled.
+        # When the fixture is active the browser is set to the driver that
+        # SauceOnDemandFixture.setUp() arranges, the proxy is unset, and the
+        # start() and stop() functions are disabled.
         with fixture:
             self.assertIs(fixture.driver, actions.browser)
             self.assertIs(None, actions.browsermob_proxy)
