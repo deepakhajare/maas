@@ -54,13 +54,12 @@ class PowerAction:
     def execute(self, **kwargs):
         template = self.get_template()
         rendered = self.render_template(template, **kwargs)
-        cmd = ['/bin/sh','-c', rendered]
 
         # This might need retrying but it could be better to leave that
         # to the individual scripts.
         try:
             proc = subprocess.Popen(
-                cmd, shell=False, stdout=subprocess.PIPE,
+                rendered, shell=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, close_fds=True)
         except OSError, e:
             raise PowerActionFail(e)
