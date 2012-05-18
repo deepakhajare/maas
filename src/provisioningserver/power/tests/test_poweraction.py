@@ -22,6 +22,7 @@ from django.conf import settings
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import (
     PowerAction,
+    PowerActionFail,
     UnknownPowerType,
     )
 
@@ -68,6 +69,13 @@ class TestPowerAction(TestCase):
         self.assertEqual(
             template % dict(mac="mymac"), rendered)
 
+    def _create_template_file(self, template):
+        tempdir = self.useFixture(TempDir()).path
+        path = os.path.join(tempdir, "testscript.sh")
+        with open(path, "w") as f:
+            f.write(template)
+        return path
+
     def test_execute(self):
         # execute() should run the template through a shell.
 
@@ -77,9 +85,7 @@ class TestPowerAction(TestCase):
         template = dedent("""\
             echo working %(mac)s >""")
         template += output_file
-        path = os.path.join(tempdir, "testscript.sh")
-        with open(path, "w") as f:
-            f.write(template)
+        path = self._create_template_file(template)
 
         # Execute it.
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
@@ -92,3 +98,14 @@ class TestPowerAction(TestCase):
             output = f.read()
 
         self.assertEqual("working test\n", output)
+
+    def test_execute_raises_PowerActionFail_when_script_fails(self):
+        template = "this_is_not_valid_shell"
+        path = self._create_template_file(template)
+        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
+        pa.path = path
+        exception = self.assertRaises(
+            PowerActionFail, pa.execute)
+
+        self.assertEqual(
+            "ether_wake failed with return code 127", exception.message)
