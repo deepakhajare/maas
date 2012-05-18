@@ -69,6 +69,7 @@ class PowerAction:
             raise PowerActionFail(e)
 
         stdout, stderr = proc.communicate()
+        # TODO: log output on errors
         code = proc.returncode
         if code != 0:
             raise PowerActionFail("%s failed with return code %s" % (
