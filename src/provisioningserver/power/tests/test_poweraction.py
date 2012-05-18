@@ -13,9 +13,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from fixtures import TempDir
 import os
-from testtools import TestCase
+from maastesting.testcase import TestCase
 from textwrap import dedent
 
 from django.conf import settings
@@ -75,7 +74,7 @@ class TestPowerAction(TestCase):
             exception.message)
 
     def _create_template_file(self, template):
-        tempdir = self.useFixture(TempDir()).path
+        tempdir = self.make_dir()
         path = os.path.join(tempdir, "testscript.sh")
         with open(path, "w") as f:
             f.write(template)
@@ -97,7 +96,7 @@ class TestPowerAction(TestCase):
         # execute() should run the template through a shell.
 
         # Create a template in a temp dir.
-        tempdir = self.useFixture(TempDir()).path
+        tempdir = self.make_dir()
         output_file = os.path.join(tempdir, "output")
         template = dedent("""\
             #!/bin/sh
