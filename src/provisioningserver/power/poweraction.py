@@ -48,5 +48,5 @@ class PowerAction:
 
     def execute(self, **kwargs):
         template = self.get_template()
-        rendered = self.render_template(template, kwargs)
+        rendered = self.render_template(template, **kwargs)
         # TODO: execute!  

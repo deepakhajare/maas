@@ -13,8 +13,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from fixtures import TempDir
 import os
 from testtools import TestCase
+from textwrap import dedent
 
 from django.conf import settings
 from provisioningserver.enum import POWER_TYPE
@@ -56,3 +58,23 @@ class TestPowerAction(TestCase):
         rendered = pa.render_template(template, mac="mymac")
         self.assertEqual(
             template % dict(mac="mymac"), rendered)
+
+    def test_execute(self):
+        tempdir = self.useFixture(TempDir()).path
+        output_file = os.path.join(tempdir, "output")
+        template = dedent("""\
+            #!/bin/sh
+            echo working %(mac)s >""")
+        template += output_file
+        path = os.path.join(tempdir, "testscript.sh")
+        with open(path, "w") as f:
+            f.write(template)
+
+        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
+        pa.path = path
+        pa.execute(mac="test")
+
+        with open(output_file, "r") as f:
+            output = f.read()
+
+        self.assertEqual("working test", output)
