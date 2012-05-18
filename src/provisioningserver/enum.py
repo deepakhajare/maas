@@ -55,7 +55,7 @@ class POWER_TYPE:
     # Network wake-up.
     WAKE_ON_LAN = 'ether_wake'
 
-    # IMPI (Intelligent Platform Management Interface).
+    # IPMI (Intelligent Platform Management Interface).
     IPMI = 'ipmi'
 
     # IPMI over LAN.

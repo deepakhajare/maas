@@ -28,7 +28,7 @@ class UnknownPowerType(Exception):
 
 
 class PowerActionFail(Exception):
-    """Raised when there's a problem execting a power script."""
+    """Raised when there's a problem executing a power script."""
 
 
 class PowerAction:
