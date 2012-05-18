@@ -31,22 +31,16 @@ class TestPowerAction(TestCase):
     """Tests for PowerAction."""
 
     def test_init_raises_for_unknown_powertype(self):
-        # If constructed with a power type that doesn't map to a
-        # template file, UnknownPowerType should be raised.
         powertype = "jtv_is_a_pedant"
         self.assertRaises(
             UnknownPowerType,
             PowerAction, powertype)
 
     def test_init_stores_ether_wake_type(self):
-        # Using a power type that has a template file results in the
-        # power type stored on the object.
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
         self.assertEqual(POWER_TYPE.WAKE_ON_LAN, pa.power_type)
 
     def test_init_stores_template_path(self):
-        # Using a power type that has a template file results in the
-        # path to the template file being stored on the object.
         power_type = POWER_TYPE.WAKE_ON_LAN
         basedir = settings.POWER_TEMPLATES_DIR
         path = os.path.join(basedir, power_type + ".template")
