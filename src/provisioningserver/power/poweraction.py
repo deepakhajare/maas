@@ -35,6 +35,10 @@ class PowerAction:
     """Actions for power-related operations.
     
     :param power_type: A value from :class:`POWER_TYPE`.
+
+    The class is intended to be used in two phases:
+    1. Instatiation, passing the power_type.
+    2. .execute(), passing any template parameters required by the template.
     """
 
     def __init__(self, power_type):
@@ -59,6 +63,11 @@ class PowerAction:
         return rendered
 
     def execute(self, **kwargs):
+        """Execute the template.
+
+        Any supplied parameters will be passed to the template as substitution
+        values.
+        """
         template = self.get_template()
         rendered = self.render_template(template, **kwargs)
 
