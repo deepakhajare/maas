@@ -69,6 +69,16 @@ class TestPowerAction(TestCase):
         self.assertEqual(
             template % dict(mac="mymac"), rendered)
 
+    def test_render_template_raises_PowerActionFail(self):
+        # If not enough arguments are supplied to fill in template
+        # variables then a PowerActionFail is raised.
+        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
+        template = "template: %(mac)s"
+        exception = self.assertRaises(
+            PowerActionFail, pa.render_template, template)
+        self.assertEqual(
+            "Not enough parameters supplied to the template", exception.message)
+
     def _create_template_file(self, template):
         tempdir = self.useFixture(TempDir()).path
         path = os.path.join(tempdir, "testscript.sh")
@@ -111,4 +121,3 @@ class TestPowerAction(TestCase):
         exception = self.assertRaises(PowerActionFail, pa.execute)
         self.assertEqual(
             "ether_wake failed with return code 127", exception.message)
-

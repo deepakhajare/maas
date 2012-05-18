@@ -47,8 +47,11 @@ class PowerAction:
         return template
 
     def render_template(self, template, **kwargs):
-        rendered = template % kwargs
-        # TODO: how can we check for unused variables?
+        try:
+            rendered = template % kwargs
+        except KeyError:
+            raise PowerActionFail(
+                "Not enough parameters supplied to the template")
         return rendered
 
     def execute(self, **kwargs):
