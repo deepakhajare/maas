@@ -77,7 +77,8 @@ class TestPowerAction(TestCase):
         exception = self.assertRaises(
             PowerActionFail, pa.render_template, template)
         self.assertEqual(
-            "Not enough parameters supplied to the template", exception.message)
+            "Not enough parameters supplied to the template",
+            exception.message)
 
     def _create_template_file(self, template):
         tempdir = self.useFixture(TempDir()).path

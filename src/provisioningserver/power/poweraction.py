@@ -26,6 +26,7 @@ from django.conf import settings
 class UnknownPowerType(Exception):
     """Raised when trying to process an unknown power type."""
 
+
 class PowerActionFail(Exception):
     """Raised when there's a problem execting a power script."""
 
@@ -40,7 +41,7 @@ class PowerAction:
             raise UnknownPowerType
 
         self.power_type = power_type
-        
+
     def get_template(self):
         with open(self.path, "r") as f:
             template = f.read()
