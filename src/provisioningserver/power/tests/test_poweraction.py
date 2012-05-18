@@ -33,7 +33,7 @@ class TestPowerAction(TestCase):
     def test_init_raises_for_unknown_powertype(self):
         # If constructed with a power type that doesn't map to a
         # template file, UnknownPowerType should be raised.
-        powertype = "weinerschnitzel"
+        powertype = "jtv_is_a_pedant"
         self.assertRaises(
             UnknownPowerType,
             PowerAction, powertype)
@@ -77,7 +77,7 @@ class TestPowerAction(TestCase):
         exception = self.assertRaises(
             PowerActionFail, pa.render_template, template)
         self.assertEqual(
-            "Not enough parameters supplied to the template",
+            "Template is missing at least the mac parameter.",
             exception.message)
 
     def _create_template_file(self, template):

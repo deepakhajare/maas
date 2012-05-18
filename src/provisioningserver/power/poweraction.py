@@ -32,7 +32,10 @@ class PowerActionFail(Exception):
 
 
 class PowerAction:
-    """Actions for power-related operations."""
+    """Actions for power-related operations.
+    
+    :param power_type: A value from :class:`POWER_TYPE`.
+    """
 
     def __init__(self, power_type):
         basedir = settings.POWER_TEMPLATES_DIR
@@ -50,9 +53,9 @@ class PowerAction:
     def render_template(self, template, **kwargs):
         try:
             rendered = template % kwargs
-        except KeyError:
+        except KeyError, e:
             raise PowerActionFail(
-                "Not enough parameters supplied to the template")
+                "Template is missing at least the %s parameter." % e.message)
         return rendered
 
     def execute(self, **kwargs):
