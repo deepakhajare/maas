@@ -191,7 +191,7 @@ class MultipleUsersScenarios:
 
 
 class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
-    """Enlistement tests."""
+    """Enlistment tests."""
     scenarios = [
         ('anon', dict(userfactory=lambda: AnonymousUser())),
         ('user', dict(userfactory=factory.make_user)),
@@ -386,7 +386,7 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
 class NonAdminEnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios,
                                 TestCase):
-    # Enlistement tests for non-admin users.
+    # Enlistment tests for non-admin users.
 
     scenarios = [
         ('anon', dict(userfactory=lambda: AnonymousUser())),
@@ -415,7 +415,7 @@ class NonAdminEnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios,
 
 
 class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
-    # Enlistement tests specific to anonymous users.
+    # Enlistment tests specific to anonymous users.
 
     def test_POST_accept_not_allowed(self):
         # An anonymous user is not allowed to accept an anonymously
@@ -449,7 +449,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
 
 
 class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
-    # Enlistement tests specific to simple (non-admin) users.
+    # Enlistment tests specific to simple (non-admin) users.
 
     def test_POST_accept_not_allowed(self):
         # An non-admin user is not allowed to accept an anonymously
@@ -489,7 +489,7 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
 
 
 class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
-    # Enlistement tests specific to admin users.
+    # Enlistment tests specific to admin users.
 
     def test_POST_admin_creates_node_in_commissioning_state(self):
         # When an admin user enlists a node, it goes into the
