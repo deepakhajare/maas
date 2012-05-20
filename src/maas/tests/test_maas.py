@@ -4,6 +4,7 @@
 """Test the maas package."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -11,27 +12,24 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import codecs
 from importlib import import_module
 import new
-from os import path
+import os.path
 import sys
+from textwrap import dedent
 from unittest import skipIf
 
-from fixtures import (
-    PythonPathEntry,
-    TempDir,
-    )
+from fixtures import PythonPathEntry
 from maas import (
     find_settings,
     import_local_settings,
     import_settings,
     )
+from maastesting.djangotestcase import DjangoTestCase
 from maastesting.factory import factory
-from maastesting.testcase import TestCase
 
 
-class TestSettingsHelpers(TestCase):
+class TestSettingsHelpers(DjangoTestCase):
     """Test Django settings helper functions."""
 
     def test_find_settings(self):
@@ -75,12 +73,13 @@ class TestSettingsHelpers(TestCase):
         "%s already imported." % local_settings_module)
     def test_import_local_settings_1(self):
         # The local settings module has not yet been imported, so fake one.
-        module_dir = self.useFixture(TempDir()).path
-        module_path = path.join(
-            module_dir, b"%s.py" % self.local_settings_module)
-        with codecs.open(module_path, "wb", "ascii") as stream:
-            stream.write("SETTING = %r\n" % factory.getRandomString())
-            stream.write("_NOT_A_SETTING = %r\n" % factory.getRandomString())
+        config = dedent("""
+            SETTING = %r
+            _NOT_A_SETTING = %r
+            """ % (factory.getRandomString(), factory.getRandomString()))
+        module = self.make_file(
+            name=b"%s.py" % self.local_settings_module, contents=config)
+        module_dir, module_file = os.path.split(module)
         self.addCleanup(sys.modules.pop, self.local_settings_module, None)
         self.useFixture(PythonPathEntry(module_dir))
         self._test_import_local_settings()

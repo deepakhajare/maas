@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -10,15 +11,21 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "extract_redirect",
+    "get_content_links",
     "get_data",
     "get_fake_provisioning_api_proxy",
+    "get_prefixed_form_data",
     "reload_object",
     "reload_objects",
     ]
 
+import httplib
 import os
+from urlparse import urlparse
 from uuid import uuid1
 
+from lxml.html import fromstring
 from provisioningserver.testing import fakeapi
 
 # Current (singleton) fake provisioning API server.
@@ -53,6 +60,29 @@ def reset_fake_provisioning_api_proxy():
     """
     global fake_provisioning_proxy
     fake_provisioning_proxy = None
+
+
+def extract_redirect(http_response):
+    """Extract redirect target from an http response object.
+
+    Only the http path part of the redirect is ignored; protocol and host
+    name, if present, are not included in the result.
+
+    If the response is not a redirect, this raises :class:`ValueError` with
+    a descriptive error message.
+
+    :param http_response: A response returned from an http request.
+    :type http_response: :class:`HttpResponse`
+    :return: The "path" part of the target that `http_response` redirects to.
+    :raises: ValueError
+    """
+    if http_response.status_code != httplib.FOUND:
+        raise ValueError(
+            "Not a redirect: http status %d.  Content: %s"
+            % (http_response.status_code, http_response.content[:80]))
+    target_url = http_response['Location']
+    parsed_url = urlparse(target_url)
+    return parsed_url.path
 
 
 def reload_object(model_object):
@@ -105,3 +135,28 @@ def get_data(filename):
     path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..', 'tests', filename)
     return file(path).read()
+
+
+def get_prefixed_form_data(prefix, data):
+    """Prefix entries in a dict of form parameters with a form prefix.
+
+    Also, add a parameter "<prefix>_submit" to indicate that the form with
+    the given prefix is being submitted.
+
+    Use this to construct a form submission if the form uses a prefix (as it
+    would if there are multiple forms on the page).
+
+    :param prefix: Form prefix string.
+    :param data: A dict of form parameters.
+    :return: A new dict of prefixed form parameters.
+    """
+    result = {'%s-%s' % (prefix, key): value for key, value in data.items()}
+    result.update({'%s_submit' % prefix: 1})
+    return result
+
+
+def get_content_links(response, element='#content'):
+    """Extract links from :class:`HttpResponse` #content element."""
+    doc = fromstring(response.content)
+    [content_node] = doc.cssselect(element)
+    return [elem.get('href') for elem in content_node.cssselect('a')]

@@ -4,6 +4,7 @@
 """Run YUI3 unit tests with SST (http://testutils.org/sst/)."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -17,9 +18,10 @@ import BaseHTTPServer
 import json
 import logging
 import os
+from os.path import dirname
 import SimpleHTTPServer
 import SocketServer
-import threading
+import string
 
 from fixtures import Fixture
 from pyvirtualdisplay import Display
@@ -27,11 +29,11 @@ from sst.actions import (
     assert_text,
     get_element,
     go_to,
-    set_base_url,
     start,
     stop,
     wait_for,
     )
+from testscenarios import TestWithScenarios
 from testtools import TestCase
 
 # Base path where the HTML files will be searched.
@@ -88,59 +90,47 @@ class SilentHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     log_error = lambda *args, **kwargs: None
 
 
-class StaticServerFixture(Fixture):
-    """Setup an HTTP server that will serve static files.
-
-    This is only required because SST forces us to request urls that start
-    with 'http://' (and thus does not allow us to use urls starting with
-    'file:///').
-    """
-
-    # Port used by the temporary http server used for testing.
-    TESTING_HTTP_PORT = 18463
-
-    port = TESTING_HTTP_PORT
-
-    def __init__(self):
-        self.server = ThreadingHTTPServer(
-            ('localhost', self.port), SilentHTTPRequestHandler)
-        self.server.daemon = True
-        self.server_thread = threading.Thread(target=self.server.serve_forever)
-
-    def setUp(self):
-        super(StaticServerFixture, self).setUp()
-        self.server_thread.start()
-        self.addCleanup(self.server.shutdown)
-
-
 class SSTFixture(Fixture):
     """Setup a javascript-enabled testing browser instance with SST."""
 
     logger_names = ['selenium.webdriver.remote.remote_connection']
 
-    # Parameters used by SST for testing.
-    BROWSER_TYPE = 'Firefox'
-    BROWSER_VERSION = ''
-    BROWSER_PLATFORM = 'ANY'
+    def __init__(self, driver):
+        self.driver = driver
 
     def setUp(self):
         super(SSTFixture, self).setUp()
         start(
-              self.BROWSER_TYPE, self.BROWSER_VERSION, self.BROWSER_PLATFORM,
-              session_name=None, javascript_disabled=False,
+              self.driver, '', 'ANY', session_name=None,
+              javascript_disabled=False,
               assume_trusted_cert_issuer=False,
               webdriver_remote=None)
         self.useFixture(LoggerSilencerFixture(self.logger_names))
         self.addCleanup(stop)
 
 
-class TestYUIUnitTests(TestCase):
+project_home = dirname(dirname(dirname(dirname(__file__))))
+
+
+def get_drivers_from_env():
+    """Parse the environment variable MAAS_TEST_BROWSERS to get a list of
+    the browsers to use for the JavaScript tests.
+    Returns ['Firefox'] if the environment variable is not present.
+    """
+    return map(
+        string.strip,
+        os.environ.get('MAAS_TEST_BROWSERS', 'Firefox').split(','))
+
+
+class TestYUIUnitTests(TestWithScenarios, TestCase):
+
+    scenarios = [
+        (driver, dict(driver=driver)) for driver in get_drivers_from_env()]
 
     def setUp(self):
         super(TestYUIUnitTests, self).setUp()
         self.useFixture(DisplayFixture())
-        self.port = self.useFixture(StaticServerFixture()).port
-        self.useFixture(SSTFixture())
+        self.useFixture(SSTFixture(self.driver))
 
     def _get_failed_tests_message(self, results):
         """Return a readable error message with the list of the failed tests.
@@ -162,13 +152,13 @@ class TestYUIUnitTests(TestCase):
         return ''.join(result)
 
     def test_YUI3_unit_tests(self):
-        set_base_url('http://localhost:%d' % self.port)
         # Find all the HTML files in BASE_PATH.
         for fname in os.listdir(BASE_PATH):
             if fname.endswith('.html'):
                 # Load the page and then wait for #suite to contain
                 # 'done'.  Read the results in '#test_results'.
-                go_to("%s%s" % (BASE_PATH, fname))
+                file_path = os.path.join(project_home, BASE_PATH, fname)
+                go_to('file://%s' % file_path)
                 wait_for(assert_text, 'suite', 'done')
                 results = json.loads(get_element(id='test_results').text)
                 if results['failed'] != 0:

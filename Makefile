@@ -1,54 +1,60 @@
-PYTHON = python2.7
+python := python2.7
+
+# Python enum modules.
+py_enums := $(wildcard src/*/enum.py)
+# JavaScript enum module (not modules).
+js_enums := src/maasserver/static/js/enums.js
 
 build: \
     bin/buildout \
     bin/maas bin/test.maas \
     bin/twistd.pserv bin/test.pserv \
     bin/twistd.txlongpoll \
-    bin/py bin/ipy
+    bin/py bin/ipy \
+    $(js_enums)
 
 all: build doc
 
 bin/buildout: bootstrap.py distribute_setup.py
-	$(PYTHON) bootstrap.py --distribute --setup-source distribute_setup.py
+	$(python) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
-bin/maas: bin/buildout buildout.cfg setup.py
+bin/maas: bin/buildout buildout.cfg versions.cfg setup.py $(js_enums)
 	bin/buildout install maas
 	@touch --no-create $@
 
-bin/test.maas: bin/buildout buildout.cfg setup.py
+bin/test.maas: bin/buildout buildout.cfg versions.cfg setup.py $(js_enums)
 	bin/buildout install maas-test
 	@touch --no-create $@
 
-bin/twistd.pserv: bin/buildout buildout.cfg setup.py
+bin/twistd.pserv: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install pserv
 	@touch --no-create $@
 
-bin/test.pserv: bin/buildout buildout.cfg setup.py
+bin/test.pserv: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install pserv-test
 	@touch --no-create $@
 
-bin/twistd.txlongpoll: bin/buildout buildout.cfg setup.py
+bin/twistd.txlongpoll: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install txlongpoll
 	@touch --no-create $@
 
-bin/flake8: bin/buildout buildout.cfg setup.py
+bin/flake8: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install flake8
 	@touch --no-create $@
 
-bin/sphinx: bin/buildout buildout.cfg setup.py
+bin/sphinx: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install sphinx
 	@touch --no-create $@
 
-bin/py bin/ipy: bin/buildout buildout.cfg setup.py
+bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install repl
 	@touch --no-create bin/py bin/ipy
 
 dev-db:
 	utilities/maasdb start ./db/ disposable
 
-test: bin/test.maas bin/test.pserv
+test: bin/test.maas bin/test.pserv $(js_enums)
 	bin/test.maas
 	bin/test.pserv
 
@@ -56,6 +62,17 @@ lint: sources = contrib setup.py src templates twisted utilities
 lint: bin/flake8
 	@find $(sources) -name '*.py' ! -path '*/migrations/*' \
 	    -print0 | xargs -r0 bin/flake8
+
+pocketlint = $(call available,pocketlint,python-pocket-lint)
+
+lint-css: sources = src/maasserver/static/css
+lint-css:
+	@find $(sources) -type f \
+	    -print0 | xargs -r0 $(pocketlint) --max-length=120
+
+lint-js: sources = src/maasserver/static/js
+lint-js:
+	@find $(sources) -type f -print0 | xargs -r0 $(pocketlint)
 
 check: clean test
 
@@ -68,12 +85,19 @@ sampledata: bin/maas syncdb
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
 
+enums: $(js_enums)
+
+$(js_enums): bin/py src/maas/utils/jsenums.py $(py_enums)
+	 bin/py -m src/maas/utils/jsenums $(py_enums) > $@
+
 clean:
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
+	$(RM) $(js_enums)
+	$(RM) *.log
 
-distclean: clean pserv-stop txlongpoll-stop
+distclean: clean stop
 	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs/* parts
@@ -81,29 +105,8 @@ distclean: clean pserv-stop txlongpoll-stop
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
 	$(RM) -r docs/_build/
-
-run/pserv.pid: | bin/twistd.pserv etc/pserv.yaml
-	bin/twistd.pserv --logfile=/dev/null --pidfile=$@ \
-	    maas-pserv --config-file=etc/pserv.yaml
-
-pserv-start: run/pserv.pid
-
-pserv-stop: pidfile=run/pserv.pid
-pserv-stop:
-	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
-
-run/txlongpoll.pid: | bin/twistd.txlongpoll etc/txlongpoll.yaml
-	bin/twistd.txlongpoll --logfile=/dev/null --pidfile=$@ \
-	    txlongpoll --config-file=etc/txlongpoll.yaml
-
-txlongpoll-start: run/txlongpoll.pid
-
-txlongpoll-stop: pidfile=run/txlongpoll.pid
-txlongpoll-stop:
-	{ test -e $(pidfile) && cat $(pidfile); } | xargs --no-run-if-empty kill
-
-run: bin/maas dev-db run/pserv.pid run/txlongpoll.pid
-	bin/maas runserver 0.0.0.0:5240 --settings=maas.demo
+	$(RM) -r run/* services/*/supervise
+	$(RM) twisted/plugins/dropin.cache
 
 harness: bin/maas dev-db
 	bin/maas shell --settings=maas.demo
@@ -113,8 +116,131 @@ syncdb: bin/maas dev-db
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
 
-.PHONY: \
-    build check clean dev-db distclean doc \
-    harness lint pserv-start pserv-stop run \
-    txlongpoll-start txlongpoll-stop \
-    syncdb test sampledata
+define phony_targets
+  build
+  check
+  clean
+  dev-db
+  distclean
+  doc
+  enums
+  harness
+  lint
+  lint-css
+  lint-js
+  sampledata
+  syncdb
+  test
+endef
+
+#
+# Development services.
+#
+
+service_names := pserv reloader txlongpoll web webapp
+services := $(patsubst %,services/%/,$(service_names))
+
+run:
+	@services/run $(service_names)
+
+run+webapp:
+	@services/run $(service_names) +webapp
+
+start: $(addsuffix @start,$(services))
+
+pause: $(addsuffix @pause,$(services))
+
+status: $(addsuffix @status,$(services))
+
+restart: $(addsuffix @restart,$(services))
+
+stop: $(addsuffix @stop,$(services))
+
+supervise: $(addsuffix @supervise,$(services))
+
+define phony_services_targets
+  pause
+  restart
+  run
+  run+webapp
+  start
+  status
+  stop
+  supervise
+endef
+
+# Convenient variables and functions for service control.
+
+setlock = $(call available,setlock,daemontools)
+supervise = $(call available,supervise,daemontools)
+svc = $(call available,svc,daemontools)
+svok = $(call available,svok,daemontools)
+svstat = $(call available,svstat,daemontools)
+
+service_lock = $(setlock) -n /run/lock/maas.dev.$(firstword $(1))
+
+# Pseudo-magic targets for controlling individual services.
+
+services/%/@run: services/%/@stop services/%/@deps
+	@$(call service_lock, $*) services/$*/run
+
+services/%/@start: services/%/@supervise
+	@$(svc) -u $(@D)
+
+services/%/@pause: services/%/@supervise
+	@$(svc) -d $(@D)
+
+services/%/@status:
+	@$(svstat) $(@D)
+
+services/%/@restart: services/%/@supervise
+	@$(svc) -du $(@D)
+
+services/%/@stop:
+	@if $(svok) $(@D); then $(svc) -dx $(@D); fi
+	@while $(svok) $(@D); do sleep 0.1; done
+
+services/%/@supervise: services/%/@deps
+	@mkdir -p logs/$*
+	@touch $(@D)/down
+	@if ! $(svok) $(@D); then \
+	    logdir=$(PWD)/logs/$* \
+	        $(call service_lock, $*) $(supervise) $(@D) & fi
+	@while ! $(svok) $(@D); do sleep 0.1; done
+
+# Dependencies for individual services.
+
+services/pserv/@deps: bin/twistd.pserv
+
+services/reloader/@deps:
+
+services/txlongpoll/@deps: bin/twistd.txlongpoll
+
+services/web/@deps:
+
+services/webapp/@deps: bin/maas dev-db
+
+#
+# Phony stuff.
+#
+
+define phony
+  $(phony_services_targets)
+  $(phony_targets)
+endef
+
+phony := $(sort $(strip $(phony)))
+
+.PHONY: $(phony)
+
+#
+# Functions.
+#
+
+# Check if a command is found on PATH. Raise an error if not, citing
+# the package to install. Return the command otherwise.
+# Usage: $(call available,<command>,<package>)
+define available
+  $(if $(shell which $(1)),$(1),$(error $(1) not found; \
+    install it with 'sudo apt-get install $(2)'))
+endef

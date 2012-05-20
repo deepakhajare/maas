@@ -47,6 +47,7 @@ For example, to list all nodes, you might GET "/api/1.0/nodes/?op=list".
 """
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -55,8 +56,8 @@ __metaclass__ = type
 __all__ = [
     "api_doc",
     "api_doc_title",
-    "extract_oauth_key",
     "generate_api_doc",
+    "get_oauth_token",
     "AccountHandler",
     "AnonNodesHandler",
     "FilesHandler",
@@ -67,12 +68,17 @@ __all__ = [
     ]
 
 from base64 import b64decode
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import httplib
 import json
 import sys
 from textwrap import dedent
 import types
 
+from django.conf import settings
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -89,6 +95,10 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
+from maasserver.enum import (
+    NODE_PERMISSION,
+    NODE_STATUS,
+    )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
     MAASAPINotFound,
@@ -103,8 +113,6 @@ from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
-    NODE_PERMISSION,
-    NODE_STATUS,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -147,15 +155,26 @@ class AdminRestrictedResource(RestrictedResource):
             return actor, anonymous
 
 
-def api_exported(operation_name=True, method='POST'):
+def api_exported(method='POST', exported_as=None):
+    """Decorator to make a method available on the API.
+
+    :param method: The HTTP method over which to export the operation.
+    :param exported_as: Optional operation name; defaults to the name of the
+        exported method.
+
+    See also _`api_operations`.
+    """
     def _decorator(func):
         if method not in dispatch_methods:
             raise ValueError("Invalid method: '%s'" % method)
-        if operation_name == dispatch_methods.get(method):
+        if exported_as is None:
+            func._api_exported = {method: func.__name__}
+        else:
+            func._api_exported = {method: exported_as}
+        if func._api_exported.get(method) == dispatch_methods.get(method):
             raise ValueError(
                 "Cannot define a '%s' operation." % dispatch_methods.get(
                     method))
-        func._api_exported = {method: operation_name}
         return func
     return _decorator
 
@@ -206,11 +225,11 @@ def api_operations(cls):
     >>> @api_operations
     >>> class MyHandler(BaseHandler):
     >>>
-    >>>    @api_exported('exported_post_name', method='POST')
+    >>>    @api_exported(method='POST', exported_as='exported_post_name')
     >>>    def do_x(self, request):
     >>>        # process request...
     >>>
-    >>>    @api_exported('exported_get_name', method='GET')
+    >>>    @api_exported(method='GET')
     >>>    def do_y(self, request):
     >>>        # process request...
 
@@ -221,9 +240,9 @@ def api_operations(cls):
     op=exported_post_name&param1=1
 
     MyHandler's method 'do_y' will service GET requests with
-    'op=exported_get_name' in its request parameters.
+    'op=do_y' in its request parameters.
 
-    GET /api/path/to/MyHandler/?op=exported_get_name&param1=1
+    GET /api/path/to/MyHandler/?op=do_y&param1=1
 
     """
     # Compute the list of methods ('GET', 'POST', etc.) that need to be
@@ -240,10 +259,9 @@ def api_operations(cls):
         cls._available_api_methods = getattr(
             cls, "_available_api_methods", {}).copy()
         cls._available_api_methods[method] = {
-            (name if op._api_exported[method] is True
-                else op._api_exported[method]): op
-            for name, op in operations.items()
-            if method in op._api_exported}
+            op._api_exported[method]: op
+                for name, op in operations.items()
+                if method in op._api_exported}
 
         def dispatcher(self, request, *args, **kwargs):
             return perform_api_operation(
@@ -290,7 +308,7 @@ def get_mandatory_param(data, key, validator=None):
         return value
 
 
-def extract_oauth_key(auth_data):
+def extract_oauth_key_from_auth_header(auth_data):
     """Extract the oauth key from auth data in HTTP header.
 
     :param auth_data: {string} The HTTP Authorization header.
@@ -306,9 +324,39 @@ def extract_oauth_key(auth_data):
     return None
 
 
+def extract_oauth_key(request):
+    """Extract the oauth key from a request's headers.
+
+    Raises :class:`Unauthorized` if no key is found.
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if auth_header is None:
+        raise Unauthorized("No authorization header received.")
+    key = extract_oauth_key_from_auth_header(auth_header)
+    if key is None:
+        raise Unauthorized("Did not find request's oauth token.")
+    return key
+
+
+def get_oauth_token(request):
+    """Get the OAuth :class:`piston.models.Token` used for `request`.
+
+    Raises :class:`Unauthorized` if no key is found, or if the token is
+    unknown.
+    """
+    try:
+        return Token.objects.get(key=extract_oauth_key(request))
+    except Token.DoesNotExist:
+        raise Unauthorized("Unknown OAuth token.")
+
+
 NODE_FIELDS = (
-    'system_id', 'hostname', ('macaddress_set', ('mac_address',)),
-    'architecture', 'status')
+    'system_id',
+    'hostname',
+    ('macaddress_set', ('mac_address',)),
+    'architecture',
+    'status',
+    )
 
 
 @api_operations
@@ -352,7 +400,7 @@ class NodeHandler(BaseHandler):
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
 
-    @api_exported('stop', 'POST')
+    @api_exported('POST')
     def stop(self, request, system_id):
         """Shut down a node."""
         nodes = Node.objects.stop_nodes([system_id], request.user)
@@ -361,7 +409,7 @@ class NodeHandler(BaseHandler):
                 "You are not allowed to shut down this node.")
         return nodes[0]
 
-    @api_exported('start', 'POST')
+    @api_exported('POST')
     def start(self, request, system_id):
         """Power up a node.
 
@@ -383,7 +431,7 @@ class NodeHandler(BaseHandler):
                 "You are not allowed to start up this node.")
         return nodes[0]
 
-    @api_exported('release', 'POST')
+    @api_exported('POST')
     def release(self, request, system_id):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
         node = Node.objects.get_node_or_404(
@@ -394,7 +442,6 @@ class NodeHandler(BaseHandler):
             pass
         elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
             node.release()
-            node.save()
         else:
             raise NodeStateViolation(
                 "Node cannot be released in its current state ('%s')."
@@ -425,7 +472,7 @@ class AnonNodesHandler(AnonymousBaseHandler):
     allowed_methods = ('GET', 'POST',)
     fields = NODE_FIELDS
 
-    @api_exported('new', 'POST')
+    @api_exported('POST')
     def new(self, request):
         """Create a new Node.
 
@@ -436,9 +483,9 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """
         return create_node(request)
 
-    @api_exported('is_registered', 'GET')
+    @api_exported('GET')
     def is_registered(self, request):
-        """Returns whether or not the given MAC Address is registered within
+        """Returns whether or not the given MAC address is registered within
         this MAAS (and attached to a non-retired node).
 
         :param mac_address: The mac address to be checked.
@@ -451,10 +498,25 @@ class AnonNodesHandler(AnonymousBaseHandler):
             mac_address=mac_address).exclude(
                 node__status=NODE_STATUS.RETIRED).exists()
 
-    @api_exported('accept', 'POST')
+    @api_exported('POST')
     def accept(self, request):
         """Accept a node's enlistment: not allowed to anonymous users."""
         raise Unauthorized("You must be logged in to accept nodes.")
+
+    @api_exported("POST")
+    def check_commissioning(self, request):
+        """Check all commissioning nodes to see if they are taking too long.
+
+        Anything that has been commissioning for longer than
+        settings.COMMISSIONING_TIMEOUT is moved into the FAILED_TESTS status.
+        """
+        interval = timedelta(minutes=settings.COMMISSIONING_TIMEOUT)
+        cutoff = datetime.now() - interval
+        query = Node.objects.filter(
+            status=NODE_STATUS.COMMISSIONING, updated__lte=cutoff)
+        query.update(status=NODE_STATUS.FAILED_TESTS)
+        # Note that Django doesn't call save() on updated nodes here,
+        # but I don't think anything requires its effects anyway.
 
     @classmethod
     def resource_uri(cls, *args, **kwargs):
@@ -482,7 +544,7 @@ class NodesHandler(BaseHandler):
     allowed_methods = ('GET', 'POST',)
     anonymous = AnonNodesHandler
 
-    @api_exported('new', 'POST')
+    @api_exported('POST')
     def new(self, request):
         """Create a new Node.
 
@@ -494,7 +556,7 @@ class NodesHandler(BaseHandler):
             node.accept_enlistment(request.user)
         return node
 
-    @api_exported('accept', 'POST')
+    @api_exported('POST')
     def accept(self, request):
         """Accept declared nodes into the MAAS.
 
@@ -532,7 +594,7 @@ class NodesHandler(BaseHandler):
         return filter(
             None, [node.accept_enlistment(request.user) for node in nodes])
 
-    @api_exported('list', 'GET')
+    @api_exported('GET')
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by id."""
         match_ids = request.GET.getlist('id')
@@ -542,40 +604,24 @@ class NodesHandler(BaseHandler):
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         return nodes.order_by('id')
 
-    @api_exported('list_allocated', 'GET')
+    @api_exported('GET')
     def list_allocated(self, request):
         """Fetch Nodes that were allocated to the User/oauth token."""
-        auth_header = request.META.get("HTTP_AUTHORIZATION")
-        # A plain assertion is fine here because to get this far we
-        # should already have a valid authorization. If the assertion
-        # fails it is a genuine bug in the code and this will return a
-        # 500 response which is appropriate.
-        assert auth_header is not None, (
-            "HTTP_AUTHORIZATION not set on request")
-        key = extract_oauth_key(auth_header)
-        assert key is not None, (
-            "Invalid Authorization header on request.")
-        token = Token.objects.get(key=key)
+        token = get_oauth_token(request)
         match_ids = request.GET.getlist('id')
         if match_ids == []:
             match_ids = None
         nodes = Node.objects.get_allocated_visible_nodes(token, match_ids)
         return nodes.order_by('id')
 
-    @api_exported('acquire', 'POST')
+    @api_exported('POST')
     def acquire(self, request):
         """Acquire an available node for deployment."""
         node = Node.objects.get_available_node_for_acquisition(
             request.user, constraints=extract_constraints(request.data))
         if node is None:
             raise NodesNotAvailable("No matching node is available.")
-        auth_header = request.META.get("HTTP_AUTHORIZATION")
-        assert auth_header is not None, (
-            "HTTP_AUTHORIZATION not set on request")
-        key = extract_oauth_key(auth_header)
-        token = Token.objects.get(key=key)
-        node.acquire(token)
-        node.save()
+        node.acquire(request.user, get_oauth_token(request))
         return node
 
     @classmethod
@@ -585,21 +631,21 @@ class NodesHandler(BaseHandler):
 
 class NodeMacsHandler(BaseHandler):
     """
-    Manage all the MAC Addresses linked to a Node / Create a new MAC Address
+    Manage all the MAC addresses linked to a Node / Create a new MAC address
     for a Node.
 
     """
     allowed_methods = ('GET', 'POST',)
 
     def read(self, request, system_id):
-        """Read all MAC Addresses related to a Node."""
+        """Read all MAC addresses related to a Node."""
         node = Node.objects.get_node_or_404(
             user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
         return MACAddress.objects.filter(node=node).order_by('id')
 
     def create(self, request, system_id):
-        """Create a MAC Address for a specified Node."""
+        """Create a MAC address for a specified Node."""
         node = Node.objects.get_node_or_404(
             user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
         mac = node.add_mac_address(request.data.get('mac_address', None))
@@ -611,13 +657,13 @@ class NodeMacsHandler(BaseHandler):
 
 
 class NodeMacHandler(BaseHandler):
-    """Manage a MAC Address linked to a Node."""
+    """Manage a MAC address linked to a Node."""
     allowed_methods = ('GET', 'DELETE')
     fields = ('mac_address',)
     model = MACAddress
 
     def read(self, request, system_id, mac_address):
-        """Read a MAC Address related to a Node."""
+        """Read a MAC address related to a Node."""
         node = Node.objects.get_node_or_404(
             user=request.user, system_id=system_id, perm=NODE_PERMISSION.VIEW)
 
@@ -626,7 +672,7 @@ class NodeMacHandler(BaseHandler):
             MACAddress, node=node, mac_address=mac_address)
 
     def delete(self, request, system_id, mac_address):
-        """Delete a specific MAC Address for the specified Node."""
+        """Delete a specific MAC address for the specified Node."""
         validate_mac(mac_address)
         node = Node.objects.get_node_or_404(
             user=request.user, system_id=system_id, perm=NODE_PERMISSION.EDIT)
@@ -677,7 +723,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
     """
     allowed_methods = ('GET',)
 
-    get = api_exported('get', 'GET')(get_file)
+    get = api_exported('GET', exported_as='get')(get_file)
 
 
 @api_operations
@@ -686,9 +732,9 @@ class FilesHandler(BaseHandler):
     allowed_methods = ('GET', 'POST',)
     anonymous = AnonFilesHandler
 
-    get = api_exported('get', 'GET')(get_file)
+    get = api_exported('GET', exported_as='get')(get_file)
 
-    @api_exported('add', 'POST')
+    @api_exported('POST')
     def add(self, request):
         """Add a new file to the file storage.
 
@@ -723,7 +769,7 @@ class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
     allowed_methods = ('POST',)
 
-    @api_exported('create_authorisation_token', method='POST')
+    @api_exported('POST')
     def create_authorisation_token(self, request):
         """Create an authorisation OAuth token and OAuth consumer.
 
@@ -741,7 +787,7 @@ class AccountHandler(BaseHandler):
             'consumer_key': consumer.key,
             }
 
-    @api_exported('delete_authorisation_token', method='POST')
+    @api_exported('POST')
     def delete_authorisation_token(self, request):
         """Delete an authorisation OAuth token and the related OAuth consumer.
 
@@ -763,7 +809,7 @@ class MAASHandler(BaseHandler):
     """Manage the MAAS' itself."""
     allowed_methods = ('POST', 'GET')
 
-    @api_exported('set_config', method='POST')
+    @api_exported('POST')
     def set_config(self, request):
         """Set a config value.
 
@@ -778,7 +824,7 @@ class MAASHandler(BaseHandler):
         Config.objects.set_config(name, value)
         return rc.ALL_OK
 
-    @api_exported('get_config', method='GET')
+    @api_exported('GET')
     def get_config(self, request):
         """Get a config value.
 

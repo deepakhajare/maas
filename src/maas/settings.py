@@ -4,6 +4,7 @@
 """Django settings for maas project."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -48,12 +49,6 @@ LOGIN_URL = '/accounts/login/'
 
 # The MAAS CLI.
 MAAS_CLI = 'sudo maas'
-
-# The location of the Longpoll server.
-# Set LONGPOLL_SERVER_URL to have the web app proxy requests to
-# a txlongpoll (note that this should only be required in a dev
-# environment).
-LONGPOLL_SERVER_URL = None
 
 # The relative path where a proxy to the Longpoll server can be
 # reached.  Longpolling will be disabled in the UI if this is None.
@@ -174,6 +169,12 @@ STATICFILES_DIRS = (
     # Don't forget to use absolute paths, not relative paths.
 )
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # List of finder classes that know how to find static files in
 # various locations.
 STATICFILES_FINDERS = (
@@ -208,7 +209,12 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # ErrorsMiddleware catches ExternalComponentException and redirects.
+    # Specialised error handling middleware (like APIErrorsMiddleware)
+    # should be placed after it.
+    'maasserver.middleware.ErrorsMiddleware',
     'maasserver.middleware.APIErrorsMiddleware',
+    'maasserver.middleware.ExternalComponentsMiddleware',
     'metadataserver.middleware.MetadataErrorsMiddleware',
     'django.middleware.transaction.TransactionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -269,6 +275,10 @@ USE_REAL_PSERV = True
 # part of commissioning.  Only override this if you know what you are
 # doing.
 COMMISSIONING_SCRIPT = 'etc/maas/commissioning-user-data'
+
+# The duration, in minutes, after which we consider a commissioning node
+# to have failed and mark it as FAILED_TESTS.
+COMMISSIONING_TIMEOUT = 60
 
 # Allow the user to override settings in maas_local_settings.
 import_local_settings()

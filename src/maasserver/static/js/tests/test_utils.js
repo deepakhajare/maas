@@ -4,7 +4,7 @@
 
 YUI({ useBrowserConsole: true }).add('maas.utils.tests', function(Y) {
 
-Y.log('loading mass.utils.tests');
+Y.log('loading maas.utils.tests');
 var namespace = Y.namespace('maas.utils.tests');
 
 var module = Y.maas.utils;
@@ -125,6 +125,15 @@ suite.add(new Y.maas.testing.TestCase({
         var widget = new module.TitleEditWidget({srcNode: '#placeholder'});
         widget.render();
         return widget;
+    },
+
+    test_widget_goes_away_quietly_if_not_wanted: function() {
+        // If the srcNode isn't present on the page, the widget understands
+        // that it's not wanted.  Rather than break, it simply refrains from
+        // rendering.
+        var widget = new module.TitleEditWidget({srcNode: '#no-widget-here'});
+        widget.render();
+        Y.Assert.areEqual(null, widget.get('input'));
     },
 
     test_getInput_returns_input: function() {
@@ -255,16 +264,6 @@ suite.add(new Y.maas.testing.TestCase({
         this.silentIO(module);
         var input = widget.get('srcNode').one('input');
         input.simulate('blur');
-        Y.Assert.isFalse(widget._editing);
-    },
-
-    test_input_enter_pressed_stops_editing: function() {
-        var widget = this.createWidget();
-        widget._editing = true;
-        this.silentIO(module);
-        var input = widget.get('srcNode').one('input');
-        // Simulate 'Enter' being pressed.
-        input.simulate("keypress", { keyCode: 13 });
         Y.Assert.isFalse(widget._editing);
     }
 

@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -129,6 +130,7 @@ class RecordingSession(cobblerclient.CobblerSession):
         super(RecordingSession, self).__init__(*args, **kwargs)
 
     def _make_twisted_proxy(self):
+        """Override for CobblerSession's proxy factory."""
         return self.fake_proxy
 
 

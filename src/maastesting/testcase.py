@@ -4,6 +4,7 @@
 """Test related classes and functions for maas and its applications."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -11,31 +12,46 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'TestCase',
-    'TestModelTestCase',
-    'TransactionTestCase',
     ]
 
 import unittest
 
-from django.conf import settings
-from django.core.management.commands import syncdb
-from django.db.models import loading
-import django.test
+from fixtures import TempDir
+from maastesting.factory import factory
+from maastesting.scenarios import WithScenarios
 import testresources
 import testtools
 
 
-class TestCaseBase(testtools.TestCase):
+class TestCase(WithScenarios, testtools.TestCase):
+    """Base `TestCase` for MAAS.
+
+    Supports `test resources`_, `test scenarios`_, and `fixtures`_.
+
+    .. _test resources: https://launchpad.net/testresources
+
+    .. _test scenarios: https://launchpad.net/testscenarios
+
+    .. _fixtures: https://launchpad.net/python-fixtures
+
+    """
+
     # testresources.ResourcedTestCase does something similar to this class
     # (with respect to setUpResources and tearDownResources) but it explicitly
     # up-calls to unittest.TestCase instead of using super() even though it is
     # not guaranteed that the next class in the inheritance chain is
     # unittest.TestCase.
 
-    resources = ()
+    resources = (
+        # (resource-name, resource),
+        )
+
+    scenarios = (
+        # (scenario-name, {instance-attribute-name: value, ...}),
+        )
 
     def setUp(self):
-        super(TestCaseBase, self).setUp()
+        super(TestCase, self).setUp()
         self.setUpResources()
 
     def setUpResources(self):
@@ -44,72 +60,29 @@ class TestCaseBase(testtools.TestCase):
 
     def tearDown(self):
         self.tearDownResources()
-        super(TestCaseBase, self).tearDown()
+        super(TestCase, self).tearDown()
 
     def tearDownResources(self):
         testresources.tearDownResources(
             self, self.resources, testresources._get_result())
 
+    def make_dir(self):
+        """Create a temporary directory.
+
+        This is a convenience wrapper around a fixture incantation.  That's
+        the only reason why it's on the test case and not in a factory.
+        """
+        return self.useFixture(TempDir()).path
+
+    def make_file(self, name=None, contents=None):
+        """Create, and write to, a file.
+
+        This is a convenience wrapper around `make_dir` and a factory
+        call.  It ensures that the file is in a directory that will be
+        cleaned up at the end of the test.
+        """
+        return factory.make_file(self.make_dir(), name, contents)
+
     # Django's implementation for this seems to be broken and was
     # probably only added to support compatibility with python 2.6.
     assertItemsEqual = unittest.TestCase.assertItemsEqual
-
-
-class TestCase(TestCaseBase, django.test.TestCase):
-    """`TestCase` for Metal as a Service.
-
-    Supports test resources and fixtures.
-    """
-
-    def assertAttributes(self, tested_object, attributes):
-        """Check multiple attributes of `tested_objects` against a dict.
-
-        :param tested_object: Any object whose attributes should be checked.
-        :param attributes: A dict of attributes to test, and their expected
-            values.  Only these attributes will be checked.
-        """
-        matcher = testtools.matchers.MatchesStructure.byEquality(**attributes)
-        self.assertThat(tested_object, matcher)
-
-
-class TransactionTestCase(TestCaseBase, django.test.TransactionTestCase):
-    """`TransactionTestCase` for Metal as a Service.
-
-    A version of TestCase that supports transactions.
-
-    The basic Django TestCase class uses transactions to speed up tests
-    so this class should be used when tests involve transactions.
-    """
-
-
-class TestModelTestCase(TestCase):
-    """A custom test case that adds support for test-only models.
-
-    For instance, if you want to have a model object used solely for testing
-    in your application 'myapp1' you would create a test case that uses
-    TestModelTestCase as its base class and:
-    - initialize self.app with 'myapp1.tests'
-    - define the models used for testing in myapp1.tests.models
-
-    This way the models defined in myapp1.tests.models will be available in
-    this test case (and this test case only).
-    """
-
-    # Set the appropriate application to be loaded.
-    app = None
-
-    def _pre_setup(self):
-        # Add the models to the db.
-        self._original_installed_apps = list(settings.INSTALLED_APPS)
-        assert self.app is not None, "TestCase.app must be defined!"
-        settings.INSTALLED_APPS.append(self.app)
-        loading.cache.loaded = False
-        # Use Django's 'syncdb' rather than South's.
-        syncdb.Command().handle_noargs(verbosity=0, interactive=False)
-        super(TestModelTestCase, self)._pre_setup()
-
-    def _post_teardown(self):
-        super(TestModelTestCase, self)._post_teardown()
-        # Restore the settings.
-        settings.INSTALLED_APPS = self._original_installed_apps
-        loading.cache.loaded = False

@@ -40,14 +40,15 @@
             </td>
             <td>
               <a href="{% url 'accounts-edit' user_item.username %}"
-                 title="Edit user {{ user_item.username }}">
+                 title="Edit user {{ user_item.username }}"
+                 class="icon">
                 <img src="{{ STATIC_URL }}img/edit.png" 
                      alt="edit"
                      class="space-right-small" />
               </a>
               {% if user != user_item %}
                 <a title="Delete user {{ user_item.username }}"
-                   class="delete-user"
+                   class="delete-user icon"
                    href="{% url 'accounts-del' user_item.username %}">
                   <img src="{{ STATIC_URL }}img/delete.png" alt="delete" />
                 </a>
@@ -67,8 +68,7 @@
       </a>
       <div class="clear"></div>
     </div>
-<!-- XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable. -->
-    <div id="commissioning" class="hidden block size7 first">
+    <div id="commissioning" class="block size7 first">
       <h2>Commissioning</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>
@@ -80,8 +80,7 @@
         <input type="submit" class="button right" value="Save" />
       </form>
     </div>
-<!-- XXX JeroenVermeulen 2012-04-12, bug=979539: re-enable. -->
-    <div id="ubuntu" class="hidden block size7 first">
+    <div id="ubuntu" class="block size7 first">
       <h2>Ubuntu</h2>
       <form action="{% url "settings" %}" method="post">
         <ul>

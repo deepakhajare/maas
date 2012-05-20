@@ -4,6 +4,7 @@
 """Tests for the metadata API."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -15,16 +16,14 @@ from collections import namedtuple
 import httplib
 from io import BytesIO
 
+from maasserver.enum import NODE_STATUS
 from maasserver.exceptions import Unauthorized
-from maasserver.models import (
-    NODE_STATUS,
-    SSHKey,
-    )
+from maasserver.models import SSHKey
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
-from maastesting.testcase import TestCase
+from maastesting.djangotestcase import DjangoTestCase
 from metadataserver.api import (
     check_version,
     get_node_for_request,
@@ -42,7 +41,7 @@ from metadataserver.nodeinituser import get_node_init_user
 from provisioningserver.testing.factory import ProvisioningFakeFactory
 
 
-class TestHelpers(TestCase):
+class TestHelpers(DjangoTestCase):
     """Tests for the API helper functions."""
 
     def fake_request(self, **kwargs):
@@ -85,7 +84,7 @@ class TestHelpers(TestCase):
             get_node_for_request, self.fake_request())
 
 
-class TestViews(TestCase, ProvisioningFakeFactory):
+class TestViews(DjangoTestCase, ProvisioningFakeFactory):
     """Tests for the API views."""
 
     def make_node_client(self, node=None):
@@ -313,6 +312,16 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         self.assertEqual(
             NODE_STATUS.COMMISSIONING, reload_object(node).status)
 
+    def test_signaling_WORKING_keeps_owner(self):
+        user = factory.make_user()
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        node.owner = user
+        node.save()
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, status='WORKING')
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(user, reload_object(node).owner)
+
     def test_signaling_commissioning_success_makes_node_Ready(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
@@ -343,6 +352,15 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
 
+    def test_signaling_commissioning_success_clears_owner(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        node.owner = factory.make_user()
+        node.save()
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, status='OK')
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(None, reload_object(node).owner)
+
     def test_signaling_commissioning_failure_makes_node_Failed_Tests(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
@@ -365,6 +383,15 @@ class TestViews(TestCase, ProvisioningFakeFactory):
         response = self.call_signal(client, status='FAILED', error=error_text)
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(error_text, reload_object(node).error)
+
+    def test_signaling_commissioning_failure_clears_owner(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        node.owner = factory.make_user()
+        node.save()
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, status='FAILED')
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(None, reload_object(node).owner)
 
     def test_signaling_no_error_clears_existing_error(self):
         node = factory.make_node(

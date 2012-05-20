@@ -4,6 +4,7 @@
 """Test object factories."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -18,22 +19,31 @@ import random
 import time
 
 from django.contrib.auth.models import User
-from maasserver.models import (
+from maasserver.enum import (
     ARCHITECTURE,
+    NODE_STATUS,
+    )
+from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
-    NODE_STATUS,
+    NODE_TRANSITIONS,
     SSHKey,
     )
-from maasserver.testing import get_data
-from maasserver.testing.enum import map_enum
+from maasserver.testing import (
+    get_data,
+    reload_object,
+    )
+from maasserver.utils import map_enum
 import maastesting.factory
 from metadataserver.models import NodeCommissionResult
 
 # We have a limited number of public keys:
 # src/maasserver/tests/data/test_rsa{0, 1, 2, 3, 4}.pub
 MAX_PUBLIC_KEYS = 5
+
+
+ALL_NODE_STATES = map_enum(NODE_STATUS).values()
 
 
 class Factory(maastesting.factory.Factory):
@@ -63,8 +73,18 @@ class Factory(maastesting.factory.Factory):
         return random.choice(
             [choice for choice in choices if choice[0] not in but_not])[0]
 
+    def _save_node_unchecked(self, node):
+        """Save a :class:`Node`, but circumvent status transition checks."""
+        valid_initial_states = NODE_TRANSITIONS[None]
+        NODE_TRANSITIONS[None] = ALL_NODE_STATES
+        try:
+            node.save()
+        finally:
+            NODE_TRANSITIONS[None] = valid_initial_states
+
     def make_node(self, hostname='', set_hostname=False, status=None,
-                  architecture=ARCHITECTURE.i386, **kwargs):
+                  architecture=ARCHITECTURE.i386, updated=None,
+                  created=None, **kwargs):
         # hostname=None is a valid value, hence the set_hostname trick.
         if hostname is '' and set_hostname:
             hostname = self.getRandomString(255)
@@ -73,8 +93,15 @@ class Factory(maastesting.factory.Factory):
         node = Node(
             hostname=hostname, status=status, architecture=architecture,
             **kwargs)
-        node.save(skip_check=True)
-        return node
+        self._save_node_unchecked(node)
+
+        # Update the 'updated'/'created' fields with a call to 'update'
+        # preventing a call to save() from overriding the values.
+        if updated is not None:
+            Node.objects.filter(id=node.id).update(updated=updated)
+        if created is not None:
+            Node.objects.filter(id=node.id).update(created=created)
+        return reload_object(node)
 
     def make_node_commission_result(self, node=None, name=None, data=None):
         if node is None:
@@ -87,10 +114,12 @@ class Factory(maastesting.factory.Factory):
         ncr.save()
         return ncr
 
-    def make_mac_address(self, address):
+    def make_mac_address(self, address=None, node=None):
         """Create a MAC address."""
-        node = Node()
-        node.save()
+        if node is None:
+            node = self.make_node()
+        if address is None:
+            address = self.getRandomMACAddress()
         mac = MACAddress(mac_address=address, node=node)
         mac.save()
         return mac

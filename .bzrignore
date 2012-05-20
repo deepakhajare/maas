@@ -1,5 +1,6 @@
 *.egg
 *.egg-info
+*.log
 ./.coverage
 ./.installed.cfg
 ./.noseids
@@ -16,7 +17,9 @@
 ./media/demo/*
 ./media/development
 ./parts
-./run/*.pid
+./run/*
+./services/*/supervise
+src/maasserver/static/js/enums.js
 ./TAGS
 ./tags
 ./twisted/plugins/dropin.cache

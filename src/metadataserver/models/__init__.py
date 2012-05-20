@@ -1,9 +1,14 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Model for the metadata server."""
+"""Model for the metadata server.
+
+DO NOT add new models to this module.  Add them to the package as separate
+modules, but import them here and add them to `__all__`.
+"""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -25,6 +30,7 @@ from maasserver.models import (
     create_auth_token,
     Node,
     )
+from maasserver.models.cleansave import CleanSave
 from metadataserver.fields import (
     Bin,
     BinaryField,
@@ -112,7 +118,7 @@ class NodeKeyManager(Manager):
         return self.get(key=key).node
 
 
-class NodeKey(Model):
+class NodeKey(CleanSave, Model):
     """Associate a Node with its OAuth (token) key.
 
     :ivar node: A Node.
@@ -163,7 +169,7 @@ class NodeUserDataManager(Manager):
         self.filter(node=node).delete()
 
 
-class NodeUserData(Model):
+class NodeUserData(CleanSave, Model):
     """User-data portion of a node's metadata.
 
     When cloud-init sets up a node, it retrieves specific data for that node
@@ -201,7 +207,7 @@ class NodeCommissionResultManager(Manager):
         return ncr.data
 
 
-class NodeCommissionResult(Model):
+class NodeCommissionResult(CleanSave, Model):
     """Storage for data returned from node commissioning.
 
     Commissioning a node results in various bits of data that need to be

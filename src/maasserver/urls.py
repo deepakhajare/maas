@@ -4,6 +4,7 @@
 """URL routing configuration."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -26,25 +27,31 @@ from django.views.generic.simple import (
     )
 from maasserver.maasavahi import setup_maas_avahi_service
 from maasserver.models import Node
-from maasserver.views import (
+from maasserver.views.account import (
+    login,
+    logout,
+    )
+from maasserver.views.combo import combo_view
+from maasserver.views.nodes import (
+    MacAdd,
+    MacDelete,
+    NodeDelete,
+    NodeEdit,
+    NodeListView,
+    NodeView,
+    )
+from maasserver.views.prefs import (
+    SSHKeyCreateView,
+    SSHKeyDeleteView,
+    userprefsview,
+    )
+from maasserver.views.settings import (
     AccountsAdd,
     AccountsDelete,
     AccountsEdit,
     AccountsView,
-    combo_view,
-    login,
-    logout,
-    NodeDelete,
-    NodeEdit,
-    NodeListView,
-    NodesCreateView,
-    NodeView,
-    proxy_to_longpoll,
     settings,
     settings_add_archive,
-    SSHKeyCreateView,
-    SSHKeyDeleteView,
-    userprefsview,
     )
 
 
@@ -53,7 +60,7 @@ def adminurl(regexp, view, *args, **kwargs):
     return url(regexp, view, *args, **kwargs)
 
 
-# URLs accessible to anonymous users.
+## URLs accessible to anonymous users.
 urlpatterns = patterns('maasserver.views',
     url(
         r'^%s' % re.escape(django_settings.YUI_COMBO_URL), combo_view,
@@ -68,7 +75,8 @@ urlpatterns = patterns('maasserver.views',
         name='favicon'),
 )
 
-# URLs for logged-in users.
+## URLs for logged-in users.
+# Preferences views.
 urlpatterns += patterns('maasserver.views',
     url(r'^account/prefs/$', userprefsview, name='prefs'),
     url(
@@ -77,7 +85,15 @@ urlpatterns += patterns('maasserver.views',
     url(
         r'^account/prefs/sshkey/delete/(?P<keyid>\d*)/$',
         SSHKeyDeleteView.as_view(), name='prefs-delete-sshkey'),
+    )
+
+# Logout view.
+urlpatterns += patterns('maasserver.views',
     url(r'^accounts/logout/$', logout, name='logout'),
+)
+
+# Nodes views.
+urlpatterns += patterns('maasserver.views',
     url(
         r'^$',
         NodeListView.as_view(template_name="maasserver/index.html"),
@@ -92,38 +108,17 @@ urlpatterns += patterns('maasserver.views',
     url(
         r'^nodes/(?P<system_id>[\w\-]+)/delete/$', NodeDelete.as_view(),
         name='node-delete'),
-     url(
-        r'^nodes/create/$', NodesCreateView.as_view(), name='node-create'),
+    url(
+        r'^nodes/(?P<system_id>[\w\-]+)/macs/(?P<mac_address>.+)/delete/$',
+        MacDelete.as_view(), name='mac-delete'),
+    url(
+        r'^nodes/(?P<system_id>[\w\-]+)/macs/add/$',
+        MacAdd.as_view(), name='mac-add'),
 )
 
 
-def get_proxy_longpoll_enabled():
-    """Should MAAS act as a proxy to a txlongpoll server?
-
-    This should only be true if longpoll is enabled (LONGPOLL_PATH) and
-    if the url to a txlongpoll is configured (LONGPOLL_SERVER_URL).
-    """
-    return (
-        django_settings.LONGPOLL_SERVER_URL is not None and
-        django_settings.LONGPOLL_PATH is not None)
-
-
-def make_path_relative(url):
-    if url.startswith('/'):
-        return url[1:]
-    else:
-        return url
-
-
-if get_proxy_longpoll_enabled():
-    urlpatterns += patterns('maasserver.views',
-        url(
-            r'^%s$' % re.escape(
-                make_path_relative(django_settings.LONGPOLL_PATH)),
-            proxy_to_longpoll, name='proxy-to-longpoll'),
-        )
-
-# URLs for admin users.
+## URLs for admin users.
+# Settings views.
 urlpatterns += patterns('maasserver.views',
     adminurl(r'^settings/$', settings, name='settings'),
     adminurl(

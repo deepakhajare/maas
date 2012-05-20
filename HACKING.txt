@@ -26,14 +26,14 @@ usually use the ``lowercase_with_underscores`` form.
 Prerequisites
 =============
 
-You will need to manually install Postgres 9.1, RabbitMQ, python-dev,
-avahi-daemon and make::
+You will need to manually install Postgres 9.1, RabbitMQ, Apache 2,
+python-dev, avahi-daemon, daemontools, pyinotify, and make::
 
     $ sudo apt-get install postgresql-9.1 rabbitmq-server python-dev \
-        avahi-daemon make
+        avahi-daemon make apache2-mpm-prefork daemontools python-pyinotify
 
-Also, you might want to install Bazaar (bzr) to grab the source code directly
-from Launchpad::
+Also, you might want to install Bazaar (``bzr``) to grab the source
+code directly from Launchpad::
 
     $ sudo apt-get install bzr
 
@@ -49,7 +49,7 @@ This is the list of runtime dependencies that you'll need to install::
 Additionally, you need to install the following python libraries
 for development convenience::
 
-    $ sudo apt-get install python-sphinx python-lxml
+    $ sudo apt-get install python-sphinx python-lxml python-pocket-lint
 
 If you intend to run the test suite, you also need xvfb and firefox::
 
@@ -124,6 +124,21 @@ tests that can be run against it::
 Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
 tests will modify your Cobbler database.
 
+Running JavaScript tests
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The JavaScript tests are run using Selenium_.  Firefox is the default
+browser but any browser supported by Selenium can be used to run the
+tests. Note that you might need to download the appropriate driver and
+make it available in the path.  You can then choose which browsers to use by
+setting the environment variable ``MAAS_TEST_BROWSERS`` to a comma-separated
+list of the names of the browsers to use.  For instance, to run the tests
+with Firefox and Chrome::
+
+    $ export MAAS_TEST_BROWSERS="Firefox, Chrome"
+
+.. _Selenium: http://seleniumhq.org/
+
 
 Development MAAS server setup
 =============================
@@ -157,19 +172,24 @@ Install Cobbler, and install the preseed files and snippets::
 Now run ``maas-import-isos`` to download Ubuntu precise and create the
 necessary MAAS profiles::
 
-    $ sudo ./scripts/maas-import-isos
+    $ sudo http_proxy=$http_proxy ./scripts/maas-import-isos
 
-Add yourself as a user in Cobbler. For convenience, give yourself the
+The http_proxy variable is only needed if you're downloading through a
+proxy; "sudo" wouldn't pass it on to the script without the assignment.
+Or if you don't have it set but do want to download through a proxy, pass
+your proxy's URL: "http_proxy=http://proxy.example.com/"
+
+Now add yourself as a user in Cobbler. For convenience, give yourself the
 password ``test``::
 
     $ sudo htdigest /etc/cobbler/users.digest Cobbler $USER
 
 Alternatively, if you're not interested in the Provisioning Server or
-Cobbler, set ``PSERV_URL`` to ``None`` in one of ``maas``'s settings
-files (typically ``src/maas/demo.py``), and a fake Provisioning Server
-will be used instead.
+Cobbler, set ``USE_REAL_PSERV`` to ``False`` in one of ``maas``'s
+settings files (typically ``src/maas/demo.py``), and a fake Provisioning
+Server will be used instead.
 
-Run the development webserver::
+Run the development webserver and watch all the logs go by::
 
     $ make run
 
@@ -183,6 +203,64 @@ To shut down the database cluster and clean up all other generated files in
 your branch::
 
     $ make distclean
+
+
+Development services
+====================
+
+The development environment uses *daemontools* to manage the various
+services that are required. These are all defined in subdirectories in
+``services/``.
+
+There are familiar service-like commands::
+
+  $ make start
+  $ make status
+  $ make restart
+  $ make stop
+
+The latter is a dependency of ``distclean`` so just running ``make
+distclean`` when you've finished with your branch is enough to stop
+everything.
+
+Individual services can be manipulated too::
+
+  $ make services/pserv/@start
+
+The ``@<action>`` pattern works for any of the services.
+
+There's an additional special action, ``run``::
+
+  $ make run
+
+This starts all services up and tails their log files. When you're
+done, kill ``tail`` (e.g. Ctrl-c), and all the services will be
+stopped.
+
+However, when used with individual services::
+
+  $ make services/webapp/@run
+
+it does something even cooler. First it shuts down the service, then
+it restarts it in the foreground so you can see the logs in the
+console. More importantly, it allows you to use ``pdb``, for example.
+
+A note of caution: some of the services have slightly different
+behaviour when run in the foreground:
+
+* Django (the *webapp* service) will be run with its auto-reloading
+  enabled.
+
+* Apache (the *web* service) will run with ``-X``, which puts it in
+  debug mode: only one worker will be started and the server will not
+  detach from the console.
+
+There's a convenience target for hacking Django that starts everything
+up, but with Django in the foreground::
+
+  $ make run+webapp
+
+Apparently Django needs a lot of debugging ;)
 
 
 Adding new dependencies
@@ -225,7 +303,7 @@ Be sure to have a look at `South's documentation`_ before you make any change.
 Changing the schema
 ^^^^^^^^^^^^^^^^^^^
 
-Once you've made a change to ``src/<application>/models.py`` you have to run  
+Once you've made a change to ``src/<application>/models.py`` you have to run
 South's `schemamigration`_ command to create a migration file that will be
 stored in ``src/<application>/migrations/``.
 

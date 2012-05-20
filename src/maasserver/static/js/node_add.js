@@ -17,7 +17,9 @@ module.NODE_ADDED_EVENT = 'nodeAdded';
 // Only used to mockup io in tests.
 module._io = new Y.IO();
 
-var AddNodeWidget = function() {
+var AddNodeWidget;
+
+AddNodeWidget = function() {
     AddNodeWidget.superclass.constructor.apply(this, arguments);
 };
 
@@ -26,7 +28,7 @@ AddNodeWidget.NAME = 'node-add-widget';
 AddNodeWidget.ATTRS = {
 
    /**
-    * The number MAC Addresses fields on the form.
+    * The number MAC addresses fields on the form.
     *
     * @attribute nb_mac_fields
     * @type integer
@@ -52,7 +54,7 @@ AddNodeWidget.ATTRS = {
 Y.extend(AddNodeWidget, Y.Widget, {
 
     /**
-     * Create an input field to add a MAC Address.
+     * Create an input field to add a MAC address.
      *
      * @method _createMacField
      * @private
@@ -69,7 +71,7 @@ Y.extend(AddNodeWidget, Y.Widget, {
         if (this.get('nb_mac_fields') === 1) {
             var label = this.get(
                 'srcNode').one('label[for="id_mac_addresses"]');
-            label.set('text', "Mac addresses");
+            label.set('text', "MAC addresses");
         }
         var add_macaddress = this._createMacField();
         var add_mac_link = this.get('srcNode').one('.add-mac-form');
@@ -114,11 +116,16 @@ Y.extend(AddNodeWidget, Y.Widget, {
             .set('href', '#')
             .set('text', "Cancel")
             .addClass('link-button');
+        var macaddress_add_icon = Y.Node.create('<img />')
+            .set('src', MAAS_config.uris.statics + 'img/inline_add.png')
+            .set('alt', "+")
+            .addClass('icon');
         var macaddress_add_link = Y.Node.create('<a />')
             .addClass('add-link')
             .addClass('add-mac-form')
             .set('href', '#')
-            .set('text', "Add additional MAC address");
+            .set('text', "Add additional MAC address")
+            .prepend(macaddress_add_icon);
         var operation = Y.Node.create('<input />')
             .set('type', 'hidden')
             .set('name', 'op')

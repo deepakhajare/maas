@@ -2,6 +2,7 @@
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -14,11 +15,13 @@ __all__ = []
 import httplib
 
 from django.core.urlresolvers import reverse
+from maasserver.enum import (
+    NODE_PERMISSION,
+    NODE_STATUS,
+    )
 from maasserver.models import (
     MAASAuthorizationBackend,
     Node,
-    NODE_PERMISSION,
-    NODE_STATUS,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase

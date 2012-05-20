@@ -4,6 +4,7 @@
 """Test maasserver models."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -12,11 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 import codecs
+from datetime import datetime
 from io import BytesIO
 import os
 import random
 import shutil
-from socket import gethostname
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -24,9 +25,17 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.db import IntegrityError
+from django.db import (
+    IntegrityError,
+    transaction,
+    )
 from django.utils.safestring import SafeUnicode
-from fixtures import TestWithFixtures
+from maasserver.enum import (
+    NODE_PERMISSION,
+    NODE_STATUS,
+    NODE_STATUS_CHOICES,
+    NODE_STATUS_CHOICES_DICT,
+    )
 from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
@@ -34,21 +43,16 @@ from maasserver.exceptions import (
 from maasserver.models import (
     Config,
     create_auth_token,
-    DEFAULT_CONFIG,
     FileStorage,
     GENERIC_CONSUMER,
     get_auth_tokens,
     get_db_state,
-    get_default_config,
     get_html_display_for_key,
     HELLIPSIS,
     MACAddress,
     Node,
-    NODE_PERMISSION,
-    NODE_STATUS,
-    NODE_STATUS_CHOICES,
-    NODE_STATUS_CHOICES_DICT,
     NODE_TRANSITIONS,
+    now,
     SSHKey,
     SYSTEM_USERS,
     UserProfile,
@@ -56,9 +60,17 @@ from maasserver.models import (
     )
 from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import get_data
-from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import TestCase
+from maasserver.testing.testcase import (
+    TestCase,
+    TestModelTestCase,
+    )
+from maasserver.tests.models import TimestampedModelTestModel
+from maasserver.utils import map_enum
+from maastesting.djangotestcase import (
+    TestModelTransactionalTestCase,
+    TransactionTestCase,
+    )
 from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
@@ -72,9 +84,80 @@ from piston.models import (
 from provisioningserver.enum import POWER_TYPE
 from testtools.matchers import (
     EndsWith,
+    FileContains,
     GreaterThan,
     LessThan,
     )
+
+
+class UtilitiesTest(TestCase):
+
+    def test_now_returns_datetime(self):
+        self.assertIsInstance(now(), datetime)
+
+    def test_now_returns_same_datetime_inside_transaction(self):
+        date_now = now()
+        self.assertEqual(date_now, now())
+
+
+class UtilitiesTransactionalTest(TransactionTestCase):
+
+    def test_now_returns_transaction_time(self):
+        date_now = now()
+        # Perform a write database operation.
+        factory.make_node()
+        transaction.commit()
+        self.assertLessEqual(date_now, now())
+
+
+class TimestampedModelTest(TestModelTestCase):
+    """Testing for the class `TimestampedModel`."""
+
+    app = 'maasserver.tests'
+
+    def test_created_populated_when_object_saved(self):
+        obj = TimestampedModelTestModel()
+        obj.save()
+        self.assertIsNotNone(obj.created)
+
+    def test_updated_populated_when_object_saved(self):
+        obj = TimestampedModelTestModel()
+        obj.save()
+        self.assertIsNotNone(obj.updated)
+
+    def test_updated_and_created_are_the_same_after_first_save(self):
+        obj = TimestampedModelTestModel()
+        obj.save()
+        self.assertEqual(obj.created, obj.updated)
+
+    def test_created_not_modified_by_subsequent_calls_to_save(self):
+        obj = TimestampedModelTestModel()
+        obj.save()
+        old_created = obj.created
+        obj.save()
+        self.assertEqual(old_created, obj.created)
+
+
+class TimestampedModelTransactionalTest(TestModelTransactionalTestCase):
+
+    app = 'maasserver.tests'
+
+    def test_created_bracketed_by_before_and_after_time(self):
+        before = now()
+        obj = TimestampedModelTestModel()
+        obj.save()
+        transaction.commit()
+        after = now()
+        self.assertLessEqual(before, obj.created)
+        self.assertGreaterEqual(after, obj.created)
+
+    def test_updated_is_updated_when_object_saved(self):
+        obj = TimestampedModelTestModel()
+        obj.save()
+        old_updated = obj.updated
+        transaction.commit()
+        obj.save()
+        self.assertLessEqual(old_updated, obj.updated)
 
 
 class NodeTest(TestCase):
@@ -194,7 +277,7 @@ class NodeTest(TestCase):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
         token = create_auth_token(user)
-        node.acquire(token)
+        node.acquire(user, token)
         self.assertEqual(user, node.owner)
         self.assertEqual(NODE_STATUS.ALLOCATED, node.status)
 
@@ -281,11 +364,8 @@ class NodeTest(TestCase):
         node = factory.make_node(status=NODE_STATUS.DECLARED)
         node.start_commissioning(factory.make_admin())
         path = settings.COMMISSIONING_SCRIPT
-        with open(path, 'r') as f:
-            commissioning_user_data = f.read()
-        self.assertEqual(
-            commissioning_user_data,
-            NodeUserData.objects.get_user_data(node))
+        self.assertThat(
+            path, FileContains(NodeUserData.objects.get_user_data(node)))
 
     def test_missing_commissioning_script(self):
         self.patch(
@@ -350,15 +430,6 @@ class NodeTest(TestCase):
             NodeStateViolation,
             "Invalid transition: Retired -> Allocated.",
             node.save)
-
-    def test_save_does_not_check_status_transition_if_skip_check(self):
-        # RETIRED -> ALLOCATED is an invalid transition.
-        node = factory.make_node(
-            status=NODE_STATUS.RETIRED, owner=factory.make_user())
-        node.status = NODE_STATUS.ALLOCATED
-        node.save(skip_check=True)
-        # The test is that this does not raise an error.
-        pass
 
 
 class NodeTransitionsTests(TestCase):
@@ -554,7 +625,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             nodes[1],
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': nodes[1].system_id}))
+                user, {'name': nodes[1].hostname}))
 
     def test_get_available_node_returns_None_if_name_is_unknown(self):
         user = factory.make_user()
@@ -1009,13 +1080,22 @@ class SSHKeyTest(TestCase):
             ValidationError, key2.full_clean)
 
     def test_sshkey_user_and_key_unique_together_db_level(self):
+        # Even if we hack our way around model-level checks, uniqueness
+        # of the user/key combination is enforced at the database level.
         key_string = get_data('data/test_rsa0.pub')
         user = factory.make_user()
-        key = SSHKey(key=key_string, user=user)
-        key.save()
-        key2 = SSHKey(key=key_string, user=user)
+        existing_key = SSHKey(key=key_string, user=user)
+        existing_key.save()
+        # The trick to hack around the model-level checks: create a
+        # duplicate key for another user, then attach it to the same
+        # user as the existing key by updating it directly in the
+        # database.
+        redundant_key = SSHKey(key=key_string, user=factory.make_user())
+        redundant_key.save()
         self.assertRaises(
-            IntegrityError, key2.save, skip_check=True)
+            IntegrityError,
+            SSHKey.objects.filter(id=redundant_key.id).update,
+            user=user)
 
     def test_sshkey_same_key_can_be_used_by_different_users(self):
         key_string = get_data('data/test_rsa0.pub')
@@ -1045,6 +1125,7 @@ class SSHKeyManagerTest(TestCase):
         self.assertItemsEqual([key.key for key in created_keys], keys)
 
 
+# Due for model migration on 2012-05-22
 class FileStorageTest(TestCase):
     """Testing of the :class:`FileStorage` model."""
 
@@ -1162,10 +1243,10 @@ class FileStorageTest(TestCase):
             new_data, FileStorage.objects.get(filename=filename).data.read())
 
     def test_list_stored_files_lists_files(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        with open(os.path.join(upload_dir, filename), 'w') as f:
-            f.write(self.make_data())
+        factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         self.assertIn(
             self.get_media_path(filename),
             FileStorage.objects.list_stored_files())
@@ -1183,10 +1264,10 @@ class FileStorageTest(TestCase):
             storage.data.name, FileStorage.objects.list_referenced_files())
 
     def test_list_referenced_files_excludes_unreferenced_files(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        with open(os.path.join(upload_dir, filename), 'w') as f:
-            f.write(self.make_data())
+        factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         self.assertNotIn(
             self.get_media_path(filename),
             FileStorage.objects.list_referenced_files())
@@ -1204,31 +1285,28 @@ class FileStorageTest(TestCase):
             storage.data.name, FileStorage.objects.list_referenced_files())
 
     def test_is_old_returns_False_for_recent_file(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        path = os.path.join(upload_dir, filename)
-        with open(path, 'w') as f:
-            f.write(self.make_data())
+        path = factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         self.age_file(path, FileStorage.objects.grace_time - 60)
         self.assertFalse(
             FileStorage.objects.is_old(self.get_media_path(filename)))
 
     def test_is_old_returns_True_for_old_file(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        path = os.path.join(upload_dir, filename)
-        with open(path, 'w') as f:
-            f.write(self.make_data())
+        path = factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         self.age_file(path, FileStorage.objects.grace_time + 1)
         self.assertTrue(
             FileStorage.objects.is_old(self.get_media_path(filename)))
 
     def test_collect_garbage_deletes_garbage(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        path = os.path.join(upload_dir, filename)
-        with open(path, 'w') as f:
-            f.write(self.make_data())
+        path = factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         self.age_file(path)
         FileStorage.objects.collect_garbage()
         self.assertFalse(
@@ -1243,10 +1321,10 @@ class FileStorageTest(TestCase):
         self.assertThat(FileStorage.objects.grace_time, LessThan(24 * 60 * 60))
 
     def test_collect_garbage_leaves_recent_files_alone(self):
-        upload_dir = self.make_upload_dir()
         filename = factory.getRandomString()
-        with open(os.path.join(upload_dir, filename), 'w') as f:
-            f.write(self.make_data())
+        factory.make_file(
+            location=self.make_upload_dir(), name=filename,
+            contents=self.make_data())
         FileStorage.objects.collect_garbage()
         self.assertTrue(
             FileStorage.storage.exists(self.get_media_path(filename)))
@@ -1264,113 +1342,3 @@ class FileStorageTest(TestCase):
         FileStorage.objects.collect_garbage()
         # ...we get through garbage collection without breakage.
         pass
-
-
-class ConfigDefaultTest(TestCase, TestWithFixtures):
-    """Test config default values."""
-
-    def test_default_config_maas_name(self):
-        default_config = get_default_config()
-        self.assertEqual(gethostname(), default_config['maas_name'])
-
-
-class Listener:
-    """A utility class which tracks the calls to its 'call' method and
-    stores the arguments given to 'call' in 'self.calls'.
-    """
-
-    def __init__(self):
-        self.calls = []
-
-    def call(self, *args, **kwargs):
-        self.calls.append([args, kwargs])
-
-
-class ConfigTest(TestCase):
-    """Testing of the :class:`Config` model and its related manager class."""
-
-    def test_manager_get_config_found(self):
-        Config.objects.create(name='name', value='config')
-        config = Config.objects.get_config('name')
-        self.assertEqual('config', config)
-
-    def test_manager_get_config_not_found(self):
-        config = Config.objects.get_config('name', 'default value')
-        self.assertEqual('default value', config)
-
-    def test_manager_get_config_not_found_none(self):
-        config = Config.objects.get_config('name')
-        self.assertIsNone(config)
-
-    def test_manager_get_config_not_found_in_default_config(self):
-        name = factory.getRandomString()
-        value = factory.getRandomString()
-        DEFAULT_CONFIG[name] = value
-        config = Config.objects.get_config(name, None)
-        self.assertEqual(value, config)
-
-    def test_default_config_cannot_be_changed(self):
-        name = factory.getRandomString()
-        DEFAULT_CONFIG[name] = {'key': 'value'}
-        config = Config.objects.get_config(name)
-        config.update({'key2': 'value2'})
-
-        self.assertEqual({'key': 'value'}, Config.objects.get_config(name))
-
-    def test_manager_get_config_list_returns_config_list(self):
-        Config.objects.create(name='name', value='config1')
-        Config.objects.create(name='name', value='config2')
-        config_list = Config.objects.get_config_list('name')
-        self.assertItemsEqual(['config1', 'config2'], config_list)
-
-    def test_manager_set_config_creates_config(self):
-        Config.objects.set_config('name', 'config1')
-        Config.objects.set_config('name', 'config2')
-        self.assertSequenceEqual(
-            ['config2'],
-            [config.value for config in Config.objects.filter(name='name')])
-
-    def test_manager_config_changed_connect_connects(self):
-        listener = Listener()
-        name = factory.getRandomString()
-        value = factory.getRandomString()
-        Config.objects.config_changed_connect(name, listener.call)
-        Config.objects.set_config(name, value)
-        config = Config.objects.get(name=name)
-
-        self.assertEqual(1, len(listener.calls))
-        self.assertEqual((Config, config, True), listener.calls[0][0])
-
-    def test_manager_config_changed_connect_connects_multiple(self):
-        listener = Listener()
-        listener2 = Listener()
-        name = factory.getRandomString()
-        value = factory.getRandomString()
-        Config.objects.config_changed_connect(name, listener.call)
-        Config.objects.config_changed_connect(name, listener2.call)
-        Config.objects.set_config(name, value)
-
-        self.assertEqual(1, len(listener.calls))
-        self.assertEqual(1, len(listener2.calls))
-
-    def test_manager_config_changed_connect_connects_multiple_same(self):
-        # If the same method is connected twice, it will only get called
-        # once.
-        listener = Listener()
-        name = factory.getRandomString()
-        value = factory.getRandomString()
-        Config.objects.config_changed_connect(name, listener.call)
-        Config.objects.config_changed_connect(name, listener.call)
-        Config.objects.set_config(name, value)
-
-        self.assertEqual(1, len(listener.calls))
-
-    def test_manager_config_changed_connect_connects_by_config_name(self):
-        listener = Listener()
-        name = factory.getRandomString()
-        value = factory.getRandomString()
-        Config.objects.config_changed_connect(name, listener.call)
-        another_name = factory.getRandomString()
-        Config.objects.set_config(another_name, value)
-
-        self.assertEqual(0, len(listener.calls))

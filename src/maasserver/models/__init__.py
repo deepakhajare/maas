@@ -1,9 +1,14 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""MAAS model objects."""
+"""MAAS model objects.
+
+DO NOT add new models to this module.  Add them to the package as separate
+modules, but import them here and add them to `__all__`.
+"""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -14,11 +19,9 @@ __all__ = [
     "generate_node_system_id",
     "get_auth_tokens",
     "get_db_state",
-    "get_html_display_for_key",
+    "logger",
     "Config",
     "FileStorage",
-    "NODE_STATUS",
-    "NODE_PERMISSION",
     "NODE_TRANSITIONS",
     "Node",
     "MACAddress",
@@ -28,19 +31,10 @@ __all__ = [
 
 import binascii
 from cgi import escape
-from collections import (
-    defaultdict,
-    OrderedDict,
-    )
-import copy
-import datetime
-from errno import ENOENT
 from logging import getLogger
 import os
 import re
-from socket import gethostname
 from string import whitespace
-import time
 from uuid import uuid1
 
 from django.conf import settings
@@ -51,20 +45,40 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.core.files.base import ContentFile
-from django.core.files.storage import FileSystemStorage
-from django.db import models
+from django.db import connection
+from django.db.models import (
+    CharField,
+    ForeignKey,
+    IntegerField,
+    Manager,
+    Model,
+    OneToOneField,
+    Q,
+    TextField,
+    )
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from django.utils.safestring import mark_safe
+from maasserver import DefaultMeta
+from maasserver.enum import (
+    ARCHITECTURE,
+    ARCHITECTURE_CHOICES,
+    NODE_AFTER_COMMISSIONING_ACTION,
+    NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODE_PERMISSION,
+    NODE_STATUS,
+    NODE_STATUS_CHOICES,
+    NODE_STATUS_CHOICES_DICT,
+    )
 from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
     )
-from maasserver.fields import (
-    JSONObjectField,
-    MACAddressField,
-    )
+from maasserver.fields import MACAddressField
+from maasserver.models.cleansave import CleanSave
+from maasserver.models.config import Config
+from maasserver.models.filestorage import FileStorage
+from maasserver.models.timestampedmodel import TimestampedModel
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -89,74 +103,14 @@ SYSTEM_USERS = [
 logger = getLogger('maasserver')
 
 
-class CommonInfo(models.Model):
-    """A base model which:
-    - calls full_clean before saving the model (by default).
-    - records the creation date and the last modification date.
-
-    :ivar created: The creation date.
-    :ivar updated: The last modification date.
-
-    """
-    created = models.DateField(editable=False)
-    updated = models.DateTimeField(editable=False)
-
-    class Meta:
-        abstract = True
-
-    def save(self, skip_check=False, *args, **kwargs):
-        if not self.id:
-            self.created = datetime.date.today()
-        self.updated = datetime.datetime.today()
-        if not skip_check:
-            self.full_clean()
-        return super(CommonInfo, self).save(*args, **kwargs)
+def now():
+    cursor = connection.cursor()
+    cursor.execute("select now()")
+    return cursor.fetchone()[0]
 
 
 def generate_node_system_id():
     return 'node-%s' % uuid1()
-
-
-class NODE_STATUS:
-    """The vocabulary of a `Node`'s possible statuses."""
-    # A node starts out as READY.
-    DEFAULT_STATUS = 0
-
-    #: The node has been created and has a system ID assigned to it.
-    DECLARED = 0
-    #: Testing and other commissioning steps are taking place.
-    COMMISSIONING = 1
-    #: Smoke or burn-in testing has a found a problem.
-    FAILED_TESTS = 2
-    #: The node can't be contacted.
-    MISSING = 3
-    #: The node is in the general pool ready to be deployed.
-    READY = 4
-    #: The node is ready for named deployment.
-    RESERVED = 5
-    #: The node is powering a service from a charm or is ready for use with
-    #: a fresh Ubuntu install.
-    ALLOCATED = 6
-    #: The node has been removed from service manually until an admin
-    #: overrides the retirement.
-    RETIRED = 7
-
-
-# Django choices for NODE_STATUS: sequence of tuples (key, UI
-# representation).
-NODE_STATUS_CHOICES = (
-    (NODE_STATUS.DECLARED, "Declared"),
-    (NODE_STATUS.COMMISSIONING, "Commissioning"),
-    (NODE_STATUS.FAILED_TESTS, "Failed tests"),
-    (NODE_STATUS.MISSING, "Missing"),
-    (NODE_STATUS.READY, "Ready"),
-    (NODE_STATUS.RESERVED, "Reserved"),
-    (NODE_STATUS.ALLOCATED, "Allocated"),
-    (NODE_STATUS.RETIRED, "Retired"),
-)
-
-
-NODE_STATUS_CHOICES_DICT = OrderedDict(NODE_STATUS_CHOICES)
 
 
 # Information about valid node status transitions.
@@ -187,6 +141,11 @@ NODE_TRANSITIONS = {
         NODE_STATUS.READY,
         NODE_STATUS.RETIRED,
         NODE_STATUS.MISSING,
+        ],
+    NODE_STATUS.FAILED_TESTS: [
+        NODE_STATUS.COMMISSIONING,
+        NODE_STATUS.MISSING,
+        NODE_STATUS.RETIRED,
         ],
     NODE_STATUS.READY: [
         NODE_STATUS.ALLOCATED,
@@ -219,49 +178,6 @@ NODE_TRANSITIONS = {
     }
 
 
-class NODE_AFTER_COMMISSIONING_ACTION:
-    """The vocabulary of a `Node`'s possible value for its field
-    after_commissioning_action.
-
-    """
-# TODO: document this when it's stabilized.
-    #:
-    DEFAULT = 0
-    #:
-    QUEUE = 0
-    #:
-    CHECK = 1
-    #:
-    DEPLOY_12_04 = 2
-
-
-NODE_AFTER_COMMISSIONING_ACTION_CHOICES = (
-    (NODE_AFTER_COMMISSIONING_ACTION.QUEUE,
-        "Queue for dynamic allocation to services"),
-    (NODE_AFTER_COMMISSIONING_ACTION.CHECK,
-        "Check compatibility and hold for future decision"),
-    (NODE_AFTER_COMMISSIONING_ACTION.DEPLOY_12_04,
-        "Deploy with Ubuntu 12.04 LTS"),
-)
-
-
-NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
-    NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
-
-
-# List of supported architectures.
-class ARCHITECTURE:
-    i386 = 'i386'
-    amd64 = 'amd64'
-
-
-# Architecture names.
-ARCHITECTURE_CHOICES = (
-    (ARCHITECTURE.i386, "i386"),
-    (ARCHITECTURE.amd64, "amd64"),
-)
-
-
 def get_papi():
     """Return a provisioning server API proxy."""
     # Avoid circular imports.
@@ -269,7 +185,7 @@ def get_papi():
     return get_provisioning_api_proxy()
 
 
-class NodeManager(models.Manager):
+class NodeManager(Manager):
     """A utility to manage the collection of Nodes."""
 
     def filter_by_ids(self, query, ids=None):
@@ -310,8 +226,7 @@ class NodeManager(models.Manager):
             nodes = self.all()
         else:
             if perm == NODE_PERMISSION.VIEW:
-                nodes = self.filter(
-                    models.Q(owner__isnull=True) | models.Q(owner=user))
+                nodes = self.filter(Q(owner__isnull=True) | Q(owner=user))
             elif perm == NODE_PERMISSION.EDIT:
                 nodes = self.filter(owner=user)
             elif perm == NODE_PERMISSION.ADMIN:
@@ -386,7 +301,7 @@ class NodeManager(models.Manager):
 
         if constraints.get('name'):
             available_nodes = available_nodes.filter(
-                system_id=constraints['name'])
+                hostname=constraints['name'])
 
         available_nodes = list(available_nodes[:1])
         if len(available_nodes) == 0:
@@ -453,13 +368,7 @@ def get_db_state(instance, field_name):
         return None
 
 
-class NODE_PERMISSION:
-    VIEW = 'view_node'
-    EDIT = 'edit_node'
-    ADMIN = 'admin_node'
-
-
-class Node(CommonInfo):
+class Node(CleanSave, TimestampedModel):
     """A `Node` represents a physical machine used by the MAAS Server.
 
     :ivar system_id: The unique identifier for this `Node`.
@@ -478,37 +387,40 @@ class Node(CommonInfo):
 
     """
 
-    system_id = models.CharField(
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
+    system_id = CharField(
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
-    hostname = models.CharField(max_length=255, default='', blank=True)
+    hostname = CharField(max_length=255, default='', blank=True)
 
-    status = models.IntegerField(
+    status = IntegerField(
         max_length=10, choices=NODE_STATUS_CHOICES, editable=False,
         default=NODE_STATUS.DEFAULT_STATUS)
 
-    owner = models.ForeignKey(
+    owner = ForeignKey(
         User, default=None, blank=True, null=True, editable=False)
 
-    after_commissioning_action = models.IntegerField(
+    after_commissioning_action = IntegerField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
-    architecture = models.CharField(
+    architecture = CharField(
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
 
     # For strings, Django insists on abusing the empty string ("blank")
     # to mean "none."
-    power_type = models.CharField(
+    power_type = CharField(
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
 
-    token = models.ForeignKey(
+    token = ForeignKey(
         Token, db_index=True, null=True, editable=False, unique=False)
 
-    error = models.CharField(max_length=255, blank=True, default='')
+    error = CharField(max_length=255, blank=True, default='')
 
     objects = NodeManager()
 
@@ -556,9 +468,9 @@ class Node(CommonInfo):
             return status_text
 
     def add_mac_address(self, mac_address):
-        """Add a new MAC Address to this `Node`.
+        """Add a new MAC address to this `Node`.
 
-        :param mac_address: The MAC Address to be added.
+        :param mac_address: The MAC address to be added.
         :type mac_address: basestring
         :raises: django.core.exceptions.ValidationError_
 
@@ -572,9 +484,9 @@ class Node(CommonInfo):
         return mac
 
     def remove_mac_address(self, mac_address):
-        """Remove a MAC Address from this `Node`.
+        """Remove a MAC address from this `Node`.
 
-        :param mac_address: The MAC Address to be removed.
+        :param mac_address: The MAC address to be removed.
         :type mac_address: str
 
         """
@@ -662,39 +574,49 @@ class Node(CommonInfo):
             power_type = self.power_type
         return power_type
 
-    def acquire(self, token):
-        """Mark commissioned node as acquired by the given user's token."""
+    def acquire(self, user, token=None):
+        """Mark commissioned node as acquired by the given user and token."""
         assert self.owner is None
+        assert token is None or token.user == user
         self.status = NODE_STATUS.ALLOCATED
-        self.owner = token.user
+        self.owner = user
         self.token = token
+        self.save()
 
     def release(self):
         """Mark allocated or reserved node as available again."""
         self.status = NODE_STATUS.READY
         self.owner = None
         self.token = None
+        self.save()
 
 
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
-class MACAddress(CommonInfo):
-    """A `MACAddress` represents a `MAC Address
+class MACAddress(CleanSave, TimestampedModel):
+    """A `MACAddress` represents a `MAC address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
 
-    :ivar mac_address: The MAC Address.
+    :ivar mac_address: The MAC address.
     :ivar node: The `Node` related to this `MACAddress`.
 
     """
     mac_address = MACAddressField(unique=True)
-    node = models.ForeignKey(Node, editable=False)
+    node = ForeignKey(Node, editable=False)
 
-    class Meta:
+    class Meta(DefaultMeta):
+        verbose_name = "MAC address"
         verbose_name_plural = "MAC addresses"
 
     def __unicode__(self):
         return self.mac_address
+
+    def unique_error_message(self, model_class, unique_check):
+        if unique_check == ('mac_address',):
+                return "This MAC address is already registered."
+        return super(
+            MACAddress, self).unique_error_message(model_class, unique_check)
 
 
 GENERIC_CONSUMER = 'MAAS consumer'
@@ -737,7 +659,7 @@ def get_auth_tokens(user):
         user=user, token_type=Token.ACCESS, is_approved=True).order_by('id')
 
 
-class UserProfileManager(models.Manager):
+class UserProfileManager(Manager):
     """A utility to manage the collection of UserProfile (or User).
 
     This should be used when dealing with UserProfiles or Users because it
@@ -760,7 +682,7 @@ class UserProfileManager(models.Manager):
         return User.objects.filter(id__in=user_ids)
 
 
-class UserProfile(models.Model):
+class UserProfile(CleanSave, Model):
     """A User profile to store MAAS specific methods and fields.
 
     :ivar user: The related User_.
@@ -771,8 +693,11 @@ class UserProfile(models.Model):
 
     """
 
+    class Meta(DefaultMeta):
+        """Needed for South to recognize this model."""
+
     objects = UserProfileManager()
-    user = models.OneToOneField(User)
+    user = OneToOneField(User)
 
     def delete(self):
         if self.user.node_set.exists():
@@ -844,7 +769,8 @@ post_save.connect(create_user, sender=User)
 User._meta.get_field('email')._unique = True
 
 
-class SSHKeyManager(models.Manager):
+# Due for model migration on 2012-05-25
+class SSHKeyManager(Manager):
     """A utility to manage the colletion of `SSHKey`s."""
 
     def get_keys_for_user(self, user):
@@ -852,6 +778,7 @@ class SSHKeyManager(models.Manager):
         return SSHKey.objects.filter(user=user).values_list('key', flat=True)
 
 
+# Due for model migration on 2012-05-25
 def validate_ssh_public_key(value):
     """Validate that the given value contains a valid SSH public key."""
     try:
@@ -863,9 +790,11 @@ def validate_ssh_public_key(value):
         raise ValidationError("Invalid SSH public key.")
 
 
+# Due for model migration on 2012-05-25
 HELLIPSIS = '&hellip;'
 
 
+# Due for model migration on 2012-05-25
 def get_html_display_for_key(key, size):
     """Return a compact HTML representation of this key with a boundary on
     the size of the resulting string.
@@ -910,10 +839,12 @@ def get_html_display_for_key(key, size):
         return escape(key, quote=True)
 
 
+# Due for model migration on 2012-05-25
 MAX_KEY_DISPLAY = 50
 
 
-class SSHKey(CommonInfo):
+# Due for model migration on 2012-05-25
+class SSHKey(CleanSave, TimestampedModel):
     """A `SSHKey` represents a user public SSH key.
 
     Users will be able to access `Node`s using any of their registered keys.
@@ -921,15 +852,16 @@ class SSHKey(CommonInfo):
     :ivar user: The user which owns the key.
     :ivar key: The ssh public key.
     """
+
     objects = SSHKeyManager()
 
-    user = models.ForeignKey(User, null=False, editable=False)
+    user = ForeignKey(User, null=False, editable=False)
 
-    key = models.TextField(
+    key = TextField(
         null=False, editable=True, validators=[validate_ssh_public_key])
 
-    class Meta:
-        verbose_name_plural = "SSH keys"
+    class Meta(DefaultMeta):
+        verbose_name = "SSH key"
         unique_together = ('user', 'key')
 
     def unique_error_message(self, model_class, unique_check):
@@ -948,260 +880,6 @@ class SSHKey(CommonInfo):
         :rtype: basestring
         """
         return mark_safe(get_html_display_for_key(self.key, MAX_KEY_DISPLAY))
-
-
-class FileStorageManager(models.Manager):
-    """Manager for `FileStorage` objects.
-
-    Store files by calling `save_file`.  No two `FileStorage` objects can
-    have the same filename at the same time.  Writing new data to a file
-    whose name is already in use, replaces its `FileStorage` with one
-    pointing to the new data.
-
-    Underneath, however, the storage layer will keep the old version of the
-    file around indefinitely.  Thus, if the overwriting transaction rolls
-    back, it may leave the new file as garbage on the filesystem; but the
-    original file will not be affected.  Also, any ongoing reads from the
-    old file will continue without iterruption.
-    """
-    # The time, in seconds, that an unreferenced file is allowed to
-    # persist in order to satisfy ongoing requests.
-    grace_time = 12 * 60 * 60
-
-    def get_existing_storage(self, filename):
-        """Return an existing `FileStorage` of this name, or None."""
-        existing_storage = self.filter(filename=filename)
-        if len(existing_storage) == 0:
-            return None
-        elif len(existing_storage) == 1:
-            return existing_storage[0]
-        else:
-            raise AssertionError(
-                "There are %d files called '%s'."
-                % (len(existing_storage), filename))
-
-    def save_file(self, filename, file_object):
-        """Save the file to the filesystem and persist to the database.
-
-        The file will end up in MEDIA_ROOT/storage/
-
-        If a file of that name already existed, it will be replaced by the
-        new contents.
-        """
-        # This probably ought to read in chunks but large files are
-        # not expected.  Also note that uploading a file with the same
-        # name as an existing one will cause that file to be written
-        # with a new generated name, and the old one remains where it
-        # is.  See https://code.djangoproject.com/ticket/6157 - the
-        # Django devs consider deleting things dangerous ... ha.
-        # HOWEVER - this operation would need to be atomic anyway so
-        # it's safest left how it is for now (reads can overlap with
-        # writes from Juju).
-        content = ContentFile(file_object.read())
-
-        storage = self.get_existing_storage(filename)
-        if storage is None:
-            storage = FileStorage(filename=filename)
-        storage.data.save(filename, content)
-        return storage
-
-    def list_stored_files(self):
-        """Find the files stored in the filesystem."""
-        dirs, files = FileStorage.storage.listdir(FileStorage.upload_dir)
-        return [
-            os.path.join(FileStorage.upload_dir, filename)
-            for filename in files]
-
-    def list_referenced_files(self):
-        """Find the names of files that are referenced from `FileStorage`.
-
-        :return: All file paths within MEDIA ROOT (relative to MEDIA_ROOT)
-            that have `FileStorage` entries referencing them.
-        :rtype: frozenset
-        """
-        return frozenset(
-            file_storage.data.name
-            for file_storage in self.all())
-
-    def is_old(self, storage_filename):
-        """Is the named file in the filesystem storage old enough to be dead?
-
-        :param storage_filename: The name under which the file is stored in
-            the filesystem, relative to MEDIA_ROOT.  This need not be the
-            same name as its filename as stored in the `FileStorage` object.
-            It includes the name of the upload directory.
-        """
-        file_path = os.path.join(settings.MEDIA_ROOT, storage_filename)
-        mtime = os.stat(file_path).st_mtime
-        expiry = mtime + self.grace_time
-        return expiry <= time.time()
-
-    def collect_garbage(self):
-        """Clean up stored files that are no longer accessible."""
-        try:
-            stored_files = self.list_stored_files()
-        except OSError as e:
-            if e.errno != ENOENT:
-                raise
-            logger.info(
-                "Upload directory does not exist yet.  "
-                "Skipping garbage collection.")
-            return
-        referenced_files = self.list_referenced_files()
-        for path in stored_files:
-            if path not in referenced_files and self.is_old(path):
-                FileStorage.storage.delete(path)
-
-
-class FileStorage(models.Model):
-    """A simple file storage keyed on file name.
-
-    :ivar filename: A unique file name to use for the data being stored.
-    :ivar data: The file's actual data.
-    """
-
-    storage = FileSystemStorage()
-
-    upload_dir = "storage"
-
-    # Unix filenames can be longer than this (e.g. 255 bytes), but leave
-    # some extra room for the full path, as well as a versioning suffix.
-    filename = models.CharField(max_length=100, unique=True, editable=False)
-    data = models.FileField(
-        upload_to=upload_dir, storage=storage, max_length=255)
-
-    objects = FileStorageManager()
-
-    def __unicode__(self):
-        return self.filename
-
-
-def get_default_config():
-    return {
-        ## settings default values.
-        # Commissioning section configuration.
-        'after_commissioning': NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
-        'check_compatibility': False,
-        'node_power_type': POWER_TYPE.WAKE_ON_LAN,
-        # The host name or address where the nodes can access the metadata
-        # service of this MAAS.
-        'maas_url': settings.DEFAULT_MAAS_URL,
-        # Ubuntu section configuration.
-        'fallback_master_archive': False,
-        'keep_mirror_list_uptodate': False,
-        'fetch_new_releases': False,
-        'update_from': 'archive.ubuntu.com',
-        'update_from_choice': (
-            [['archive.ubuntu.com', 'archive.ubuntu.com']]),
-        # Network section configuration.
-        'maas_name': gethostname(),
-        'enlistment_domain': b'local',
-        ## /settings
-        }
-
-
-# Default values for config options.
-DEFAULT_CONFIG = get_default_config()
-
-
-class ConfigManager(models.Manager):
-    """A utility to manage the configuration settings.
-
-    """
-
-    def __init__(self):
-        super(ConfigManager, self).__init__()
-        self._config_changed_connections = defaultdict(set)
-
-    def get_config(self, name, default=None):
-        """Return the config value corresponding to the given config name.
-        Return None or the provided default if the config value does not
-        exist.
-
-        :param name: The name of the config item.
-        :type name: basestring
-        :param name: The optional default value to return if no such config
-            item exists.
-        :type name: object
-        :return: A config value.
-        :raises: Config.MultipleObjectsReturned
-        """
-        try:
-            return self.get(name=name).value
-        except Config.DoesNotExist:
-            return copy.deepcopy(DEFAULT_CONFIG.get(name, default))
-
-    def get_config_list(self, name):
-        """Return the config value list corresponding to the given config
-        name.
-
-        :param name: The name of the config items.
-        :type name: basestring
-        :return: A list of the config values.
-        :rtype: list
-        """
-        return [config.value for config in self.filter(name=name)]
-
-    def set_config(self, name, value):
-        """Set or overwrite a config value.
-
-        :param name: The name of the config item to set.
-        :type name: basestring
-        :param value: The value of the config item to set.
-        :type value: Any jsonizable object
-        """
-        try:
-            existing = self.get(name=name)
-            existing.value = value
-            existing.save()
-        except Config.DoesNotExist:
-            self.create(name=name, value=value)
-
-    def config_changed_connect(self, config_name, method):
-        """Connect a method to Django's 'update' signal for given config name.
-
-        :param config_name: The name of the config item to track.
-        :type config_name: basestring
-        :param method: The method to be called.
-        :type method: callable
-
-        The provided callabe should follow Django's convention.  E.g:
-
-        >>> def callable(sender, instance, created, **kwargs):
-        >>>     pass
-        >>>
-        >>> Config.objects.config_changed_connect('config_name', callable)
-        """
-        self._config_changed_connections[config_name].add(method)
-
-    def _config_changed(self, sender, instance, created, **kwargs):
-        for connection in self._config_changed_connections[instance.name]:
-            connection(sender, instance, created, **kwargs)
-
-
-config_manager = ConfigManager()
-
-
-class Config(models.Model):
-    """Configuration settings.
-
-    :ivar name: The name of the configuration option.
-    :type name: basestring
-    :ivar value: The configuration value.
-    :type value: Any pickleable python object.
-    """
-
-    name = models.CharField(max_length=255, unique=False)
-    value = JSONObjectField(null=True)
-
-    objects = config_manager
-
-    def __unicode__(self):
-        return "%s: %s" % (self.name, self.value)
-
-
-# Connect config_manager._config_changed the post save signal of Config.
-post_save.connect(config_manager._config_changed, sender=Config)
 
 
 # Register the models in the admin site.

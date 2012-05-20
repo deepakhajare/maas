@@ -5,18 +5,12 @@ MAAS Objects
 
 .. automodule:: maasserver.models
 
-.. autoclass:: CommonInfo
+.. autoclass:: TimestampedModel
     :show-inheritance:
     :members:
 
 .. autoclass:: Node
     :show-inheritance:
-    :members:
-
-.. autoclass:: NODE_STATUS
-    :members:
-
-.. autoclass:: NODE_AFTER_COMMISSIONING_ACTION
     :members:
 
 .. autoclass:: NodeManager

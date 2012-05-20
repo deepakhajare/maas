@@ -4,6 +4,7 @@
 """Metadata API."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -24,17 +25,16 @@ from maasserver.api import (
     extract_oauth_key,
     get_mandatory_param,
     )
+from maasserver.enum import (
+    NODE_STATUS,
+    NODE_STATUS_CHOICES_DICT,
+    )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
     MAASAPINotFound,
     NodeStateViolation,
-    Unauthorized,
     )
-from maasserver.models import (
-    NODE_STATUS,
-    NODE_STATUS_CHOICES_DICT,
-    SSHKey,
-    )
+from maasserver.models import SSHKey
 from metadataserver.models import (
     NodeCommissionResult,
     NodeKey,
@@ -54,12 +54,7 @@ class UnknownNode(MAASAPINotFound):
 
 def get_node_for_request(request):
     """Return the `Node` that `request` is authorized to query for."""
-    auth_header = request.META.get('HTTP_AUTHORIZATION')
-    if auth_header is None:
-        raise Unauthorized("No authorization header received.")
-    key = extract_oauth_key(auth_header)
-    if key is None:
-        raise Unauthorized("No oauth token found for metadata request.")
+    key = extract_oauth_key(request)
     try:
         return NodeKey.objects.get_node_for_key(key)
     except NodeKey.DoesNotExist:
@@ -133,7 +128,7 @@ class VersionIndexHandler(MetadataViewHandler):
             contents = uploaded_file.read().decode('utf-8')
             NodeCommissionResult.objects.store_data(node, name, contents)
 
-    @api_exported('signal', 'POST')
+    @api_exported('POST')
     def signal(self, request, version=None):
         """Signal commissioning status.
 
@@ -176,6 +171,9 @@ class VersionIndexHandler(MetadataViewHandler):
             return rc.ALL_OK
 
         node.status = target_status
+        # When moving to a terminal state, remove the allocation.
+        if target_status is not None:
+            node.owner = None
         node.error = request.POST.get('error', '')
         node.save()
 

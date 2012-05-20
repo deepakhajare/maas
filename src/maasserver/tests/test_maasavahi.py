@@ -4,6 +4,7 @@
 """Tests for the Avahi export of MAAS."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -18,11 +19,8 @@ from maasserver.maasavahi import (
     MAASAvahiService,
     setup_maas_avahi_service,
     )
-from maasserver.models import (
-    Config,
-    config_manager,
-    )
-from maastesting.testcase import TestCase
+from maasserver.models import Config
+from maastesting.djangotestcase import DjangoTestCase
 
 
 class MockZeroconfServiceFactory:
@@ -57,13 +55,13 @@ class MockZeroconfService:
         self.calls.append('unpublish')
 
 
-class TestMAASAvahiService(TestCase):
+class TestMAASAvahiService(DjangoTestCase):
 
     def setup_mock_avahi(self):
         # Unregister other signals from Config, otherwise
         # the one registered in urls.py, will interfere with these tests
         self.patch(
-            config_manager, '_config_changed_connections', defaultdict(set))
+            Config.objects, '_config_changed_connections', defaultdict(set))
 
         mock_avahi = MockZeroconfServiceFactory()
         self.patch(

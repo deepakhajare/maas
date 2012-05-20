@@ -4,6 +4,7 @@
 """Tests for `maasserver.provisioning`."""
 
 from __future__ import (
+    absolute_import,
     print_function,
     unicode_literals,
     )
@@ -25,21 +26,29 @@ from maasserver.components import (
     get_persistent_errors,
     register_persistent_error,
     )
-from maasserver.exceptions import MAASAPIException
-from maasserver.models import (
+from maasserver.enum import (
     ARCHITECTURE,
-    Config,
-    Node,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     NODE_STATUS_CHOICES,
     )
+from maasserver.exceptions import (
+    ExternalComponentException,
+    MAASAPIException,
+    )
+from maasserver.models import (
+    Config,
+    Node,
+    )
 from maasserver.provisioning import (
+    check_profiles,
     compose_cloud_init_preseed,
     compose_commissioning_preseed,
     compose_preseed,
     DETAILED_PRESENTATIONS,
+    get_all_profile_names,
     get_metadata_server_url,
+    get_profile_name,
     name_arch_in_cobbler_style,
     present_detailed_user_friendly_fault,
     present_user_friendly_fault,
@@ -47,9 +56,9 @@ from maasserver.provisioning import (
     select_profile_for_node,
     SHORT_PRESENTATIONS,
     )
-from maasserver.testing.enum import map_enum
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maasserver.utils import map_enum
 from metadataserver.models import NodeKey
 from provisioningserver.enum import (
     POWER_TYPE,
@@ -272,6 +281,21 @@ class ProvisioningTests:
     def test_name_arch_in_cobbler_returns_unicode(self):
         self.assertIsInstance(name_arch_in_cobbler_style(b'amd64'), unicode)
 
+    def test_get_profile_name_selects_Precise_and_right_arch(self):
+        architectures = map_enum(ARCHITECTURE).values()
+        self.assertItemsEqual(
+            [
+                'maas-precise-%s' % name_arch_in_cobbler_style(arch)
+                for arch in architectures],
+            [
+                get_profile_name(arch)
+                for arch in architectures])
+
+    def test_get_profile_name_converts_architecture_name(self):
+        profile = get_profile_name(architecture='amd64')
+        self.assertNotIn('amd64', profile)
+        self.assertIn('x86_64', profile)
+
     @inlineCallbacks
     def test_select_profile_for_node_ignores_previously_chosen_profile(self):
         node = factory.make_node(architecture='i386')
@@ -279,23 +303,6 @@ class ProvisioningTests:
         yield self.papi.modify_nodes({node.system_id: {'profile': profile}})
         self.assertEqual(
             'maas-precise-i386', select_profile_for_node(node))
-
-    def test_select_profile_for_node_selects_Precise_and_right_arch(self):
-        nodes = {
-            arch: self.make_node_without_saving(arch=arch)
-            for arch in map_enum(ARCHITECTURE).values()}
-        self.assertItemsEqual([
-                'maas-precise-%s' % name_arch_in_cobbler_style(arch)
-                for arch in nodes.keys()],
-            [
-                select_profile_for_node(node)
-                for node in nodes.values()])
-
-    def test_select_profile_for_node_converts_architecture_name(self):
-        node = factory.make_node(architecture='amd64')
-        profile = select_profile_for_node(node)
-        self.assertNotIn('amd64', profile)
-        self.assertIn('x86_64', profile)
 
     def test_select_profile_for_node_works_for_commissioning(self):
         # A special profile is chosen for nodes in the commissioning
@@ -316,6 +323,14 @@ class ProvisioningTests:
         pserv_node = self.papi.get_nodes_by_name([system_id])[system_id]
         self.assertEqual("maas-precise-i386", pserv_node["profile"])
 
+    def test_get_all_profile_names(self):
+        expected_profiles = []
+        for arch in map_enum(ARCHITECTURE).values():
+            for commissioning in (False, True):
+                expected_profiles.append(
+                    get_profile_name(arch, commissioning))
+        self.assertItemsEqual(expected_profiles, get_all_profile_names())
+
     def test_provision_post_save_Node_checks_for_missing_profile(self):
         # If the required profile for a node is missing, MAAS reports
         # that the maas-import-isos script may need running.
@@ -324,8 +339,8 @@ class ProvisioningTests:
             raise Fault(PSERV_FAULT.NO_SUCH_PROFILE, "Unknown profile.")
 
         self.patch(self.papi.proxy, 'add_node', raise_missing_profile)
-        with ExpectedException(MAASAPIException):
-            node = factory.make_node(architecture='amd32k')
+        with ExpectedException(ExternalComponentException):
+            node = factory.make_node()
             provisioning.provision_post_save_Node(
                 sender=Node, instance=node, created=True)
 
@@ -335,8 +350,8 @@ class ProvisioningTests:
             raise Fault(PSERV_FAULT.NO_COBBLER, factory.getRandomString())
 
         self.patch(self.papi.proxy, 'add_node', raise_fault)
-        with ExpectedException(MAASAPIException):
-            node = factory.make_node(architecture='amd32k')
+        with ExpectedException(ExternalComponentException):
+            node = factory.make_node()
             provisioning.provision_post_save_Node(
                 sender=Node, instance=node, created=True)
 
@@ -416,7 +431,8 @@ class ProvisioningTests:
 
         self.patch(self.papi.proxy, 'add_node', raise_fault)
 
-        with ExpectedException(MAASAPIException, ".*provisioning server.*"):
+        with ExpectedException(
+            ExternalComponentException, ".*provisioning server.*"):
             self.papi.add_node('node', 'profile', 'power', '')
 
     def test_provisioning_errors_are_reported_helpfully(self):
@@ -426,7 +442,7 @@ class ProvisioningTests:
 
         self.patch(self.papi.proxy, 'add_node', raise_provisioning_error)
 
-        with ExpectedException(MAASAPIException, ".*Cobbler.*"):
+        with ExpectedException(ExternalComponentException, ".*Cobbler.*"):
             self.papi.add_node('node', 'profile', 'power', '')
 
     def patch_and_call_papi_method(self, fault_code, papi_method='add_node'):
@@ -459,6 +475,27 @@ class ProvisioningTests:
             errors = get_persistent_errors()
             self.assertEqual(1, len(errors))
 
+    def patch_get_profiles_by_name(self, method):
+        self.patch(components, '_PERSISTENT_ERRORS', {})
+        self.patch(
+            self.papi.proxy, 'get_profiles_by_name', method)
+
+    def test_check_profiles_no_error_registered_if_all_profiles_found(self):
+        def return_all_profiles(profiles):
+            return profiles
+        self.patch_get_profiles_by_name(return_all_profiles)
+        check_profiles()
+        self.assertEqual([], get_persistent_errors())
+
+    def test_check_profiles_error_registered_if_not_all_profiles_found(self):
+        def return_some_profiles(profiles):
+            return profiles[1:]
+        self.patch_get_profiles_by_name(return_some_profiles)
+
+        check_profiles()
+        errors = get_persistent_errors()
+        self.assertIn("<pre>sudo maas-import-isos</pre>", errors[0])
+
     def test_failing_components_cleared_if_add_node_works(self):
         self.patch(components, '_PERSISTENT_ERRORS', {})
         register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
@@ -478,20 +515,28 @@ class ProvisioningTests:
         self.papi.modify_nodes({})
         self.assertEqual([other_error], get_persistent_errors())
 
-    def test_failing_components_cleared_if_modify_nodes_works(self):
+    def register_random_errors(self, failed_components):
         self.patch(components, '_PERSISTENT_ERRORS', {})
-        register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
-        register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
+        for component in failed_components:
+            register_persistent_error(component, factory.getRandomString())
+
+    def test_failing_components_cleared_if_modify_nodes_works(self):
+        self.register_random_errors((COMPONENT.PSERV, COMPONENT.COBBLER))
         self.papi.modify_nodes({})
         self.assertEqual([], get_persistent_errors())
 
     def test_failing_components_cleared_if_delete_nodes_by_name_works(self):
-        self.patch(components, '_PERSISTENT_ERRORS', {})
-        register_persistent_error(COMPONENT.PSERV, factory.getRandomString())
-        register_persistent_error(COMPONENT.COBBLER, factory.getRandomString())
+        self.register_random_errors((COMPONENT.PSERV, COMPONENT.COBBLER))
         other_error = factory.getRandomString()
         register_persistent_error(factory.getRandomString(), other_error)
         self.papi.delete_nodes_by_name([])
+        self.assertEqual([other_error], get_persistent_errors())
+
+    def test_failing_components_cleared_if_get_profiles_by_name_works(self):
+        self.register_random_errors((COMPONENT.PSERV, COMPONENT.COBBLER))
+        other_error = factory.getRandomString()
+        register_persistent_error(factory.getRandomString(), other_error)
+        self.papi.get_profiles_by_name([])
         self.assertEqual([other_error], get_persistent_errors())
 
 
