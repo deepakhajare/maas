@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Django settings for maas project."""
+"""Celery settings for the maas project."""
 
 from __future__ import (
     absolute_import,
@@ -15,7 +15,7 @@ __metaclass__ = type
 # user_celeryconfig.py somewhere on the PYTHONPATH.
 
 try:
-    import user_celeryconfig
+    from user_celeryconfig import *
 except ImportError:
     pass
 
