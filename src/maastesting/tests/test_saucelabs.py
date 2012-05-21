@@ -41,7 +41,7 @@ def touch(filename):
     open(filename, "ab").close()
 
 
-def one_retry(timeout, delay=1):
+def one_attempt(timeout, delay=1):
     """Testing variant of `retries` that iterates once."""
     yield timeout, 0
 
@@ -163,7 +163,7 @@ class TestSauceConnectFixture(TestCase):
         self.patch(fixture, "start", lambda: None)
         self.patch(fixture, "stop", lambda: calls.append("stop"))
         self.patch(subprocess, "Popen", FakeProcess)
-        self.patch(saucelabs, "retries", one_retry)
+        self.patch(saucelabs, "retries", one_attempt)
         fixture.setUp()
         self.assertRaises(TimeoutException, start)
         # stop() has also been called.
@@ -201,7 +201,7 @@ class TestSauceConnectFixture(TestCase):
         fixture = make_SauceConnectFixture()
         fixture.process = FakeProcess()
         fixture.command = object()
-        self.patch(saucelabs, "retries", one_retry)
+        self.patch(saucelabs, "retries", one_attempt)
         self.assertRaises(TimeoutException, fixture.stop)
         # terminate() and kill() were both called to ensure shutdown.
         self.assertEqual(["terminate", "kill"], fixture.process.events)
