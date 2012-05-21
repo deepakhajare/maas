@@ -37,7 +37,7 @@ Morph.ATTRS = {
 
 /**
  * Create the animation for morphing out the original content and
- * morphin in the new content.
+ * morphing in the new content.
  *
  * @method _create_morph
  */
