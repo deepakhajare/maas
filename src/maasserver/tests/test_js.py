@@ -157,6 +157,19 @@ def get_remote_browser_names_from_env():
 
 
 class YUIUnitBase:
+    """Base class for running YUI3 tests in a variety of browsers.
+
+    Calls to instance of this class are intercepted. If the call is to a clone
+    the superclass is called, and thus the test executes as normal. Otherwise
+    the `multiply` method is called. This method can then arrange for the
+    testcase to be run in multiple environments, cloning the test for each.
+
+    In this way it can efficiently set-up and tear-down resources for the
+    tests, and also report on a per-test basis. If test resources were fully
+    working for MAAS tests this might not be necessary, but at the time of
+    implementation this was a solution with the lowest friction (at least,
+    lower than ripping nose out, or teaching it about test resources).
+    """
 
     __metaclass__ = ABCMeta
 
