@@ -39,9 +39,8 @@ class TestCeleryFixture(TestCase):
         )
 
     def test_celery_config(self):
-        self.assertTrue(getattr(current_app.conf, 'CELERY_ALWAYS_EAGER'))
-        self.assertTrue(
-            getattr(current_app.conf, 'CELERY_EAGER_PROPAGATES_EXCEPTIONS'))
+        self.assertTrue(current_app.conf.CELERY_ALWAYS_EAGER)
+        self.assertTrue(current_app.conf.CELERY_EAGER_PROPAGATES_EXCEPTIONS)
 
     def test_celery_eagerresult_contains_result(self):
        # The result is an instance of EagerResult and it contains the actual
