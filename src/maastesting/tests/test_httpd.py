@@ -44,8 +44,9 @@ class TestHTTPServerFixture(TestCase):
         with HTTPServerFixture() as httpd:
             url = urljoin(httpd.url, filename)
             with closing(urlopen(url)) as http_in:
-                with open(filename, "rb") as file_in:
-                    self.assertEqual(
-                        file_in.read(), http_in.read(),
-                        "The content of %s differs from %s." % (
-                            url, filename))
+                http_data_in = http_in.read()
+        with open(filename, "rb") as file_in:
+            file_data_in = file_in.read()
+        self.assertEqual(
+            file_data_in, http_data_in,
+            "The content of %s differs from %s." % (url, filename))
