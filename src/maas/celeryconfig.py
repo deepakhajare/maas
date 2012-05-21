@@ -15,7 +15,7 @@ __metaclass__ = type
 # user_celeryconfig.py somewhere on the PYTHONPATH.
 
 try:
-    from user_celeryconfig import *
+    from user_maasceleryconfig import *
 except ImportError:
     pass
 
