@@ -185,7 +185,7 @@ class SauceOnDemandFixture(Fixture):
     """
 
     # Default capabilities
-    capabilities = {
+    default_capabilities = {
         "video-upload-on-pass": False,
         "record-screenshots": False,
         "record-video": False,
@@ -199,7 +199,7 @@ class SauceOnDemandFixture(Fixture):
             Sauce OnDemand service, or a Sauce Connect service.
         """
         super(SauceOnDemandFixture, self).__init__()
-        self.capabilities = self.capabilities.copy()
+        self.capabilities = self.default_capabilities.copy()
         self.capabilities.update(capabilities)
         self.control_url = control_url
 
