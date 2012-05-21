@@ -16,8 +16,6 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-import BaseHTTPServer
-from contextlib import contextmanager
 from glob import glob
 import json
 import logging
@@ -27,22 +25,20 @@ from os.path import (
     dirname,
     join,
     )
-import re
-import SimpleHTTPServer
-import SocketServer
-import threading
+from urlparse import urljoin
 
 from fixtures import Fixture
 from maastesting import yui3
+from maastesting.httpd import HTTPServerFixture
 from maastesting.saucelabs import (
     SauceConnectFixture,
-    SauceOnDemandFixture,
+    SSTOnDemandFixture,
     )
 from maastesting.testcase import TestCase
+from maastesting.utils import extract_word_list
 from nose.tools import nottest
 from pyvirtualdisplay import Display
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from sst import actions
 from sst.actions import (
     assert_text,
     get_element,
@@ -52,7 +48,6 @@ from sst.actions import (
     wait_for,
     )
 from testtools import clone_test_with_new_id
-from testtools.monkey import MonkeyPatcher
 
 # Base path where the HTML files will be searched.
 BASE_PATH = 'src/maasserver/static/js/tests/'
@@ -101,28 +96,6 @@ class DisplayFixture(Fixture):
         self.addCleanup(self.display.stop)
 
 
-class ThreadingHTTPServer(SocketServer.ThreadingMixIn,
-                          BaseHTTPServer.HTTPServer):
-    """A simple HTTP Server that whill run in it's own thread."""
-
-
-class SilentHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
-    # SimpleHTTPRequestHandler logs to stdout: silence it.
-    log_request = lambda *args, **kwargs: None
-    log_error = lambda *args, **kwargs: None
-
-
-@contextmanager
-def http_server(host="localhost", port=8080):
-    server = ThreadingHTTPServer(
-        (host, port), SilentHTTPRequestHandler)
-    threading.Thread(target=server.serve_forever).start()
-    try:
-        yield server
-    finally:
-        server.shutdown()
-
-
 class SSTFixture(Fixture):
     """Setup a javascript-enabled testing browser instance with SST."""
 
@@ -139,10 +112,6 @@ class SSTFixture(Fixture):
 
 
 project_home = dirname(dirname(dirname(dirname(__file__))))
-
-
-def extract_word_list(string):
-    return re.findall("[^,;\s]+", string)
 
 
 def get_browser_names_from_env():
@@ -204,7 +173,7 @@ class YUIUnitBase:
         return test
 
     @abstractmethod
-    def execute(self, result):
+    def multiply(self, result):
         """Run the test for each of a specified range of browsers.
 
         This method should sort out shared fixtures.
@@ -215,7 +184,7 @@ class YUIUnitBase:
             # This test has been cloned; just call-up to run the test.
             super(YUIUnitBase, self).__call__(result)
         else:
-            self.execute(result)
+            self.multiply(result)
 
     def test_YUI3_unit_tests(self):
         # Load the page and then wait for #suite to contain
@@ -235,7 +204,7 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
         (path, {"test_url": "file://%s" % abspath(path)})
         for path in YUIUnitBase.test_paths)
 
-    def execute(self, result):
+    def multiply(self, result):
         # Run this test locally for each browser requested. Use the same
         # display fixture for all browsers. This is done here so that all
         # scenarios are played out for each browser in turn; starting and
@@ -249,17 +218,12 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
 
 class YUIUnitTestsRemote(YUIUnitBase, TestCase):
 
-    def execute(self, result):
+    def multiply(self, result):
         # Now run this test remotely for each requested Sauce OnDemand
         # browser requested.
         browser_names = get_remote_browser_names_from_env()
         if len(browser_names) == 0:
             return
-
-        # TODO: Obtain these settings from somewhere else.
-        sauce_connect = SauceConnectFixture(
-            jarfile="saucelabs/connect/Sauce-Connect.jar", username="allenap",
-            api_key="584e0c37-9088-49c3-bdc4-b075e2bf9f84")
 
         # A web server is needed so the OnDemand service can obtain local
         # tests. Be careful when choosing web server ports:
@@ -272,20 +236,16 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
         #   was your local machine. Easy!
         #
         # From <https://saucelabs.com/docs/ondemand/connect>.
-        with http_server(port=5555) as httpd:
-            web_url_form = "http://%s:%d/%%s" % httpd.server_address
+        with HTTPServerFixture(port=5555) as httpd:
             scenarios = tuple(
-                (path, {"test_url": web_url_form % path})
+                (path, {"test_url": urljoin(httpd.url, path)})
                 for path in self.test_paths)
-            with sauce_connect:
+            with SauceConnectFixture() as sauce_connect:
                 for browser_name in browser_names:
                     capabilities = remote_browsers[browser_name]
-                    sauce_ondemand = SauceOnDemandFixture(
+                    sst_ondemand = SSTOnDemandFixture(
                         capabilities, sauce_connect.control_url)
-                    with sauce_ondemand:
+                    with sst_ondemand:
                         browser_test = self.clone("remote:%s" % browser_name)
                         browser_test.scenarios = scenarios
-                        patcher = MonkeyPatcher(
-                            (actions, "browser", sauce_ondemand.driver),
-                            (actions, "browsermob_proxy", None))
-                        patcher.run_with_patches(browser_test, result)
+                        browser_test(result)
