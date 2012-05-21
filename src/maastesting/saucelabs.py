@@ -123,6 +123,7 @@ class SauceConnectFixture(Fixture):
                 self.process = subprocess.Popen(
                     self.command, stdin=devnull, stdout=log, stderr=log,
                     cwd=self.workdir, preexec_fn=preexec_fn)
+        # Wait for start-up to complete.
         for elapsed, remaining in retries(120):
             if self.process.poll() is None:
                 if path.isfile(self.readyfile):
@@ -131,6 +132,7 @@ class SauceConnectFixture(Fixture):
                 raise subprocess.CalledProcessError(
                     self.process.returncode, self.command)
         else:
+            # Things are taking too long; stop and bail out.
             self.stop()
             raise TimeoutException(
                 "%s took too long to start (more than %d seconds)" % (
@@ -139,6 +141,7 @@ class SauceConnectFixture(Fixture):
     def stop(self):
         if self.process.poll() is None:
             self.process.terminate()
+            # Wait for shutdown to complete.
             for elapsed, remaining in retries(60):
                 returncode = self.process.poll()
                 # Sauce-Connect.jar appears to exit cleanly with code 143.
@@ -148,6 +151,7 @@ class SauceConnectFixture(Fixture):
                     raise subprocess.CalledProcessError(
                         self.process.returncode, self.command)
             else:
+                # Things are taking too long; kill.
                 self.process.kill()
                 raise TimeoutException(
                     "%s took too long to stop (more than %d seconds)" % (
