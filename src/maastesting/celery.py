@@ -50,4 +50,3 @@ class CeleryFixture(Fixture):
             current_app.conf, 'CELERY_EAGER_PROPAGATES_EXCEPTIONS', True)
         self.addCleanup(patcher.restore)
         patcher.patch()
-

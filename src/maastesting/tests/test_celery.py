@@ -26,6 +26,7 @@ from testresources import FixtureResource
 def task_add(x, y):
     return x + y
 
+
 @task()
 def task_exception(x, y):
     raise RuntimeError()

@@ -20,7 +20,7 @@ __all__ = [
 import os
 import subprocess
 
-from maas.celeryconfig import POWER_TEMPLATES_DIR
+from celeryconfig import POWER_TEMPLATES_DIR
 
 
 class UnknownPowerType(Exception):
