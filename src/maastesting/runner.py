@@ -16,7 +16,7 @@ __all__ = [
 
 from django.conf import settings
 from django_nose import NoseTestSuiteRunner
-from maastesting.services.database import ClusterFixture
+from postgresfixture import ClusterFixture
 
 
 class TestRunner(NoseTestSuiteRunner):

@@ -18,7 +18,7 @@ __all__ = ['Command']
 from django.core.management.commands import dbshell
 from django.db import connections, DEFAULT_DB_ALIAS
 
-from maastesting.services.database import ClusterFixture
+from postgresfixture import ClusterFixture
 
 
 class Command(dbshell.Command):
