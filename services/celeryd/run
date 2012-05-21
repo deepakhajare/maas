@@ -13,6 +13,5 @@ cd "$(dirname "$0")/../.."
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
 # Run celeryd.
-script="$(readlink -f bin/maas)"
 export PYTHONPATH=$PYTHONPATH:`pwd`/src:`pwd`/src/maas
-celeryd --beat -I provisioningserver.tasks -l INFO
+celeryd -l INFO
