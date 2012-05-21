@@ -97,6 +97,8 @@ clean:
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 	$(RM) $(js_enums)
+	$(RM) *.log
+	$(RM) celerybeat-schedule
 
 distclean: clean stop
 	$(RM) -r eggs develop-eggs
@@ -140,7 +142,7 @@ endef
 # Development services.
 #
 
-service_names := database pserv reloader txlongpoll web webapp
+service_names := celeryd database pserv reloader txlongpoll web webapp
 services := $(patsubst %,services/%/,$(service_names))
 
 run:
@@ -212,6 +214,8 @@ services/%/@supervise: services/%/@deps
 	@while ! $(svok) $(@D); do sleep 0.1; done
 
 # Dependencies for individual services.
+
+services/celeryd/@deps:
 
 services/database/@deps: bin/database
 

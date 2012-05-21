@@ -1,10 +1,12 @@
 *.egg
 *.egg-info
+*.log
 ./.coverage
 ./.installed.cfg
 ./.noseids
 ./bin
 ./build
+./celerybeat-schedule
 ./db
 ./develop-eggs
 ./dist
