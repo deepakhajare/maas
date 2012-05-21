@@ -33,6 +33,7 @@ import SocketServer
 import threading
 
 from fixtures import Fixture
+from maastesting import yui3
 from maastesting.saucelabs import (
     SauceConnectFixture,
     SauceOnDemandFixture,
@@ -186,27 +187,6 @@ def get_remote_browser_names_from_env():
     return names
 
 
-@nottest
-def get_failed_tests_message(results):
-    """Return a readable error message with the list of the failed tests.
-
-    Given a YUI3 results_ json object, return a readable error message.
-
-    .. _results: http://yuilibrary.com/yui/docs/test/
-    """
-    result = []
-    suites = [item for item in results.values() if isinstance(item, dict)]
-    for suite in suites:
-        if suite['failed'] != 0:
-            tests = [item for item in suite.values()
-                     if isinstance(item, dict)]
-            for test in tests:
-                if test['result'] != 'pass':
-                    result.append('\n%s.%s: %s\n' % (
-                        suite['name'], test['name'], test['message']))
-    return ''.join(result)
-
-
 class YUIUnitBase:
 
     __metaclass__ = ABCMeta
@@ -244,8 +224,8 @@ class YUIUnitBase:
         wait_for(assert_text, 'suite', 'done')
         results = json.loads(get_element(id='test_results').text)
         if results['failed'] != 0:
-            message = '%d test(s) failed.\n%s' % (
-                results['failed'], get_failed_tests_message(results))
+            message = '%d test(s) failed.\n\n%s' % (
+                results['failed'], yui3.get_failed_tests_message(results))
             self.fail(message)
 
 
