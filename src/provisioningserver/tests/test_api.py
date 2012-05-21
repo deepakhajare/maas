@@ -768,7 +768,7 @@ class TestProvisioningAPIWithRealCobbler(ProvisioningAPITests,
         ])
     # Only accept power methods that both MAAS and Cobbler know.
     valid_power_types = (
-        ProvisioningAPITestsWithCobbler.valid_power_types.insersection(
+        ProvisioningAPITestsWithCobbler.valid_power_types.intersection(
             cobbler_power_types))
 
     @real_cobbler.skip_unless_available
