@@ -15,6 +15,7 @@ __all__ = []
 
 import os
 from maastesting.testcase import TestCase
+from testtools.matchers import FileContains
 from textwrap import dedent
 
 from django.conf import settings
@@ -80,17 +81,10 @@ class TestPowerAction(TestCase):
             f.write(template)
         return path
 
-    def assertScriptOutput(self, path, output_file, expected, **kwargs):
+    def run_action(self, path, **kwargs):
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
         pa.path = path
         pa.execute(**kwargs)
-
-        # Check that it got executed by comparing the file it was
-        # supposed to write out.
-        with open(output_file, "r") as f:
-            output = f.read()
-
-        self.assertEqual("working test\n", output)
 
     def test_execute(self):
         # execute() should run the template through a shell.
@@ -104,14 +98,12 @@ class TestPowerAction(TestCase):
         template += output_file
         path = self._create_template_file(template)
 
-        self.assertScriptOutput(
-            path, output_file, "working test\n", mac="test")
+        self.run_action(path, mac="test")
+        self.assertThat(output_file, FileContains("working test\n"))
 
     def test_execute_raises_PowerActionFail_when_script_fails(self):
         template = "this_is_not_valid_shell"
         path = self._create_template_file(template)
-        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
-        pa.path = path
-        exception = self.assertRaises(PowerActionFail, pa.execute)
+        exception = self.assertRaises(PowerActionFail, self.run_action, path)
         self.assertEqual(
             "ether_wake failed with return code 127", exception.message)
