@@ -16,8 +16,10 @@ __metaclass__ = type
 __all__ = ['Command']
 
 from django.core.management.commands import dbshell
-from django.db import connections, DEFAULT_DB_ALIAS
-
+from django.db import (
+    connections,
+    DEFAULT_DB_ALIAS,
+    )
 from postgresfixture import ClusterFixture
 
 
