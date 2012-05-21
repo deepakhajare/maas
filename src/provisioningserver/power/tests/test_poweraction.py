@@ -14,6 +14,7 @@ __metaclass__ = type
 __all__ = []
 
 import os
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from testtools.matchers import FileContains
 from textwrap import dedent
@@ -31,7 +32,7 @@ class TestPowerAction(TestCase):
     """Tests for PowerAction."""
 
     def test_init_raises_for_unknown_powertype(self):
-        powertype = "jtv_is_a_pedant"
+        powertype = "powertype" + factory.getRandomString()
         self.assertRaises(
             UnknownPowerType,
             PowerAction, powertype)
