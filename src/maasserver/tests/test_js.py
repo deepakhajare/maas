@@ -239,16 +239,8 @@ class YUIUnitTestsRemote(YUIUnitBase, TestCase):
             return
 
         # A web server is needed so the OnDemand service can obtain local
-        # tests. Be careful when choosing web server ports:
-        #
-        #   Sauce Connect proxies localhost ports 80, 443, 888, 2000, 2001,
-        #   2020, 2222, 3000, 3001, 3030, 3333, 4000, 4001, 4040, 4502, 4503,
-        #   5000, 5001, 5050, 5555, 6000, 6001, 6060, 6666, 7000, 7070, 7777,
-        #   8000, 8001, 8003, 8080, 8888, 9000, 9001, 9090, 9999 so when you
-        #   use it, your local web apps are available to test as if the cloud
-        #   was your local machine. Easy!
-        #
-        # From <https://saucelabs.com/docs/ondemand/connect>.
+        # tests. Be careful when choosing web server ports; only a scattering
+        # are proxied. See <https://saucelabs.com/docs/ondemand/connect>.
         with HTTPServerFixture(port=5555) as httpd:
             scenarios = tuple(
                 (path, {"test_url": urljoin(httpd.url, path)})
