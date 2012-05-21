@@ -75,11 +75,7 @@ class TestPowerAction(TestCase):
             exception.message)
 
     def _create_template_file(self, template):
-        tempdir = self.make_dir()
-        path = os.path.join(tempdir, "testscript.sh")
-        with open(path, "w") as f:
-            f.write(template)
-        return path
+        return self.make_file("testscript.sh", template)
 
     def run_action(self, path, **kwargs):
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
