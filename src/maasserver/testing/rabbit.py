@@ -11,10 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "get_rabbit",
     "RabbitServerSettings",
-    "start_rabbit",
-    "stop_rabbit",
     "use_rabbit_fixture",
     "uses_rabbit_fixture",
     ]
@@ -22,7 +19,7 @@ __all__ = [
 from functools import wraps
 
 from fixtures import Fixture
-from rabbitfixture.server import RabbitServer
+from maastesting.rabbit import get_rabbit
 from testtools.monkey import MonkeyPatcher
 
 
@@ -49,33 +46,6 @@ class RabbitServerSettings(Fixture):
         patcher.add_patch(settings, "RABBITMQ_PUBLISH", True)
         self.addCleanup(patcher.restore)
         patcher.patch()
-
-
-# See {start,stop,get}_rabbit().
-rabbit = None
-
-
-def start_rabbit():
-    """Start a shared :class:`RabbitServer`."""
-    global rabbit
-    if rabbit is None:
-        rabbit = RabbitServer()
-        rabbit.setUp()
-
-
-def stop_rabbit():
-    """Stop a shared :class:`RabbitServer`, if any."""
-    global rabbit
-    if rabbit is not None:
-        rabbit.cleanUp()
-        rabbit = None
-
-
-def get_rabbit():
-    """Start and return a shared :class:`RabbitServer`."""
-    global rabbit
-    start_rabbit()
-    return rabbit
 
 
 def use_rabbit_fixture(test):
