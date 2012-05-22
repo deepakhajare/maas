@@ -14,6 +14,9 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
+# Use `maas` as the default database.
+export PGDATABASE="maas"
+
 # Start the database.
 script="$(readlink -f bin/database)"
 exec "${script}" run --preserve
