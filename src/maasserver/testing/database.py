@@ -11,7 +11,6 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "MAASClusterCommandMixin",
     "MAASClusterFixture",
     ]
 
@@ -43,12 +42,3 @@ class MAASClusterFixture(ClusterFixture):
     def setUp(self):
         super(MAASClusterFixture, self).setUp()
         self.createdb(self.dbname)
-
-
-class MAASClusterCommandMixin:
-    """Mixin for management commands to ensure that a database is running."""
-
-    def handle(self, **options):
-        self.cluster = MAASClusterFixture(options.get('database'))
-        with self.cluster:
-            return super(MAASClusterCommandMixin, self).handle(**options)
