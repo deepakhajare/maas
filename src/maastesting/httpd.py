@@ -23,7 +23,7 @@ from fixtures import Fixture
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-    """A simple HTTP Server that whill run in it's own thread."""
+    """A simple HTTP server that will run in its own thread."""
 
 
 class SilentHTTPRequestHandler(SimpleHTTPRequestHandler):
