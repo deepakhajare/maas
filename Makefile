@@ -5,6 +5,10 @@ py_enums := $(wildcard src/*/enum.py)
 # JavaScript enum module (not modules).
 js_enums := src/maasserver/static/js/enums.js
 
+# For things that care, postgresfixture for example, we always want to
+# use the "maas" databases.
+export PGDATABASE := maas
+
 build: \
     bin/buildout \
     bin/database \
@@ -110,17 +114,18 @@ distclean: clean stop
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
 
-harness: bin/maas services/database/@start
-	bin/maas shell --settings=maas.demo
+harness: run = bin/database --preserve run --
+harness: bin/maas bin/database
+	$(run) bin/maas shell --settings=maas.demo
 
 dbharness: bin/database
-	bin/database shell --preserve
+	bin/database --preserve shell
 
-syncdb: bin/maas services/database/@start
-	@until bin/database shell < /dev/null; do sleep 1; done
-	bin/maas syncdb --noinput
-	bin/maas migrate maasserver --noinput
-	bin/maas migrate metadataserver --noinput
+syncdb: run = bin/database --preserve run --
+syncdb: bin/maas bin/database
+	$(run) bin/maas syncdb --noinput
+	$(run) bin/maas migrate maasserver --noinput
+	$(run) bin/maas migrate metadataserver --noinput
 
 define phony_targets
   build

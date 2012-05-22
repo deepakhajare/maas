@@ -19,4 +19,4 @@ export PGDATABASE="maas"
 
 # Start the database.
 script="$(readlink -f bin/database)"
-exec "${script}" run --preserve
+exec "${script}" --preserve run
