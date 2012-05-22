@@ -117,6 +117,7 @@ dbharness: bin/database
 	bin/database shell --preserve
 
 syncdb: bin/maas services/database/@start
+	@until bin/database shell < /dev/null; do sleep 1; done
 	bin/maas syncdb --noinput
 	bin/maas migrate maasserver --noinput
 	bin/maas migrate metadataserver --noinput
