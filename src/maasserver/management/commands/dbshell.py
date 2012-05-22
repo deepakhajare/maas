@@ -16,11 +16,7 @@ __metaclass__ = type
 __all__ = ['Command']
 
 from django.core.management.commands import dbshell
-from django.db import (
-    connections,
-    DEFAULT_DB_ALIAS,
-    )
-from postgresfixture import ClusterFixture
+from maasserver.testing.database import MAASClusterFixture
 
 
 class Command(dbshell.Command):
@@ -29,9 +25,5 @@ class Command(dbshell.Command):
     def handle(self, **options):
         # Don't call up to Django's dbshell, because that ends up exec'ing the
         # shell, preventing this from clearing down the fixture.
-        connection = connections[options.get('database', DEFAULT_DB_ALIAS)]
-        datadir = connection.settings_dict["HOST"]
-        with ClusterFixture(datadir, preserve=True) as cluster:
-            dbname = connection.settings_dict["NAME"]
-            cluster.createdb(dbname)
-            cluster.shell(dbname)
+        with MAASClusterFixture(options.get('database')) as cluster:
+            cluster.shell(cluster.dbname)
