@@ -30,14 +30,14 @@ from urlparse import urljoin
 from fixtures import Fixture
 from maastesting import yui3
 from maastesting.httpd import HTTPServerFixture
-from maastesting.saucelabs import (
-    SauceConnectFixture,
-    SSTOnDemandFixture,
-    )
 from maastesting.testcase import TestCase
 from maastesting.utils import extract_word_list
 from nose.tools import nottest
 from pyvirtualdisplay import Display
+from saucelabsfixture import (
+    SauceConnectFixture,
+    SSTOnDemandFixture,
+    )
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from sst.actions import (
     assert_text,
