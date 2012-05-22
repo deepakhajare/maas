@@ -11,3 +11,25 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = []
+
+
+from celery.decorators import task
+
+from provisioningserver.enum import POWER_TYPE
+from provisioningserver.power.poweraction import (
+    PowerAction,
+    PowerActionFail,
+    )
+
+
+@task
+def power_on_ether_wake(**kwargs):
+    try:
+        pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
+        pa.execute(**kwargs)
+    except PowerActionFail:
+        # TODO: signal to webapp that it failed
+        pass
+
+
+    # TODO: signal to webapp that it worked.
