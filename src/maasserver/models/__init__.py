@@ -88,6 +88,7 @@ from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
     )
+from provisioningserver.tasks import power_on
 from twisted.conch.ssh.keys import (
     BadKeyError,
     Key,
@@ -349,7 +350,9 @@ class NodeManager(Manager):
         nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
         for node in nodes:
             NodeUserData.objects.set_user_data(node, user_data)
-        get_papi().start_nodes([node.system_id for node in nodes])
+            # For now, use the first registered MAC address.
+            mac = node.macaddress_set.all().order_by('created')[0].mac_address
+            power_on.delay(node.power_type, mac=mac)
         return nodes
 
 
