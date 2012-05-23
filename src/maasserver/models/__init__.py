@@ -348,12 +348,16 @@ class NodeManager(Manager):
         # import dance.
         from metadataserver.models import NodeUserData
         nodes = self.get_nodes(by_user, NODE_PERMISSION.EDIT, ids=ids)
+        processed_nodes = []
         for node in nodes:
             NodeUserData.objects.set_user_data(node, user_data)
             # For now, use the first registered MAC address.
-            mac = node.macaddress_set.all().order_by('created')[0].mac_address
-            power_on.delay(node.power_type, mac=mac)
-        return nodes
+            if node.macaddress_set.exists():
+                mac = node.macaddress_set.all().order_by(
+                    'created')[0].mac_address
+                power_on.delay(node.power_type, mac=mac)
+                processed_nodes.append(node)
+        return processed_nodes
 
 
 def get_db_state(instance, field_name):
