@@ -5,8 +5,18 @@ py_enums := $(wildcard src/*/enum.py)
 # JavaScript enum module (not modules).
 js_enums := src/maasserver/static/js/enums.js
 
+# Prefix commands with this when they need access to the database.
+# Remember to add a dependency on bin/database from the targets in
+# which those commands appear.
+dbrun := bin/database --preserve run --
+
+# For things that care, postgresfixture for example, we always want to
+# use the "maas" databases.
+export PGDATABASE := maas
+
 build: \
     bin/buildout \
+    bin/database \
     bin/maas bin/test.maas bin/test.maastesting \
     bin/twistd.pserv bin/test.pserv \
     bin/twistd.txlongpoll \
@@ -18,6 +28,10 @@ all: build doc
 bin/buildout: bootstrap.py distribute_setup.py
 	$(python) bootstrap.py --distribute --setup-source distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
+
+bin/database: bin/buildout buildout.cfg versions.cfg setup.py
+	bin/buildout install database
+	@touch --no-create $@
 
 bin/maas: bin/buildout buildout.cfg versions.cfg setup.py $(js_enums)
 	bin/buildout install maas
@@ -55,9 +69,6 @@ bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install repl
 	@touch --no-create bin/py bin/ipy
 
-dev-db:
-	utilities/maasdb start ./db/ disposable
-
 test: bin/test.maas bin/test.maastesting bin/test.pserv $(js_enums)
 	bin/test.maas
 	bin/test.maastesting
@@ -84,8 +95,8 @@ check: clean test
 docs/api.rst: bin/maas src/maasserver/api.py syncdb
 	bin/maas generate_api_doc > $@
 
-sampledata: bin/maas syncdb
-	bin/maas loaddata src/maasserver/fixtures/dev_fixture.yaml
+sampledata: bin/maas bin/database syncdb
+	$(dbrun) bin/maas loaddata src/maasserver/fixtures/dev_fixture.yaml
 
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
@@ -104,7 +115,6 @@ clean:
 	$(RM) celerybeat-schedule
 
 distclean: clean stop
-	utilities/maasdb delete-cluster ./db/
 	$(RM) -r eggs develop-eggs
 	$(RM) -r bin build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
@@ -114,19 +124,22 @@ distclean: clean stop
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
 
-harness: bin/maas dev-db
-	bin/maas shell --settings=maas.demo
+harness: bin/maas bin/database
+	$(dbrun) bin/maas shell --settings=maas.demo
 
-syncdb: bin/maas dev-db
-	bin/maas syncdb --noinput
-	bin/maas migrate maasserver --noinput
-	bin/maas migrate metadataserver --noinput
+dbharness: bin/database
+	bin/database --preserve shell
+
+syncdb: bin/maas bin/database
+	$(dbrun) bin/maas syncdb --noinput
+	$(dbrun) bin/maas migrate maasserver --noinput
+	$(dbrun) bin/maas migrate metadataserver --noinput
 
 define phony_targets
   build
   check
   clean
-  dev-db
+  dbharness
   distclean
   doc
   enums
@@ -143,7 +156,7 @@ endef
 # Development services.
 #
 
-service_names := pserv celeryd reloader txlongpoll web webapp
+service_names := celeryd database pserv reloader txlongpoll web webapp
 services := $(patsubst %,services/%/,$(service_names))
 
 run:
@@ -216,6 +229,10 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
+services/celeryd/@deps:
+
+services/database/@deps: bin/database
+
 services/pserv/@deps: bin/twistd.pserv
 
 services/reloader/@deps:
@@ -224,9 +241,7 @@ services/txlongpoll/@deps: bin/twistd.txlongpoll
 
 services/web/@deps:
 
-services/webapp/@deps: bin/maas dev-db
-
-services/celeryd/@deps:
+services/webapp/@deps: bin/maas
 
 #
 # Phony stuff.
