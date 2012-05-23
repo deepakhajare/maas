@@ -85,8 +85,9 @@ check: clean test
 docs/api.rst: bin/maas src/maasserver/api.py syncdb
 	bin/maas generate_api_doc > $@
 
-sampledata: bin/maas syncdb
-	bin/maas loaddata src/maasserver/fixtures/dev_fixture.yaml
+sampledata: run = bin/database --preserve run --
+sampledata: bin/maas bin/database syncdb
+	$(run) bin/maas loaddata src/maasserver/fixtures/dev_fixture.yaml
 
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
