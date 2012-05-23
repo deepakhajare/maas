@@ -10,33 +10,48 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    'encode_multipart_data',
+    ]
 
 import mimetypes
 import random
 import string
 
 
-def _random_string(length):
-    return ''.join(random.choice(string.letters) for ii in range(length + 1))
+def make_random_boundary(length=30):
+    """Create a random string for use in MIME boundary lines."""
+    return b''.join(random.choice(string.letters) for ii in range(length))
 
 
-def _get_content_type(filename):
-    return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+def get_content_type(filename):
+    """Return the MIME content type for the file with the given name."""
+    return mimetypes.guess_type(filename)[0] or b'application/octet-stream'
 
 
-def _encode_field(field_name, data, boundary):
-    return ('--' + boundary,
-            'Content-Disposition: form-data; name="%s"' % field_name,
-            '', str(data))
+def encode_field(field_name, data, boundary):
+    """MIME-encode a form field."""
+    field_name = field_name.encode('ascii')
+    return (
+        b'--' + boundary,
+        b'Content-Disposition: form-data; name="%s"' % field_name,
+        b'',
+        bytes(data),
+        )
 
 
-def _encode_file(name, fileObj, boundary):
-    return ('--' + boundary,
-            'Content-Disposition: form-data; name="%s"; filename="%s"' %
-                (name, name),
-            'Content-Type: %s' % _get_content_type(name),
-            '', fileObj.read())
+def encode_file(name, fileObj, boundary):
+    """MIME-encode a file upload."""
+    content_type = get_content_type(name)
+    name = name.encode('ascii')
+    return (
+        b'--' + boundary,
+        b'Content-Disposition: form-data; name="%s"; filename="%s"' %
+            (name, name),
+        b'Content-Type: %s' % content_type,
+        b'',
+        fileObj.read(),
+        )
 
 
 def encode_multipart_data(data, files):
@@ -49,18 +64,19 @@ def encode_multipart_data(data, files):
         and C{headers} is a dict of headers to add to the enclosing request in
         which this payload will travel.
     """
-    boundary = _random_string(30)
+    boundary = make_random_boundary()
 
     lines = []
-    for name in data:
-        lines.extend(_encode_field(name, data[name], boundary))
-    for name in files:
-        lines.extend(_encode_file(name, files[name], boundary))
-    lines.extend(('--%s--' % boundary, ''))
-    body = '\r\n'.join(lines)
+    for name, content in data.items():
+        lines.extend(encode_field(name, content, boundary))
+    for name, file_obj in files.items():
+        lines.extend(encode_file(name, file_obj, boundary))
+    lines.extend((b'--%s--' % boundary, b''))
+    body = b'\r\n'.join(lines)
 
-    headers = {'content-type': 'multipart/form-data; boundary=' + boundary,
-               'content-length': str(len(body))}
+    headers = {
+        b'content-type': b'multipart/form-data; boundary=' + boundary,
+        b'content-length': b'%s' % (len(body)),
+        }
 
     return body, headers
-
