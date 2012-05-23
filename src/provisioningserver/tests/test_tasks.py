@@ -16,8 +16,9 @@ from testresources import FixtureResource
 
 from maastesting.celery import CeleryFixture
 from maastesting.testcase import TestCase
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
-from provisioningserver.tasks import power_on_ether_wake
+from provisioningserver.tasks import power_on
 
 
 class TaskTestCase(TestCase):
@@ -36,9 +37,10 @@ class TestPowerTasks(TaskTestCase):
         # In eager test mode the assertion is raised immediately rather
         # than being stored in the AsyncResult, so we need to test for
         # that instead of using result.get().
-        self.assertRaises(PowerActionFail, power_on_ether_wake.delay)
+        self.assertRaises(
+            PowerActionFail, power_on.delay, POWER_TYPE.WAKE_ON_LAN)
 
     def test_ether_wake_power_on(self):
         mac = "AA:BB:CC:DD:EE:FF"
-        result = power_on_ether_wake.delay(mac=mac)
+        result = power_on.delay(POWER_TYPE.WAKE_ON_LAN, mac=mac)
         self.assertSuccess(result)
