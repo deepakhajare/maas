@@ -29,7 +29,9 @@ def power_on_ether_wake(**kwargs):
         pa.execute(**kwargs)
     except PowerActionFail:
         # TODO: signal to webapp that it failed
-        pass
 
+        # Re-raise, so the job is marked as failed.  Only currently
+        # useful for tests.
+        raise
 
     # TODO: signal to webapp that it worked.
