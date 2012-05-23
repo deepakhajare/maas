@@ -21,10 +21,12 @@ from fixtures import TempDir
 from maastesting.factory import factory
 from maastesting.scenarios import WithScenarios
 from nose.proxy import ResultProxy
+from nose.tools import nottest
 import testresources
 import testtools
 
 
+@nottest
 @contextmanager
 def active_test(result, test):
     """Force nose to report for the test that's running.
