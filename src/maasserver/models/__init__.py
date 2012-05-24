@@ -359,9 +359,13 @@ class NodeManager(Manager):
                 mac = None
                 if node.power_parameters:
                     mac = node.power_parameters.get("mac", None)
-                elif node.macaddress_set.exists():
-                    mac = node.macaddress_set.all().order_by(
-                        'created')[0].mac_address
+                else:
+                    try:
+                        macaddress = node.macaddress_set.order_by('created')[0]
+                    except IndexError:
+                        pass # No MAC recorded for this node.
+                    else:
+                        mac = macaddress.mac_address
                 if mac is not None and mac != "":
                     power_on.delay(node.power_type, mac=mac)
                     processed_nodes.append(node)

@@ -668,7 +668,7 @@ class NodeManagerTest(TestCase):
                 factory.make_user(), power_type=POWER_TYPE.WAKE_ON_LAN)
             for counter in range(3)]
         ids = [node.system_id for node, mac in nodes]
-        stoppable_node = nodes[0]
+        stoppable_node = nodes[0][0]
         self.assertItemsEqual(
             [stoppable_node],
             Node.objects.stop_nodes(ids, stoppable_node.owner))
@@ -721,6 +721,16 @@ class NodeManagerTest(TestCase):
             power_parameters=dict(jarjar="binks"))
         output = Node.objects.start_nodes([node.system_id], user)
         self.assertItemsEqual([], output)
+
+    def test_start_nodes_wakeonlan_ignores_empty_mac_parameter(self):
+        fixture = self.useFixture(CeleryFixture())
+        user = factory.make_user()
+        node, mac = self.make_node_with_mac(
+            user, power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters=dict(mac=""))
+        output = Node.objects.start_nodes([node.system_id], user)
+        self.assertItemsEqual([], output)
+        self.assertEqual(0, len(fixture.tasks))
 
     def test_start_nodes_other_power_type(self):
         # wakeonlan tests, above, are a special case. Test another type
