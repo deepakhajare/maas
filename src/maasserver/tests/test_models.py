@@ -270,17 +270,17 @@ class NodeTest(TestCase):
         Config.objects.set_config('node_power_type', POWER_TYPE.DEFAULT)
         self.assertRaises(ValueError, node.get_effective_power_type)
 
-    def test_power_address(self):
+    def test_power_parameters(self):
         node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
-        address = dict(user="tarquin", address="10.1.2.3")
-        node.power_address = address
+        parameters = dict(user="tarquin", address="10.1.2.3")
+        node.power_parameters = parameters
         node.save()
         node = reload_object(node)
-        self.assertEqual(address, node.power_address)
+        self.assertEqual(parameters, node.power_parameters)
 
-    def test_power_address_default(self):
+    def test_power_parameters_default(self):
         node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
-        self.assertEqual("", node.power_address)
+        self.assertEqual("", node.power_parameters)
 
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)

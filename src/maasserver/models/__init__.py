@@ -425,8 +425,8 @@ class Node(CleanSave, TimestampedModel):
         max_length=10, choices=POWER_TYPE_CHOICES, null=False, blank=True,
         default=POWER_TYPE.DEFAULT)
 
-    # JSON encoded set of parameters for power control.
-    power_address = JSONObjectField(blank=True, default="")
+    # JSON-encoded set of parameters for power control.
+    power_parameters = JSONObjectField(blank=True, default="")
 
     token = ForeignKey(
         Token, db_index=True, null=True, editable=False, unique=False)

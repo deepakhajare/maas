@@ -12,14 +12,14 @@ class Migration(SchemaMigration):
 
     def forwards(self, orm):
         
-        # Adding field 'Node.power_address'
-        db.add_column(u'maasserver_node', 'power_address', self.gf('maasserver.fields.JSONObjectField')(default=u'', blank=True), keep_default=False)
+        # Adding field 'Node.power_parameters'
+        db.add_column(u'maasserver_node', 'power_parameters', self.gf('maasserver.fields.JSONObjectField')(default=u'', blank=True), keep_default=False)
 
 
     def backwards(self, orm):
         
-        # Deleting field 'Node.power_address'
-        db.delete_column(u'maasserver_node', 'power_address')
+        # Deleting field 'Node.power_parameters'
+        db.delete_column(u'maasserver_node', 'power_parameters')
 
 
     models = {
@@ -88,7 +88,7 @@ class Migration(SchemaMigration):
             'hostname': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
-            'power_address': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
+            'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
             'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-0d9853f6-a550-11e1-8598-002215205ce8'", 'unique': 'True', 'max_length': '41'}),
