@@ -937,6 +937,7 @@ class UserProfileTest(TestCase):
         self.assertTrue(set(SYSTEM_USERS).isdisjoint(usernames))
 
 
+# Scheduled for model migration on 2012-05-30
 class SSHKeyValidatorTest(TestCase):
 
     def test_validates_rsa_public_key(self):
@@ -972,6 +973,7 @@ class SSHKeyValidatorTest(TestCase):
             ValidationError, validate_ssh_public_key, key_string)
 
 
+# Scheduled for model migration on 2012-05-30
 class GetHTMLDisplayForKeyTest(TestCase):
     """Testing for the method `get_html_display_for_key`."""
 
@@ -1110,6 +1112,7 @@ class GetHTMLDisplayForKeyTest(TestCase):
             display)
 
 
+# Scheduled for model migration on 2012-05-30
 class SSHKeyTest(TestCase):
     """Testing for the :class:`SSHKey`."""
 
@@ -1181,6 +1184,7 @@ class SSHKeyTest(TestCase):
         # No ValidationError.
 
 
+# Scheduled for model migration on 2012-05-30
 class SSHKeyManagerTest(TestCase):
     """Testing for the :class:`SSHKeyManager` model manager."""
 
