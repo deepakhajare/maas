@@ -396,14 +396,12 @@ class NodeHandler(BaseHandler):
 
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
-        items = [(key, value) for key, value in request.data.items()]
-        unknown_fields = set(
-            [key for key, unused in items]).difference(EDITABLE_NODE_FIELDS)
+        unknown_fields = set(request.data).difference(EDITABLE_NODE_FIELDS)
         if len(unknown_fields) != 0:
             raise PermissionDenied(
                 "Unable to set field(s): %s. Allowed fields are: %s." % (
-                    ''.join(unknown_fields), ''.join(EDITABLE_NODE_FIELDS)))
-        for key, value in items:
+                    ','.join(unknown_fields), ','.join(EDITABLE_NODE_FIELDS)))
+        for key, value in request.data.items():
             setattr(node, key, value)
         node.save()
         return node

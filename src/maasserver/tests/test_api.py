@@ -868,7 +868,7 @@ class TestNodeAPI(APITestCase):
 
         error_msg = (
             "Unable to set field(s): %s. Allowed fields are: %s." % (
-                (field, ''.join(EDITABLE_NODE_FIELDS))))
+                (field, ','.join(EDITABLE_NODE_FIELDS))))
         self.assertEqual(
             (httplib.FORBIDDEN, error_msg),
             (response.status_code, response.content))
