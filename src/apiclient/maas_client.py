@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'MAASClient',
     'MAASDispatcher',
+    'MAASOAuth',
     ]
 
 from urllib import urlencode
@@ -91,7 +92,7 @@ class MAASClient:
     All "path" parameters can be either a string describing an absolute
     resource path, or a sequence of items that, when represented as unicode,
     make up the elements of the resource's path.  So `['nodes', node_id]`
-    is equivalent to `"/nodes/%s" % node_id`.
+    is equivalent to `"nodes/%s" % node_id`.
     """
 
     def __init__(self, auth, dispatcher, base_url):

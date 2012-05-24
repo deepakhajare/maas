@@ -55,10 +55,8 @@ class TestMAASOAuth(TestCase):
 class TestMAASDispatcher(TestCase):
 
     def test_dispatch_query_makes_direct_call(self):
-        filename = '/etc/hostname'
-        with open(filename) as f:
-            contents = f.read()
-        url = 'file://%s' % filename
+        contents = factory.getRandomString()
+        url = "file://%s" % self.make_file(contents=contents)
         self.assertEqual(
             contents, MAASDispatcher().dispatch_query(url, {}).read())
 
@@ -66,14 +64,14 @@ class TestMAASDispatcher(TestCase):
 def make_url():
     """Create an arbitrary URL."""
     return 'http://example.com:%d/%s/' % (
-        randint(1, 65535),
+        factory.getRandomPort(),
         factory.getRandomString(),
         )
 
 
 def make_path():
     """Create an arbitrary resource path."""
-    return '/'.join([factory.getRandomString() for counter in range(2)])
+    return '/'.join(factory.getRandomString() for counter in range(2))
 
 
 class FakeDispatcher:
@@ -94,9 +92,10 @@ class FakeDispatcher:
         return self.result
 
 
-def make_client(result=None):
+def make_client(root=None, result=None):
     """Create a MAASClient."""
-    root = make_url()
+    if root is None:
+        root = make_url()
     auth = MAASOAuth(
         factory.getRandomString(), factory.getRandomString(),
         factory.getRandomString())
@@ -111,10 +110,10 @@ class TestMAASClient(TestCase):
         self.assertEqual(urljoin(client.url, path), client._make_url(path))
 
     def test_make_url_converts_sequence_to_path(self):
-        path = [factory.getRandomString() for counter in range(3)]
-        client = make_client()
+        path = ['top', 'sub', 'leaf']
+        client = make_client(root='http://example.com/')
         self.assertEqual(
-            urljoin(client.url, '/'.join(path)), client._make_url(path))
+            'http://example.com/top/sub/leaf', client._make_url(path))
 
     def test_make_url_represents_path_components_as_text(self):
         number = randint(0, 100)
@@ -192,9 +191,8 @@ class TestMAASClient(TestCase):
         client.get(path, method, parameter=param)
         request = client.dispatcher.last_call
         self.assertIsNone(request['data'])
-        self.assertItemsEqual(
-            [param],
-            parse_qs(urlparse(request['request_url']).query)['parameter'])
+        query = parse_qs(urlparse(request['request_url']).query)
+        self.assertItemsEqual([param], query['parameter'])
 
     def test_post_dispatches_to_resource(self):
         path = make_path()
