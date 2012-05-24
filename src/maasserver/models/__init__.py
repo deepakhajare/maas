@@ -352,17 +352,23 @@ class NodeManager(Manager):
         processed_nodes = []
         for node in nodes:
             NodeUserData.objects.set_user_data(node, user_data)
-            # If power_parameters is set, use it.  Otherwise, use the
-            # first registered MAC address.
-            mac = None
-            if node.power_parameters:
-                mac = node.power_parameters["mac"]
-            elif node.macaddress_set.exists():
-                mac = node.macaddress_set.all().order_by(
-                    'created')[0].mac_address
-            if mac is not None and mac != "":
-                power_on.delay(node.power_type, mac=mac)
-                processed_nodes.append(node)
+            # Wake on LAN is a special case, deal with it first.
+            if node.power_type == POWER_TYPE.WAKE_ON_LAN:
+                # If power_parameters is set, use it.  Otherwise, use the
+                # first registered MAC address.
+                mac = None
+                if node.power_parameters:
+                    mac = node.power_parameters.get("mac", None)
+                elif node.macaddress_set.exists():
+                    mac = node.macaddress_set.all().order_by(
+                        'created')[0].mac_address
+                if mac is not None and mac != "":
+                    power_on.delay(node.power_type, mac=mac)
+                    processed_nodes.append(node)
+            else:
+                if node.power_parameters:
+                    power_on.delay(node.power_type, **node.power_parameters)
+                    processed_nodes.append(node)
         return processed_nodes
 
 
