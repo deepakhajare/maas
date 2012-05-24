@@ -693,10 +693,10 @@ class NodeManagerTest(TestCase):
         fixture = self.useFixture(CeleryFixture())
 
         user = factory.make_user()
-        node, mac = self.make_node_with_mac(
-            user, power_type=POWER_TYPE.WAKE_ON_LAN)
         preferred_mac = factory.getRandomMACAddress()
-        node.power_parameters = dict(mac=preferred_mac)
+        node, mac = self.make_node_with_mac(
+            user, power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters = dict(mac=preferred_mac))
         output = Node.objects.start_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
