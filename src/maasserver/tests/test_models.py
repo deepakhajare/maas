@@ -694,8 +694,8 @@ class NodeManagerTest(TestCase):
 
     def test_start_nodes_uses_default_power_type_if_not_node_specific(self):
         # If the node has a power_type set to POWER_TYPE.DEFAULT,
-        # NodeManager.start_node(this_node) should use the power_type set as
-        # the default (if defined).
+        # NodeManager.start_node(this_node) should use the default
+        # power_type.
         fixture = self.useFixture(CeleryFixture())
 
         Config.objects.set_config('node_power_type', POWER_TYPE.WAKE_ON_LAN)
