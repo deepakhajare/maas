@@ -18,7 +18,6 @@ from abc import (
     )
 from glob import glob
 import json
-import logging
 import os
 from os.path import (
     abspath,
@@ -27,13 +26,15 @@ from os.path import (
     )
 from urlparse import urljoin
 
-from fixtures import Fixture
 from maastesting import yui3
+from maastesting.fixtures import (
+    DisplayFixture,
+    SSTFixture,
+    )
 from maastesting.httpd import HTTPServerFixture
 from maastesting.testcase import TestCase
 from maastesting.utils import extract_word_list
 from nose.tools import nottest
-from pyvirtualdisplay import Display
 from saucelabsfixture import (
     SauceConnectFixture,
     SSTOnDemandFixture,
@@ -43,8 +44,6 @@ from sst.actions import (
     assert_text,
     get_element,
     go_to,
-    start,
-    stop,
     wait_for,
     )
 from testtools import clone_test_with_new_id
@@ -55,60 +54,6 @@ BASE_PATH = 'src/maasserver/static/js/tests/'
 
 # Nose is over-zealous.
 nottest(clone_test_with_new_id)
-
-
-class LoggerSilencerFixture(Fixture):
-    """Fixture to change the log level of loggers.
-
-    All the loggers with names self.logger_names will have their log level
-    changed to self.level (logging.ERROR by default).
-    """
-
-    def __init__(self, names, level=logging.ERROR):
-        super(LoggerSilencerFixture, self).__init__()
-        self.names = names
-        self.level = level
-
-    def setUp(self):
-        super(LoggerSilencerFixture, self).setUp()
-        for name in self.names:
-            logger = logging.getLogger(name)
-            self.addCleanup(logger.setLevel, logger.level)
-            logger.setLevel(self.level)
-
-
-class DisplayFixture(Fixture):
-    """Fixture to create a virtual display with pyvirtualdisplay.Display."""
-
-    logger_names = ['easyprocess', 'pyvirtualdisplay']
-
-    def __init__(self, visible=False, size=(1280, 1024)):
-        super(DisplayFixture, self).__init__()
-        self.visible = visible
-        self.size = size
-
-    def setUp(self):
-        super(DisplayFixture, self).setUp()
-        self.useFixture(LoggerSilencerFixture(self.logger_names))
-        self.display = Display(
-            visible=self.visible, size=self.size)
-        self.display.start()
-        self.addCleanup(self.display.stop)
-
-
-class SSTFixture(Fixture):
-    """Setup a javascript-enabled testing browser instance with SST."""
-
-    logger_names = ['selenium.webdriver.remote.remote_connection']
-
-    def __init__(self, browser_name):
-        self.browser_name = browser_name
-
-    def setUp(self):
-        super(SSTFixture, self).setUp()
-        start(self.browser_name)
-        self.useFixture(LoggerSilencerFixture(self.logger_names))
-        self.addCleanup(stop)
 
 
 project_home = dirname(dirname(dirname(dirname(__file__))))
