@@ -60,7 +60,6 @@ from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 from django.utils.safestring import mark_safe
 from maasserver import DefaultMeta
-from maasserver.fields import JSONObjectField
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
@@ -75,11 +74,15 @@ from maasserver.exceptions import (
     CannotDeleteUserException,
     NodeStateViolation,
     )
-from maasserver.fields import MACAddressField
+from maasserver.fields import (
+    JSONObjectField,
+    MACAddressField,
+    )
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.filestorage import FileStorage
 from maasserver.models.timestampedmodel import TimestampedModel
+from maasserver.power_parameters import validate_power_parameters
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -580,10 +583,21 @@ class Node(CleanSave, TimestampedModel):
                 raise ValueError(
                     "Default power type is configured to the default, but "
                     "that means to use the configured default.  It needs to "
-                    "be confirued to another, more useful value.")
+                    "be configured to another, more useful value.")
         else:
             power_type = self.power_type
         return power_type
+
+    def set_power_parameters(self, power_parameters, validate=True):
+        """Change node's power parameters and optionally validate them by
+        comparing them to the expected power parameters for the effective
+        power type.
+        """
+        if validate:
+            validate_power_parameters(
+                power_parameters, self.get_effective_power_type())
+        self.power_parameters = power_parameters
+        self.save()
 
     def acquire(self, user, token=None):
         """Mark commissioned node as acquired by the given user and token."""
