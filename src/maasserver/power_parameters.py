@@ -109,8 +109,8 @@ POWER_TYPE_PARAMETERS = {
 
 
 def validate_power_parameters(power_parameters, power_type):
-    """Validate that the given power parameters are valid:
-    - the given power_parameter argument must be a dictionnary.
+    """Validate that the given power parameters:
+    - the given power_parameter argument must be a dictionary.
     - the keys of the given power_parameter argument must be a subset of
       the possible parameters for this power type.
     If one of these assertions is not true, raise a ValidationError.
@@ -118,6 +118,9 @@ def validate_power_parameters(power_parameters, power_type):
     if not isinstance(power_parameters, dict):
         raise ValidationError(
             "The given power parameters should be a dictionary.")
+    # Fetch the expected power_parameter related to the power_type.  If the
+    # power_type is unknown, don't validate power_parameter.  We don't want
+    # to block things if one wants to use a custom power_type.
     expected_power_parameters = map(attrgetter(
         'name'), POWER_TYPE_PARAMETERS.get(power_type, []))
     if len(expected_power_parameters) != 0:
@@ -127,5 +130,5 @@ def validate_power_parameters(power_parameters, power_type):
             raise ValidationError(
                     "These field(s) are invalid for this power type: %s.  "
                     "Allowed fields: %s." % (
-                        ','.join(unknown_fields),
-                        ','.join(expected_power_parameters)))
+                        ', '.join(unknown_fields),
+                        ', '.join(expected_power_parameters)))

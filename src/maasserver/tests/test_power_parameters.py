@@ -56,20 +56,18 @@ class TestPowerParameterHelpers(TestCase):
     def test_validate_power_parameters_rejects_unknown_field(self):
         # If power_type is a known power type, the fields in the provided
         # power_parameters dict are checked.
-        param = factory.getRandomString()
-        power_parameters = {param: factory.getRandomString()}
+        power_parameters = {"invalid-power-type": factory.getRandomString()}
         power_type = POWER_TYPE.WAKE_ON_LAN
         expected_power_parameters = map(attrgetter(
             'name'), POWER_TYPE_PARAMETERS.get(power_type, []))
         exception = self.assertRaises(
             ValidationError, validate_power_parameters,
             power_parameters, power_type)
-        self.assertEqual(
-            ["These field(s) are invalid for this power type: %s.  "
-             "Allowed fields: %s." % (
-                 param,
-                 ','.join(expected_power_parameters))],
-            exception.messages)
+        expected_message = (
+            "These field(s) are invalid for this power type: "
+            "invalid-power-type.  Allowed fields: %s." % ', '.join(
+                expected_power_parameters))
+        self.assertEqual([expected_message], exception.messages)
 
     def test_validate_power_parameters_validates_if_unknown_power_type(self):
         # If power_type is not a known power type, no check of the fields in
