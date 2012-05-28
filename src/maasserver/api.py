@@ -397,9 +397,14 @@ class NodeHandler(BaseHandler):
         Form = get_node_edit_form(request.user)
         # Create a writable query dict.
         data = QueryDict('').copy()
-        # Missing fields will be taken from the node's current values.
+        # Missing fields will be taken from the node's current values.  This
+        # is to circumvent Django's ModelForm (form create from a model)
+        # default behaviour that requires all the fields to be defined.
         data.update(model_to_dict(node))
-        data.update(request.data)
+        # We can't use update here because data is a QueryDict and updates
+        # does not replaces the old values with the new as one would expect.
+        for k, v in request.data.items():
+            data[k] = v
         form = Form(data, instance=node)
         if form.is_valid():
             return form.save()
