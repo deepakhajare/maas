@@ -83,9 +83,11 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.forms.models import model_to_dict
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
+    QueryDict,
     )
 from django.shortcuts import (
     get_object_or_404,
@@ -107,7 +109,10 @@ from maasserver.exceptions import (
     Unauthorized,
     )
 from maasserver.fields import validate_mac
-from maasserver.forms import NodeWithMACAddressesForm
+from maasserver.forms import (
+    get_node_edit_form,
+    NodeWithMACAddressesForm,
+    )
 from maasserver.models import (
     Config,
     FileStorage,
@@ -362,13 +367,6 @@ DISPLAYED_NODE_FIELDS = (
     )
 
 
-EDITABLE_NODE_FIELDS = (
-    'hostname',
-    'architecture',
-    'power_type',
-     )
-
-
 @api_operations
 class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
@@ -390,21 +388,23 @@ class NodeHandler(BaseHandler):
             vocabulary `ARCHITECTURE`).
         :type architecture: basestring
         :param power_type: The new power type for this node (see
-            vocabulary `POWER_TYPE`).
+            vocabulary `POWER_TYPE`).  Only available to admin users.
         :type power_type: basestring
         """
 
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
-        unknown_fields = set(request.data).difference(EDITABLE_NODE_FIELDS)
-        if len(unknown_fields) != 0:
-            raise PermissionDenied(
-                "Unable to set field(s): %s. Allowed fields are: %s." % (
-                    ','.join(unknown_fields), ','.join(EDITABLE_NODE_FIELDS)))
-        for key, value in request.data.items():
-            setattr(node, key, value)
-        node.save()
-        return node
+        Form = get_node_edit_form(request.user)
+        # Create a writable query dict.
+        data = QueryDict('').copy()
+        # Missing fields will be taken from the node's current values.
+        data.update(model_to_dict(node))
+        data.update(request.data)
+        form = Form(data, instance=node)
+        if form.is_valid():
+            return form.save()
+        else:
+            raise ValidationError(form.errors)
 
     def delete(self, request, system_id):
         """Delete a specific Node."""
