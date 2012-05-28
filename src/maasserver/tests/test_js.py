@@ -19,11 +19,7 @@ from abc import (
 from glob import glob
 import json
 import os
-from os.path import (
-    abspath,
-    dirname,
-    join,
-    )
+from os.path import abspath
 from urlparse import urljoin
 
 from maastesting import yui3
@@ -48,15 +44,8 @@ from sst.actions import (
     )
 from testtools import clone_test_with_new_id
 
-# Base path where the HTML files will be searched.
-BASE_PATH = 'src/maasserver/static/js/tests/'
-
-
 # Nose is over-zealous.
 nottest(clone_test_with_new_id)
-
-
-project_home = dirname(dirname(dirname(dirname(__file__))))
 
 
 def get_browser_names_from_env():
@@ -101,7 +90,7 @@ def get_remote_browser_names_from_env():
     return names
 
 
-class YUIUnitBase:
+class YUIUnitTestsBase:
     """Base class for running YUI3 tests in a variety of browsers.
 
     Calls to instance of this class are intercepted. If the call is to a clone
@@ -118,7 +107,8 @@ class YUIUnitBase:
 
     __metaclass__ = ABCMeta
 
-    test_paths = glob(join(BASE_PATH, "*.html"))
+    test_paths = glob("src/maasserver/static/js/tests/*.html")
+    assert test_paths != [], "No JavaScript unit test pages found."
 
     # Indicates if this test has been cloned.
     cloned = False
@@ -140,7 +130,7 @@ class YUIUnitBase:
     def __call__(self, result=None):
         if self.cloned:
             # This test has been cloned; just call-up to run the test.
-            super(YUIUnitBase, self).__call__(result)
+            super(YUIUnitTestsBase, self).__call__(result)
         else:
             self.multiply(result)
 
@@ -156,11 +146,11 @@ class YUIUnitBase:
             self.fail(message)
 
 
-class YUIUnitTestsLocal(YUIUnitBase, TestCase):
+class YUIUnitTestsLocal(YUIUnitTestsBase, TestCase):
 
     scenarios = tuple(
         (path, {"test_url": "file://%s" % abspath(path)})
-        for path in YUIUnitBase.test_paths)
+        for path in YUIUnitTestsBase.test_paths)
 
     def multiply(self, result):
         # Run this test locally for each browser requested. Use the same
@@ -171,10 +161,10 @@ class YUIUnitTestsLocal(YUIUnitBase, TestCase):
             for browser_name in get_browser_names_from_env():
                 browser_test = self.clone("local:%s" % browser_name)
                 with SSTFixture(browser_name):
-                    browser_test.__call__(result)
+                    browser_test(result)
 
 
-class YUIUnitTestsRemote(YUIUnitBase, TestCase):
+class YUIUnitTestsRemote(YUIUnitTestsBase, TestCase):
 
     def multiply(self, result):
         # Now run this test remotely for each requested Sauce OnDemand
