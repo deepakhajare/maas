@@ -398,7 +398,7 @@ class NodeHandler(BaseHandler):
         # Create a writable query dict.
         data = QueryDict('').copy()
         # Missing fields will be taken from the node's current values.  This
-        # is to circumvent Django's ModelForm (form create from a model)
+        # is to circumvent Django's ModelForm (form created from a model)
         # default behaviour that requires all the fields to be defined.
         data.update(model_to_dict(node))
         # We can't use update here because data is a QueryDict and updates
