@@ -284,20 +284,6 @@ class NodeTest(TestCase):
         node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
         self.assertEqual("", node.power_parameters)
 
-    def test_set_power_parameters_validates_power_parameters(self):
-        node = factory.make_node()
-        # power_parameter should be a dict, create a list instead.
-        power_parameter = [[factory.getRandomString()]]
-        self.assertRaises(
-            ValidationError, node.set_power_parameters, power_parameter)
-
-    def test_set_power_parameters_can_skip_validation(self):
-        node = factory.make_node()
-        # power_parameter should be a dict, create a list instead.
-        power_parameter = [[factory.getRandomString()]]
-        node.set_power_parameters(power_parameter, validate=False)
-        self.assertEqual(power_parameter, reload_object(node).power_parameters)
-
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
