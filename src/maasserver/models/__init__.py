@@ -79,7 +79,6 @@ from maasserver.models.config import Config
 from maasserver.models.filestorage import FileStorage
 from maasserver.models.sshkey import SSHKey
 from maasserver.models.timestampedmodel import TimestampedModel
-from maasserver.power_parameters import validate_power_parameters
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -596,17 +595,6 @@ class Node(CleanSave, TimestampedModel):
         else:
             power_type = self.power_type
         return power_type
-
-    def set_power_parameters(self, power_parameters, validate=True):
-        """Change node's power parameters and optionally validate them by
-        comparing them to the expected power parameters for the effective
-        power type.
-        """
-        if validate:
-            validate_power_parameters(
-                power_parameters, self.get_effective_power_type())
-        self.power_parameters = power_parameters
-        self.save()
 
     def acquire(self, user, token=None):
         """Mark commissioned node as acquired by the given user and token."""
