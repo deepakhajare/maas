@@ -29,8 +29,6 @@ __all__ = [
     "UserProfile",
     ]
 
-import binascii
-from cgi import escape
 from logging import getLogger
 import os
 import re
@@ -54,11 +52,9 @@ from django.db.models import (
     Model,
     OneToOneField,
     Q,
-    TextField,
     )
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
-from django.utils.safestring import mark_safe
 from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
@@ -81,6 +77,7 @@ from maasserver.fields import (
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.filestorage import FileStorage
+from maasserver.models.sshkey import SSHKey
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.power_parameters import validate_power_parameters
 from metadataserver import nodeinituser
@@ -93,10 +90,6 @@ from provisioningserver.enum import (
     POWER_TYPE_CHOICES,
     )
 from provisioningserver.tasks import power_on
-from twisted.conch.ssh.keys import (
-    BadKeyError,
-    Key,
-    )
 
 # Special users internal to MAAS.
 SYSTEM_USERS = [
@@ -355,12 +348,28 @@ class NodeManager(Manager):
         processed_nodes = []
         for node in nodes:
             NodeUserData.objects.set_user_data(node, user_data)
-            # For now, use the first registered MAC address.
-            if node.macaddress_set.exists():
-                mac = node.macaddress_set.all().order_by(
-                    'created')[0].mac_address
-                power_on.delay(node.power_type, mac=mac)
-                processed_nodes.append(node)
+            # Wake on LAN is a special case, deal with it first.
+            node_power_type = node.get_effective_power_type()
+            if node_power_type == POWER_TYPE.WAKE_ON_LAN:
+                # If power_parameters is set, use it.  Otherwise, use the
+                # first registered MAC address.
+                mac = None
+                if node.power_parameters:
+                    mac = node.power_parameters.get("mac", None)
+                else:
+                    try:
+                        macaddress = node.macaddress_set.order_by('created')[0]
+                    except IndexError:
+                        pass  # No MAC recorded for this node.
+                    else:
+                        mac = macaddress.mac_address
+                if mac is not None and mac != "":
+                    power_on.delay(node_power_type, mac=mac)
+                    processed_nodes.append(node)
+            else:
+                if node.power_parameters:
+                    power_on.delay(node_power_type, **node.power_parameters)
+                    processed_nodes.append(node)
         return processed_nodes
 
 
@@ -581,9 +590,9 @@ class Node(CleanSave, TimestampedModel):
             power_type = Config.objects.get_config('node_power_type')
             if power_type == POWER_TYPE.DEFAULT:
                 raise ValueError(
-                    "Default power type is configured to the default, but "
-                    "that means to use the configured default.  It needs to "
-                    "be configured to another, more useful value.")
+                    "Node power type is set to the default, but "
+                    "the default is not yet configured.  The default "
+                    "needs to be configured to another, more useful value.")
         else:
             power_type = self.power_type
         return power_type
@@ -684,6 +693,7 @@ def get_auth_tokens(user):
         user=user, token_type=Token.ACCESS, is_approved=True).order_by('id')
 
 
+# Scheduled for model migration on 2012-06-01
 class UserProfileManager(Manager):
     """A utility to manage the collection of UserProfile (or User).
 
@@ -707,6 +717,7 @@ class UserProfileManager(Manager):
         return User.objects.filter(id__in=user_ids)
 
 
+# Scheduled for model migration on 2012-06-01
 class UserProfile(CleanSave, Model):
     """A User profile to store MAAS specific methods and fields.
 
@@ -792,119 +803,6 @@ post_save.connect(create_user, sender=User)
 
 # Monkey patch django.contrib.auth.models.User to force email to be unique.
 User._meta.get_field('email')._unique = True
-
-
-# Due for model migration on 2012-05-25
-class SSHKeyManager(Manager):
-    """A utility to manage the colletion of `SSHKey`s."""
-
-    def get_keys_for_user(self, user):
-        """Return the text of the ssh keys associated with a user."""
-        return SSHKey.objects.filter(user=user).values_list('key', flat=True)
-
-
-# Due for model migration on 2012-05-25
-def validate_ssh_public_key(value):
-    """Validate that the given value contains a valid SSH public key."""
-    try:
-        key = Key.fromString(value)
-        if not key.isPublic():
-            raise ValidationError(
-                "Invalid SSH public key (this key is a private key).")
-    except (BadKeyError, binascii.Error):
-        raise ValidationError("Invalid SSH public key.")
-
-
-# Due for model migration on 2012-05-25
-HELLIPSIS = '&hellip;'
-
-
-# Due for model migration on 2012-05-25
-def get_html_display_for_key(key, size):
-    """Return a compact HTML representation of this key with a boundary on
-    the size of the resulting string.
-
-    A key typically looks like this: 'key_type key_string comment'.
-    What we want here is display the key_type and, if possible (i.e. if it
-    fits in the boundary that `size` gives us), the comment.  If possible we
-    also want to display a truncated key_string.  If the comment is too big
-    to fit in, we simply display a cropped version of the whole string.
-
-    :param key: The key for which we want an HTML representation.
-    :type name: basestring
-    :param size: The maximum size of the representation.  This may not be
-        met exactly.
-    :type size: int
-    :return: The HTML representation of this key.
-    :rtype: basestring
-    """
-    key = key.strip()
-    key_parts = key.split(' ', 2)
-
-    if len(key_parts) == 3:
-        key_type = key_parts[0]
-        key_string = key_parts[1]
-        comment = key_parts[2]
-        room_for_key = (
-            size - (len(key_type) + len(comment) + len(HELLIPSIS) + 2))
-        if room_for_key > 0:
-            return '%s %.*s%s %s' % (
-                escape(key_type, quote=True),
-                room_for_key,
-                escape(key_string, quote=True),
-                HELLIPSIS,
-                escape(comment, quote=True))
-
-    if len(key) > size:
-        return '%.*s%s' % (
-            size - len(HELLIPSIS),
-            escape(key, quote=True),
-            HELLIPSIS)
-    else:
-        return escape(key, quote=True)
-
-
-# Due for model migration on 2012-05-25
-MAX_KEY_DISPLAY = 50
-
-
-# Due for model migration on 2012-05-25
-class SSHKey(CleanSave, TimestampedModel):
-    """A `SSHKey` represents a user public SSH key.
-
-    Users will be able to access `Node`s using any of their registered keys.
-
-    :ivar user: The user which owns the key.
-    :ivar key: The ssh public key.
-    """
-
-    objects = SSHKeyManager()
-
-    user = ForeignKey(User, null=False, editable=False)
-
-    key = TextField(
-        null=False, editable=True, validators=[validate_ssh_public_key])
-
-    class Meta(DefaultMeta):
-        verbose_name = "SSH key"
-        unique_together = ('user', 'key')
-
-    def unique_error_message(self, model_class, unique_check):
-        if unique_check == ('user', 'key'):
-                return "This key has already been added for this user."
-        return super(
-            SSHKey, self).unique_error_message(model_class, unique_check)
-
-    def __unicode__(self):
-        return self.key
-
-    def display_html(self):
-        """Return a compact HTML representation of this key.
-
-        :return: The HTML representation of this key.
-        :rtype: basestring
-        """
-        return mark_safe(get_html_display_for_key(self.key, MAX_KEY_DISPLAY))
 
 
 # Register the models in the admin site.
