@@ -394,7 +394,6 @@ class NodeHandler(BaseHandler):
 
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
-        Form = get_node_edit_form(request.user)
         # Create a writable query dict.
         data = QueryDict('').copy()
         # Missing fields will be taken from the node's current values.  This
@@ -405,6 +404,7 @@ class NodeHandler(BaseHandler):
         # does not replaces the old values with the new as one would expect.
         for k, v in request.data.items():
             data[k] = v
+        Form = get_node_edit_form(request.user)
         form = Form(data, instance=node)
         if form.is_valid():
             return form.save()
