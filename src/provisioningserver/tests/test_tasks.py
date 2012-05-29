@@ -23,6 +23,11 @@ from provisioningserver.tasks import (
 from testresources import FixtureResource
 
 
+# An arbitrary MAC address.  Not using a properly random one here since
+# we might accidentally affect real machines on the network.
+arbitrary_mac = "AA:BB:CC:DD:EE:FF"
+
+
 class TestPowerTasks(TestCase):
 
     resources = (
@@ -37,11 +42,10 @@ class TestPowerTasks(TestCase):
             PowerActionFail, power_on.delay, POWER_TYPE.WAKE_ON_LAN)
 
     def test_ether_wake_power_on(self):
-        mac = "AA:BB:CC:DD:EE:FF"
-        result = power_on.delay(POWER_TYPE.WAKE_ON_LAN, mac=mac)
+        result = power_on.delay(POWER_TYPE.WAKE_ON_LAN, mac=arbitrary_mac)
         self.assertTrue(result.successful())
 
     def test_ether_wake_does_not_support_power_off(self):
-        mac = "AA:BB:CC:DD:EE:FF"
         self.assertRaises(
-            PowerActionFail, power_off.delay, POWER_TYPE.WAKE_ON_LAN, mac=mac)
+            PowerActionFail, power_off.delay,
+            POWER_TYPE.WAKE_ON_LAN, mac=arbitrary_mac)
