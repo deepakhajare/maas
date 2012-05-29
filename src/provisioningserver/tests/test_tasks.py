@@ -16,7 +16,10 @@ from maastesting.celery import CeleryFixture
 from maastesting.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
-from provisioningserver.tasks import power_on
+from provisioningserver.tasks import (
+    power_off,
+    power_on,
+    )
 from testresources import FixtureResource
 
 
@@ -37,3 +40,8 @@ class TestPowerTasks(TestCase):
         mac = "AA:BB:CC:DD:EE:FF"
         result = power_on.delay(POWER_TYPE.WAKE_ON_LAN, mac=mac)
         self.assertTrue(result.successful())
+
+    def test_ether_wake_does_not_support_power_off(self):
+        mac = "AA:BB:CC:DD:EE:FF"
+        self.assertRaises(
+            PowerActionFail, power_off.delay, POWER_TYPE.WAKE_ON_LAN, mac=mac)
