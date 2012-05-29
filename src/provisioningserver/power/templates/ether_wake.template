@@ -10,6 +10,7 @@ then
     /usr/sbin/etherwake %(mac)s
 else
     echo "No wakeonlan or etherwake program found." >&2
+    exit 1
 fi
 
 exit 0
