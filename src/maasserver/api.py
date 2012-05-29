@@ -355,6 +355,30 @@ def get_oauth_token(request):
         raise Unauthorized("Unknown OAuth token.")
 
 
+def get_overrided_query_dict(defaults, data):
+    """Returns a QueryDict with the values of 'defaults' overridden by the
+    values in 'data'.
+
+    :param defaults: The dictionary containing the default values.
+    :type defaults: dict
+    :param data: The data used to override the defaults.
+    :type data: :class:`django.http.QueryDict`
+    :return: The updated QueryDict.
+    :raises: :class:`django.http.QueryDict`
+    """
+    # Create a writable query dict.
+    new_data = QueryDict('').copy()
+    # Missing fields will be taken from the node's current values.  This
+    # is to circumvent Django's ModelForm (form created from a model)
+    # default behaviour that requires all the fields to be defined.
+    new_data.update(defaults)
+    # We can't use update here because data is a QueryDict and 'update'
+    # does not replaces the old values with the new as one would expect.
+    for k, v in data.items():
+        new_data[k] = v
+    return new_data
+
+
 # Node's fields exposed on the API.
 DISPLAYED_NODE_FIELDS = (
     'system_id',
@@ -394,16 +418,7 @@ class NodeHandler(BaseHandler):
 
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
-        # Create a writable query dict.
-        data = QueryDict('').copy()
-        # Missing fields will be taken from the node's current values.  This
-        # is to circumvent Django's ModelForm (form created from a model)
-        # default behaviour that requires all the fields to be defined.
-        data.update(model_to_dict(node))
-        # We can't use update here because data is a QueryDict and updates
-        # does not replaces the old values with the new as one would expect.
-        for k, v in request.data.items():
-            data[k] = v
+        data = get_overrided_query_dict(model_to_dict(node), request.data)
         Form = get_node_edit_form(request.user)
         form = Form(data, instance=node)
         if form.is_valid():

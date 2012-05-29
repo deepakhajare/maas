@@ -39,6 +39,7 @@ from maasserver.api import (
     extract_oauth_key,
     extract_oauth_key_from_auth_header,
     get_oauth_token,
+    get_overrided_query_dict,
     )
 from maasserver.enum import (
     ARCHITECTURE_CHOICES,
@@ -152,6 +153,21 @@ class TestModuleHelpers(TestCase):
         self.assertEqual(
             {'name': name},
             extract_constraints(QueryDict('name=%s' % name)))
+
+    def test_get_overrided_query_dict_returns_QueryDict(self):
+        defaults = {factory.getRandomString(): factory.getRandomString()}
+        results = get_overrided_query_dict(defaults, QueryDict(''))
+        expected_results = QueryDict('').copy()
+        expected_results.update(defaults)
+        self.assertEqual(expected_results, results)
+
+    def test_get_overrided_query_dict_values_in_data_replaces_defaults(self):
+        key = factory.getRandomString()
+        defaults = {key: factory.getRandomString()}
+        data_value = factory.getRandomString()
+        data = {key: data_value}
+        results = get_overrided_query_dict(defaults, data)
+        self.assertEqual([data_value], results.getlist(key))
 
 
 class MultipleUsersScenarios:
