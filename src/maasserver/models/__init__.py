@@ -627,6 +627,7 @@ class Node(CleanSave, TimestampedModel):
         self.save()
 
 
+# Scheduled for model migration on 2012-06-07
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
