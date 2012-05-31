@@ -319,7 +319,7 @@ class NodeTest(TestCase):
 
     def test_get_effective_power_parameters_provides_usable_defaults(self):
         # For some power types at least, the defaults provided by
-        # get_effective_power_parameters is enough to get a basic setup
+        # get_effective_power_parameters are enough to get a basic setup
         # working.
         configless_power_types = [
             POWER_TYPE.WAKE_ON_LAN,

@@ -66,6 +66,8 @@ class PowerAction:
         """Execute raw shell script (as rendered from a template).
 
         :param commands: String containing shell script.
+        :param **kwargs: Keyword arguments are passed on to the template as
+            substitution values.
         :return: Tuple of strings: stdout, stderr.
         """
         # This might need retrying but it could be better to leave that
