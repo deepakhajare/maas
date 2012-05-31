@@ -630,6 +630,7 @@ class Node(CleanSave, TimestampedModel):
 mac_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
+# Scheduled for model migration on 2012-06-07
 class MACAddress(CleanSave, TimestampedModel):
     """A `MACAddress` represents a `MAC address
     <http://en.wikipedia.org/wiki/MAC_address>`_ attached to a :class:`Node`.
