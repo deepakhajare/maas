@@ -978,6 +978,57 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
+    def test_PUT_updates_power_parameters_field(self):
+        # The api allows the updating of a Node's power_parameters field.
+        self.become_admin()
+        node = factory.make_node(
+            owner=self.logged_in_user,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        # Create a power_parameter valid for the selected power_type.
+        new_power_address = factory.getRandomString()
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'power_parameters_power_address': new_power_address})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            {'power_address': new_power_address},
+            reload_object(node).power_parameters)
+
+    def test_PUT_updates_power_parameters_ignores_unknown_param(self):
+        self.become_admin()
+        power_parameters = factory.getRandomString()
+        node = factory.make_node(
+            owner=self.logged_in_user,
+            power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters=power_parameters)
+
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'power_parameters_unknown_param': factory.getRandomString()})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            power_parameters, reload_object(node).power_parameters)
+
+    def test_PUT_updates_power_parameters_field_arbitrary(self):
+        # With power_parameters_skip_check, arbitrary data
+        # can be put in a Node's power_parameter field.
+        self.become_admin()
+        node = factory.make_node(owner=self.logged_in_user)
+        new_param = factory.getRandomString()
+        new_value = factory.getRandomString()
+        response = self.client.put(
+            self.get_node_uri(node),
+           {
+                'power_parameters_%s' % new_param: new_value,
+                'power_parameters_skip_check': True,
+            })
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            {new_param: new_value}, reload_object(node).power_parameters)
+
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
         self.become_admin()

@@ -58,6 +58,8 @@ from maasserver.models import (
     SSHKey,
     )
 from maasserver.node_action import compile_node_actions
+from maasserver.power_parameters import POWER_TYPE_PARAMETERS
+from provisioningserver.enum import POWER_TYPE_CHOICES
 
 
 def compose_invalid_choice_text(choice_of_what, valid_choices):
@@ -138,9 +140,53 @@ class UIAdminNodeEditForm(ModelForm):
             )
 
 
-def get_node_edit_form(user):
+def remove_None_values(data):
+    """Returns a new dictionary without the keys corresponding to None values
+    """
+    return {key: value for key, value in data.items() if value is not None}
+
+
+class APIEditMixin:
+    """A mixin that clears None values after the cleaning phase
+    This is useful when one wants to avoid the edited object with None values
+    created by a form when the submitted data has some fields missing.
+    """
+
+    def _post_clean(self):
+        """Override Django's private hook _post_save to remove None values
+        from 'self.cleaned_data'.
+        The cleanup needs to happen before Django's _post_clean method because
+        that's where the fields of the instance get set with the data from
+        self.cleaned_data."""
+        self.cleaned_data = remove_None_values(self.cleaned_data)
+        super(APIEditMixin, self)._post_clean()
+
+
+class APIAdminNodeEditForm(APIEditMixin, UIAdminNodeEditForm):
+
+    class Meta:
+        model = Node
+        fields = (
+           'hostname',
+           'after_commissioning_action',
+           'power_type',
+           'power_parameters',
+           )
+
+    def __init__(self, data, instance):
+        super(APIAdminNodeEditForm, self).__init__(data, instance=instance)
+        self.setup_power_parameters_field(data, instance)
+
+    def setup_power_parameters_field(self, data, node):
+        power_type = data.get('power_type', None)
+        if power_type is None or power_type not in dict(POWER_TYPE_CHOICES):
+            power_type = node.get_effective_power_type()
+        self.fields['power_parameters'] = POWER_TYPE_PARAMETERS[power_type]
+
+
+def get_node_edit_form(user, api=False):
     if user.is_superuser:
-        return UIAdminNodeEditForm
+        return APIAdminNodeEditForm if api else UIAdminNodeEditForm
     else:
         return UINodeEditForm
 

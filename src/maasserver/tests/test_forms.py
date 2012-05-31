@@ -24,6 +24,7 @@ from maasserver.enum import (
     NODE_STATUS,
     )
 from maasserver.forms import (
+    APIAdminNodeEditForm,
     ConfigForm,
     EditUserForm,
     get_action_form,
@@ -34,6 +35,7 @@ from maasserver.forms import (
     NodeActionForm,
     NodeWithMACAddressesForm,
     ProfileForm,
+    remove_None_values,
     UIAdminNodeEditForm,
     UINodeEditForm,
     validate_hostname,
@@ -49,7 +51,10 @@ from maasserver.node_action import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from provisioningserver.enum import POWER_TYPE_CHOICES
+from provisioningserver.enum import (
+    POWER_TYPE,
+    POWER_TYPE_CHOICES,
+    )
 from testtools.testcase import ExpectedException
 
 
@@ -241,6 +246,81 @@ class NodeEditForms(TestCase):
             after_commissioning_action, node.after_commissioning_action)
         self.assertEqual(power_type, node.power_type)
 
+    def test_remove_None_values(self):
+        random_input = factory.getRandomString()
+        inputs = [
+            {},
+            {random_input: random_input, factory.getRandomString(): None},
+            {random_input:None}
+        ]
+        expected = [{}, {random_input: random_input}, {}]
+        self.assertEqual(expected, map(remove_None_values, inputs))
+
+    def test_APIAdminNodeEditForm_contains_limited_set_of_fields(self):
+        form = APIAdminNodeEditForm({}, instance=factory.make_node())
+
+        self.assertEqual(
+            [
+                'hostname',
+                'after_commissioning_action',
+                'power_type',
+                'power_parameters',
+            ],
+            list(form.fields))
+
+    def test_APIAdminNodeEditForm_changes_node(self):
+        node = factory.make_node()
+        hostname = factory.getRandomString()
+        after_commissioning_action = factory.getRandomChoice(
+            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        power_parameters_field = factory.getRandomString()
+        form = APIAdminNodeEditForm(
+            data={
+                'hostname': hostname,
+                'after_commissioning_action': after_commissioning_action,
+                'power_type': power_type,
+                'power_parameters_field': power_parameters_field,
+                'power_parameters_skip_check': True,
+                },
+            instance=node)
+        form.save()
+
+        self.assertEqual(
+            (hostname, after_commissioning_action, power_type,
+                {'field': power_parameters_field}),
+            (node.hostname, node.after_commissioning_action, node.power_type,
+                node.power_parameters))
+
+    def test_APIAdminNodeEditForm_uses_effective_power_type_to_validate(self):
+        # The effective power_type (i.e. the power type defined on the node
+        # itself or the global default) to validate the power_parameters.
+        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
+        Config.objects.set_config('node_power_type', POWER_TYPE.VIRSH)
+        address = factory.getRandomString()
+        after_commissioning_action = factory.getRandomChoice(
+            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
+        form = APIAdminNodeEditForm(
+            data={
+                'after_commissioning_action': after_commissioning_action,
+                'power_parameters_power_address': address,
+                },
+            instance=node)
+
+        # The effective power_type is POWER_TYPE.VIRSH, the power_parameters
+        # data was validated using the DictCharField corresponding to this
+        # power_parameters (as defined by POWER_TYPE_PARAMETERS).
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            {'power_parameters':
+                [
+                    'Driver: This field is required.',
+                    'Username: This field is required.',
+                    'Power ID: This field is required.'
+                ]
+            },
+            form.errors)
+
     def test_get_node_edit_form_returns_UIAdminNodeEditForm_if_admin(self):
         admin = factory.make_admin()
         self.assertEqual(UIAdminNodeEditForm, get_node_edit_form(admin))
@@ -248,6 +328,14 @@ class NodeEditForms(TestCase):
     def test_get_node_edit_form_returns_UINodeEditForm_if_non_admin(self):
         user = factory.make_user()
         self.assertEqual(UINodeEditForm, get_node_edit_form(user))
+
+    def test_get_node_edit_form_returns_APIAdminNodeEdit_if_admin_api(self):
+        admin = factory.make_admin()
+        self.assertEqual(APIAdminNodeEditForm, get_node_edit_form(admin, True))
+
+    def test_get_node_edit_form_returns_UINodeEditForm_if_non_admin_api(self):
+        user = factory.make_user()
+        self.assertEqual(UINodeEditForm, get_node_edit_form(user, True))
 
 
 class TestNodeActionForm(TestCase):
