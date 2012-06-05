@@ -28,6 +28,7 @@ from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
+    NodeGroup,
     NODE_TRANSITIONS,
     SSHKey,
     )

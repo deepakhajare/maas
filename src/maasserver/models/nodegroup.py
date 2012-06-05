@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'NodeGroup',
+    'NodeGroupManager',
     ]
 
 
@@ -22,7 +23,7 @@ from django.db.models import (
     Manager,
     )
 from maasserver import DefaultMeta
-from maasserver.models import TimestampedModel
+from maasserver.models.timestampedmodel import TimestampedModel
 from piston.models import (
     KEY_SIZE,
     Token,
