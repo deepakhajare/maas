@@ -12,7 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'NodeGroup',
-    'NodeGroupManager',
     ]
 
 
