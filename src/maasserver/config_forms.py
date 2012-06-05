@@ -48,8 +48,8 @@ class DictCharField(forms.MultiValueField):
                 ])
     >>> data = QueryDict('example_field1=subvalue1&example_field2=subvalue2')
     >>> form = ExampleForm(data)
-    >>> # The 'cleaned_data' of the 'example' is populated with the values of
-    >>> # the subfields.
+    >>> # The 'cleaned_data' of the 'example' field is populated with the
+    >>> # values of the subfields.
     >>> form.cleaned_data['example']
     {'field1': 'subvalue1', 'field2': 'subvalue2'}
     """
