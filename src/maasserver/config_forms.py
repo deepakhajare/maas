@@ -138,7 +138,7 @@ class DictCharField(forms.MultiValueField):
         if self.skip_check:
             # If self.skip_check: strip out the last value which
             # corresponds to the value of the 'skip_check' boolean field.
-            value[:-1]
+            value = value[:-1]
         if not value or isinstance(value, (list, tuple)):
             # value is considered empty if it is in
             # validators.EMPTY_VALUES, or if each of the subvalues is in
