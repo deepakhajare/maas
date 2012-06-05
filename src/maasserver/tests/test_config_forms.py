@@ -18,10 +18,12 @@ from django.http import QueryDict
 from maasserver.config_forms import (
     DictCharField,
     DictCharWidget,
+    get_all_prefixed_values,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
+# This field has a subfield named 'skip_check', that is not allowed.
 
 testField = DictCharField(
         [
@@ -43,15 +45,7 @@ class TestFormSkip(forms.Form):
         skip_check=True)
 
 
-# A form where the DictCharField instance is constructed with required=False.
-class TestFormRequiredFalse(forms.Form):
-    multi_field = DictCharField(
-        [('field_a', forms.CharField(label='Field a'))],
-        required=False)
-    char_field = forms.CharField(label='Field a')
-
-
-class DictCharFieldTest(TestCase):
+class TestDictCharField(TestCase):
 
     def test_DictCharField_init(self):
         self.assertEqual(['field_a', 'field_b', 'field_c'], testField.names)
@@ -61,8 +55,13 @@ class DictCharFieldTest(TestCase):
             [field.widget for field in testField.field_dict.values()],
             testField.widget.widgets)
 
+    def test_DictCharField_does_not_allow_subfield_named_skip_check(self):
+        self.assertRaises(
+            RuntimeError, DictCharField,
+            [('skip_check', forms.CharField(label='Skip Check'))])
 
-class FormWithDictCharFieldTest(TestCase):
+
+class TestFormWithDictCharField(TestCase):
 
     def test_DictCharField_processes_QueryDict_into_a_dict(self):
         fielda_value = factory.getRandomString()
@@ -129,16 +128,43 @@ class FormWithDictCharFieldTest(TestCase):
             form.errors)
 
     def test_DictCharField_accepts_required_false(self):
+        # A form where the DictCharField instance is constructed with
+        # required=False.
+        class FakeFormRequiredFalse(forms.Form):
+            multi_field = DictCharField(
+                [('field_a', forms.CharField(label='Field a'))],
+                required=False)
+            char_field = forms.CharField(label='Field a')
+
         char_value = factory.getRandomString(10)
         data = QueryDict('char_field=%s' % (char_value))
-        form = TestFormRequiredFalse(data)
+        form = FakeFormRequiredFalse(data)
         self.assertTrue(form.is_valid())
         self.assertEqual(
             {'char_field': char_value, 'multi_field': None},
             form.cleaned_data)
 
 
-class DictCharWidgetTest(TestCase):
+class TestUtilities(TestCase):
+
+    def test_get_all_prefixed_values_returns_sub_dict(self):
+        inputs = [
+            {'prefix_test': 'a', 'key': 'b', 'prefix_2': 'c'},
+            {},
+            {'b': factory.getRandomString()},
+            ]
+        prefix = 'prefix_'
+        expected = [
+            {'test': 'a', '2': 'c'},
+            {},
+            {},
+            ]
+        self.assertEqual(
+            expected,
+            map(lambda data: get_all_prefixed_values(data, prefix), inputs))
+
+
+class TestDictCharWidget(TestCase):
 
     def test_DictCharWidget_id_for_label_uses_first_fields_name(self):
         names = [factory.getRandomString()]
