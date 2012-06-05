@@ -412,20 +412,20 @@ class NodeHandler(BaseHandler):
             vocabulary `ARCHITECTURE`).
         :type architecture: basestring
         :param power_type: The new power type for this node (see
-            vocabulary `POWER_TYPE`).  Only available to admin users.
+            vocabulary `POWER_TYPE`).  Available to admin users.
         :type power_type: basestring
         :param power_parameters_{param1}: The new value for the 'param1'
             power parameter.  Note that this is dynamic as the available
             parameters depend on the selected value of the Node's power_type.
             For instance, if the power_type is 'ether_wake', the only valid
-            parameter is 'power_address' so one would want to pass:
-            power_type='ether_wake'&&power_parameters_power_address='myaddress'
-            Only available to admin users.
+            parameter is 'power_address' so one would want to pass 'myaddress'
+            as the value of the 'power_parameters_power_address' parameter.
+            Available to admin users.
         :type power_parameters_{param1}: basestring
         :param power_parameters_skip_check: Whether or not the new power
             parameters for this node should be checked against the expected
-            power parameters for the node's power type ('True' or 'False').
-            The default is 'False'.
+            power parameters for the node's power type ('true' or 'false').
+            The default is 'false'.
         :type power_parameters_skip_validation: basestring
         """
 

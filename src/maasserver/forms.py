@@ -141,23 +141,26 @@ class UIAdminNodeEditForm(ModelForm):
 
 
 def remove_None_values(data):
-    """Returns a new dictionary without the keys corresponding to None values
+    """Return a new dictionary without the keys corresponding to None values.
     """
     return {key: value for key, value in data.items() if value is not None}
 
 
 class APIEditMixin:
-    """A mixin that clears None values after the cleaning phase
-    This is useful when one wants to avoid the edited object with None values
-    created by a form when the submitted data has some fields missing.
+    """A mixin that clears None values after the cleaning phase.
+
+    Form data contain None values for missing fields.  This class
+    removes these None values before processing the data.
     """
 
     def _post_clean(self):
         """Override Django's private hook _post_save to remove None values
         from 'self.cleaned_data'.
-        The cleanup needs to happen before Django's _post_clean method because
-        that's where the fields of the instance get set with the data from
-        self.cleaned_data."""
+
+        _post_clean is where the field of the instance get set with the data
+        from self.cleaned_data.  That's why the cleanup needs to happen right
+        before that.
+        """
         self.cleaned_data = remove_None_values(self.cleaned_data)
         super(APIEditMixin, self)._post_clean()
 
@@ -175,9 +178,9 @@ class APIAdminNodeEditForm(APIEditMixin, UIAdminNodeEditForm):
 
     def __init__(self, data, instance):
         super(APIAdminNodeEditForm, self).__init__(data, instance=instance)
-        self.setup_power_parameters_field(data, instance)
+        self.set_up_power_parameters_field(data, instance)
 
-    def setup_power_parameters_field(self, data, node):
+    def set_up_power_parameters_field(self, data, node):
         power_type = data.get('power_type', None)
         if power_type is None or power_type not in dict(POWER_TYPE_CHOICES):
             power_type = node.get_effective_power_type()

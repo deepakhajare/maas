@@ -1022,7 +1022,7 @@ class TestNodeAPI(APITestCase):
             self.get_node_uri(node),
            {
                 'power_parameters_%s' % new_param: new_value,
-                'power_parameters_skip_check': True,
+                'power_parameters_skip_check': 'true',
             })
 
         self.assertEqual(httplib.OK, response.status_code)
