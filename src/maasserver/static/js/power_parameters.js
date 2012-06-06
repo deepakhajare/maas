@@ -32,7 +32,7 @@ Y.extend(DynamicWidget, Y.Widget, {
     * Initialize the widget.
     * - cfg.srcNode is the the node which will be updated when the
     *   selected value of the 'driver node' will change.
-    * - cfg.driverNode is the node that must contain a 'select' element.  When
+    * - cfg.driverNode is the node containing a 'select' element.  When
     *   the selected element will change, the srcNode HTML will be
     *   updated.
     * - cfg.driverEnum is an dictionary which contains all the possible values
