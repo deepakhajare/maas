@@ -32,7 +32,7 @@ class TestDHCPConfig(TestCase):
             %(low_range)s
             %(high_range)s
             """)
-            
+
     def test_param_substitution(self):
         self.patch(
             config, "template", self.template

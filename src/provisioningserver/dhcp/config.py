@@ -50,6 +50,7 @@ template = dedent("""\
     }
 """)
 
+
 def get_config(**params):
     """Return a DHCP config file based on the supplied parameters.
 
