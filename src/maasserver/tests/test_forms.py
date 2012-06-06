@@ -292,35 +292,6 @@ class NodeEditForms(TestCase):
             (node.hostname, node.after_commissioning_action, node.power_type,
                 node.power_parameters))
 
-    def test_APIAdminNodeEditForm_uses_effective_power_type_to_validate(self):
-        # The effective power_type (i.e. the power type defined on the node
-        # itself or the global default) to validate the power_parameters.
-        node = factory.make_node(power_type=POWER_TYPE.DEFAULT)
-        Config.objects.set_config('node_power_type', POWER_TYPE.VIRSH)
-        address = factory.getRandomString()
-        after_commissioning_action = factory.getRandomChoice(
-            NODE_AFTER_COMMISSIONING_ACTION_CHOICES)
-        form = APIAdminNodeEditForm(
-            data={
-                'after_commissioning_action': after_commissioning_action,
-                'power_parameters_power_address': address,
-                },
-            instance=node)
-
-        # The effective power_type is POWER_TYPE.VIRSH, the power_parameters
-        # data was validated using the DictCharField corresponding to this
-        # power_parameters (as defined by POWER_TYPE_PARAMETERS).
-        self.assertFalse(form.is_valid())
-        self.assertEqual(
-            {'power_parameters':
-                [
-                    'Driver: This field is required.',
-                    'Username: This field is required.',
-                    'Power ID: This field is required.'
-                ]
-            },
-            form.errors)
-
     def test_get_node_edit_form_returns_UIAdminNodeEditForm_if_admin(self):
         admin = factory.make_admin()
         self.assertEqual(UIAdminNodeEditForm, get_node_edit_form(admin))
