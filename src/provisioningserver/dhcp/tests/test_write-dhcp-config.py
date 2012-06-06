@@ -47,3 +47,19 @@ class TestModule(TestCase):
                 low_range='low-range',
                 high_range='high-range',
                 out_file='out-file'))
+
+    def test_run(self):
+        writer = DHCPConfigWriter()
+        test_args = [
+            '--subnet', 'subnet',
+            '--subnet-mask', 'subnet-mask',
+            '--next-server', 'next-server',
+            '--broadcast-address', 'broadcast-address',
+            '--dns-servers', 'dns-servers',
+            '--gateway', 'gateway',
+            '--low-range', 'low-range',
+            '--high-range', 'high-range',
+            '--out-file', 'out-file',
+            ]
+        writer.parse_args(test_args)
+        output = writer.run()
