@@ -507,16 +507,18 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         mac = factory.make_mac_address()
         response = self.get(
             '/latest/by-mac/%s/meta-data/instance-id/' % mac.mac_address)
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(mac.node.system_id, response.content)
+        self.assertEqual(
+            (httplib.OK, mac.node.system_id),
+            (response.status_code, response.content))
 
     def test_api_retrieves_node_userdata_by_mac(self):
         mac = factory.make_mac_address()
         user_data = factory.getRandomString().encode('ascii')
         NodeUserData.objects.set_user_data(mac.node, user_data)
         response = self.get('/latest/by-mac/%s/user-data' % mac.mac_address)
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(user_data, response.content)
+        self.assertEqual(
+            (httplib.OK, user_data),
+            (response.status_code, response.content))
 
     def test_api_normally_disallows_anonymous_node_metadata_access(self):
         self.patch(settings, 'ALLOW_ANONYMOUS_METADATA_ACCESS', False)

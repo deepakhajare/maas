@@ -46,13 +46,13 @@ node_patterns = patterns(
     url(
         r'(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
         meta_data_handler,
-        name='metadata_meta_data'),
+        name='metadata-meta-data'),
     url(
         r'(?P<version>[^/]+)/user-data$', user_data_handler,
-        name='metadata_user_data'),
+        name='metadata-user-data'),
     url(
         r'(?P<version>[^/]+)/', version_index_handler,
-        name='metadata_version'),
+        name='metadata-version'),
     url(r'', index_handler, name='metadata'),
     )
 
@@ -65,15 +65,15 @@ by_mac_patterns = patterns(
     url(
         r'(?P<version>[^/]+)/by-mac/(?P<mac>[^/]+)/meta-data/(?P<item>.*)$',
         meta_data_by_mac_handler,
-        name='metadata_meta_data_by_mac'),
+        name='metadata-meta-data-by-mac'),
     url(
         r'(?P<version>[^/]+)/by-mac/(?P<mac>[^/]+)/user-data$',
         user_data_by_mac_handler,
-        name='metadata_user_data_by_mac'),
+        name='metadata-user-data-by-mac'),
     url(
         r'(?P<version>[^/]+)/by-mac/(?P<mac>[^/]+)/',
         version_index_by_mac_handler,
-        name='metadata_version_by_mac'),
+        name='metadata-version-by-mac'),
     )
 
 
