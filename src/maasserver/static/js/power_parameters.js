@@ -71,8 +71,8 @@ Y.extend(DynamicWidget, Y.Widget, {
     },
 
    /**
-    * Make 'srcNode' as hidden if the value of the 'driverNode' is the empty
-    * string and as not hidden if it's not the case.
+    * Hide 'srcNode' if the value of the 'driverNode' is the empty string
+    * and show it otherwise.
     *
     * @method setVisibility
     */
@@ -105,8 +105,8 @@ Y.extend(DynamicWidget, Y.Widget, {
     },
 
    /**
-    * Bind the widget's events: hook up the driver's 'change' event to
-    * 'this.switchTo(newValue)'.
+    * Bind the widget's events:
+    *  - hook up the driver's 'change' event to 'this.switchTo(newValue)'.
     *
     * @method bindUI
     */
