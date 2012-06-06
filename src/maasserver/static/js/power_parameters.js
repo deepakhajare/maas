@@ -17,7 +17,8 @@ module._io = new Y.IO();
 var DynamicWidget;
 
 /**
- * A widget view class to display a set of Nodes (Y.maas.node.Node).
+ * A widget class used to have the content of a node dependent of the selected
+ * value of a <select> tag.
  *
  */
 DynamicWidget = function() {
@@ -30,8 +31,8 @@ Y.extend(DynamicWidget, Y.Widget, {
 
    /**
     * Initialize the widget.
-    * - cfg.srcNode is the the node which will be updated when the
-    *   selected value of the 'driver node' will change.
+    * - cfg.srcNode is the  node which will be updated when the selected
+    *   value of the 'driver node' will change.
     * - cfg.driverNode is the node containing a 'select' element.  When
     *   the selected element will change, the srcNode HTML will be
     *   updated.
