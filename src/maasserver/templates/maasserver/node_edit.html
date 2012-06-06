@@ -16,7 +16,8 @@
     'maas.enums', 'maas.power_parameters',
     function (Y) {
     Y.on('load', function() {
-      // Create DynamicWidget widget.
+      // Create DynamicWidget widget so that the power_parameter field
+      // will be updated each time the value of the power_type field changes.
       var widget = new Y.maas.power_parameters.DynamicWidget({
           srcNode: '.power_parameters',
           driverNode: '.power_type',
