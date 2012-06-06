@@ -6,7 +6,6 @@
  * @module Y.maas.power_parameter
  */
 
-// TODO: Replace "power_parameters" with module name throughout.
 YUI.add('maas.power_parameters', function(Y) {
 
 Y.log('loading maas.power_parameters');
