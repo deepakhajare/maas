@@ -176,20 +176,23 @@ class APIAdminNodeEditForm(APIEditMixin, UIAdminNodeEditForm):
            'power_parameters',
            )
 
-    def __init__(self, data, instance):
-        super(APIAdminNodeEditForm, self).__init__(data, instance=instance)
+    def __init__(self, data=None, files=None, instance=None, initial=None):
+        super(APIAdminNodeEditForm, self).__init__(
+            data=data, files=files, instance=instance, initial=initial)
         self.set_up_power_parameters_field(data, instance)
 
     def set_up_power_parameters_field(self, data, node):
-        power_type = data.get('power_type', None)
+        if data is None:
+            data = {}
+        power_type = data.get('power_type', self.initial.get('power_type'))
         if power_type is None or power_type not in dict(POWER_TYPE_CHOICES):
-            power_type = node.get_effective_power_type()
+            power_type = node.power_type
         self.fields['power_parameters'] = POWER_TYPE_PARAMETERS[power_type]
 
 
 def get_node_edit_form(user, api=False):
     if user.is_superuser:
-        return APIAdminNodeEditForm if api else UIAdminNodeEditForm
+        return APIAdminNodeEditForm
     else:
         return UINodeEditForm
 

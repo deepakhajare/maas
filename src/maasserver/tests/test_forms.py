@@ -51,9 +51,7 @@ from maasserver.node_action import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from provisioningserver.enum import (
-    POWER_TYPE_CHOICES,
-    )
+from provisioningserver.enum import POWER_TYPE_CHOICES
 from testtools.testcase import ExpectedException
 
 
@@ -290,10 +288,6 @@ class NodeEditForms(TestCase):
                 {'field': power_parameters_field}),
             (node.hostname, node.after_commissioning_action, node.power_type,
                 node.power_parameters))
-
-    def test_get_node_edit_form_returns_UIAdminNodeEditForm_if_admin(self):
-        admin = factory.make_admin()
-        self.assertEqual(UIAdminNodeEditForm, get_node_edit_form(admin))
 
     def test_get_node_edit_form_returns_UINodeEditForm_if_non_admin(self):
         user = factory.make_user()
