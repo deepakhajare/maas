@@ -11,11 +11,16 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "DHCPConfigError",
     "get_config",
 ]
 
 
 from textwrap import dedent
+
+
+class DHCPConfigError(Exception):
+    """Exception raised for errors processing the DHCP config."""
 
 
 template = dedent("""\
@@ -63,4 +68,9 @@ def get_config(**params):
     """
     # This is a really simple substitution for now but it's encapsulated
     # here so that its implementation can be changed later if required.
-    return template % params
+    try:
+        return template % params
+    except KeyError, e:
+        raise DHCPConfigError(
+            "Passed parameters are missing at least the value for %s" %
+                e.message)
