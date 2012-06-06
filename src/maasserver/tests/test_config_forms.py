@@ -200,7 +200,8 @@ class TestDictCharWidget(TestCase):
         labels = [factory.getRandomString(), factory.getRandomString()]
         values = [factory.getRandomString(), factory.getRandomString()]
         widget = DictCharWidget(
-            [widgets.TextInput, widgets.TextInput], names, labels)
+            [widgets.TextInput, widgets.TextInput, widgets.CheckboxInput],
+            names, labels, skip_check=True)
         name = factory.getRandomString()
         self.assertEqual(
             '<fieldset>'
@@ -238,3 +239,13 @@ class TestDictCharWidget(TestCase):
         self.assertEqual(
             [field_1_value, field_2_value],
             widget.value_from_datadict(data, None, name))
+
+    def test_DictCharWidget_renders_with_empty_string_as_input_data(self):
+        names = [factory.getRandomString(), factory.getRandomString()]
+        labels = [factory.getRandomString(), factory.getRandomString()]
+        widget = DictCharWidget(
+            [widgets.TextInput, widgets.TextInput, widgets.CheckboxInput],
+            names, labels, skip_check=True)
+        name = factory.getRandomString()
+        widget.render(name, '')
+        # No exception.
