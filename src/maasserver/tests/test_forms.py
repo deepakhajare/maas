@@ -52,7 +52,6 @@ from maasserver.node_action import (
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import (
-    POWER_TYPE,
     POWER_TYPE_CHOICES,
     )
 from testtools.testcase import ExpectedException
