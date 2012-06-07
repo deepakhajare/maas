@@ -15,10 +15,9 @@ __all__ = []
 import os
 import subprocess
 
+from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 from testtools.matchers import (
-    Contains,
-    MatchesAll,
     MatchesStructure,
     )
 
@@ -41,10 +40,10 @@ class TestModule(TestCase):
             '--high-range', 'high-range',
             '--out-file', 'out-file',
             ]
-        writer.parse_args(test_args)
+        args = writer.parse_args(test_args)
 
         self.assertThat(
-            writer.args, MatchesStructure.byEquality(
+            args, MatchesStructure.byEquality(
                 subnet='subnet',
                 subnet_mask='subnet-mask',
                 next_server='next-server',
@@ -67,14 +66,12 @@ class TestModule(TestCase):
             '--low-range', 'low-range',
             '--high-range', 'high-range',
             ]
-        writer.parse_args(test_args)
-        output = writer.generate()
+        args = writer.parse_args(test_args)
+        output = writer.generate(args)
 
-        contains_all_params = MatchesAll(
-            Contains('subnet'), Contains('subnet-mask'),
-            Contains('next-server'), Contains('broadcast-address'),
-            Contains('dns-servers'), Contains('gateway'),
-            Contains('low-range'), Contains('high-range'))
+        contains_all_params = ContainsAll(
+            ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
+            'dns-servers', 'gateway', 'low-range', 'high-range'])
         self.assertThat(output, contains_all_params)
 
     def test_run_with_file_output(self):
@@ -120,9 +117,7 @@ class TestScriptExecutable(TestCase):
         exe.extend(test_args)
         output = subprocess.check_output(exe)
 
-        contains_all_params = MatchesAll(
-            Contains('subnet'), Contains('subnet-mask'),
-            Contains('next-server'), Contains('broadcast-address'),
-            Contains('dns-servers'), Contains('gateway'),
-            Contains('low-range'), Contains('high-range'))
+        contains_all_params = ContainsAll(
+            ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
+            'dns-servers', 'gateway', 'low-range', 'high-range'])
         self.assertThat(output, contains_all_params)
