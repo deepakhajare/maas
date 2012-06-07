@@ -73,11 +73,11 @@ class DHCPConfigWriter:
         """Generate the config and write to stdout or a file as required."""
         self.parse_args(argv)
         output = self.generate()
-        try:
-            outfile = getattr(self.args, 'out_file')
+        outfile = self.args.out_file
+        if outfile is not None:
             with open(outfile, "w") as f:
                 f.write(output)
-        except AttributeError:
+        else:
             print(output)
         
 
