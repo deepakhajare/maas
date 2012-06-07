@@ -145,7 +145,7 @@ class DictCharField(forms.MultiValueField):
             return value
         else:
             self.clean_unknown_params(value)
-            values = [value.get(name, '') for name in self.get_names()]
+            values = [value.get(name) for name in self.get_names()]
             result = self.clean_global_empty(values)
             if result is None:
                 return None
