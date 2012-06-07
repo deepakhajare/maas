@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'DictCharField',
     'DictCharWidget',
+    'SKIP_CHECK_NAME',
     ]
 
 from collections import OrderedDict
