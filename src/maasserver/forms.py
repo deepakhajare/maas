@@ -157,7 +157,7 @@ class APIEditMixin:
         """Override Django's private hook _post_save to remove None values
         from 'self.cleaned_data'.
 
-        _post_clean is where the field of the instance get set with the data
+        _post_clean is where the fields of the instance get set with the data
         from self.cleaned_data.  That's why the cleanup needs to happen right
         before that.
         """
