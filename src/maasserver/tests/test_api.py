@@ -1011,7 +1011,7 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(
             power_parameters, reload_object(node).power_parameters)
 
-    def test_PUT_updates_power_parameters_field_arbitrary(self):
+    def test_PUT_updates_power_parameters_skip_ckeck(self):
         # With power_parameters_skip_check, arbitrary data
         # can be put in a Node's power_parameter field.
         self.become_admin()

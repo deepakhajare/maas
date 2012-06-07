@@ -51,9 +51,7 @@ from maasserver.node_action import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from provisioningserver.enum import (
-    POWER_TYPE_CHOICES,
-    )
+from provisioningserver.enum import POWER_TYPE_CHOICES
 from testtools.testcase import ExpectedException
 
 
@@ -245,15 +243,17 @@ class NodeEditForms(TestCase):
             after_commissioning_action, node.after_commissioning_action)
         self.assertEqual(power_type, node.power_type)
 
-    def test_remove_None_values(self):
+    def test_remove_None_values_removes_None_values_in_dict(self):
         random_input = factory.getRandomString()
-        inputs = [
-            {},
-            {random_input: random_input, factory.getRandomString(): None},
-            {random_input:None}
-        ]
-        expected = [{}, {random_input: random_input}, {}]
-        self.assertEqual(expected, map(remove_None_values, inputs))
+        self.assertEqual(
+            {random_input: random_input},
+            remove_None_values({
+                random_input: random_input,
+                factory.getRandomString(): None
+                }))
+
+    def test_remove_None_values_leaves_empty_dict_untouched(self):
+        self.assertEqual({}, remove_None_values({}))
 
     def test_APIAdminNodeEditForm_contains_limited_set_of_fields(self):
         form = APIAdminNodeEditForm({}, instance=factory.make_node())
