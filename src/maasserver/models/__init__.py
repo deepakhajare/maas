@@ -71,10 +71,10 @@ from maasserver.models.config import Config
 from maasserver.models.filestorage import FileStorage
 from maasserver.models.macaddress import MACAddress
 from maasserver.models.nodegroup import NodeGroup
-from maasserver.utils import ignore_unused
 from maasserver.models.sshkey import SSHKey
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.models.userprofile import UserProfile
+from maasserver.utils import ignore_unused
 from metadataserver import nodeinituser
 from piston.models import (
     Consumer,
@@ -90,6 +90,7 @@ from provisioningserver.tasks import power_on
 # Suppress warning about NodeGroup being imported, but only used for
 # export in __all__.
 ignore_unused(NodeGroup)
+
 
 # Special users internal to MAAS.
 SYSTEM_USERS = [
