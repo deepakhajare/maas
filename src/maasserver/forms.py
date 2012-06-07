@@ -44,6 +44,7 @@ from django.forms import (
     Form,
     ModelForm,
     )
+from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
@@ -197,7 +198,7 @@ class APIAdminNodeEditForm(APIEditMixin, UIAdminNodeEditForm):
         # on, reset power_parameters (set it to the empty string).
         is_default = cleaned_data['power_type'] == POWER_TYPE.DEFAULT
         skip_check = (
-            self.data.get('power_parameters_skip_check') == 'true')
+            self.data.get('power_parameters_%s' % SKIP_CHECK_NAME) == 'true')
         if is_default and not skip_check:
             cleaned_data['power_parameters'] = ''
         return cleaned_data
