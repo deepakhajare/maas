@@ -63,11 +63,9 @@ class DHCPConfigWriter:
         """Parse provided argv or default to sys.argv."""
         self.args = self.argument_parser.parse_args(argv)
 
-    def run(self):
+    def generate(self):
         """Generate the config."""
-        params = dict()
-        for k,v in self.args:
-            params[k] = v
+        params = self.args.__dict__
         output = config.get_config(**params)
         return output
 

@@ -13,7 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 from testtools import TestCase
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    Contains,
+    MatchesAll,
+    MatchesStructure,
+    )
 
 from provisioningserver.dhcp.write_dhcp_config import DHCPConfigWriter
 
@@ -48,7 +52,7 @@ class TestModule(TestCase):
                 high_range='high-range',
                 out_file='out-file'))
 
-    def test_run(self):
+    def test_generate(self):
         writer = DHCPConfigWriter()
         test_args = [
             '--subnet', 'subnet',
@@ -59,7 +63,13 @@ class TestModule(TestCase):
             '--gateway', 'gateway',
             '--low-range', 'low-range',
             '--high-range', 'high-range',
-            '--out-file', 'out-file',
             ]
         writer.parse_args(test_args)
-        output = writer.run()
+        output = writer.generate()
+
+        contains_all_params = MatchesAll(
+            Contains('subnet'), Contains('subnet-mask'),
+            Contains('next-server'), Contains('broadcast-address'),
+            Contains('dns-servers'), Contains('gateway'),
+            Contains('low-range'), Contains('high-range'))
+        self.assertThat(output, contains_all_params)
