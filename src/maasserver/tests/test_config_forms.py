@@ -211,10 +211,8 @@ class TestDictCharWidget(TestCase):
             '<input type="text" name="%s" value="%s" />'
             '</fieldset>' %
                 (
-                    labels[0],
-                     '%s_%s' % (name, names[0]), values[0],
-                     labels[1],
-                     '%s_%s' % (name, names[1]), values[1],
+                    labels[0], '%s_%s' % (name, names[0]), values[0],
+                    labels[1], '%s_%s' % (name, names[1]), values[1],
                 ),
             widget.render(name, values))
 
@@ -247,5 +245,15 @@ class TestDictCharWidget(TestCase):
             [widgets.TextInput, widgets.TextInput, widgets.CheckboxInput],
             names, labels, skip_check=True)
         name = factory.getRandomString()
-        widget.render(name, '')
-        # No exception.
+        self.assertEqual(
+            '<fieldset>'
+            '<label>%s</label>'
+            '<input type="text" name="%s" />'
+            '<label>%s</label>'
+            '<input type="text" name="%s" />'
+            '</fieldset>' %
+                (
+                    labels[0], '%s_%s' % (name, names[0]),
+                    labels[1], '%s_%s' % (name, names[1]),
+                ),
+            widget.render(name, ''))
