@@ -59,7 +59,10 @@ from maasserver.models import (
     )
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
-from provisioningserver.enum import POWER_TYPE_CHOICES
+from provisioningserver.enum import (
+    POWER_TYPE,
+    POWER_TYPE_CHOICES,
+    )
 
 
 def compose_invalid_choice_text(choice_of_what, valid_choices):
@@ -181,10 +184,26 @@ class APIAdminNodeEditForm(APIEditMixin, UIAdminNodeEditForm):
         self.set_up_power_parameters_field(data, instance)
 
     def set_up_power_parameters_field(self, data, node):
-        power_type = data.get('power_type', None)
-        if power_type is None or power_type not in dict(POWER_TYPE_CHOICES):
-            power_type = node.get_effective_power_type()
+        if data is None:
+            data = {}
+        power_type = data.get('power_type', self.initial.get('power_type'))
+        if power_type not in dict(POWER_TYPE_CHOICES):
+            power_type = node.power_type
         self.fields['power_parameters'] = POWER_TYPE_PARAMETERS[power_type]
+
+    def clean(self):
+        cleaned_data = super(APIAdminNodeEditForm, self).clean()
+        # If power_type is DEFAULT and power_parameters_skip_check is not
+        # on, reset power_parameters (set it to the empty string).
+        is_default = cleaned_data['power_type'] == POWER_TYPE.DEFAULT
+        skip_check = (
+            self.data.get('power_parameters_skip_check') == 'true')
+        if is_default and not skip_check:
+            cleaned_data['power_parameters'] = ''
+        return cleaned_data
+
+    def clean_power_type_power_param(self, cleaned_data):
+        return cleaned_data
 
 
 def get_node_edit_form(user, api=False):

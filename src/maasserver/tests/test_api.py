@@ -1016,6 +1016,73 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(
             power_parameters, reload_object(node).power_parameters)
 
+    def test_PUT_updates_power_type_default_resets_params(self):
+        # If one sets power_type to DEFAULT, power_parameter gets
+        # reset by default (if skip_check is not set).
+        self.become_admin()
+        power_parameters = factory.getRandomString()
+        node = factory.make_node(
+            owner=self.logged_in_user,
+            power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters=power_parameters)
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'power_type': POWER_TYPE.DEFAULT})
+
+        node = reload_object(node)
+        self.assertEqual(
+            (httplib.OK, node.power_type, node.power_parameters),
+            (response.status_code, POWER_TYPE.DEFAULT, ''))
+
+    def test_PUT_updates_power_type_default_rejects_params(self):
+        # If one sets power_type to DEFAULT, on cannot set power_parameters.
+        self.become_admin()
+        power_parameters = factory.getRandomString()
+        node = factory.make_node(
+            owner=self.logged_in_user,
+            power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters=power_parameters)
+        new_param = factory.getRandomString()
+        response = self.client.put(
+            self.get_node_uri(node),
+            {
+                'power_type': POWER_TYPE.DEFAULT,
+                'power_parameters_address': new_param,
+            })
+
+        node = reload_object(node)
+        self.assertEqual(
+            (httplib.BAD_REQUEST, json.loads(response.content)),
+            (
+                response.status_code,
+                {'power_parameters': ['Unknown parameter(s): address.']}
+            ))
+        self.assertEqual(
+            power_parameters, reload_object(node).power_parameters)
+
+    def test_PUT_updates_power_type_default_skip_check_to_force_params(self):
+        # If one sets power_type to DEFAULT, it is possible to pass
+        # power_parameter_skip_check='true' to force power_parameters.
+        self.become_admin()
+        power_parameters = factory.getRandomString()
+        node = factory.make_node(
+            owner=self.logged_in_user,
+            power_type=POWER_TYPE.WAKE_ON_LAN,
+            power_parameters=power_parameters)
+        new_param = factory.getRandomString()
+        response = self.client.put(
+            self.get_node_uri(node),
+            {
+                'power_type': POWER_TYPE.DEFAULT,
+                'power_parameters_param': new_param,
+                'power_parameters_skip_check': 'true',
+            })
+
+        node = reload_object(node)
+        self.assertEqual(
+            (httplib.OK, node.power_type, node.power_parameters),
+            (response.status_code, POWER_TYPE.DEFAULT, {'param': new_param}))
+
     def test_PUT_updates_power_parameters_skip_ckeck(self):
         # With power_parameters_skip_check, arbitrary data
         # can be put in a Node's power_parameter field.
