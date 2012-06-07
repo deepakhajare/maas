@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 import os
+import subprocess
 
 from maastesting.testcase import TestCase
 from testtools.matchers import (
@@ -94,3 +95,34 @@ class TestModule(TestCase):
         writer.run(test_args)
 
         self.assertTrue(os.path.exists(outfile))
+
+
+class TestScriptExecutable(TestCase):
+    """Test that the actual script is executable."""
+
+    def test_script(self):
+        test_args = [
+            '--subnet', 'subnet',
+            '--subnet-mask', 'subnet-mask',
+            '--next-server', 'next-server',
+            '--broadcast-address', 'broadcast-address',
+            '--dns-servers', 'dns-servers',
+            '--gateway', 'gateway',
+            '--low-range', 'low-range',
+            '--high-range', 'high-range',
+            ]
+
+        exe = [os.path.join(
+            os.path.basename(__file__),
+            os.pardir, os.pardir, os.pardir, os.pardir,
+            "bin", "write_dhcp_config")]
+
+        exe.extend(test_args)
+        output = subprocess.check_output(exe)
+
+        contains_all_params = MatchesAll(
+            Contains('subnet'), Contains('subnet-mask'),
+            Contains('next-server'), Contains('broadcast-address'),
+            Contains('dns-servers'), Contains('gateway'),
+            Contains('low-range'), Contains('high-range'))
+        self.assertThat(output, contains_all_params)
