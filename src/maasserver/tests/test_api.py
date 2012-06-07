@@ -995,19 +995,24 @@ class TestNodeAPI(APITestCase):
             {'power_address': new_power_address},
             reload_object(node).power_parameters)
 
-    def test_PUT_updates_power_parameters_ignores_unknown_param(self):
+    def test_PUT_updates_power_parameters_rejects_unknown_param(self):
         self.become_admin()
         power_parameters = factory.getRandomString()
         node = factory.make_node(
             owner=self.logged_in_user,
             power_type=POWER_TYPE.WAKE_ON_LAN,
             power_parameters=power_parameters)
-
         response = self.client.put(
             self.get_node_uri(node),
             {'power_parameters_unknown_param': factory.getRandomString()})
 
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            (httplib.BAD_REQUEST, json.loads(response.content)),
+            (
+                response.status_code,
+                {'power_parameters':
+                    ["Unknown parameter(s): unknown_param."]}
+            ))
         self.assertEqual(
             power_parameters, reload_object(node).power_parameters)
 
