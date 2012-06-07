@@ -72,7 +72,7 @@ bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
 
 bin/write_dhcp_config: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install write-dhcp-config
-	@touch --no-create bin/write_dhcp_config
+	@touch --no-create $@
 
 test: bin/test.maas bin/test.maastesting bin/test.pserv $(js_enums)
 	bin/test.maas
