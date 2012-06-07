@@ -79,7 +79,6 @@ class DHCPConfigWriter:
                 f.write(output)
         else:
             print(output)
-        
 
 
 def run():
