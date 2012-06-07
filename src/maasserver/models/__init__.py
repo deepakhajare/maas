@@ -71,9 +71,7 @@ from maasserver.models.config import Config
 from maasserver.models.filestorage import FileStorage
 from maasserver.models.macaddress import MACAddress
 from maasserver.models.nodegroup import NodeGroup
-
-
-NodeGroup
+from maasserver.utils import ignore_unused
 from maasserver.models.sshkey import SSHKey
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.models.userprofile import UserProfile
@@ -87,6 +85,11 @@ from provisioningserver.enum import (
     POWER_TYPE_CHOICES,
     )
 from provisioningserver.tasks import power_on
+
+
+# Suppress warning about NodeGroup being imported, but only used for
+# export in __all__.
+ignore_unused(NodeGroup)
 
 # Special users internal to MAAS.
 SYSTEM_USERS = [
@@ -734,8 +737,7 @@ class MAASAuthorizationBackend(ModelBackend):
 # 'provisioning' is imported so that it can register its signal handlers early
 # on, before it misses anything.
 from maasserver import provisioning
-# We mention 'provisioning' here to silence lint warnings.
-provisioning
+ignore_unused(provisioning)
 
 from maasserver import messages
-messages
+ignore_unused(messages)
