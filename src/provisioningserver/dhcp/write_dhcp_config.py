@@ -69,8 +69,19 @@ class DHCPConfigWriter:
         output = config.get_config(**params)
         return output
 
+    def run(self, argv=None):
+        """Generate the config and write to stdout or a file as required."""
+        self.parse_args(argv)
+        output = self.generate()
+        try:
+            outfile = getattr(self.args, 'out_file')
+            with open(outfile, "w") as f:
+                f.write(output)
+        except AttributeError:
+            print(output)
+        
+
 
 def run():
     writer = DHCPConfigWriter()
-    writer.parse_args()
     writer.run()

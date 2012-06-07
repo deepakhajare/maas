@@ -12,7 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from testtools import TestCase
+import os
+
+from maastesting.testcase import TestCase
 from testtools.matchers import (
     Contains,
     MatchesAll,
@@ -73,3 +75,22 @@ class TestModule(TestCase):
             Contains('dns-servers'), Contains('gateway'),
             Contains('low-range'), Contains('high-range'))
         self.assertThat(output, contains_all_params)
+
+    def test_run_with_file_output(self):
+        temp_dir = self.make_dir()
+        outfile = os.path.join(temp_dir, "outfile")
+        writer = DHCPConfigWriter()
+        test_args = [
+            '--subnet', 'subnet',
+            '--subnet-mask', 'subnet-mask',
+            '--next-server', 'next-server',
+            '--broadcast-address', 'broadcast-address',
+            '--dns-servers', 'dns-servers',
+            '--gateway', 'gateway',
+            '--low-range', 'low-range',
+            '--high-range', 'high-range',
+            '--out-file', outfile,
+            ]
+        writer.run(test_args)
+
+        self.assertTrue(os.path.exists(outfile))
