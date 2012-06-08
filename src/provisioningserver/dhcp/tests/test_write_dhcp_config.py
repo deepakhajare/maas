@@ -112,7 +112,7 @@ class TestScriptExecutable(TestCase):
         exe = [os.path.join(
             os.path.dirname(__file__),
             os.pardir, os.pardir, os.pardir, os.pardir,
-            "bin", "write_dhcp_config")]
+            "bin", "write-dhcp-config")]
 
         exe.extend(test_args)
         output = subprocess.check_output(exe)
