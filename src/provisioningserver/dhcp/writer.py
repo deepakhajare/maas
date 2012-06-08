@@ -82,11 +82,9 @@ class DHCPConfigWriter:
             print(output)
 
 
-def run():
-    """Entry point for scripts."""
-    writer = DHCPConfigWriter()
-    writer.run()
+# Entry point for scripts.
+main = DHCPConfigWriter().run
 
 
 if __name__ == "__main__":
-    run()
+    main()

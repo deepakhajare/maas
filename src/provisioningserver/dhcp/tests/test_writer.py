@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for `provisioningserver.dhcp.write_dhcp_config`."""
+"""Tests for `provisioningserver.dhcp.writer`."""
 
 from __future__ import (
     absolute_import,
@@ -16,12 +16,12 @@ import os
 
 from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
-from provisioningserver.dhcp.write_dhcp_config import DHCPConfigWriter
+from provisioningserver.dhcp.writer import DHCPConfigWriter
 from testtools.matchers import MatchesStructure
 
 
-class TestModule(TestCase):
-    """Test the `write_dhcp_config` module."""
+class TestDHCPConfigWriter(TestCase):
+    """Test `DHCPConfigWriter`."""
 
     def test_arg_setup(self):
         writer = DHCPConfigWriter()
