@@ -49,7 +49,7 @@ bin/twistd.pserv bin/write-dhcp-config: bin/buildout buildout.cfg versions.cfg s
 	bin/buildout install pserv
 	@touch --no-create $@
 
-bin/test.pserv: bin/buildout buildout.cfg versions.cfg setup.py bin/write-dhcp-config
+bin/test.pserv: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install pserv-test
 	@touch --no-create $@
 
