@@ -81,9 +81,5 @@ class DHCPConfigWriter:
             stdout.write(output)
 
 
-# Entry point for scripts.
-main = DHCPConfigWriter().run
-
-
 if __name__ == "__main__":
-    main()
+    DHCPConfigWriter().run()

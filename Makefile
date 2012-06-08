@@ -45,7 +45,7 @@ bin/test.maastesting: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install maastesting-test
 	@touch --no-create $@
 
-bin/twistd.pserv bin/write-dhcp-config: bin/buildout buildout.cfg versions.cfg setup.py
+bin/twistd.pserv: bin/buildout buildout.cfg versions.cfg setup.py
 	bin/buildout install pserv
 	@touch --no-create $@
 
