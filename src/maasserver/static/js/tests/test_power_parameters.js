@@ -24,21 +24,18 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     testInitializerSetsUpVariables: function() {
-        var widget = new Y.maas.power_parameters.DynamicWidget({
+        var widget = new Y.maas.power_parameters.LinkedContentWidget({
             srcNode: '.power_parameters',
-            driverNode: '.power_type',
             driverEnum: ENUM,
             templatePrefix: '#prefix-'
             });
-        Y.Assert.areEqual('.power_type', widget.driverNode);
         Y.Assert.areEqual(ENUM, widget.driverEnum);
         Y.Assert.areEqual('#prefix-', widget.templatePrefix);
     },
 
     testInitializerInitializesTemplates: function() {
-        var widget = new Y.maas.power_parameters.DynamicWidget({
+        var widget = new Y.maas.power_parameters.LinkedContentWidget({
             srcNode: '.power_parameters',
-            driverNode: '.power_type',
             driverEnum: ENUM,
             templatePrefix: '#prefix-'
             });
@@ -52,26 +49,28 @@ suite.add(new Y.maas.testing.TestCase({
         }
     },
 
-    testInitializerSetsVisibility: function() {
-        var widget = new Y.maas.power_parameters.DynamicWidget({
+    testBindToSetsVisibility: function() {
+        var widget = new Y.maas.power_parameters.LinkedContentWidget({
             srcNode: '.power_parameters',
-            driverNode: '.power_type',
             driverEnum: ENUM,
             templatePrefix: '#prefix-'
             });
+        widget.bindTo(Y.one('.power_type').one('select'), 'change');
         Y.Assert.isTrue(Y.one('.power_parameters').hasClass('hidden'));
     },
 
-    testswitchToUpdatesSrcNode: function() {
-        var widget = new Y.maas.power_parameters.DynamicWidget({
+    testchangingTheDriversValueUpdatesSrcNode: function() {
+        var widget = new Y.maas.power_parameters.LinkedContentWidget({
             srcNode: '.power_parameters',
-            driverNode: '.power_type',
             driverEnum: ENUM,
             templatePrefix: '#prefix-'
             });
+        widget.bindTo(Y.one('.power_type').one('select'), 'change');
+        // Simulate setting a new value in the driver's <select> widget.
         var newValue = 'value1';
-        Y.one('.power_type').one('select').set('value', newValue);
-        widget.switchTo(newValue);
+        var select = Y.one('.power_type').one('select');
+        select.set('value', newValue);
+        select.simulate('change');
         Y.Assert.isFalse(Y.one('.power_parameters').hasClass('hidden'));
         var template = Y.one('#prefix-' + newValue).getContent();
         Y.Assert.areEqual(
