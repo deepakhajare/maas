@@ -12,8 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-
 import argparse
+from sys import stdout
 
 from provisioningserver.dhcp import config
 
@@ -73,13 +73,12 @@ class DHCPConfigWriter:
     def run(self, argv=None):
         """Generate the config and write to stdout or a file as required."""
         args = self.parse_args(argv)
-        output = self.generate(args)
-        outfile = args.out_file
-        if outfile is not None:
-            with open(outfile, "w") as f:
+        output = self.generate(args).encode("ascii")
+        if args.out_file is not None:
+            with open(args.out_file, "wb") as f:
                 f.write(output)
         else:
-            print(output)
+            stdout.write(output)
 
 
 # Entry point for scripts.
