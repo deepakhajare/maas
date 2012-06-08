@@ -59,7 +59,7 @@ def xmlrpc_export(iface):
 
 
 class Safe:
-    """An object that should not be quoted when rendered."""
+    """An object that is safe to render as-is."""
 
     __slots__ = ("value",)
 
