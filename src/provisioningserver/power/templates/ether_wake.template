@@ -1,3 +1,8 @@
+# -*- mode: shell-script -*-
+#
+# Control node power through WOL, via `wakeonlan` or `etherwake`.
+#
+
 mac='%(mac)s'
 power_change='%(power_change)s'
 

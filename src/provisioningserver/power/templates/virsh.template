@@ -1,4 +1,7 @@
+# -*- mode: shell-script -*-
+#
 # Control virtual system's "power" through virsh.
+#
 
 # Parameters.
 power_change="%(power_change)s"
