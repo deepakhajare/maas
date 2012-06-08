@@ -14,6 +14,7 @@ from __future__ import (
     )
 
 __metaclass__ = type
+# Scheduled for model migration on 2012-06-15
 __all__ = [
     "create_auth_token",
     "generate_node_system_id",
@@ -86,12 +87,13 @@ from provisioningserver.enum import (
     )
 from provisioningserver.tasks import power_on
 
-
+# Scheduled for model migration on 2012-06-15
 # Suppress warning about NodeGroup being imported, but only used for
 # export in __all__.
 ignore_unused(NodeGroup)
 
 
+# Scheduled for model migration on 2012-06-13
 # Special users internal to MAAS.
 SYSTEM_USERS = [
     # For nodes' access to the metadata API:
@@ -99,9 +101,11 @@ SYSTEM_USERS = [
     ]
 
 
+# Scheduled for model migration on 2012-06-15
 logger = getLogger('maasserver')
 
 
+# Scheduled for model migration on 2012-06-15
 def now():
     cursor = connection.cursor()
     cursor.execute("select now()")
@@ -363,6 +367,7 @@ class NodeManager(Manager):
         return processed_nodes
 
 
+# Scheduled for model migration on 2012-06-15
 def get_db_state(instance, field_name):
     """Get the persisted state of the given field for the given instance.
 
@@ -686,14 +691,17 @@ def create_user(sender, instance, created, **kwargs):
         # Create initial authorisation token.
         profile.create_authorisation_token()
 
+# Scheduled for model migration on 2012-06-15
 # Connect the 'create_user' method to the post save signal of User.
 post_save.connect(create_user, sender=User)
 
 
+# Scheduled for model migration on 2012-06-15
 # Monkey patch django.contrib.auth.models.User to force email to be unique.
 User._meta.get_field('email')._unique = True
 
 
+# Scheduled for model migration on 2012-06-15
 # Register the models in the admin site.
 admin.site.register(Consumer)
 admin.site.register(Config)
@@ -703,6 +711,7 @@ admin.site.register(Node)
 admin.site.register(SSHKey)
 
 
+# Scheduled for model migration on 2012-06-15
 class MAASAuthorizationBackend(ModelBackend):
 
     supports_object_permissions = True
@@ -735,10 +744,12 @@ class MAASAuthorizationBackend(ModelBackend):
                     perm)
 
 
+# Scheduled for model migration on 2012-06-15
 # 'provisioning' is imported so that it can register its signal handlers early
 # on, before it misses anything.
 from maasserver import provisioning
 ignore_unused(provisioning)
 
+# Scheduled for model migration on 2012-06-15
 from maasserver import messages
 ignore_unused(messages)
