@@ -17,7 +17,7 @@ from textwrap import dedent
 from provisioningserver.dhcp import config
 import tempita
 from testtools import TestCase
-from testtools.matchers import StartsWith
+from testtools.matchers import MatchesRegex
 
 
 class TestDHCPConfig(TestCase):
@@ -72,4 +72,7 @@ class TestDHCPConfig(TestCase):
         e = self.assertRaises(
             config.DHCPConfigError, config.get_config, **params)
 
-        self.assertThat(e.message, StartsWith("name 'subnet' is not defined"))
+        self.assertThat(
+            e.message, MatchesRegex(
+                "name 'subnet' is not defined at line \d+ column \d+ "
+                "in file %s" % self.template.name))
