@@ -156,15 +156,17 @@ class AdminNodeForm(APIEditMixin, NodeForm):
         self.set_up_power_parameters_field(data, instance)
 
     def set_up_power_parameters_field(self, data, node):
-        if node is not None:
-            if data is None:
-                data = {}
-            power_type = data.get(
-                'power_type', self.initial.get('power_type'))
-            if power_type not in dict(POWER_TYPE_CHOICES):
+        if data is None:
+            data = {}
+        power_type = data.get(
+            'power_type', self.initial.get('power_type'))
+        if power_type not in dict(POWER_TYPE_CHOICES):
+            if node is not None:
                 power_type = node.power_type
-            self.fields['power_parameters'] = (
-                POWER_TYPE_PARAMETERS[power_type])
+            else:
+                power_type = POWER_TYPE.DEFAULT
+        self.fields['power_parameters'] = (
+            POWER_TYPE_PARAMETERS[power_type])
 
     def clean(self):
         cleaned_data = super(AdminNodeForm, self).clean()
