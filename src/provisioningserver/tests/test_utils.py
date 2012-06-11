@@ -38,8 +38,22 @@ class TestShellTemplate(TestCase):
     """Test `ShellTemplate`."""
 
     def test_substitute(self):
-        # Substitutions will be shell-escaped, unless marked `safe`.
-        template = ShellTemplate("{{a}} {{b|safe}} {{safe(c)}}")
-        expected = "'1 2 3' a b c $ ! ()"
-        observed = template.substitute(a="1 2 3", b="a b c", c="$ ! ()")
+        # Substitutions are shell-escaped.
+        template = ShellTemplate("{{a}}")
+        expected = "'1 2 3'"
+        observed = template.substitute(a="1 2 3")
+        self.assertEqual(expected, observed)
+
+    def test_substitute_safe(self):
+        # Substitutions will not be escaped if they're marked with `safe`.
+        template = ShellTemplate("{{a|safe}}")
+        expected = "$ ! ()"
+        observed = template.substitute(a="$ ! ()")
+        self.assertEqual(expected, observed)
+
+    def test_substitute_safe_object(self):
+        # Substitutions will not be escaped if they're `safe` objects.
+        template = ShellTemplate("{{safe(a)}}")
+        expected = "$ ! ()"
+        observed = template.substitute(a="$ ! ()")
         self.assertEqual(expected, observed)
