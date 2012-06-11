@@ -156,11 +156,23 @@ class AdminNodeForm(APIEditMixin, NodeForm):
         self.set_up_power_parameters_field(data, instance)
 
     def set_up_power_parameters_field(self, data, node):
+        """Setup the 'power_parameter' field based on the value for the
+        'power_type' field.
+
+        We need to create the field for 'power_parameter' (which depend from
+        the value of the field 'power_type') before the value for power_type
+        gets validated.
+        """
         if data is None:
             data = {}
-        power_type = data.get(
-            'power_type', self.initial.get('power_type'))
-        if power_type not in dict(POWER_TYPE_CHOICES):
+
+        power_type = data.get('power_type', self.initial.get('power_type'))
+
+        # If power_type is None (this is a node creation form or this
+        # form deals with an API call which does not change the value of
+        # 'power_type') or invalid: get the node's current 'power_type'
+        # value or the default value if this form is not linked to a node.
+        if power_type is None or power_type not in dict(POWER_TYPE_CHOICES):
             if node is not None:
                 power_type = node.power_type
             else:
