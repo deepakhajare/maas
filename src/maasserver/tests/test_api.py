@@ -1006,12 +1006,11 @@ class TestNodeAPI(APITestCase):
             {'power_parameters_unknown_param': factory.getRandomString()})
 
         self.assertEqual(
-            (httplib.BAD_REQUEST, json.loads(response.content)),
             (
-                response.status_code,
-                {'power_parameters':
-                    ["Unknown parameter(s): unknown_param."]}
-            ))
+                httplib.BAD_REQUEST,
+                {'power_parameters': ["Unknown parameter(s): unknown_param."]}
+            ),
+            (response.status_code, json.loads(response.content)))
         self.assertEqual(
             power_parameters, reload_object(node).power_parameters)
 
