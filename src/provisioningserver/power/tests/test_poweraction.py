@@ -57,7 +57,7 @@ class TestPowerAction(TestCase):
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
         template = pa.get_template()
         self.assertIsInstance(template, ShellTemplate)
-        with open(pa.path, "r") as f:
+        with open(pa.path, "rb") as f:
             template_content = f.read()
         self.assertEqual(template_content, template.content)
 
