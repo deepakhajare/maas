@@ -92,7 +92,8 @@ class ShellTemplate(tempita.Template):
 
     def _repr(self, value, pos):
         """Shell-quote the value by default."""
-        is_safe = isinstance(value, Safe)
-        value = super(ShellTemplate, self)._repr(
-            value.value if is_safe else value, pos)
-        return value if is_safe else quote(value)
+        rep = super(ShellTemplate, self)._repr
+        if isinstance(value, Safe):
+            return rep(value.value, pos)
+        else:
+            return quote(rep(value, pos))
