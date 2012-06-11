@@ -73,14 +73,14 @@ class TestPowerAction(TestCase):
         # If not enough arguments are supplied to fill in template
         # variables then a PowerActionFail is raised.
         pa = PowerAction(POWER_TYPE.WAKE_ON_LAN)
-        template = ShellTemplate(
-            "template: {{mac}}", name=factory.getRandomString())
+        template_name = factory.getRandomString()
+        template = ShellTemplate("template: {{mac}}", name=template_name)
         exception = self.assertRaises(
             PowerActionFail, pa.render_template, template)
         self.assertThat(
             exception.message, MatchesRegex(
                 "name 'mac' is not defined at line \d+ column \d+ "
-                "in file %s" % re.escape(template.name)))
+                "in file %s" % re.escape(template_name)))
 
     def _create_template_file(self, template):
         return self.make_file("testscript.sh", template)
