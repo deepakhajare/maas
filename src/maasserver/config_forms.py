@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'DictCharField',
     'DictCharWidget',
+    'SKIP_CHECK_NAME',
     ]
 
 from collections import OrderedDict
@@ -105,6 +106,12 @@ class DictCharField(forms.MultiValueField):
                 return dict(zip(self.names, data))
         return None
 
+    def get_names(self):
+        if self.skip_check:
+            return self.names[:-1]
+        else:
+            return self.names
+
     def clean(self, value):
         """Validates every value in the given list. A value is validated
         against the corresponding Field in self.fields.
@@ -112,7 +119,7 @@ class DictCharField(forms.MultiValueField):
         This is an adapted version of Django's MultiValueField_ clean method.
 
         The differences are:
-        - the method is split into clean_global and
+        - the method is split into clean_global_empty and
              clean_sub_fields;
         - the field and value corresponding to the SKIP_CHECK_NAME boolean
             field are removed;
@@ -123,32 +130,45 @@ class DictCharField(forms.MultiValueField):
         .. _MultiValueField: http://code.djangoproject.com/
             svn/django/tags/releases/1.3.1/django/forms/fields.py
         """
-        if isinstance(value, dict):
+        skip_check = (
+            self.skip_check and
+            self.widget.widgets[-1].value_from_datadict(
+                value, files=None, name=SKIP_CHECK_NAME))
+        # Remove the 'skip_check' value from the list of values.
+        try:
+            value.pop(SKIP_CHECK_NAME)
+        except KeyError:
+            pass
+        if skip_check:
+            # If the skip_check option is on and the value of the boolean
+            # field is true: don't perform any validation and simply return
+            # the dictionary.
             return value
         else:
-            result = self.clean_global(value)
+            self.clean_unknown_params(value)
+            values = [value.get(name) for name in self.get_names()]
+            result = self.clean_global_empty(values)
             if result is None:
                 return None
             else:
-                return self.clean_sub_fields(value)
+                return self.clean_sub_fields(values)
 
-    def clean_global(self, value):
+    def clean_unknown_params(self, value):
+        unknown_params = set(value.keys()).difference(self.get_names())
+        if len(unknown_params) != 0:
+            raise ValidationError(
+                "Unknown parameter(s): %s." % ', '.join(unknown_params))
+
+    def clean_global_empty(self, value):
         """Make sure the value is not empty and is thus suitable to be
         feed to the sub fields' validators."""
-        # Remove the value corresponding to the SKIP_CHECK_NAME boolean field
-        # if required.
-        if self.skip_check:
-            # If self.skip_check: strip out the last value which
-            # corresponds to the value of the 'skip_check' boolean field.
-            value = value[:-1]
         if not value or isinstance(value, (list, tuple)):
             # value is considered empty if it is in
-            # validators.EMPTY_VALUES, or if each of the subvalues is in
-            # validators.EMPTY_VALUES.
+            # validators.EMPTY_VALUES, or if each of the subvalues is
+            # None.
             is_empty = (
                 value in validators.EMPTY_VALUES or
-                len(filter(
-                    lambda x: x not in validators.EMPTY_VALUES, value)) == 0)
+               len(filter(lambda x: x is not None, value)) == 0)
             if is_empty:
                 if self.required:
                     raise ValidationError(self.error_messages['required'])
@@ -208,8 +228,7 @@ def get_all_prefixed_values(data, name):
     for key, value in data.items():
         if key.startswith(name):
             new_key = key[len(name):]
-            if new_key != SKIP_CHECK_NAME:
-                result[new_key] = value
+            result[new_key] = value
     return result
 
 
@@ -253,12 +272,18 @@ class DictCharWidget(forms.widgets.MultiWidget):
     def render(self, name, value, attrs=None):
         # value is a list of values, each corresponding to a widget
         # in self.widgets.
+        # Do not display the 'skip_check' boolean widget.
+        if self.skip_check:
+            widgets = self.widgets[:-1]
+        else:
+            widgets = self.widgets
         if not isinstance(value, list):
             value = self.decompress(value)
         output = ['<fieldset>']
         final_attrs = self.build_attrs(attrs)
         id_ = final_attrs.get('id', None)
-        for index, widget in enumerate(self.widgets):
+
+        for index, widget in enumerate(widgets):
             try:
                 widget_value = value[index]
             except IndexError:
@@ -291,7 +316,7 @@ class DictCharWidget(forms.widgets.MultiWidget):
         return id_
 
     def value_from_datadict(self, data, files, name):
-        """Extract the values for each widget from a data dict (QueryDict).
+        """Extract the values for this widget from a data dict (QueryDict).
         :param data: The data dict (usually request.data or request.GET where
             request is a django.http.HttpRequest).
         :type data: dict
@@ -300,35 +325,16 @@ class DictCharWidget(forms.widgets.MultiWidget):
         :type files: dict
         :param name: The name of the widget.
         :type name: basestring
-        :return: The extracted values.  If skip_check has been activated, the
-            extracted value will be a dictionary, if not, is will be a list.
+        :return: The extracted values as a dictionary.
         :rtype: dict or list
         """
-        # self.widgets[-1] is the 'skip_check' boolean widget.  If
-        # self.skip_check is true and the value (in data) corresponding
-        # to the 'skip_check' widget is true, extract all the values
-        # from data which correspond to this widget and return a
-        # dictionary of these keys/values.
-        skip_check = (
-            self.skip_check and
-            self.widgets[-1].value_from_datadict(
-                data, files, name + '_%s' % self.names[-1]))
-        if skip_check:
-            # If the skip_check option is on and the value of the boolean
-            # field is true: simply return all the values from 'data' which
-            # are prefixed by the name of this widget.
-            return get_all_prefixed_values(data, name + '_')
-        else:
-            return [
-                widget.value_from_datadict(
-                    data, files, name + '_%s' % self.names[i])
-                for i, widget in enumerate(self.widgets)]
+        return get_all_prefixed_values(data, name + '_')
 
     def decompress(self, value):
         """Returns a list of decompressed values for the given compressed
         value.  The given value can be assumed to be valid, but not
         necessarily non-empty."""
-        if value is not None:
+        if value not in validators.EMPTY_VALUES:
             return [value.get(name, None) for name in self.names]
         else:
             return [None] * len(self.names)
