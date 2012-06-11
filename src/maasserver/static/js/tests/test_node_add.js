@@ -220,11 +220,14 @@ suite.add(new Y.maas.testing.TestCase({
     },
 
     setUpPowerTypeEnum: function() {
+        // Override module.POWER_TYPE_ENUM for the sake of testing.
         this.POWER_TYPE_ENUM = module.POWER_TYPE_ENUM;
         module.POWER_TYPE_ENUM = ENUM;
     },
 
     setUpAdminTemplate: function() {
+        // Append the snippet that will be seen by an admin user to the
+        // general template.
         this.add_node_template = Y.one('#add-node').getContent();
         this.add_node_admin_snippet = Y.one('#add-node-admin').getContent();
         Y.one('#add-node').set(
