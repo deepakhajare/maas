@@ -105,7 +105,14 @@ class ShellTemplate(tempita.Template):
 
 
 class ActionScript:
-    """A command-line script that follows a command+verb pattern."""
+    """A command-line script that follows a command+verb pattern.
+
+    It is probably worth replacing this with Commandant_ or something similar
+    - just bzrlib.commands for example - in the future, so we don't have to
+    maintain this.
+
+    .. _Commandant: https://launchpad.net/commandant
+    """
 
     def __init__(self, description):
         super(ActionScript, self).__init__()
