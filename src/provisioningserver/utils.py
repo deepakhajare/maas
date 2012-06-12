@@ -11,13 +11,19 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "ActionScript",
     "deferred",
     "ShellTemplate",
     "xmlrpc_export",
     ]
 
+from argparse import ArgumentParser
 from functools import wraps
+from os import fdopen
 from pipes import quote
+import signal
+from subprocess import CalledProcessError
+import sys
 
 import tempita
 from twisted.internet.defer import maybeDeferred
@@ -96,3 +102,50 @@ class ShellTemplate(tempita.Template):
             return rep(value.value, pos)
         else:
             return quote(rep(value, pos))
+
+
+class ActionScript:
+
+    def __init__(self, description):
+        super(ActionScript, self).__init__()
+        # See http://docs.python.org/release/2.7/library/argparse.html.
+        self.parser = ArgumentParser(description=description)
+        self.subparsers = self.parser.add_subparsers(title="actions")
+
+    @staticmethod
+    def setup():
+        # Ensure stdout and stderr are line-bufferred.
+        sys.stdout = fdopen(sys.stdout.fileno(), "ab", 1)
+        sys.stderr = fdopen(sys.stderr.fileno(), "ab", 1)
+        # Run the SIGINT handler on SIGTERM; `svc -d` sends SIGTERM.
+        signal.signal(signal.SIGTERM, signal.default_int_handler)
+
+    def register(self, name, handler, *args, **kwargs):
+        """Register an action for the given name.
+
+        :param name: The name of the action.
+        :param handler: An object, a module for example, that has `run` and
+            `add_arguments` callables.
+        :param args: Additional positional arguments for the subparser_.
+        :param kwargs: Additional named arguments for the subparser_.
+
+        .. _subparser:
+          http://docs.python.org/
+            release/2.7/library/argparse.html#sub-commands
+        """
+        parser = self.subparsers.add_parser(
+            name, *args, help=handler.run.__doc__, **kwargs)
+        parser.set_defaults(handler=handler)
+        handler.add_arguments(parser)
+        return parser
+
+    def __call__(self, argv=None):
+        try:
+            self.setup()
+            args = self.parser.parse_args(argv)
+            args.handler.run(args)
+        except CalledProcessError, error:
+            # TODO: Print error.cmd and error.output?
+            raise SystemExit(error.returncode)
+        except KeyboardInterrupt:
+            pass
