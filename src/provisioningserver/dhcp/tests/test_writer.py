@@ -26,9 +26,6 @@ class TestScript(TestCase):
     """Test the DHCP configuration writer."""
 
     def test_arg_setup(self):
-        parser = ArgumentParser()
-        writer.add_arguments(parser)
-
         test_args = [
             '--subnet', 'subnet',
             '--subnet-mask', 'subnet-mask',
@@ -39,6 +36,9 @@ class TestScript(TestCase):
             '--low-range', 'low-range',
             '--high-range', 'high-range',
             ]
+
+        parser = ArgumentParser()
+        writer.add_arguments(parser)
         args = parser.parse_args(test_args)
 
         self.assertThat(
@@ -52,7 +52,7 @@ class TestScript(TestCase):
                 low_range='low-range',
                 high_range='high-range'))
 
-    def test_execute(self):
+    def test_run(self):
         self.patch(sys, "stdout", StringIO())
 
         test_args = [
@@ -65,9 +65,13 @@ class TestScript(TestCase):
             '--low-range', 'low-range',
             '--high-range', 'high-range',
             ]
-        writer.main(test_args)
-        output = sys.stdout.getvalue()
 
+        parser = ArgumentParser()
+        writer.add_arguments(parser)
+        args = parser.parse_args(test_args)
+        writer.run(args)
+
+        output = sys.stdout.getvalue()
         contains_all_params = ContainsAll(
             ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
             'dns-servers', 'gateway', 'low-range', 'high-range'])

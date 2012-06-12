@@ -15,7 +15,6 @@ __all__ = [
     "run",
     ]
 
-from argparse import ArgumentParser
 import sys
 
 from provisioningserver.dhcp import config
@@ -56,19 +55,7 @@ def add_arguments(parser):
 
 
 def run(args):
+    """Generate a DHCP server configuration, and write it to stdout."""
     params = vars(args)
     output = config.get_config(**params)
     sys.stdout.write(output)
-
-
-def main(argv=None):
-    """Generate the config and write to stdout or a file as required."""
-    parser = ArgumentParser(description=__doc__)
-    add_arguments(parser)
-    args = parser.parse_args(argv)
-    run(args)
-
-
-# TODO: Get rid of this.
-if __name__ == "__main__":
-    main()
