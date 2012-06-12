@@ -25,22 +25,21 @@ from testtools.matchers import MatchesStructure
 class TestScript(TestCase):
     """Test the DHCP configuration writer."""
 
-    def test_arg_setup(self):
-        test_args = [
-            '--subnet', 'subnet',
-            '--subnet-mask', 'subnet-mask',
-            '--next-server', 'next-server',
-            '--broadcast-address', 'broadcast-address',
-            '--dns-servers', 'dns-servers',
-            '--gateway', 'gateway',
-            '--low-range', 'low-range',
-            '--high-range', 'high-range',
-            ]
+    test_args = (
+        '--subnet', 'subnet',
+        '--subnet-mask', 'subnet-mask',
+        '--next-server', 'next-server',
+        '--broadcast-address', 'broadcast-address',
+        '--dns-servers', 'dns-servers',
+        '--gateway', 'gateway',
+        '--low-range', 'low-range',
+        '--high-range', 'high-range',
+        )
 
+    def test_arg_setup(self):
         parser = ArgumentParser()
         writer.add_arguments(parser)
-        args = parser.parse_args(test_args)
-
+        args = parser.parse_args(self.test_args)
         self.assertThat(
             args, MatchesStructure.byEquality(
                 subnet='subnet',
@@ -54,25 +53,12 @@ class TestScript(TestCase):
 
     def test_run(self):
         self.patch(sys, "stdout", StringIO())
-
-        test_args = [
-            '--subnet', 'subnet',
-            '--subnet-mask', 'subnet-mask',
-            '--next-server', 'next-server',
-            '--broadcast-address', 'broadcast-address',
-            '--dns-servers', 'dns-servers',
-            '--gateway', 'gateway',
-            '--low-range', 'low-range',
-            '--high-range', 'high-range',
-            ]
-
         parser = ArgumentParser()
         writer.add_arguments(parser)
-        args = parser.parse_args(test_args)
+        args = parser.parse_args(self.test_args)
         writer.run(args)
-
         output = sys.stdout.getvalue()
         contains_all_params = ContainsAll(
             ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
-            'dns-servers', 'gateway', 'low-range', 'high-range'])
+             'dns-servers', 'gateway', 'low-range', 'high-range'])
         self.assertThat(output, contains_all_params)
