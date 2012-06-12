@@ -12,7 +12,12 @@ from __future__ import (
 
 __metaclass__ = type
 
-from provisioningserver.main import main
+import provisioningserver.dhcp.writer
+from provisioningserver.utils import ActionScript
 
 
+main = ActionScript(__doc__)
+main.register(
+    "generate-dhcp-config",
+    provisioningserver.dhcp.writer)
 main()
