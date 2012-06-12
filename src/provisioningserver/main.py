@@ -18,6 +18,8 @@ import signal
 from subprocess import CalledProcessError
 import sys
 
+import provisioningserver.dhcp.writer
+
 
 def setup():
     # Ensure stdout and stderr are line-bufferred.
@@ -32,35 +34,23 @@ argument_parser = argparse.ArgumentParser(description=__doc__)
 argument_subparsers = argument_parser.add_subparsers(title="actions")
 
 
-def add_action(name, handler, *args, **kwargs):
-    """Configure a subparser for the given name and function."""
+def register_action(name, module, *args, **kwargs):
+    """Configure a subparser for the given name and module.
+
+    :param module: A module that has `run` and `add_arguments` callables.
+    """
     parser = argument_subparsers.add_parser(
-        name, *args, help=handler.__doc__, **kwargs)
-    parser.set_defaults(handler=handler)
+        name, *args, help=module.run.__doc__, **kwargs)
+    parser.set_defaults(handler=module.run)
+    module.add_arguments(parser)
     return parser
 
 
-def get_action(name):
-    """Retrieve the named subparser."""
-    return argument_subparsers.choices[name]
+register_action("generate-dhcp-config", provisioningserver.dhcp.writer)
 
 
-def action_print_args(args):
-    """Print the arguments passed in."""
-    print(args)
-
-
-# Register actions.
-add_action("print", action_print_args)
-
-
-# Customise argument lists for individual actions.
-get_action("print").add_argument(
-    "--hello", dest="hello", action="store", metavar="WHO")
-
-
-def main(args=None):
-    args = argument_parser.parse_args(args)
+def main(argv=None):
+    args = argument_parser.parse_args(argv)
     try:
         setup()
         args.handler(args)
@@ -69,7 +59,3 @@ def main(args=None):
         raise SystemExit(error.returncode)
     except KeyboardInterrupt:
         pass
-
-
-if __name__ == "__main__":
-    main()
