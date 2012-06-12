@@ -105,6 +105,7 @@ class ShellTemplate(tempita.Template):
 
 
 class ActionScript:
+    """A command-line script that follows a command+verb pattern."""
 
     def __init__(self, description):
         super(ActionScript, self).__init__()
@@ -125,7 +126,8 @@ class ActionScript:
 
         :param name: The name of the action.
         :param handler: An object, a module for example, that has `run` and
-            `add_arguments` callables.
+            `add_arguments` callables. The docstring of the `run` callable is
+            used as the help text for the newly registered action.
         :param args: Additional positional arguments for the subparser_.
         :param kwargs: Additional named arguments for the subparser_.
 
