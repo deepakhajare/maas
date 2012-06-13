@@ -154,7 +154,7 @@ class ActionScript:
             args = self.parser.parse_args(argv)
             args.handler.run(args)
         except CalledProcessError, error:
-            # TODO: Print error.cmd and error.output?
+            # Print error.cmd and error.output too?
             raise SystemExit(error.returncode)
         except KeyboardInterrupt:
             pass
