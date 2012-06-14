@@ -13,7 +13,8 @@ __metaclass__ = type
 __all__ = []
 
 from argparse import ArgumentParser
-from io import StringIO
+from io import BytesIO
+from os import path
 import sys
 
 from maastesting.matchers import ContainsAll
@@ -52,12 +53,26 @@ class TestScript(TestCase):
                 high_range='high-range'))
 
     def test_run(self):
-        self.patch(sys, "stdout", StringIO())
+        self.patch(sys, "stdout", BytesIO())
         parser = ArgumentParser()
         writer.add_arguments(parser)
         args = parser.parse_args(self.test_args)
         writer.run(args)
         output = sys.stdout.getvalue()
+        contains_all_params = ContainsAll(
+            ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
+             'dns-servers', 'gateway', 'low-range', 'high-range'])
+        self.assertThat(output, contains_all_params)
+
+    def test_run_save_to_file(self):
+        parser = ArgumentParser()
+        writer.add_arguments(parser)
+        outfile = path.join(self.make_dir(), "outfile.txt")
+        args = parser.parse_args(
+            self.test_args + ("--outfile", outfile))
+        writer.run(args)
+        with open(outfile, "rb") as stream:
+            output = stream.read()
         contains_all_params = ContainsAll(
             ['subnet', 'subnet-mask', 'next-server', 'broadcast-address',
              'dns-servers', 'gateway', 'low-range', 'high-range'])

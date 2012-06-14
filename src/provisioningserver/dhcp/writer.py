@@ -52,10 +52,20 @@ def add_arguments(parser):
         "--high-range", action="store", required=True, help=(
             "The last IP address in the range of IP addresses to "
             "allocate"))
+    parser.add_argument(
+        "-o", "--outfile", action="store", required=False, help=(
+            "A file to save to. When left unspecified the configuration "
+            "will be written to stdout. This option may be useful when "
+            "using a pre-1973 UNIX (see http://en.wikipedia.org/wiki/"
+            "Unix_pipes#History)."))
 
 
 def run(args):
     """Generate a DHCP server configuration, and write it to stdout."""
     params = vars(args)
-    output = config.get_config(**params)
-    sys.stdout.write(output)
+    output = config.get_config(**params).encode("ascii")
+    if args.outfile is None:
+        sys.stdout.write(output)
+    else:
+        with open(args.outfile, "wb") as out:
+            out.write(output)

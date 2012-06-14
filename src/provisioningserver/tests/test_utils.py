@@ -139,7 +139,7 @@ class TestActionScript(TestCase):
         # Most exceptions from run() are propagated.
         handler = types.ModuleType(b"handler")
         handler.add_arguments = lambda parser: None
-        handler.run = lambda args: 0/0
+        handler.run = lambda args: 0 / 0
         script = ActionScript("Description")
         script.register("eviscerate", handler)
         self.assertRaises(ZeroDivisionError, script, ["eviscerate"])
