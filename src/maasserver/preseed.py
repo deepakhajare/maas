@@ -57,6 +57,7 @@ def _create_triange_combination(elements):
 
 
 def split_subarch(architecture):
+    """Split the architecture and the subarchitecture."""
     return architecture.split('/')
 
 
@@ -64,4 +65,5 @@ COMPOSE_FILENAME_SEPARATOR = '_'
 
 
 def compose_filename(elements):
+    """Create a preseed filename from a list of elements."""
     return COMPOSE_FILENAME_SEPARATOR.join(elements)
