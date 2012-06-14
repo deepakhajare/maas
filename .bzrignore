@@ -12,7 +12,6 @@
 ./dist
 ./docs/_build
 ./docs/api.rst
-./download-cache
 ./eggs
 ./logs/*
 ./media/demo/*
@@ -20,7 +19,7 @@
 ./parts
 ./run/*
 ./services/*/supervise
-src/maasserver/static/js/enums.js
+./src/maasserver/static/js/enums.js
 ./TAGS
 ./tags
 ./twisted/plugins/dropin.cache

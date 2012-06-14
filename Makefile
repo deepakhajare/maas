@@ -1,4 +1,5 @@
 python := python2.7
+buildout := bin/buildout $(shell tty -s && echo -D)
 
 # Python enum modules.
 py_enums := $(wildcard src/*/enum.py)
@@ -23,6 +24,9 @@ build: \
     bin/py bin/ipy \
     $(js_enums)
 
+build-offline: buildout := $(buildout) buildout:offline=true
+build-offline: build
+
 all: build doc
 
 bin/buildout: bootstrap/bootstrap.py bootstrap/distribute_setup.py
@@ -32,43 +36,43 @@ bin/buildout: bootstrap/bootstrap.py bootstrap/distribute_setup.py
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
 bin/database: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install database
+	$(buildout) install database
 	@touch --no-create $@
 
 bin/maas: bin/buildout buildout.cfg versions.cfg setup.py $(js_enums)
-	bin/buildout install maas
+	$(buildout) install maas
 	@touch --no-create $@
 
 bin/test.maas: bin/buildout buildout.cfg versions.cfg setup.py $(js_enums)
-	bin/buildout install maas-test
+	$(buildout) install maas-test
 	@touch --no-create $@
 
 bin/test.maastesting: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install maastesting-test
+	$(buildout) install maastesting-test
 	@touch --no-create $@
 
 bin/twistd.pserv: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install pserv
+	$(buildout) install pserv
 	@touch --no-create $@
 
 bin/test.pserv: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install pserv-test
+	$(buildout) install pserv-test
 	@touch --no-create $@
 
 bin/twistd.txlongpoll: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install txlongpoll
+	$(buildout) install txlongpoll
 	@touch --no-create $@
 
 bin/flake8: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install flake8
+	$(buildout) install flake8
 	@touch --no-create $@
 
 bin/sphinx: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install sphinx
+	$(buildout) install sphinx
 	@touch --no-create $@
 
 bin/py bin/ipy: bin/buildout buildout.cfg versions.cfg setup.py
-	bin/buildout install repl
+	$(buildout) install repl
 	@touch --no-create bin/py bin/ipy
 
 test: bin/test.maas bin/test.maastesting bin/test.pserv $(js_enums)
@@ -139,6 +143,7 @@ syncdb: bin/maas bin/database
 
 define phony_targets
   build
+  build-offline
   check
   clean
   dbharness
