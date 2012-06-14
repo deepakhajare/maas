@@ -36,24 +36,12 @@ def get_preseed_filenames(node, type, release='precise'):
     {type}
     'generic'
     """
-    elements = (
-        [type] + split_subarch(node.architecture) + [release, node.hostname])
-    return _create_triange_combination(elements) + [GENERIC_FILENAME]
-
-
-def _create_triange_combination(elements):
-    """Given a list of string elements, return a list of filenames given by
-    composing (using the method 'compose_filename') all the elements, then
-    all elements but the last, etc.
-
-    >>> _create_triange_combination(['A', 'B', 'C'])
-    ['A_B_C', 'A_B', 'A']
-    """
-    filenames = map(
-        compose_filename,
-        [elements[:i + 1] for i in range(len(elements))])
-    filenames.reverse()
-    return filenames
+    arch = split_subarch(node.architecture)
+    elements = [type] + arch + [release, node.hostname]
+    while elements:
+        yield compose_filename(elements)
+        elements.pop()
+    yield GENERIC_FILENAME
 
 
 def split_subarch(architecture):
@@ -61,9 +49,6 @@ def split_subarch(architecture):
     return architecture.split('/')
 
 
-COMPOSE_FILENAME_SEPARATOR = '_'
-
-
 def compose_filename(elements):
     """Create a preseed filename from a list of elements."""
-    return COMPOSE_FILENAME_SEPARATOR.join(elements)
+    return '_'.join(elements)

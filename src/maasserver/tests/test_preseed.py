@@ -13,7 +13,6 @@ __metaclass__ = type
 __all__ = []
 
 from maasserver.preseed import (
-    _create_triange_combination,
     get_preseed_filenames,
     split_subarch,
     )
@@ -29,17 +28,12 @@ class TestPreseedUtilities(TestCase):
     def test_split_subarch_splits_sub_architecture(self):
         self.assertEqual(['amd64', 'test'], split_subarch('amd64/test'))
 
-    def test__create_triange_combination(self):
-        self.assertEqual(
-            ['AA_B_CC', 'AA_B', 'AA'],
-            _create_triange_combination(['AA', 'B', 'CC']))
-
     def test_get_preseed_filenames_returns_filenames(self):
         hostname = factory.getRandomString()
         type = factory.getRandomString()
         release = factory.getRandomString()
         node = factory.make_node(hostname=hostname)
-        self.assertEqual(
+        self.assertSequenceEqual(
             [
                 '%s_%s_%s_%s' % (type, node.architecture, release, hostname),
                 '%s_%s_%s' % (type, node.architecture, release),
@@ -47,7 +41,7 @@ class TestPreseedUtilities(TestCase):
                 '%s' % type,
                 'generic',
             ],
-            get_preseed_filenames(node, type, release))
+            list(get_preseed_filenames(node, type, release)))
 
     def test_get_preseed_filenames_returns_filenames_with_subarch(self):
         arch = factory.getRandomString()
@@ -60,7 +54,7 @@ class TestPreseedUtilities(TestCase):
         # Set an architecture of the form '%s/%s' i.e. with a
         # sub-architecture.
         node.architecture = fake_arch
-        self.assertEqual(
+        self.assertSequenceEqual(
             [
                 '%s_%s_%s_%s_%s' % (type, arch, subarch, release, hostname),
                 '%s_%s_%s_%s' % (type, arch, subarch, release),
@@ -69,4 +63,4 @@ class TestPreseedUtilities(TestCase):
                 '%s' % type,
                 'generic',
             ],
-            get_preseed_filenames(node, type, release))
+            list(get_preseed_filenames(node, type, release)))
