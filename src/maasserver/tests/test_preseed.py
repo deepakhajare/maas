@@ -19,6 +19,8 @@ from django.conf import settings
 from maasserver.preseed import (
     get_preseed_filenames,
     get_preseed_template,
+    load_preseed_template,
+    PreseedTemplate,
     split_subarch,
     )
 from maasserver.testing.factory import factory
@@ -87,13 +89,13 @@ class TestGetPreseedTemplate(TestCase):
         # get_preseed_template() returns None when no template locations are
         # defined.
         self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [])
-        self.assertIsNone(get_preseed_template(("fred", "bob")))
+        self.assertEqual((None, None), get_preseed_template(("fred", "bob")))
 
     def test_returns_None_when_no_filenames(self):
         # get_preseed_template() returns None when no filenames are passed in.
         location = self.make_dir()
         self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
-        self.assertIsNone(get_preseed_template(()))
+        self.assertEqual((None, None), get_preseed_template(()))
 
     def test_find_template_in_first_location(self):
         template_content = factory.getRandomString()
@@ -120,3 +122,30 @@ class TestGetPreseedTemplate(TestCase):
         self.assertEqual(
             (template_path, template_content),  # TODO: expect a template.
             get_preseed_template([template_filename]))
+
+
+class TestPreseedTemplate(TestCase):
+
+    def test_load_preseed_template(self):
+        location = self.make_dir()
+        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
+        template_path = path.join(location, "one")
+        with open(template_path, "wb") as outf:
+            outf.write(b'{{def stuff}}STUFF{{enddef}}{{stuff}}')
+        node = factory.make_node(hostname="alice")
+        template = load_preseed_template(node, "one")
+        self.assertEqual("STUFF", template.substitute())
+
+    def test_load_preseed_template_with_inherit(self):
+        # TODO: make this work.
+        location = self.make_dir()
+        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
+        template1_path = path.join(location, "one")
+        template2_path = path.join(location, "two")
+        with open(template1_path, "wb") as outf:
+            outf.write(b'{{def stuff}}STUFF{{enddef}}{{stuff}}')
+        with open(template2_path, "wb") as outf:
+            outf.write(b'{{stuff}}')
+        node = factory.make_node(hostname="alice")
+        template = load_preseed_template(node, "one")
+        self.assertEqual("STUFF", template.substitute())
