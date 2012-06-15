@@ -1,5 +1,6 @@
 python := python2.7
 buildout := bin/buildout $(shell tty -s && echo -D)
+virtualenv := virtualenv
 
 # Python enum modules.
 py_enums := $(wildcard src/*/enum.py)
@@ -24,13 +25,15 @@ build: \
     bin/py bin/ipy \
     $(js_enums)
 
+# Note: the following target may not be needed.
 build-offline: buildout := $(buildout) buildout:offline=true
+build-offline: virtualenv := $(virtualenv) --never-download
 build-offline: build
 
 all: build doc
 
 bin/python bin/pip:
-	virtualenv --python=$(python) --system-site-packages $(PWD)
+	$(virtualenv) --python=$(python) --system-site-packages $(PWD)
 
 bin/buildout: bin/pip bootstrap/zc.buildout-1.5.2.tar.gz
 	bin/pip install bootstrap/zc.buildout-1.5.2.tar.gz
