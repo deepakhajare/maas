@@ -1,5 +1,5 @@
 python := python2.7
-buildout := bin/buildout $(shell tty -s && echo -D)
+buildout := bin/buildout
 virtualenv := virtualenv
 
 # Python enum modules.
