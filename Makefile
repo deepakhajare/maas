@@ -30,8 +30,7 @@ build-offline: build
 all: build doc
 
 bin/python bin/pip:
-	virtualenv --python=$(python) \
-	    --system-site-packages --never-download $(PWD)
+	virtualenv --python=$(python) --system-site-packages $(PWD)
 
 bin/buildout: bin/pip bootstrap/zc.buildout-1.5.2.tar.gz
 	bin/pip install bootstrap/zc.buildout-1.5.2.tar.gz

@@ -13,6 +13,9 @@
 ./docs/_build
 ./docs/api.rst
 ./eggs
+./include
+./lib
+./local
 ./logs/*
 ./media/demo/*
 ./media/development
