@@ -68,7 +68,7 @@ update_pre_boot_loader() {
     # version).  Otherwise, leave the filesystem alone.
     if [ -f pxelinux.0 ]
     then
-	if cmp pxelinux.0 $dest/pxelinux.0
+	if [ -f $dest/pxelinux.0 ] && cmp pxelinux.0 $dest/pxelinux.0
 	then
 	    rm -f -- pxelinux.0
 	else
