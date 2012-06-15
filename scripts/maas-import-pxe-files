@@ -15,8 +15,10 @@ set -o errexit
 set -o nounset
 
 # Load settings if available.
-settings="$(pwd)/etc/maas/import_isos"
+settings="/etc/maas/import_isos"
 [ -r $settings ] && . $settings
+local_settings="$(pwd)/$settings"
+[ -r $local_settings ] && . $local_settings
 
 # Download location for Ubuntu releases.
 ARCHIVE=${ARCHIVE:-http://archive.ubuntu.com/ubuntu/dists/}
