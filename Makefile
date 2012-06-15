@@ -25,7 +25,9 @@ build: \
     bin/py bin/ipy \
     $(js_enums)
 
-# Note: the following target may not be needed.
+# Note: the following target may not be needed. It remains as an
+# experiment, to see if it helps the situation with building MAAS in
+# the QA environment, which is isolated from the Internet at large.
 build-offline: buildout := $(buildout) buildout:offline=true
 build-offline: virtualenv := $(virtualenv) --never-download
 build-offline: build
