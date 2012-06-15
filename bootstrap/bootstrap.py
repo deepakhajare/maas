@@ -223,7 +223,7 @@ if version is None and not options.accept_buildout_test_releases:
     if find_links:
         index.add_find_links((find_links,))
     req = pkg_resources.Requirement.parse(requirement)
-    if index.obtain(req) is not None:
+    def find_best_version():
         best = []
         bestv = None
         for dist in index[req.project_name]:
@@ -236,7 +236,14 @@ if version is None and not options.accept_buildout_test_releases:
                     best.append(dist)
         if best:
             best.sort()
-            version = best[-1].version
+            return best[-1].version
+        else:
+            return None
+    # Try to find the best match locally before going online.
+    version = find_best_version()
+    if version is None and index.obtain(req) is not None:
+        version = find_best_version()
+
 if version:
     requirement = '=='.join((requirement, version))
 cmd.append(requirement)
