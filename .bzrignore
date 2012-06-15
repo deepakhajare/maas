@@ -17,6 +17,7 @@
 ./media/demo/*
 ./media/development
 ./parts
+./README.txt
 ./run/*
 ./services/*/supervise
 ./src/maasserver/static/js/enums.js

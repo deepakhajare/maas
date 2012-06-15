@@ -29,10 +29,12 @@ build-offline: build
 
 all: build doc
 
-bin/buildout: bootstrap/bootstrap.py bootstrap/distribute_setup.py
-	$(python) bootstrap/bootstrap.py --distribute \
-	    --setup-source bootstrap/distribute_setup.py \
-	    --download-base $(PWD)/bootstrap
+bin/python bin/pip:
+	virtualenv --python=$(python) \
+	    --system-site-packages --never-download $(PWD)
+
+bin/buildout: bin/pip bootstrap/zc.buildout-1.5.2.tar.gz
+	bin/pip install bootstrap/zc.buildout-1.5.2.tar.gz
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
 bin/database: bin/buildout buildout.cfg versions.cfg setup.py
@@ -121,8 +123,9 @@ clean:
 	$(RM) celerybeat-schedule
 
 distclean: clean stop
+	$(RM) -r bin include lib local
 	$(RM) -r eggs develop-eggs
-	$(RM) -r bin build dist logs/* parts
+	$(RM) -r build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) -r *.egg *.egg-info src/*.egg-info
 	$(RM) docs/api.rst
