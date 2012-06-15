@@ -21,7 +21,7 @@ local_settings="$(pwd)/$settings"
 [ -r $local_settings ] && . $local_settings
 
 # Download location for Ubuntu releases.
-ARCHIVE=${ARCHIVE:-http://archive.ubuntu.com/ubuntu/dists/}
+ARCHIVE=${ARCHIVE:-http://archive.ubuntu.com/ubuntu/}
 
 # Ubuntu releases that are to be downloaded.
 SUPPORTED_RELEASES=$(distro-info --supported)
@@ -46,8 +46,8 @@ DOWNLOAD=${DOWNLOAD:-wget --no-verbose}
 # and release $2 can be downloaded.
 compose_installer_download_url() {
     local arch=$1 release=$2
-    local images_url="$ARCHIVE/$release/main/installer-$arch/current/images"
-    echo "$images_url/netboot/ubuntu-installer/$arch/"
+    local installer_url="$ARCHIVE/dists/$release/main/installer-$arch"
+    echo "$installer_url/current/images/netboot/ubuntu-installer/$arch/"
 }
 
 
@@ -68,7 +68,7 @@ update_pre_boot_loader() {
     # version).  Otherwise, leave the filesystem alone.
     if [ -f pxelinux.0 ]
     then
-	if [ -f $dest/pxelinux.0 ] && cmp pxelinux.0 $dest/pxelinux.0
+	if cmp --quiet pxelinux.0 $dest/pxelinux.0
 	then
 	    rm -f -- pxelinux.0
 	else
@@ -148,7 +148,7 @@ update_install_files() {
     popd >/dev/null
 
     # TODO: Prevent this change from upsetting any currently booting nodes.
-    if [ $(identical_files "install" $dest $files) != 'yes' ]
+    if [ $(identical_files "install" $dest/"install" $files) != 'yes' ]
     then
         echo "Updating files for $release-$arch."
         install_dir "install" $dest

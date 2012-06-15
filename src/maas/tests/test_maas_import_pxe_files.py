@@ -41,6 +41,11 @@ def get_write_time(path):
     return os.stat(path)[ST_MTIME]
 
 
+def backdate(path):
+    """Set the last modification time for the file at `path` to the past."""
+    os.utime(path, (99999, 99999))
+
+
 def compose_download_dir(archive, arch, release):
     """Locate a bootloader, initrd, and kernel in an archive.
 
@@ -52,7 +57,7 @@ def compose_download_dir(archive, arch, release):
         for this archive, arch, and release.
     """
     return os.path.join(
-        archive, release, 'main', 'installer-%s' % arch, 'current',
+        archive, 'dists', release, 'main', 'installer-%s' % arch, 'current',
         'images', 'netboot', 'ubuntu-installer', arch)
 
 
@@ -151,6 +156,7 @@ class TestImportPXEFiles(TestCase):
         tftproot = self.make_dir()
         self.call_script(archive, tftproot, arch=arch, release=release)
         tftp_path = compose_tftp_path(tftproot, arch, 'pxelinux.0')
+        backdate(tftp_path)
         original_timestamp = get_write_time(tftp_path)
         self.call_script(archive, tftproot, arch=arch, release=release)
         self.assertEqual(original_timestamp, get_write_time(tftp_path))
@@ -190,6 +196,7 @@ class TestImportPXEFiles(TestCase):
         self.call_script(archive, tftproot, arch=arch, release=release)
         tftp_path = compose_tftp_path(
             tftproot, arch, release, 'install', 'linux')
+        backdate(tftp_path)
         original_timestamp = get_write_time(tftp_path)
         self.call_script(archive, tftproot, arch=arch, release=release)
         self.assertEqual(original_timestamp, get_write_time(tftp_path))
