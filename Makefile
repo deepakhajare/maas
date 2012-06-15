@@ -37,6 +37,7 @@ bin/python bin/pip:
 
 bin/buildout: bin/pip bootstrap/zc.buildout-1.5.2.tar.gz
 	bin/pip install bootstrap/zc.buildout-1.5.2.tar.gz
+	$(RM) -f README.txt  # zc.buildout installs an annoying README.txt.
 	@touch --no-create $@  # Ensure it's newer than its dependencies.
 
 bin/database: bin/buildout buildout.cfg versions.cfg setup.py
