@@ -37,6 +37,10 @@ ARCHES=${ARCHES:-amd64 i386}
 # TFTP root directory.  (Don't let the "root" vs. "boot" confuse you.)
 TFTPROOT=${TFTPROOT:-/var/lib/tftpboot/}
 
+# Command line to download a resource at a given URL into the current
+# directory.  A wget command line will work here, but curl will do as well.
+DOWNLOAD=${DOWNLOAD:-wget --no-verbose}
+
 
 # Put together a full URL for where the installer files for architecture $1
 # and release $2 can be downloaded.
@@ -54,7 +58,7 @@ compose_installer_download_url() {
 update_pre_boot_loader() {
     local dest=$1 arch=$2
     local url=$(compose_installer_download_url $arch $CURRENT_RELEASE)
-    if ! wget --no-verbose $url/pxelinux.0
+    if ! $DOWNLOAD $url/pxelinux.0
     then
         echo "No pre-boot loader for $arch; skipping."
         return
@@ -62,12 +66,15 @@ update_pre_boot_loader() {
 
     # If the file has changed, move it into place (replacing any previous
     # version).  Otherwise, leave the filesystem alone.
-    if cmp pxelinux.0 $dest/pxelinux.0
+    if [ -f pxelinux.0 ]
     then
-        rm -f -- pxelinux.0
-    else
-        echo "Updating pre-boot loader for $arch."
-	mv -- pxelinux.0 $dest/
+	if cmp pxelinux.0 $dest/pxelinux.0
+	then
+	    rm -f -- pxelinux.0
+	else
+	    echo "Updating pre-boot loader for $arch."
+	    mv -- pxelinux.0 $dest/
+	fi
     fi
 }
 
@@ -133,10 +140,12 @@ update_install_files() {
     local file
 
     mkdir "install"
+    pushd "install" >/dev/null
     for file in $files
     do
-        wget --no-verbose --directory-prefix="install" $url/$file
+        $DOWNLOAD $url/$file
     done
+    popd >/dev/null
 
     # TODO: Prevent this change from upsetting any currently booting nodes.
     if [ $(identical_files "install" $dest $files) != 'yes' ]
