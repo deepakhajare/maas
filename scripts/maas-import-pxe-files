@@ -68,13 +68,13 @@ update_pre_boot_loader() {
     # version).  Otherwise, leave the filesystem alone.
     if [ -f pxelinux.0 ]
     then
-	if cmp --quiet pxelinux.0 $dest/pxelinux.0
-	then
-	    rm -f -- pxelinux.0
-	else
-	    echo "Updating pre-boot loader for $arch."
-	    mv -- pxelinux.0 $dest/
-	fi
+        if cmp --quiet pxelinux.0 $dest/pxelinux.0
+        then
+            rm -f -- pxelinux.0
+        else
+            echo "Updating pre-boot loader for $arch."
+            mv -- pxelinux.0 $dest/
+        fi
     fi
 }
 
@@ -87,10 +87,10 @@ update_pre_boot_loader() {
 install_dir() {
     local name=$1 dest=$2
     # Use the "old"/"new" directories to maximize speed and minimize
-    # inconvenience: ensure that the new downloads are on the same
-    # partition, then move the old ones out of the way and immediately
-    # replace them with the new, and finally remove the old ones outside
-    # of the critical path.
+    # inconvenience: ensure that the new directory contents are on the
+    # partition they will ultimately need to be on, then move the old
+    # ones out of the way and immediately replace them with the new, and
+    # finally remove the old ones outside of the critical path.
     # This will not resolve races with ongoing downloads by booting nodes.
     # It merely minimizes this script's side of the race window.
     rm -rf -- $dest/$name.old $dest/$name.new
@@ -169,19 +169,19 @@ main() {
 
     for arch in $ARCHES
     do
-	# Replace the "generic" with sub-architecture once we start
+        # Replace the "generic" with sub-architecture once we start
         # supporting those.
         arch_dir="$TFTPROOT/maas/$arch/generic"
 
-	mkdir -p -- $arch_dir
-	update_pre_boot_loader $arch_dir $arch
+        mkdir -p -- $arch_dir
+        update_pre_boot_loader $arch_dir $arch
 
-	for release in $RELEASES
-	do
+        for release in $RELEASES
+        do
             rel_dir="$arch_dir/$release"
             mkdir -p -- $rel_dir
-	    update_install_files $rel_dir $arch $release
-	done
+            update_install_files $rel_dir $arch $release
+        done
     done
 
     rm -rf -- $DOWNLOAD_DIR
