@@ -63,7 +63,7 @@ def compose_tftp_path(tftproot, arch, *path):
     components you want to drill deeper, e.g. the release name to get to the
     files for a specific release.
     """
-    return os.path.join(tftproot, 'maas', arch, 'base', *path)
+    return os.path.join(tftproot, 'maas', arch, 'generic', *path)
 
 
 class TestImportPXEFiles(TestCase):

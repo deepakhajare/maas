@@ -169,9 +169,9 @@ main() {
 
     for arch in $ARCHES
     do
-	# Replace the "base" with sub-architecture once we start supporting
-	# those.
-        arch_dir="$TFTPROOT/maas/$arch/base"
+	# Replace the "generic" with sub-architecture once we start
+        # supporting those.
+        arch_dir="$TFTPROOT/maas/$arch/generic"
 
 	mkdir -p -- $arch_dir
 	update_pre_boot_loader $arch_dir $arch
