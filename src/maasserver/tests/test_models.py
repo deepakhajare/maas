@@ -503,7 +503,7 @@ class NodeTest(TestCase):
             node.save)
 
     def test_netboot_defaults_to_True(self):
-        node = factory.make_node()
+        node = Node()
         self.assertTrue(node.netboot)
 
 
