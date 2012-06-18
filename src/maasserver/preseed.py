@@ -23,7 +23,7 @@ GENERIC_FILENAME = 'generic'
 
 
 # XXX: rvb 2012-06-14 bug=1013146:  'precise' is hardcoded here.
-def get_preseed_filenames(node, prefix, release='precise'):
+def get_preseed_filenames(node, prefix, release='precise', default=False):
     """List possible preseed template filenames for the given node.
 
     :param node: The node to return template preseed filenames for.
@@ -34,13 +34,16 @@ def get_preseed_filenames(node, prefix, release='precise'):
     :type prefix: basestring
     :param release: The Ubuntu release to be used.
     :type release: basestring
+    :param default: Should we return the default ('generic') template as a
+        last resort template?
+    :type default: boolean
 
     Returns a list of possible preseed template filenames using the following
     lookup order:
-    {type}_{node_architecture}_{node_subarchitecture}_{release}_{node_hostname}
-    {type}_{node_architecture}_{node_subarchitecture}_{release}
-    {type}_{node_architecture}
-    {type}
+    {prefix}_{node_architecture}_{node_subarchitecture}_{release}_{node_name}
+    {prefix}_{node_architecture}_{node_subarchitecture}_{release}
+    {prefix}_{node_architecture}
+    {prefix}
     'generic'
     """
     arch = split_subarch(node.architecture)
@@ -48,7 +51,8 @@ def get_preseed_filenames(node, prefix, release='precise'):
     while elements:
         yield compose_filename(elements)
         elements.pop()
-    yield GENERIC_FILENAME
+    if default:
+        yield GENERIC_FILENAME
 
 
 def split_subarch(architecture):
@@ -86,9 +90,7 @@ class PreseedTemplate(tempita.Template):
     default_namespace = dict(
         tempita.Template.default_namespace,
         b64decode=base64.b64decode,
-        b64encode=base64.b64encode,
-        urlsafe_b64decode=base64.urlsafe_b64decode,
-        urlsafe_b64encode=base64.urlsafe_b64encode)
+        b64encode=base64.b64encode)
 
 
 class TemplateNotFoundError(Exception):
@@ -99,6 +101,7 @@ class TemplateNotFoundError(Exception):
         self.name = name
 
 
+# XXX: rvb 2012-06-18 bug=1013146:  'precise' is hardcoded here.
 def load_preseed_template(node, prefix, release="precise"):
     """Find and load a `PreseedTemplate` for the given node.
 
@@ -107,12 +110,12 @@ def load_preseed_template(node, prefix, release="precise"):
     :param release: See `get_preseed_filenames`.
     """
 
-    def get_template(name, from_template):
-        filenames = get_preseed_filenames(node, prefix, release)
+    def get_template(name, from_template, default=False):
+        filenames = get_preseed_filenames(node, name, release, default)
         filepath, content = get_preseed_template(filenames)
         if filepath is None:
             raise TemplateNotFoundError(name)
         return PreseedTemplate(
             content, name=filepath, get_template=get_template)
 
-    return get_template("", None)
+    return get_template(prefix, None, default=True)
