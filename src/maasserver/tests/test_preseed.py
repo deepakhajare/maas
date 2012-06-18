@@ -146,8 +146,7 @@ class TestGetPreseedTemplate(TestCase):
 
     def test_get_preseed_template_returns_None_when_no_filenames(self):
         # get_preseed_template() returns None when no filenames are passed in.
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
+        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [self.make_dir()])
         self.assertEqual((None, None), get_preseed_template(()))
 
     def test_get_preseed_template_find_template_in_first_location(self):
@@ -180,11 +179,17 @@ class TestGetPreseedTemplate(TestCase):
 class TestLoadPreseedTemplate(TestCase):
     """Tests for `load_preseed_template`."""
 
+    def setUp(self):
+        super(TestLoadPreseedTemplate, self).setUp()
+        self.location = self.make_dir()
+        self.patch(
+            settings, "PRESEED_TEMPLATE_LOCATIONS", [self.location])
+
     def create_template(self, location, name, content=None):
-        # Create a tempita template in the given `location` with the
+        # Create a tempita template in the given `self.location` with the
         # given `name`.  If content is not provided, a random content
         # will be put inside the template.
-        path = os.path.join(location, name)
+        path = os.path.join(self.location, name)
         rendered_content = None
         if content is None:
             rendered_content = factory.getRandomString()
@@ -194,17 +199,13 @@ class TestLoadPreseedTemplate(TestCase):
         return rendered_content
 
     def test_load_preseed_template_returns_PreseedTemplate(self):
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         name = factory.getRandomString()
-        self.create_template(location, name)
+        self.create_template(self.location, name)
         node = factory.make_node()
         template = load_preseed_template(node, name)
         self.assertIsInstance(template, PreseedTemplate)
 
     def test_load_preseed_template_raises_if_no_template(self):
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         node = factory.make_node()
         unknown_template_name = factory.getRandomString()
         self.assertRaises(
@@ -214,24 +215,20 @@ class TestLoadPreseedTemplate(TestCase):
     def test_load_preseed_template_generic_lookup(self):
         # The template lookup method ends up picking up a template named
         # 'generic' if no more specific template exist.
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
-        content = self.create_template(location, GENERIC_FILENAME)
+        content = self.create_template(self.location, GENERIC_FILENAME)
         node = factory.make_node(hostname=factory.getRandomString())
         template = load_preseed_template(node, factory.getRandomString())
         self.assertEqual(content, template.substitute())
 
     def test_load_preseed_template_prefix_lookup(self):
         # 2nd last in the hierarchy is a template named 'prefix'.
-        location = self.make_dir()
         prefix = factory.getRandomString()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         # Create the generic template.  This one will be ignored due to the
         # presence of a more specific template.
-        self.create_template(location, GENERIC_FILENAME)
+        self.create_template(self.location, GENERIC_FILENAME)
         # Create the 'prefix' template.  This is the one which will be
         # picked up.
-        content = self.create_template(location, prefix)
+        content = self.create_template(self.location, prefix)
         node = factory.make_node(hostname=factory.getRandomString())
         template = load_preseed_template(node, prefix)
         self.assertEqual(content, template.substitute())
@@ -239,32 +236,29 @@ class TestLoadPreseedTemplate(TestCase):
     def test_load_preseed_template_node_specific_lookup(self):
         # At the top of the lookup hierarchy is a template specific to this
         # node.  It will be used first if it's present.
-        location = self.make_dir()
         prefix = factory.getRandomString()
         release = factory.getRandomString()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         # Create the generic and 'prefix' templates.  They will be ignored
         # due to the presence of a more specific template.
-        self.create_template(location, GENERIC_FILENAME)
-        self.create_template(location, prefix)
+        self.create_template(self.location, GENERIC_FILENAME)
+        self.create_template(self.location, prefix)
         node = factory.make_node(hostname=factory.getRandomString())
         node_template_name = "%s_%s_%s_%s" % (
             prefix, node.architecture, release, node.hostname)
         # Create the node-specific template.
-        content = self.create_template(location, node_template_name)
+        content = self.create_template(self.location, node_template_name)
         template = load_preseed_template(node, prefix, release)
         self.assertEqual(content, template.substitute())
 
     def test_load_preseed_template_with_inherits(self):
         # A preseed file can "inherit" from another file.
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         prefix = factory.getRandomString()
         # Create preseed template.
         master_template_name = factory.getRandomString()
         preseed_content = '{{inherit "%s"}}' % master_template_name
-        self.create_template(location, prefix, preseed_content)
-        master_content = self.create_template(location, master_template_name)
+        self.create_template(self.location, prefix, preseed_content)
+        master_content = self.create_template(
+            self.location, master_template_name)
         node = factory.make_node()
         template = load_preseed_template(node, prefix)
         self.assertEqual(master_content, template.substitute())
@@ -272,16 +266,14 @@ class TestLoadPreseedTemplate(TestCase):
     def test_load_preseed_template_parent_lookup_doesnt_include_default(self):
         # The lookup for parent templates does not include the default
         # 'generic' file.
-        location = self.make_dir()
-        self.patch(settings, "PRESEED_TEMPLATE_LOCATIONS", [location])
         prefix = factory.getRandomString()
         # Create 'generic' template.  It won't be used because the
         # lookup for parent templates does not use the 'generic' template.
-        self.create_template(location, GENERIC_FILENAME)
+        self.create_template(self.location, GENERIC_FILENAME)
         unknown_master_template_name = factory.getRandomString()
         # Create preseed template.
         preseed_content = '{{inherit "%s"}}' % unknown_master_template_name
-        self.create_template(location, prefix, preseed_content)
+        self.create_template(self.location, prefix, preseed_content)
         node = factory.make_node()
         template = load_preseed_template(node, prefix)
         self.assertRaises(
