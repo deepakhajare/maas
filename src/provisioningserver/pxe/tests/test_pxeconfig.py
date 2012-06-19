@@ -47,6 +47,26 @@ class TestPXEConfig(TestCase):
         expected_target = os.path.join(PXE_TARGET_DIR, "i386", "generic")
         self.assertEqual(expected_target, pxeconfig.target_dir)
 
+    def test_init_with_no_mac_sets_default_filename(self):
+        pxeconfig = PXEConfig("armhf", "armadaxp")
+        expected_filename = os.path.join(
+            PXE_TARGET_DIR, "armhf", "armadaxp", "default")
+        self.assertEqual(expected_filename, pxeconfig.target_file)
+
+    def test_init_with_dodgy_mac(self):
+        # !=5 colons is bad.
+        bad_mac = "aa:bb:cc:dd:ee"
+        exception = self.assertRaises(
+            PXEConfigFail, PXEConfig, "armhf", "armadaxp", bad_mac)
+        self.assertEqual(
+            exception.message, "Expecting exactly five ':' chars, found 4")
+
+    def test_init_with_mac_sets_filename(self):
+        pxeconfig = PXEConfig("armhf", "armadaxp", mac="00:a1:b2:c3:e4:d5")
+        expected_filename = os.path.join(
+            PXE_TARGET_DIR, "armhf", "armadaxp", "00-a1-b2-c3-e4-d5")
+        self.assertEqual(expected_filename, pxeconfig.target_file)
+
     def test_get_template(self):
         pxeconfig = PXEConfig("i386")
         template = pxeconfig.get_template()
@@ -76,6 +96,7 @@ class TestPXEConfig(TestCase):
                 "in file %s" % re.escape(template_name)))
 
     def test_write_config(self):
+        # Ensure that a rendered template is written to the right place.
         out_dir = self.make_dir()
         self.patch(PXEConfig, 'target_basedir', out_dir)
         pxeconfig = PXEConfig("armhf", "armadaxp")
