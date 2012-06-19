@@ -20,8 +20,9 @@ __all__ = [
     ]
 
 
-from django.core.management.base import BaseCommand
 from optparse import make_option
+
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
@@ -34,8 +35,15 @@ class Command(BaseCommand):
         make_option(
             '--subarch', dest='arch', default='generic',
             help="Sub-architecture of the main architecture."),
+        make_option(
+            '--release', dest='release', default=None,
+            help="Ubuntu release to run when enlisting nodes."),
+        make_option(
+            '--tftpdir', dest='tftproot', default='/var/lib/tftpboot/maas',
+            help="TFTP directory to store the PXE configuration file in."),
         )
 
-    def handle(self, arch=None, subarch=None, **kwargs):
+    def handle(self, arch=None, subarch=None, release=None, tftpdir=None,
+               **kwargs):
 # TODO: Implement!
         pass
