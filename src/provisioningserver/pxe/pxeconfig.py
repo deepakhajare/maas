@@ -72,7 +72,8 @@ class PXEConfig:
         self.target_dir = os.path.join(
             self.target_basedir,
             arch,
-            subarch)
+            subarch,
+            "pxelinux.cfg")
         if self.mac is not None:
             filename = self.mac
         else:
