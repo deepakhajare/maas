@@ -111,4 +111,3 @@ class TestPXEConfig(TestCase):
             append="append")
 
         self.assertEqual(expected, output)
-
