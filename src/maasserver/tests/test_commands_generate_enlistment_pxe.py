@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from io import StringIO
+
 from django.core.management import call_command
 from maasserver.enum import ARCHITECTURE_CHOICES
 from maasserver.testing.factory import factory
@@ -22,5 +24,7 @@ class TestGenerateEnlistmentPXE(TestCase):
 
     def test_generates_default_pxe_config(self):
         arch = factory.getRandomChoice(ARCHITECTURE_CHOICES)
-        output = call_command('generate_enlistment_pxe', arch=arch)
-        self.assertIn('/'.join([arch, 'generic']), output)
+        output = StringIO()
+        call_command('generate_enlistment_pxe', arch=arch, stdout=output)
+        output.seek(0)
+        self.assertIn('/'.join([arch, 'generic']), output.read())
