@@ -13,7 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 import os
-import re
+import tempita
 
 from celeryconfig import (
     PXE_TARGET_DIR,
@@ -45,4 +45,11 @@ class TestPXEConfig(TestCase):
         template = pxeconfig.get_template()
         with open(pxeconfig.template, "rb") as f:
             expected = f.read()
-        self.assertEqual(expected, template)
+        self.assertIsInstance(template, tempita.Template)
+        self.assertEqual(expected, template.content)
+
+    def test_render_template(self):
+        pxeconfig = PXEConfig("i386")
+        template = tempita.Template("template: {{kernelimage}}")
+        rendered = pxeconfig.render_template(template, kernelimage="myimage")
+        self.assertEqual("template: myimage", rendered)

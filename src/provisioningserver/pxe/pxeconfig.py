@@ -16,6 +16,7 @@ __all__ = [
 
 
 import os
+import tempita
 
 from celeryconfig import (
     PXE_TARGET_DIR,
@@ -52,4 +53,11 @@ class PXEConfig:
 
     def get_template(self):
         with open(self.template, "rb") as f:
-            return f.read()
+            return tempita.Template(f.read(), name=self.template)
+
+    def render_template(self, template, **kwargs):
+        try:
+            return template.substitute(kwargs)
+        except NameError as error:
+            raise NameError(error)
+
