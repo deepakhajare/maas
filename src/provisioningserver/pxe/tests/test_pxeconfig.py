@@ -70,7 +70,7 @@ class TestPXEConfig(TestCase):
     def test_get_template(self):
         pxeconfig = PXEConfig("i386")
         template = pxeconfig.get_template()
-        with open(pxeconfig.template, "rb") as f:
+        with open(pxeconfig.template, "r") as f:
             expected = f.read()
         self.assertIsInstance(template, tempita.Template)
         self.assertEqual(expected, template.content)
@@ -103,7 +103,7 @@ class TestPXEConfig(TestCase):
         pxeconfig.write_config(
             menutitle="menutitle", kernelimage="/my/kernel", append="append")
 
-        with open(pxeconfig.target_file, "rb") as f:
+        with open(pxeconfig.target_file, "r") as f:
             output = f.read()
         template = pxeconfig.get_template()
         expected = pxeconfig.render_template(

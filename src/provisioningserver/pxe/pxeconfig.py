@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""PXE configuration management."""
+"""PXE configuration file."""
 
 from __future__ import (
     absolute_import,
@@ -30,7 +30,7 @@ class PXEConfigFail(Exception):
 
 
 class PXEConfig:
-    """PXE Configuration management.
+    """A PXE configuration file.
 
     Encapsulation of PXE config templates and parameter substitution.
 
@@ -46,6 +46,20 @@ class PXEConfig:
         Note: Ensure the mac is passed in a colon-separated format like
         aa:bb:cc:dd:ee:ff.  This is the default for MAC addresses coming
         from the database fields in MAAS, so it's not heavily checked here.
+    :type mac: string
+
+    :raises PXEConfigFail: if there's a problem with template parameters
+        or the MAC address looks incorrectly formatted.
+
+    Use this class by instantiating with parameters that define its location:
+
+    >>> pxeconfig = PXEConfig("armhf", "armadaxp", mac="00:a1:b2:c3:e4:d5")
+
+    and then write the file with:
+
+    >>> pxeconfig.write_config(
+    ...     menutitle="menutitle", kernelimage="/my/kernel",
+            append="initrd=blah url=blah")
     """
 
     def __init__(self, arch, subarch=None, mac=None):
@@ -87,7 +101,7 @@ class PXEConfig:
         return mac.replace(':', '-')
 
     def get_template(self):
-        with open(self.template, "rb") as f:
+        with open(self.template, "r") as f:
             return tempita.Template(f.read(), name=self.template)
 
     def render_template(self, template, **kwargs):
@@ -103,10 +117,11 @@ class PXEConfig:
         :param kernelimage: The path to the kernel in the TFTP server
         :param append: Kernel parameters to append.
 
-        Any required directories will be created.
+        Any required directories will be created but the caller must have
+        permission to make them and write the file.
         """
         template = self.get_template()
         rendered = self.render_template(template, **kwargs)
         os.makedirs(self.target_dir)
-        with open(self.target_file, "wb") as f:
+        with open(self.target_file, "w") as f:
             f.write(rendered)
