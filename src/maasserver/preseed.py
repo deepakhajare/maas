@@ -12,7 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import base64
 from os.path import join
 
 from django.conf import settings
@@ -87,11 +86,6 @@ def get_preseed_template(filenames):
 class PreseedTemplate(tempita.Template):
     """A Tempita template specialised for preseed rendering."""
 
-    default_namespace = dict(
-        tempita.Template.default_namespace,
-        b64decode=base64.b64decode,
-        b64encode=base64.b64encode)
-
 
 class TemplateNotFoundError(Exception):
     """The template has not been found."""
@@ -111,10 +105,17 @@ def load_preseed_template(node, prefix, release="precise"):
     """
 
     def get_template(name, from_template, default=False):
+        """A Tempita hook used to load the templates files.
+
+        It is defined to preserve the context (node, name, release, default)
+        since this will be called (by Tempita) called out of scope.
+        """
         filenames = list(get_preseed_filenames(node, name, release, default))
         filepath, content = get_preseed_template(filenames)
         if filepath is None:
             raise TemplateNotFoundError(name)
+        # This is where the closure happens: pass `get_template` when
+        # instanciating PreseedTemplate.
         return PreseedTemplate(
             content, name=filepath, get_template=get_template)
 

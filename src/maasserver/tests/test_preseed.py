@@ -12,7 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import base64
 import os
 
 from django.conf import settings
@@ -59,7 +58,7 @@ class TestGetPreseedFilenames(TestCase):
                 '%s' % type,
                 'generic',
             ],
-            list(get_preseed_filenames(node, type, release, True)))
+            list(get_preseed_filenames(node, type, release, default=True)))
 
     def test_get_preseed_filenames_returns_filenames_with_subarch(self):
         arch = factory.getRandomString()
@@ -81,7 +80,7 @@ class TestGetPreseedFilenames(TestCase):
                 '%s' % type,
                 'generic',
             ],
-            list(get_preseed_filenames(node, type, release, True)))
+            list(get_preseed_filenames(node, type, release, default=True)))
 
     def test_get_preseed_filenames_returns_list_without_default(self):
         # If default=False is passed to get_preseed_filenames, the
@@ -93,7 +92,8 @@ class TestGetPreseedFilenames(TestCase):
         node = factory.make_node(hostname=hostname)
         self.assertSequenceEqual(
             'generic',
-            list(get_preseed_filenames(node, prefix, release, True))[-1])
+            list(get_preseed_filenames(
+                node, prefix, release, default=True))[-1])
 
     def test_get_preseed_filenames_returns_list_with_default(self):
         # If default=True is passed to get_preseed_filenames, the
@@ -105,7 +105,8 @@ class TestGetPreseedFilenames(TestCase):
         node = factory.make_node(hostname=hostname)
         self.assertSequenceEqual(
             prefix,
-            list(get_preseed_filenames(node, prefix, release, False))[-1])
+            list(get_preseed_filenames(
+                node, prefix, release, default=False))[-1])
 
 
 class TestConfiguration(TestCase):
@@ -115,21 +116,6 @@ class TestConfiguration(TestCase):
         self.assertThat(
             settings.PRESEED_TEMPLATE_LOCATIONS,
             AllMatch(IsInstance(basestring)))
-
-
-class TestPreseedTemplate(TestCase):
-    """Tests for :class:`PreseedTemplate`."""
-
-    def test_preseed_template_b64decode(self):
-        content = factory.getRandomString()
-        encoded_content = base64.b64encode(content)
-        template = PreseedTemplate("{{b64decode('%s')}}" % encoded_content)
-        self.assertEqual(content, template.substitute())
-
-    def test_preseed_template_b64encode(self):
-        content = factory.getRandomString()
-        template = PreseedTemplate("{{b64encode('%s')}}" % content)
-        self.assertEqual(base64.b64encode(content), template.substitute())
 
 
 class TestGetPreseedTemplate(TestCase):
