@@ -84,7 +84,7 @@ class PXEConfig:
         if colon_count != 5:
             raise PXEConfigFail(
                 "Expecting exactly five ':' chars, found %s" % colon_count)
-        return mac.replace(':','-')
+        return mac.replace(':', '-')
 
     def get_template(self):
         with open(self.template, "rb") as f:
