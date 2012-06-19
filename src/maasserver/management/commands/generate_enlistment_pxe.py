@@ -23,6 +23,7 @@ __all__ = [
 from optparse import make_option
 
 from django.core.management.base import BaseCommand
+from provisioningserver.pxe.pxeconfig import PXEConfig
 
 
 class Command(BaseCommand):
@@ -38,12 +39,30 @@ class Command(BaseCommand):
         make_option(
             '--release', dest='release', default=None,
             help="Ubuntu release to run when enlisting nodes."),
-        make_option(
-            '--tftpdir', dest='tftproot', default='/var/lib/tftpboot/maas',
-            help="TFTP directory to store the PXE configuration file in."),
         )
 
-    def handle(self, arch=None, subarch=None, release=None, tftpdir=None,
-               **kwargs):
-# TODO: Implement!
-        pass
+    def handle(self, arch=None, subarch='generic', release=None, **kwargs):
+        image_path = '/maas/%s/%s/%s/install' % (arch, subarch, release)
+        # TODO: This needs to go somewhere more appropriate, and
+        # probably contain more appropriate options.
+        kernel_opts = ' '.join([
+            # Default kernel options (similar to those used by Cobbler):
+            'initrd=%s' % '/'.join([image_path, 'initrd.gz']),
+            'ksdevice=bootif',
+            'lang=  text ',
+            'hostname=%s-%s' % (release, arch),
+            'domain=local.lan',
+            'suite=%s' % release,
+
+            # MAAS-specific options:
+            'priority=critical',
+            'local=en_US',
+            'netcfg/choose_interface=auto',
+            ])
+        template_args = {
+            'menutitle': "Enlisting with MAAS",
+            # Enlistment uses the same kernel as installation.
+            'kernelimage': '/'.join([image_path, 'linux']),
+            'append': kernel_opts,
+        }
+        PXEConfig(arch, subarch).write_config(**template_args)

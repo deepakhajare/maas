@@ -18,20 +18,24 @@ from django.core.management import call_command
 from maasserver.enum import ARCHITECTURE_CHOICES
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from testtools.matchers import FileContains
+from provisioningserver.pxe.pxeconfig import PXEConfig
 
 
 class TestGenerateEnlistmentPXE(TestCase):
 
     def test_generates_default_pxe_config(self):
         arch = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        release = 'precise'
         tftpdir = self.make_dir()
-        call_command(
-            'generate_enlistment_pxe', arch=arch, release='precise',
-            tftpdir=tftpdir)
+        self.patch(PXEConfig, 'target_basedir', tftpdir)
+        call_command('generate_enlistment_pxe', arch=arch, release=release)
         # This produces a "default" PXE config file in the right place.
         # It refers to the kernel and initrd for the requested
         # architecture and release.
-        self.assertThat(
-            os.path.join(tftpdir, arch, 'pxelinux.cfg', 'default'),
-            FileContains('/'.join([arch, 'generic', 'precise'])))
+        result_path = os.path.join(
+            tftpdir, arch, 'generic', 'pxelinux.cfg', 'default')
+        with open(result_path) as result_file:
+            contents = result_file.read()
+        self.assertIn(
+            '/'.join(['/maas', arch, 'generic', release, 'install', 'linux']),
+            contents)
