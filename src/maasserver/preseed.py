@@ -111,7 +111,7 @@ def load_preseed_template(node, prefix, release="precise"):
     """
 
     def get_template(name, from_template, default=False):
-        filenames = get_preseed_filenames(node, name, release, default)
+        filenames = list(get_preseed_filenames(node, name, release, default))
         filepath, content = get_preseed_template(filenames)
         if filepath is None:
             raise TemplateNotFoundError(name)
