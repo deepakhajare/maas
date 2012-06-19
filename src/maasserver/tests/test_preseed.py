@@ -47,25 +47,25 @@ class TestGetPreseedFilenames(TestCase):
 
     def test_get_preseed_filenames_returns_filenames(self):
         hostname = factory.getRandomString()
-        type = factory.getRandomString()
+        prefix = factory.getRandomString()
         release = factory.getRandomString()
         node = factory.make_node(hostname=hostname)
         self.assertSequenceEqual(
             [
-                '%s_%s_%s_%s' % (type, node.architecture, release, hostname),
-                '%s_%s_%s' % (type, node.architecture, release),
-                '%s_%s' % (type, node.architecture),
-                '%s' % type,
+                '%s_%s_%s_%s' % (prefix, node.architecture, release, hostname),
+                '%s_%s_%s' % (prefix, node.architecture, release),
+                '%s_%s' % (prefix, node.architecture),
+                '%s' % prefix,
                 'generic',
             ],
-            list(get_preseed_filenames(node, type, release, default=True)))
+            list(get_preseed_filenames(node, prefix, release, default=True)))
 
     def test_get_preseed_filenames_returns_filenames_with_subarch(self):
         arch = factory.getRandomString()
         subarch = factory.getRandomString()
         fake_arch = '%s/%s' % (arch, subarch)
         hostname = factory.getRandomString()
-        type = factory.getRandomString()
+        prefix = factory.getRandomString()
         release = factory.getRandomString()
         node = factory.make_node(hostname=hostname)
         # Set an architecture of the form '%s/%s' i.e. with a
@@ -73,14 +73,14 @@ class TestGetPreseedFilenames(TestCase):
         node.architecture = fake_arch
         self.assertSequenceEqual(
             [
-                '%s_%s_%s_%s_%s' % (type, arch, subarch, release, hostname),
-                '%s_%s_%s_%s' % (type, arch, subarch, release),
-                '%s_%s_%s' % (type, arch, subarch),
-                '%s_%s' % (type, arch),
-                '%s' % type,
+                '%s_%s_%s_%s_%s' % (prefix, arch, subarch, release, hostname),
+                '%s_%s_%s_%s' % (prefix, arch, subarch, release),
+                '%s_%s_%s' % (prefix, arch, subarch),
+                '%s_%s' % (prefix, arch),
+                '%s' % prefix,
                 'generic',
             ],
-            list(get_preseed_filenames(node, type, release, default=True)))
+            list(get_preseed_filenames(node, prefix, release, default=True)))
 
     def test_get_preseed_filenames_returns_list_without_default(self):
         # If default=False is passed to get_preseed_filenames, the
