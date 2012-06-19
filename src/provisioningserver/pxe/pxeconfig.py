@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'PXEConfig',
+    'PXEConfigFail',
     ]
 
 
@@ -22,6 +23,10 @@ from celeryconfig import (
     PXE_TARGET_DIR,
     PXE_TEMPLATES_DIR,
     )
+
+
+class PXEConfigFail(Exception):
+    """Raised if there's a problem with a PXE config."""
 
 
 class PXEConfig:
@@ -59,5 +64,5 @@ class PXEConfig:
         try:
             return template.substitute(kwargs)
         except NameError as error:
-            raise NameError(error)
+            raise PXEConfigFail(*error.args)
 
