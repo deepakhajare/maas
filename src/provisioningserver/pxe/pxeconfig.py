@@ -41,20 +41,49 @@ class PXEConfig:
         sub-architecture.  If not passed, a directory name of "generic"
         is used in the subarch part of the path to the target file.
     :type subarch: string
+    :param mac: If specified will write out a mac-specific pxe file.
+        If not specified will write out a "default" file.
+        Note: Ensure the mac is passed in a colon-separated format like
+        aa:bb:cc:dd:ee:ff.  This is the default for MAC addresses coming
+        from the database fields in MAAS, so it's not heavily checked here.
     """
 
-    def __init__(self, arch, subarch=None):
+    def __init__(self, arch, subarch=None, mac=None):
         if subarch is None:
             subarch = "generic"
-        template_basedir = PXE_TEMPLATES_DIR
-        target_basedir = PXE_TARGET_DIR
+        self.mac = self._process_mac(mac)
 
-        self.template = os.path.join(template_basedir, "maas.template")
+        self.template = os.path.join(self.template_basedir, "maas.template")
 
         self.target_dir = os.path.join(
-            target_basedir,
+            self.target_basedir,
             arch,
             subarch)
+        if self.mac is not None:
+            filename = self.mac
+        else:
+            filename = "default"
+        self.target_file = os.path.join(self.target_dir, filename)
+
+    @property
+    def template_basedir(self):
+        return PXE_TEMPLATES_DIR
+
+    @property
+    def target_basedir(self):
+        return PXE_TARGET_DIR
+
+    def _process_mac(self, mac):
+        # A MAC address should be of the form aa:bb:cc:dd:ee:ff with
+        # precisely five colons in it.  We do a cursory check since most
+        # MACs will come from the DB which are already checked and
+        # formatted.
+        if mac is None:
+            return None
+        colon_count = mac.count(":")
+        if colon_count != 5:
+            raise PXEConfigFail(
+                "Expecting exactly five : chars, found %s" % colon_count)
 
     def get_template(self):
         with open(self.template, "rb") as f:
@@ -66,3 +95,17 @@ class PXEConfig:
         except NameError as error:
             raise PXEConfigFail(*error.args)
 
+    def write_config(self, **kwargs):
+        """Write out this PXE config file.
+
+        :param menutitle: The PXE menu title shown.
+        :param kernelimage: The path to the kernel in the TFTP server
+        :param append: Kernel parameters to append.
+
+        Any required directories will be created.
+        """
+        template = self.get_template()
+        rendered = self.render_template(template, **kwargs)
+        os.makedirs(self.target_dir)
+        with open(self.target_file, "wb") as f:
+            f.write(rendered)

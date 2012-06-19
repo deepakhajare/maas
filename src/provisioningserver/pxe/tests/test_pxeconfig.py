@@ -74,3 +74,20 @@ class TestPXEConfig(TestCase):
             exception.message, MatchesRegex(
                 "name 'kernelimage' is not defined at line \d+ column \d+ "
                 "in file %s" % re.escape(template_name)))
+
+    def test_write_config(self):
+        out_dir = self.make_dir()
+        self.patch(PXEConfig, 'target_basedir', out_dir)
+        pxeconfig = PXEConfig("armhf", "armadaxp")
+        pxeconfig.write_config(
+            menutitle="menutitle", kernelimage="/my/kernel", append="append")
+
+        with open(pxeconfig.target_file, "rb") as f:
+            output = f.read()
+        template = pxeconfig.get_template()
+        expected = pxeconfig.render_template(
+            template, menutitle="menutitle", kernelimage="/my/kernel",
+            append="append")
+
+        self.assertEqual(expected, output)
+
