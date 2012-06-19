@@ -65,17 +65,15 @@ class PXEConfig:
     def __init__(self, arch, subarch=None, mac=None):
         if subarch is None:
             subarch = "generic"
-        self.mac = self._process_mac(mac)
-
+        self._validate_mac(mac)
         self.template = os.path.join(self.template_basedir, "maas.template")
-
         self.target_dir = os.path.join(
             self.target_basedir,
             arch,
             subarch,
             "pxelinux.cfg")
-        if self.mac is not None:
-            filename = self.mac
+        if mac is not None:
+            filename = mac.replace(':', '-')
         else:
             filename = "default"
         self.target_file = os.path.join(self.target_dir, filename)
@@ -88,18 +86,17 @@ class PXEConfig:
     def target_basedir(self):
         return PXE_TARGET_DIR
 
-    def _process_mac(self, mac):
+    def _validate_mac(self, mac):
         # A MAC address should be of the form aa:bb:cc:dd:ee:ff with
         # precisely five colons in it.  We do a cursory check since most
         # MACs will come from the DB which are already checked and
         # formatted.
         if mac is None:
-            return None
+            return
         colon_count = mac.count(":")
         if colon_count != 5:
             raise PXEConfigFail(
                 "Expecting exactly five ':' chars, found %s" % colon_count)
-        return mac.replace(':', '-')
 
     def get_template(self):
         with open(self.template, "r") as f:

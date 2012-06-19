@@ -27,6 +27,7 @@ from provisioningserver.pxe.pxeconfig import (
     PXEConfigFail,
     )
 from testtools.matchers import (
+    FileContains,
     MatchesRegex,
     )
 
@@ -73,10 +74,8 @@ class TestPXEConfig(TestCase):
     def test_get_template(self):
         pxeconfig = PXEConfig("i386")
         template = pxeconfig.get_template()
-        with open(pxeconfig.template, "r") as f:
-            expected = f.read()
         self.assertIsInstance(template, tempita.Template)
-        self.assertEqual(expected, template.content)
+        self.assertThat(pxeconfig.template, FileContains(template.content))
 
     def test_render_template(self):
         pxeconfig = PXEConfig("i386")
@@ -106,11 +105,9 @@ class TestPXEConfig(TestCase):
         pxeconfig.write_config(
             menutitle="menutitle", kernelimage="/my/kernel", append="append")
 
-        with open(pxeconfig.target_file, "r") as f:
-            output = f.read()
         template = pxeconfig.get_template()
         expected = pxeconfig.render_template(
             template, menutitle="menutitle", kernelimage="/my/kernel",
             append="append")
 
-        self.assertEqual(expected, output)
+        self.assertThat(pxeconfig.target_file, FileContains(expected))
