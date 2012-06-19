@@ -34,3 +34,15 @@ class TestPXEConfig(TestCase):
         expected_target = os.path.join(PXE_TARGET_DIR, "armhf", "armadaxp")
         self.assertEqual(expected_template, pxeconfig.template)
         self.assertEqual(expected_target, pxeconfig.target_dir)
+
+    def test_init_with_no_subarch_makes_path_with_generic(self):
+        pxeconfig = PXEConfig("i386")
+        expected_target = os.path.join(PXE_TARGET_DIR, "i386", "generic")
+        self.assertEqual(expected_target, pxeconfig.target_dir)
+
+    def test_get_template(self):
+        pxeconfig = PXEConfig("i386")
+        template = pxeconfig.get_template()
+        with open(pxeconfig.template, "rb") as f:
+            expected = f.read()
+        self.assertEqual(expected, template)

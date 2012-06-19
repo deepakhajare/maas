@@ -27,6 +27,14 @@ class PXEConfig:
     """PXE Configuration management.
 
     Encapsulation of PXE config templates and parameter substitution.
+
+    :param arch: The architecture of the context node.
+    :type arch: string
+    :param subarch: The sub-architecture of the context node. This is
+        optional because some architectures such as i386 don't have a
+        sub-architecture.  If not passed, a directory name of "generic"
+        is used in the subarch part of the path to the target file.
+    :type subarch: string
     """
 
     def __init__(self, arch, subarch=None):
@@ -42,3 +50,6 @@ class PXEConfig:
             arch,
             subarch)
 
+    def get_template(self):
+        with open(self.template, "rb") as f:
+            return f.read()
