@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for enumeration helpers."""
+"""Tests for miscellaneous helpers."""
 
 from __future__ import (
     absolute_import,
@@ -12,14 +12,21 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from datetime import datetime
+
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.db import transaction
+from maasserver.enum import NODE_STATUS_CHOICES
+from maasserver.models.timestampedmodel import now
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase as DjangoTestCase
 from maasserver.utils import (
     absolute_reverse,
+    get_db_state,
     map_enum,
     )
+from maastesting.djangotestcase import TransactionTestCase
 from maastesting.testcase import TestCase
 
 
@@ -81,3 +88,35 @@ class TestAbsoluteReverse(DjangoTestCase):
         absolute_url = absolute_reverse('node-view', args=[node.system_id])
         expected_url = reverse('node-view', args=[node.system_id])
         self.assertEqual(expected_url, absolute_url)
+
+
+class UtilitiesTest(TestCase):
+
+    def test_now_returns_datetime(self):
+        self.assertIsInstance(now(), datetime)
+
+    def test_now_returns_same_datetime_inside_transaction(self):
+        date_now = now()
+        self.assertEqual(date_now, now())
+
+
+class UtilitiesTransactionalTest(TransactionTestCase):
+
+    def test_now_returns_transaction_time(self):
+        date_now = now()
+        # Perform a write database operation.
+        factory.make_node()
+        transaction.commit()
+        self.assertLessEqual(date_now, now())
+
+
+class GetDbStateTest(TestCase):
+    """Testing for the method `get_db_state`."""
+
+    def test_get_db_state_returns_db_state(self):
+        status = factory.getRandomChoice(NODE_STATUS_CHOICES)
+        node = factory.make_node(status=status)
+        another_status = factory.getRandomChoice(
+            NODE_STATUS_CHOICES, but_not=[status])
+        node.status = another_status
+        self.assertEqual(status, get_db_state(node, 'status'))
