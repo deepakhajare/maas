@@ -67,8 +67,8 @@ def absolute_reverse(view_name, *args, **kwargs):
     calls Django's 'reverse' method and prefixes the result of that call with
     the configured DEFAULT_MAAS_URL.
 
-    :param view_name: Django's view function name or URL pattern name for
-        which to compute the absolute URL.
+    :param view_name: Django's view function name/reference or URL pattern
+        name for which to compute the absolute URL.
     :param args: Positional arguments for Django's 'reverse' method.
     :param kwargs: Named arguments for Django's 'reverse' method.
     """
