@@ -17,6 +17,8 @@ __all__ = [
     'map_enum',
     ]
 
+from urlparse import urljoin
+
 from django.conf import settings
 from django.core.urlresolvers import reverse
 
@@ -70,4 +72,5 @@ def absolute_reverse(view_name, *args, **kwargs):
     :param args: Positional arguments for Django's 'reverse' method.
     :param kwargs: Named arguments for Django's 'reverse' method.
     """
-    return settings.DEFAULT_MAAS_URL + reverse(view_name, *args, **kwargs)
+    return urljoin(
+        settings.DEFAULT_MAAS_URL, reverse(view_name, *args, **kwargs))
