@@ -12,11 +12,20 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from datetime import datetime
+
 from django.db import transaction
+from maasserver.testing.factory import factory
 from maasserver.models.timestampedmodel import now
-from maasserver.testing.testcase import TestModelTestCase
+from maasserver.testing.testcase import (
+    TestCase,
+    TestModelTestCase,
+    )
 from maasserver.tests.models import TimestampedModelTestModel
-from maastesting.djangotestcase import TestModelTransactionalTestCase
+from maastesting.djangotestcase import (
+    TestModelTransactionalTestCase,
+    TransactionTestCase,
+    )
 
 
 class TimestampedModelTest(TestModelTestCase):
@@ -67,3 +76,23 @@ class TimestampedModelTransactionalTest(TestModelTransactionalTestCase):
         transaction.commit()
         obj.save()
         self.assertLessEqual(old_updated, obj.updated)
+
+
+class UtilitiesTest(TestCase):
+
+    def test_now_returns_datetime(self):
+        self.assertIsInstance(now(), datetime)
+
+    def test_now_returns_same_datetime_inside_transaction(self):
+        date_now = now()
+        self.assertEqual(date_now, now())
+
+
+class UtilitiesTransactionalTest(TransactionTestCase):
+
+    def test_now_returns_transaction_time(self):
+        date_now = now()
+        # Perform a write database operation.
+        factory.make_node()
+        transaction.commit()
+        self.assertLessEqual(date_now, now())

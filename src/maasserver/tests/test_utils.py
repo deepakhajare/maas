@@ -12,13 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from datetime import datetime
-
 from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.db import transaction
 from maasserver.enum import NODE_STATUS_CHOICES
-from maasserver.models.timestampedmodel import now
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase as DjangoTestCase
 from maasserver.utils import (
@@ -26,7 +22,6 @@ from maasserver.utils import (
     get_db_state,
     map_enum,
     )
-from maastesting.djangotestcase import TransactionTestCase
 from maastesting.testcase import TestCase
 
 
@@ -90,27 +85,7 @@ class TestAbsoluteReverse(DjangoTestCase):
         self.assertEqual(expected_url, absolute_url)
 
 
-class UtilitiesTest(TestCase):
-
-    def test_now_returns_datetime(self):
-        self.assertIsInstance(now(), datetime)
-
-    def test_now_returns_same_datetime_inside_transaction(self):
-        date_now = now()
-        self.assertEqual(date_now, now())
-
-
-class UtilitiesTransactionalTest(TransactionTestCase):
-
-    def test_now_returns_transaction_time(self):
-        date_now = now()
-        # Perform a write database operation.
-        factory.make_node()
-        transaction.commit()
-        self.assertLessEqual(date_now, now())
-
-
-class GetDbStateTest(TestCase):
+class GetDbStateTest(DjangoTestCase):
     """Testing for the method `get_db_state`."""
 
     def test_get_db_state_returns_db_state(self):
