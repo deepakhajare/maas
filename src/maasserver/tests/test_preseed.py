@@ -304,7 +304,7 @@ class TestPreseedContext(TestCase):
         context = get_preseed_context(node, release)
         self.assertItemsEqual(
             ['node', 'release', 'server_host', 'preseed_data',
-             'node_disable_pxe_url'],
+             'node_disable_pxe_url', 'node_disable_pxe_data'],
             context)
 
 
