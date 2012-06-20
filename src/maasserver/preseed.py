@@ -97,7 +97,7 @@ def get_escape_singleton():
     """Return a singleton containing methods to escape various formats used in
     the preseed templates.
     """
-    Escape = namedtuple('escape', 'shell')
+    Escape = namedtuple('Escape', 'shell')
     return Escape(shell=quote)
 
 
