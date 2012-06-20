@@ -66,8 +66,8 @@ node_patterns = patterns(
 # authenticated calls are not possible.
 anon_patterns = patterns(
     '',
-    # XXX: rvb 2012-06-20 bug=1015559:  The anonymously accessible
-    # method is a security threat.
+    # XXX: rvb 2012-06-20 bug=1015559:  This method is accessible
+    # without authentication.  This is a security threat.
     url(
         r'(?P<version>[^/]+)/(?P<system_id>[\w\-]+)/edit/$',
         meta_data_node_anon_handler,
