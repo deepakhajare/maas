@@ -12,7 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from collections import namedtuple
 from os.path import join
+from pipes import quote
 from urllib import urlencode
 from urlparse import urlparse
 
@@ -91,8 +93,23 @@ def get_preseed_template(filenames):
         return None, None
 
 
+def get_escape_singleton():
+    """Return a singleton containing method to escape various formats used in
+    the preseed templates.
+    """
+    Escape = namedtuple('escape', 'shell')
+    return Escape(shell=quote)
+
+
 class PreseedTemplate(tempita.Template):
-    """A Tempita template specialised for preseed rendering."""
+    """A Tempita template specialised for preseed rendering.
+
+    It provides a filter named 'escape' which contains methods to escape
+    various formats used in the template."""
+
+    default_namespace = dict(
+        tempita.Template.default_namespace,
+        escape=get_escape_singleton())
 
 
 class TemplateNotFoundError(Exception):
