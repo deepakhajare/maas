@@ -22,7 +22,6 @@ __all__ = [
 import os
 import re
 import signal
-from stat import ST_MTIME
 from time import (
     sleep,
     time,
@@ -42,7 +41,7 @@ def age_file(path, seconds):
 
 def get_write_time(path):
     """Return last modification time of file at `path`."""
-    return os.stat(path)[ST_MTIME]
+    return os.stat(path).st_mtime
 
 
 def content_from_file(path):
