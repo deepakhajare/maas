@@ -39,7 +39,7 @@ setup(
     long_description=read('README'),
 
     author="MAAS Developers",
-    author_email="maas-devel@lists.ubuntu.com",
+    author_email="maas-devel@lists.launchpad.net",
 
     packages=find_packages(
         where=b'src',
