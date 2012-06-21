@@ -67,7 +67,7 @@ def write_tftp_config_for_node(node, pxe_target_dir=None, **kwargs):
 
     A config file is written for each MAC associated with the node.
 
-    :param node: A models.Node.
+    :param node: A :class:`maasserver.models.Node`.
     :param **kwargs: Keyword args passed to PXEConfig.write_config()
     """
     arch = node.architecture
