@@ -11,14 +11,18 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "age_file",
     "content_from_file",
     "extract_word_list",
+    "get_write_time",
     "preexec_fn",
     "retries",
     ]
 
+import os
 import re
 import signal
+from stat import ST_MTIME
 from time import (
     sleep,
     time,
@@ -26,6 +30,19 @@ from time import (
 
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
+
+
+def age_file(path, seconds):
+    """Backdate a file's modification time so that it looks older."""
+    stat_result = os.stat(path)
+    atime = stat_result.st_atime
+    mtime = stat_result.st_mtime
+    os.utime(path, (atime, mtime - seconds))
+
+
+def get_write_time(path):
+    """Return last modification time of file at `path`."""
+    return os.stat(path)[ST_MTIME]
 
 
 def content_from_file(path):
