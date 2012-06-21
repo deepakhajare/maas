@@ -363,7 +363,7 @@ class TestRenderPreseed(TestCase):
         preseed = render_preseed(node, self.preseed, "precise")
         # The test really is that the preseed is rendered without an
         # error.
-        self.assertIsInstance(preseed, basestring)
+        self.assertIsInstance(preseed, str)
 
 
 class TestPreseedMethods(TestCase):
