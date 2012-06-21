@@ -30,6 +30,7 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maastesting.djangotestcase import DjangoTestCase
+from metadataserver import api
 from metadataserver.api import (
     check_version,
     get_node_for_mac,
@@ -552,4 +553,24 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         self.assertEqual(
             (httplib.OK, False),
             (response.status_code, node.netboot),
+            response)
+
+    def test_anonymous_generate_preseed(self):
+        # The preseed for a node can be obtained anonymously.
+        node = factory.make_node()
+        anon_node_url = reverse(
+            'metadata-anon-node-edit',
+            args=['latest', node.system_id])
+        # Fake the preseed so we're just exercising the view.
+        fake_preseed = factory.getRandomString()
+        self.patch(api, "get_preseed", lambda node: fake_preseed)
+        response = self.client.get(
+            anon_node_url, {'op': 'generate_preseed'})
+        self.assertEqual(
+            (httplib.OK,
+             "text/plain",
+             fake_preseed),
+            (response.status_code,
+             response["Content-Type"],
+             response.content),
             response)

@@ -42,6 +42,7 @@ from maasserver.models import (
     Node,
     SSHKey,
     )
+from maasserver.preseed import get_preseed
 from metadataserver.models import (
     NodeCommissionResult,
     NodeKey,
@@ -329,6 +330,12 @@ class UserDataHandler(MetadataViewHandler):
 @api_operations
 class AnonMetaDataHandler(VersionIndexHandler):
     """Anonymous metadata."""
+
+    @api_exported('GET')
+    def generate_preseed(self, request, version=None, system_id=None):
+        """Render and return a preseed script for the given node."""
+        node = get_object_or_404(Node, system_id=system_id)
+        return HttpResponse(get_preseed(node), mimetype="text/plain")
 
     @api_exported('POST')
     def netboot_off(self, request, version=None, system_id=None):
