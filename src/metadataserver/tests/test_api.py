@@ -545,8 +545,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
     def test_anonymous_netboot_off(self):
         node = factory.make_node(netboot=True)
         anon_netboot_off_url = reverse(
-            'metadata-anon-node-edit', args=['latest',
-            node.system_id])
+            'metadata-anon-node', args=['latest', node.system_id])
         response = self.client.post(
             anon_netboot_off_url, {'op': 'netboot_off'})
         node = reload_object(node)
@@ -559,7 +558,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         # The preseed for a node can be obtained anonymously.
         node = factory.make_node()
         anon_node_url = reverse(
-            'metadata-anon-node-edit',
+            'metadata-anon-node',
             args=['latest', node.system_id])
         # Fake the preseed so we're just exercising the view.
         fake_preseed = factory.getRandomString()

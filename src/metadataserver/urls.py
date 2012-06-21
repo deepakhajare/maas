@@ -69,9 +69,9 @@ anon_patterns = patterns(
     # XXX: rvb 2012-06-20 bug=1015559:  This method is accessible
     # without authentication.  This is a security threat.
     url(
-        r'(?P<version>[^/]+)/(?P<system_id>[\w\-]+)/edit/$',
+        r'(?P<version>[^/]+)/by-id/(?P<system_id>[\w\-]+)/$',
         meta_data_node_anon_handler,
-        name='metadata-anon-node-edit'),
+        name='metadata-anon-node'),
     )
 
 # Anonymous random metadata access keyed by MAC address.  These won't
