@@ -21,6 +21,7 @@ from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
+from provisioningserver.pxe.pxeconfig import PXEConfig
 
 
 def issue_power_action(power_type, power_change, **kwargs):
@@ -57,3 +58,19 @@ def power_on(power_type, **kwargs):
 def power_off(power_type, **kwargs):
     """Turn a node off."""
     issue_power_action(power_type, 'off', **kwargs)
+
+
+@task
+def write_tftp_config_for_node(node, pxe_target_dir=None, **kwargs):
+    """Write out the TFTP MAC-based config for `node`.
+
+    :param node: A models.Node.
+    :param **kwargs: Keyword args passed to PXEConfig.write_config()
+    """
+    arch = node.architecture
+    # TODO: fix subarch when node.py starts modelling sub-architecture for ARM
+    subarch = "generic"
+    # TODO: write files for all MACs
+    mac = node.get_primary_mac().mac_address
+    pxeconfig = PXEConfig(arch, subarch, mac, pxe_target_dir)
+    pxeconfig.write_config(**kwargs)
