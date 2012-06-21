@@ -63,10 +63,11 @@ class TestTFTPTasks(TestCase):
         ("celery", FixtureResource(CeleryFixture())),
         )
 
-    def test_write_tftp_config_for_node(self):
+    def test_write_tftp_config_for_node_writes_files(self):
         arch = ARCHITECTURE.i386
         node = factory.make_node(architecture=arch)
         mac = factory.make_mac_address(node=node).mac_address
+        mac2 = factory.make_mac_address(node=node).mac_address
         target_dir = self.make_dir()
         kernel = factory.getRandomString()
         menutitle = factory.getRandomString()
@@ -77,8 +78,14 @@ class TestTFTPTasks(TestCase):
             kernelimage=kernel, append=append)
 
         self.assertTrue(result.successful(), result)
-        expected_file = os.path.join(
+        expected_file1 = os.path.join(
             target_dir, arch, "generic", "pxelinux.cfg", mac.replace(":", "-"))
+        expected_file2 = os.path.join(
+            target_dir, arch, "generic", "pxelinux.cfg",
+            mac2.replace(":", "-"))
         self.assertThat(
-            expected_file,
+            expected_file1,
+            FileContains(matcher=ContainsAll((kernel, menutitle, append))))
+        self.assertThat(
+            expected_file2,
             FileContains(matcher=ContainsAll((kernel, menutitle, append))))
