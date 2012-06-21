@@ -93,13 +93,13 @@ def get_preseed_filenames(node, prefix='', release='precise', default=False):
     if prefix != '':
         elements.append(prefix)
     # Add architecture/sub-architecture.
-    if node != None:
+    if node is not None:
         arch = split_subarch(node.architecture)
         elements.extend(arch)
     # Add release.
     elements.append(release)
     # Add hostname.
-    if node != None:
+    if node is not None:
         elements.append(node.hostname)
     while elements:
         yield compose_filename(elements)
@@ -213,7 +213,7 @@ def get_preseed_context(node, release="precise"):
         'release': release,
         'server_host': server_host,
         }
-    if node != None:
+    if node is not None:
         # Create the url and the url-data (POST parameters) used to turn off
         # PXE booting once the install of the node is finished.
         node_disable_pxe_url = absolute_reverse(
