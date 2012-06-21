@@ -15,7 +15,7 @@ __all__ = []
 import os
 
 from maasserver.enum import ARCHITECTURE
-from maasserver.testing.factory import factory
+from maastesting.factory import factory
 from maastesting.celery import CeleryFixture
 from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
@@ -65,16 +65,15 @@ class TestTFTPTasks(TestCase):
 
     def test_write_tftp_config_for_node_writes_files(self):
         arch = ARCHITECTURE.i386
-        node = factory.make_node(architecture=arch)
-        mac = factory.make_mac_address(node=node).mac_address
-        mac2 = factory.make_mac_address(node=node).mac_address
+        mac = factory.getRandomMACAddress()
+        mac2 = factory.getRandomMACAddress()
         target_dir = self.make_dir()
         kernel = factory.getRandomString()
         menutitle = factory.getRandomString()
         append = factory.getRandomString()
 
         result = write_tftp_config_for_node.delay(
-            node, pxe_target_dir=target_dir, menutitle=menutitle,
+            arch, (mac, mac2), pxe_target_dir=target_dir, menutitle=menutitle,
             kernelimage=kernel, append=append)
 
         self.assertTrue(result.successful(), result)
