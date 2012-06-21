@@ -74,9 +74,9 @@ anon_patterns = patterns(
         name='metadata-anon-node'),
     )
 
-# Anonymous random metadata access keyed by MAC address.  These won't
-# work unless ALLOW_ANONYMOUS_METADATA_ACCESS is enabled, which you
-# should never do on a production MAAS.
+# UNSAFE anonymous random metadata access keyed by MAC address.  These won't
+# work unless ALLOW_UNSAFE_METADATA_ACCESS is enabled, which you should never
+# do on a production MAAS.
 by_mac_patterns = patterns(
     '',
     url(

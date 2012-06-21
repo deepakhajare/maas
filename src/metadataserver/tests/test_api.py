@@ -93,7 +93,7 @@ class TestHelpers(DjangoTestCase):
             get_node_for_request, self.fake_request())
 
     def test_get_node_for_mac_refuses_if_anonymous_access_disabled(self):
-        self.patch(settings, 'ALLOW_ANONYMOUS_METADATA_ACCESS', False)
+        self.patch(settings, 'ALLOW_UNSAFE_METADATA_ACCESS', False)
         self.assertRaises(
             PermissionDenied, get_node_for_mac, factory.getRandomMACAddress())
 
@@ -518,7 +518,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
             (response.status_code, response.content))
 
     def test_api_normally_disallows_anonymous_node_metadata_access(self):
-        self.patch(settings, 'ALLOW_ANONYMOUS_METADATA_ACCESS', False)
+        self.patch(settings, 'ALLOW_UNSAFE_METADATA_ACCESS', False)
         mac = factory.make_mac_address()
         url = reverse(
             'metadata-meta-data-by-mac',

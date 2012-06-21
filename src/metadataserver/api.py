@@ -79,9 +79,9 @@ def get_node_for_mac(mac):
     """Identify node being queried based on its MAC address.
 
     This form of access is a security hazard, and thus it is permitted only
-    on development systems where ALLOW_ANONYMOUS_METADATA_ACCESS is enabled.
+    on development systems where ALLOW_UNSAFE_METADATA_ACCESS is enabled.
     """
-    if not settings.ALLOW_ANONYMOUS_METADATA_ACCESS:
+    if not settings.ALLOW_UNSAFE_METADATA_ACCESS:
         raise PermissionDenied(
             "Unauthenticated metadata access is not allowed on this MAAS.")
     matching_macs = list(MACAddress.objects.filter(mac_address=mac))
