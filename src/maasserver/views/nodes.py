@@ -103,8 +103,9 @@ def enlist_preseed_view(request):
 
 
 class NodeViewMixin:
-    """Mixin class used to fetch a node by system_id if the logged-in user
-    has the required permission.
+    """Mixin class used to fetch a node by system_id.
+
+    The logged-in user must have View permission to access this page.
     """
 
     context_object_name = 'node'
