@@ -33,6 +33,10 @@ def make_destination(pxe_target_dir, arch, subarch, release):
     :return: Path of the destination directory that the image directory
         should be stored in.
     """
+    dest = os.path.join(pxe_target_dir, arch, subarch, release)
+    if not os.path.isdir(dest):
+        os.makedirs(dest)
+    return dest
 
 
 def identical_dirs(old, new):
