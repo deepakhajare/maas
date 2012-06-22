@@ -73,7 +73,7 @@ class TestInstallPXEImage(TestCase):
         source_path = os.path.join(download_dir, source_dir)
         os.makedirs(source_path)
         testfile = factory.make_file(source_path, contents=contents)
-        return source_dir, testfile, contents
+        return source_dir, os.path.basename(testfile), contents
 
     def test_installs_new_image(self):
         pxe_target_dir = self.make_dir()
@@ -100,7 +100,7 @@ class TestInstallPXEImage(TestCase):
         download_dir = self.make_dir()
         source_dir, source_file, contents = self.make_download(
             download_dir, contents="Old contents")
-        source_path = os.path.join(download_dir, source_dir, source_file)
+        source_path = os.path.join(download_dir, source_dir)
         pxe_target_dir = self.make_dir()
         target_path = os.path.join(
             pxe_target_dir, arch, subarch, release, purpose, source_file)
@@ -110,8 +110,9 @@ class TestInstallPXEImage(TestCase):
             subarch=subarch, release=release, purpose=purpose,
             image=source_path)
 
-        with open(source_path, 'w') as outfile:
-            outfile.write("New contents")
+        os.makedirs(source_path)
+        factory.make_file(
+            source_path, name=source_file, contents="New contents")
 
         call_command(
             'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
@@ -138,6 +139,9 @@ class TestInstallPXEImage(TestCase):
 
         age_file(target_path, 1)
         target_mtime = get_write_time(target_path)
+
+        os.makedirs(source_path)
+        factory.make_file(source_path, name=source_file, contents=contents)
 
         call_command(
             'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
