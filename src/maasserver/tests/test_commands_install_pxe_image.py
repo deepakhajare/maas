@@ -22,10 +22,6 @@ from maasserver.management.commands.install_pxe_image import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maastesting.utils import (
-    age_file,
-    get_write_time,
-    )
 from testtools.matchers import (
     DirExists,
     FileContains,
@@ -53,104 +49,23 @@ def make_arch_subarch_release():
 
 class TestInstallPXEImage(TestCase):
 
-    def make_download(self, download_dir, contents=None):
-        """Fake a downloaded image directory in `download_dir`.
-
-        :param download_dir: A directory (make sure it gets cleaned up
-            after your test!) where the fake image directory will be
-            created.  A sample file will be created inside the image
-            directory.
-        :param contents: Optional contents for the sample file in the image
-            directory.  If none is given, it will have arbitrary contents.
-        :return: A tuple: (image directory, image file, image file contents).
-            For example, if this returns ('foo', 'bar', 'splat') then your
-            `download_dir` now contains a directory `foo`, which contains a
-            file `bar`, which contains the text "splat".
-        """
-        if contents is None:
-            contents = factory.getRandomString()
-        source_dir = factory.getRandomString()
-        source_path = os.path.join(download_dir, source_dir)
-        os.makedirs(source_path)
-        testfile = factory.make_file(source_path, contents=contents)
-        return source_dir, os.path.basename(testfile), contents
-
-    def test_installs_new_image(self):
-        pxe_target_dir = self.make_dir()
-        arch, subarch, release = make_arch_subarch_release()
-        purpose = make_random_string('purpose')
+    def test_integration(self):
         download_dir = self.make_dir()
-        source_dir, source_file, contents = self.make_download(download_dir)
+        image_dir = os.path.join(download_dir, 'image')
+        os.makedirs(image_dir)
+        factory.make_file(image_dir, 'kernel')
+        pxe_target_dir = self.make_dir()
 
         call_command(
-            'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
-            subarch=subarch, release=release, purpose=purpose,
-            image=os.path.join(download_dir, source_dir))
+            'install_pxe_image', arch='arch', subarch='subarch',
+            release='release', purpose='purpose', image=image_dir,
+            pxe_target_dir=pxe_target_dir)
 
         self.assertThat(
             os.path.join(
-                make_destination(pxe_target_dir, arch, subarch, release),
-                purpose, os.path.basename(source_file)),
-            FileContains(contents))
-
-    def test_updates_changed_image(self):
-        pxe_target_dir = self.make_dir()
-        arch, subarch, release = make_arch_subarch_release()
-        purpose = make_random_string('purpose')
-        download_dir = self.make_dir()
-        source_dir, source_file, contents = self.make_download(
-            download_dir, contents="Old contents")
-        source_path = os.path.join(download_dir, source_dir)
-        pxe_target_dir = self.make_dir()
-        target_path = os.path.join(
-            pxe_target_dir, arch, subarch, release, purpose, source_file)
-
-        call_command(
-            'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
-            subarch=subarch, release=release, purpose=purpose,
-            image=source_path)
-
-        os.makedirs(source_path)
-        factory.make_file(
-            source_path, name=source_file, contents="New contents")
-
-        call_command(
-            'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
-            subarch=subarch, release=release, purpose=purpose,
-            image=source_path)
-
-        self.assertThat(target_path, FileContains("New contents"))
-
-    def test_leaves_unchanged_image_untouched(self):
-        pxe_target_dir = self.make_dir()
-        arch, subarch, release = make_arch_subarch_release()
-        purpose = make_random_string('purpose')
-        download_dir = self.make_dir()
-        source_dir, source_file, contents = self.make_download(download_dir)
-        source_path = os.path.join(download_dir, source_dir)
-        pxe_target_dir = self.make_dir()
-        target_path = os.path.join(
-            pxe_target_dir, arch, subarch, release, purpose, source_file)
-
-        call_command(
-            'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
-            subarch=subarch, release=release, purpose=purpose,
-            image=source_path)
-
-        age_file(target_path, 1)
-        target_mtime = get_write_time(target_path)
-
-        os.makedirs(source_path)
-        factory.make_file(source_path, name=source_file, contents=contents)
-
-        call_command(
-            'install_pxe_image', pxe_target_dir=pxe_target_dir, arch=arch,
-            subarch=subarch, release=release, purpose=purpose,
-            image=source_path)
-
-        self.assertThat(target_path, FileContains(contents))
-        self.assertFalse(os.path.isdir(source_path))
-        self.assertEqual(target_mtime, get_write_time(target_path))
+                pxe_target_dir, 'arch', 'subarch', 'release', 'purpose',
+                'kernel'),
+            FileExists())
 
     def test_make_destination_follows_pxe_path_conventions(self):
         # The directory that make_destination returns follows the PXE
