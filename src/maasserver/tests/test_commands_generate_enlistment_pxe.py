@@ -18,6 +18,8 @@ from django.core.management import call_command
 from maasserver.enum import ARCHITECTURE_CHOICES
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maasserver.utils import absolute_reverse
+from maastesting.matchers import ContainsAll
 from provisioningserver.pxe.pxeconfig import PXEConfig
 
 
@@ -32,12 +34,21 @@ class TestGenerateEnlistmentPXE(TestCase):
             'generate_enlistment_pxe', arch=arch, release=release,
             pxe_target_dir=tftpdir)
         # This produces a "default" PXE config file in the right place.
-        # It refers to the kernel and initrd for the requested
-        # architecture and release.
         result_path = os.path.join(
             tftpdir, arch, 'generic', 'pxelinux.cfg', 'default')
         with open(result_path) as result_file:
             contents = result_file.read()
-        self.assertIn(
-            '/'.join(['/maas', arch, 'generic', release, 'install', 'linux']),
-            contents)
+        enlistment_url = absolute_reverse(
+            'metadata-enlist-preseed',
+            query_dict={'op': 'get_enlist_preseed'},
+            kwargs={'version': 'latest'})
+        self.assertThat(
+            contents,
+            ContainsAll([
+                # The file refers to the kernel and initrd for the
+                # requested architecture and release.
+                '/'.join([
+                    '/maas', arch, 'generic', release, 'install', 'linux']),
+                # The file contains the enlistment url from the metadata API.
+                'auto url=%s' % enlistment_url,
+                ]))

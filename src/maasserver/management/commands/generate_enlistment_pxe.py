@@ -23,6 +23,7 @@ __all__ = [
 from optparse import make_option
 
 from django.core.management.base import BaseCommand
+from maasserver.utils import absolute_reverse
 from provisioningserver.pxe.pxeconfig import PXEConfig
 
 
@@ -47,6 +48,10 @@ class Command(BaseCommand):
     def handle(self, arch=None, subarch='generic', release=None,
                pxe_target_dir=None, **kwargs):
         image_path = '/maas/%s/%s/%s/install' % (arch, subarch, release)
+        enlistment_url = absolute_reverse(
+            'metadata-enlist-preseed',
+            query_dict={'op': 'get_enlist_preseed'},
+            kwargs={'version': 'latest'})
         # TODO: This needs to go somewhere more appropriate, and
         # probably contain more appropriate options.
         kernel_opts = ' '.join([
@@ -62,6 +67,7 @@ class Command(BaseCommand):
             'priority=critical',
             'local=en_US',
             'netcfg/choose_interface=auto',
+            'auto url=%s' % enlistment_url,
             ])
         template_args = {
             'menutitle': "Enlisting with MAAS",
