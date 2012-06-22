@@ -17,6 +17,7 @@ import os
 from django.core.management import call_command
 from maasserver.management.commands.install_pxe_image import (
     are_identical_dirs,
+    install_dir,
     make_destination,
     )
 from maasserver.testing.factory import factory
@@ -28,6 +29,8 @@ from maastesting.utils import (
 from testtools.matchers import (
     DirExists,
     FileContains,
+    FileExists,
+    Not,
     )
 
 
@@ -224,3 +227,29 @@ class TestInstallPXEImage(TestCase):
             self.make_file(name=shared_file, contents=contents))
         factory.make_file(old)
         self.assertFalse(are_identical_dirs(old, new))
+
+    def test_install_dir_moves_dir_into_place(self):
+        download_image = os.path.join(self.make_dir(), 'download-image')
+        published_image = os.path.join(self.make_dir(), 'published-image')
+        contents = factory.getRandomString()
+        os.makedirs(download_image)
+        sample_file = factory.make_file(download_image, contents=contents)
+        install_dir(download_image, published_image)
+        self.assertThat(
+            os.path.join(published_image, sample_file),
+            FileContains(contents))
+        self.assertThat(download_image, Not(DirExists()))
+
+    def test_install_dir_replaces_existing_dir(self):
+        download_image = os.path.join(self.make_dir(), 'download-image')
+        published_image = os.path.join(self.make_dir(), 'published-image')
+        os.makedirs(download_image)
+        sample_file = factory.make_file(download_image)
+        os.makedirs(published_image)
+        obsolete_file = factory.make_file(published_image)
+        install_dir(download_image, published_image)
+        self.assertThat(
+            os.path.join(published_image, sample_file), FileExists())
+        self.assertThat(
+            os.path.join(published_image, obsolete_file), Not(FileExists()))
+        self.assertThat(download_image, Not(DirExists()))
