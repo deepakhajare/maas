@@ -50,21 +50,54 @@ def are_identical_dirs(old, new):
     assert os.path.isdir(new)
     if os.path.isdir(old):
         files = set(os.listdir(old) + os.listdir(new))
+        # The shallow=False is needed to make cmpfiles() compare file
+        # contents.  Otherwise it only compares os.stat() results,
         match, mismatch, errors = cmpfiles(old, new, files, shallow=False)
         return len(match) == len(files)
     else:
         return False
 
 
+def remove_if_exists(directory):
+    """Recursively remove `directory` if it exists."""
+    if os.path.isdir(directory):
+        rmtree(directory)
+
+
 def install_dir(new, old):
     """Install directory `new`, replacing directory `old` if it exists.
 
-    This works as atomically as possible, but isn't entirely.
+    This works as atomically as possible, but isn't entirely.  Moreover,
+    any TFTP downloads that are reading from the old directory during
+    the move may receive inconsistent data, with some of the files (or
+    parts of files!) coming from the old directory and some from the
+    new.
 
     Some temporary paths will be used that are identical to `old`, but with
     suffixes ".old" or ".new".  If either of these directories already
     exists, it will be mercilessly deleted.
     """
+    # Get rid of any leftover temporary directories from potential
+    # interrupted previous runs.
+    remove_if_exists('%s.old' % old)
+    remove_if_exists('%s.new' % old)
+
+    # We have to move the existing directory out of the way and the new
+    # one into place.  Between those steps, there is a window where
+    # neither is in place.  To minimize that window, move the new one
+    # into the same location (ensuring that it no longer needs copying
+    # from one partition to another) and then swizzle the two as quickly
+    # as possible.
+    os.rename(new, '%s.new' % old)
+
+    # Start of critical window.
+    if os.path.isdir(old):
+        os.rename(old, '%s.old' % old)
+    os.rename('%s.new' % old, old)
+    # End of critical window.
+
+    # Now delete the old image directory at leisure.
+    remove_if_exists('%s.old' % old)
 
 
 class Command(BaseCommand):

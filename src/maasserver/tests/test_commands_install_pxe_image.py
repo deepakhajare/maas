@@ -236,7 +236,7 @@ class TestInstallPXEImage(TestCase):
         sample_file = factory.make_file(download_image, contents=contents)
         install_dir(download_image, published_image)
         self.assertThat(
-            os.path.join(published_image, sample_file),
+            os.path.join(published_image, os.path.basename(sample_file)),
             FileContains(contents))
         self.assertThat(download_image, Not(DirExists()))
 
@@ -249,7 +249,7 @@ class TestInstallPXEImage(TestCase):
         obsolete_file = factory.make_file(published_image)
         install_dir(download_image, published_image)
         self.assertThat(
-            os.path.join(published_image, sample_file), FileExists())
-        self.assertThat(
-            os.path.join(published_image, obsolete_file), Not(FileExists()))
+            os.path.join(published_image, os.path.basename(sample_file)),
+            FileExists())
+        self.assertThat(obsolete_file, Not(FileExists()))
         self.assertThat(download_image, Not(DirExists()))
