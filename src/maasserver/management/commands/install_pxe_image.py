@@ -15,8 +15,44 @@ __all__ = [
     ]
 
 from optparse import make_option
+import os.path
+from shutil import rmtree
 
+from celeryconfig import PXE_TARGET_DIR
 from django.core.management.base import BaseCommand
+
+
+def make_destination(pxe_target_dir, arch, subarch, release):
+    """Locate the destination directory, creating it if necessary.
+
+    :param pxe_target_dir: The TFTP directory containing the MAAS portion
+        of the PXE directory tree, e.g. /var/lib/tftpboot/maas/.
+    :param arch: Main architecture to locate the destination for.
+    :param subarch: Sub-architecture of the main architecture.
+    :param release: OS release name, e.g. "precise".
+    :return: Path of the destination directory that the image directory
+        should be stored in.
+    """
+
+
+def identical_dirs(old, new):
+    """Do directories `old` and `new` contain identical files?
+
+    It's OK for `old` not to exist; that is considered a difference rather
+    than an error.  But `new` is assumed to exist - if it doesn't, you
+    shouldn't have come far enough to call this function.
+    """
+
+
+def install_dir(new, old):
+    """Install directory `new`, replacing directory `old` if it exists.
+
+    This works as atomically as possible, but isn't entirely.
+
+    Some temporary paths will be used that are identical to `old`, but with
+    suffixes ".old" or ".new".  If either of these directories already
+    exists, it will be mercilessly deleted.
+    """
 
 
 class Command(BaseCommand):
@@ -45,10 +81,19 @@ class Command(BaseCommand):
             '--image', dest='image', default=None,
             help="Netboot image directory, containing kernel & initrd."),
         make_option(
-            '--pxe-target-dir', dest='pxe_target_dir', default=None,
+            '--pxe-target-dir', dest='pxe_target_dir', default=PXE_TARGET_DIR,
             help="Store to this TFTP directory tree instead of the default."),
         )
 
     def handle(self, arch=None, subarch='generic', release=None, purpose=None,
                image=None, pxe_target_dir=None, **kwargs):
-        pass
+        if pxe_target_dir is None:
+            pxe_target_dir = PXE_TARGET_DIR
+
+        dest = make_destination(pxe_target_dir, arch, subarch, release)
+        if identical_dirs(image, os.path.join(dest, purpose)):
+            # Nothing new in this image.  Delete it.
+            rmtree(image)
+        else:
+            # Image has changed.  Move the new version into place.
+            install_dir(image, os.path.join(dest, purpose))
