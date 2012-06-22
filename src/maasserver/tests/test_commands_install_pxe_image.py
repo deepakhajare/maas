@@ -189,8 +189,8 @@ class TestInstallPXEImage(TestCase):
     def test_are_identical_dirs_sees_missing_old_dir_as_different(self):
         self.assertFalse(
             are_identical_dirs(
-                self.make_dir(),
-                os.path.join(self.make_dir(), factory.getRandomString())))
+                os.path.join(self.make_dir(), factory.getRandomString()),
+                os.path.dirname(self.make_file())))
 
     def test_are_identical_dirs_returns_true_if_identical(self):
         name = factory.getRandomString()
@@ -201,9 +201,9 @@ class TestInstallPXEImage(TestCase):
 
     def test_are_identical_dirs_returns_false_if_file_has_changed(self):
         name = factory.getRandomString()
-        self.assertFalse(are_identical_dirs(
-            os.path.dirname(self.make_file(name=name)),
-            os.path.dirname(self.make_file(name=name))))
+        old = os.path.dirname(self.make_file(name=name))
+        new = os.path.dirname(self.make_file(name=name))
+        self.assertFalse(are_identical_dirs(old, new))
 
     def test_are_identical_dirs_returns_false_if_file_was_added(self):
         shared_file = factory.getRandomString()

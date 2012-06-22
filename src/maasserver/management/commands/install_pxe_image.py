@@ -14,6 +14,7 @@ __all__ = [
     'Command',
     ]
 
+from filecmp import cmpfiles
 from optparse import make_option
 import os.path
 from shutil import rmtree
@@ -46,6 +47,13 @@ def are_identical_dirs(old, new):
     than an error.  But `new` is assumed to exist - if it doesn't, you
     shouldn't have come far enough to call this function.
     """
+    assert os.path.isdir(new)
+    if os.path.isdir(old):
+        files = set(os.listdir(old) + os.listdir(new))
+        match, mismatch, errors = cmpfiles(old, new, files, shallow=False)
+        return len(match) == len(files)
+    else:
+        return False
 
 
 def install_dir(new, old):
@@ -95,7 +103,7 @@ class Command(BaseCommand):
             pxe_target_dir = PXE_TARGET_DIR
 
         dest = make_destination(pxe_target_dir, arch, subarch, release)
-        if are_identical_dirs(image, os.path.join(dest, purpose)):
+        if are_identical_dirs(os.path.join(dest, purpose), image):
             # Nothing new in this image.  Delete it.
             rmtree(image)
         else:
