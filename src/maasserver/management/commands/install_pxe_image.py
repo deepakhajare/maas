@@ -39,7 +39,7 @@ def make_destination(pxe_target_dir, arch, subarch, release):
     return dest
 
 
-def identical_dirs(old, new):
+def are_identical_dirs(old, new):
     """Do directories `old` and `new` contain identical files?
 
     It's OK for `old` not to exist; that is considered a difference rather
@@ -95,7 +95,7 @@ class Command(BaseCommand):
             pxe_target_dir = PXE_TARGET_DIR
 
         dest = make_destination(pxe_target_dir, arch, subarch, release)
-        if identical_dirs(image, os.path.join(dest, purpose)):
+        if are_identical_dirs(image, os.path.join(dest, purpose)):
             # Nothing new in this image.  Delete it.
             rmtree(image)
         else:
