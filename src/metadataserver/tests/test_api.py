@@ -561,7 +561,8 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         # Fake the preseed so we're just exercising the view.
         fake_preseed = factory.getRandomString()
         self.patch(api, "get_enlist_preseed", lambda: fake_preseed)
-        response = self.client.get(anon_enlist_preseed_url)
+        response = self.client.get(
+            anon_enlist_preseed_url, {'op': 'get_enlist_preseed'})
         self.assertEqual(
             (httplib.OK,
              "text/plain",

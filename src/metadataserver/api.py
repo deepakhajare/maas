@@ -334,8 +334,8 @@ class UserDataHandler(MetadataViewHandler):
 class AnonMetaDataHandler(VersionIndexHandler):
     """Anonymous metadata."""
 
-    @staticmethod
-    def get_enlist_preseed(request, version=None):
+    @api_exported('GET')
+    def get_enlist_preseed(self, request, version=None):
         """Render and return a preseed script for enlistment."""
         return HttpResponse(get_enlist_preseed(), mimetype="text/plain")
 

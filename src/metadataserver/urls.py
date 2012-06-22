@@ -36,8 +36,7 @@ index_handler = Resource(IndexHandler, authentication=api_auth)
 
 
 # Handlers for anonymous metadata operations.
-meta_data_node_by_id_handler = Resource(AnonMetaDataHandler)
-meta_data_get_enlist_preseed = AnonMetaDataHandler.get_enlist_preseed
+meta_data_anon_handler = Resource(AnonMetaDataHandler)
 
 
 # Handlers for UNSAFE anonymous random metadata access.
@@ -71,11 +70,11 @@ by_id_patterns = patterns(
     # without authentication.  This is a security threat.
     url(
         r'(?P<version>[^/]+)/by-id/(?P<system_id>[\w\-]+)/$',
-        meta_data_node_by_id_handler,
+        meta_data_anon_handler,
         name='metadata-node-by-id'),
     url(
-        r'(?P<version>[^/]+)/enlist-preseed$',
-        meta_data_get_enlist_preseed,
+        r'(?P<version>[^/]+)/enlist-preseed/$',
+        meta_data_anon_handler,
         name='metadata-enlist-preseed'),
     )
 
