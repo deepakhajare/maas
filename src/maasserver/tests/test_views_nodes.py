@@ -115,7 +115,7 @@ class NodeViewsTest(LoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertNotIn('Owner', content_text)
 
-    def test_view_node_displays_link_to_view_pressed(self):
+    def test_view_node_displays_link_to_view_preseed(self):
         node = factory.make_node(owner=self.logged_in_user)
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
@@ -341,7 +341,7 @@ class NodeViewsTest(LoggedInTestCase):
 
 class NodePreseedViewTest(LoggedInTestCase):
 
-    def test_preseedview_node_displays_pressed_data(self):
+    def test_preseedview_node_displays_preseed_data(self):
         node = factory.make_node(owner=self.logged_in_user)
         node_preseed_link = reverse('node-preseed-view', args=[node.system_id])
         response = self.client.get(node_preseed_link)
