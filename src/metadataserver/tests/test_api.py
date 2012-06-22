@@ -554,7 +554,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
             (response.status_code, node.netboot),
             response)
 
-    def test_anonymous_generate_preseed(self):
+    def test_anonymous_get_preseed(self):
         # The preseed for a node can be obtained anonymously.
         node = factory.make_node()
         anon_node_url = reverse(
@@ -564,7 +564,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         fake_preseed = factory.getRandomString()
         self.patch(api, "get_preseed", lambda node: fake_preseed)
         response = self.client.get(
-            anon_node_url, {'op': 'generate_preseed'})
+            anon_node_url, {'op': 'get_preseed'})
         self.assertEqual(
             (httplib.OK,
              "text/plain",
