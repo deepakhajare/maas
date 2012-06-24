@@ -2,13 +2,9 @@
 MAAS Enums
 ==========
 
-.. automodule:: maasserver.enum
+.. autosummary::
+   :toctree: _autosummary
 
-.. autoclass:: NODE_STATUS
-    :members:
-
-.. autoclass:: NODE_AFTER_COMMISSIONING_ACTION
-    :members:
-
-.. autoclass:: ARCHITECTURE
-    :members:
+   maasserver.enum.NODE_STATUS
+   maasserver.enum.NODE_AFTER_COMMISSIONING_ACTION
+   maasserver.enum.ARCHITECTURE
