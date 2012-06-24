@@ -2,7 +2,7 @@
 MAAS Enums
 ==========
 
-.. automodule:: maasserver.models
+.. automodule:: maasserver.enum
 
 .. autoclass:: NODE_STATUS
     :members:
@@ -12,5 +12,3 @@ MAAS Enums
 
 .. autoclass:: ARCHITECTURE
     :members:
-
-

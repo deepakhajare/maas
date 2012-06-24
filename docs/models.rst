@@ -3,11 +3,7 @@ MAAS Objects
 ============
 
 
-.. automodule:: maasserver.models
-
-.. autoclass:: TimestampedModel
-    :show-inheritance:
-    :members:
+.. automodule:: maasserver.models.node
 
 .. autoclass:: Node
     :show-inheritance:
@@ -17,12 +13,23 @@ MAAS Objects
     :show-inheritance:
     :members:
 
-.. autoclass:: MACAddress
-    :show-inheritance:
-    :members:
+
+.. automodule:: maasserver.models.userprofile
 
 .. autoclass:: UserProfile
     :show-inheritance:
     :members:
 
 
+.. automodule:: maasserver.models.macaddress
+
+.. autoclass:: MACAddress
+    :show-inheritance:
+    :members:
+
+
+.. automodule:: maasserver.models.timestampedmodel
+
+.. autoclass:: TimestampedModel
+    :show-inheritance:
+    :members:
