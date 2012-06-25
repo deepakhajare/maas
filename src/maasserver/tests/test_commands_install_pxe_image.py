@@ -170,3 +170,22 @@ class TestInstallPXEImage(TestCase):
             os.path.join(published_image, os.path.basename(sample_file)),
             FileExists())
         self.assertThat(obsolete_file, Not(FileExists()))
+
+    def test_install_dir_sweeps_aside_dot_new_and_dot_old_if_any(self):
+        # If directories <old>.old or <old>.new already exist, they're
+        # probably from an aborted previous run.  They won't stop
+        # install_dir from doing its work.
+        download_image = os.path.join(self.make_dir(), 'download-image')
+        published_image = os.path.join(
+            self.make_dir(), factory.getRandomString())
+        contents = factory.getRandomString()
+        os.makedirs(download_image)
+        sample_file = factory.make_file(download_image, contents=contents)
+        os.makedirs('%s.old' % published_image)
+        os.makedirs('%s.new' % published_image)
+        install_dir(download_image, published_image)
+        self.assertThat(
+            os.path.join(published_image, os.path.basename(sample_file)),
+            FileContains(contents))
+        self.assertThat('%s.old' % published_image, Not(DirExists()))
+        self.assertThat('%s.new' % published_image, Not(DirExists()))
