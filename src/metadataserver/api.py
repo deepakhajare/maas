@@ -336,6 +336,5 @@ class AnonMetaDataHandler(VersionIndexHandler):
         it finishes installing itself.
         """
         node = get_object_or_404(Node, system_id=system_id)
-        node.netboot = False
-        node.save()
+        node.set_netboot(False)
         return rc.ALL_OK
