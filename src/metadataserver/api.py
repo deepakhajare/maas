@@ -237,16 +237,14 @@ class VersionIndexHandler(MetadataViewHandler):
         it finishes installing itself.
         """
         node = get_queried_node(request, for_mac=mac)
-        node.netboot = False
-        node.save()
+        node.set_netboot(False)
         return rc.ALL_OK
 
     @api_exported('POST')
     def netboot_on(self, request, version=None, mac=None):
         """Turn on netboot on the node."""
         node = get_queried_node(request, for_mac=mac)
-        node.netboot = True
-        node.save()
+        node.set_netboot(True)
         return rc.ALL_OK
 
 
