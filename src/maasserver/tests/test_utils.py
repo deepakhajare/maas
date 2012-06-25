@@ -74,7 +74,7 @@ class TestAbsoluteReverse(DjangoTestCase):
     def test_absolute_reverse_uses_query_string(self):
         self.patch(settings, 'DEFAULT_MAAS_URL', '')
         parameters = {factory.getRandomString(): factory.getRandomString()}
-        absolute_url = absolute_reverse('settings', query_dict=parameters)
+        absolute_url = absolute_reverse('settings', query=parameters)
         expected_url = '%s?%s' % (reverse('settings'), urlencode(parameters))
         self.assertEqual(expected_url, absolute_url)
 
