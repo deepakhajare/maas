@@ -17,7 +17,10 @@ __all__ = [
 from filecmp import cmpfiles
 from optparse import make_option
 import os.path
-from shutil import rmtree
+from shutil import (
+    copytree,
+    rmtree,
+    )
 
 from celeryconfig import PXE_TARGET_DIR
 from django.core.management.base import BaseCommand
@@ -58,12 +61,6 @@ def are_identical_dirs(old, new):
         return False
 
 
-def remove_if_exists(directory):
-    """Recursively remove `directory` if it exists."""
-    if os.path.isdir(directory):
-        rmtree(directory)
-
-
 def install_dir(new, old):
     """Install directory `new`, replacing directory `old` if it exists.
 
@@ -76,11 +73,15 @@ def install_dir(new, old):
     Some temporary paths will be used that are identical to `old`, but with
     suffixes ".old" or ".new".  If either of these directories already
     exists, it will be mercilessly deleted.
+
+    This function makes no promises about whether it moves or copies
+    `new` into place.  The caller should make an attempt to clean it up,
+    but be prepared for it not being there.
     """
     # Get rid of any leftover temporary directories from potential
     # interrupted previous runs.
-    remove_if_exists('%s.old' % old)
-    remove_if_exists('%s.new' % old)
+    rmtree('%s.old' % old, ignore_errors=True)
+    rmtree('%s.new' % old, ignore_errors=True)
 
     # We have to move the existing directory out of the way and the new
     # one into place.  Between those steps, there is a window where
@@ -88,7 +89,12 @@ def install_dir(new, old):
     # into the same location (ensuring that it no longer needs copying
     # from one partition to another) and then swizzle the two as quickly
     # as possible.
-    os.rename(new, '%s.new' % old)
+    # This could be a simple "remove" if the downloaded image is on the
+    # same filesystem as the destination, but because that isn't
+    # certain, copy instead.  It's not particularly fast, but the extra
+    # work happens outside the critical window so it shouldn't matter
+    # much.
+    copytree(new, '%s.new' % old)
 
     # Start of critical window.
     if os.path.isdir(old):
@@ -97,7 +103,7 @@ def install_dir(new, old):
     # End of critical window.
 
     # Now delete the old image directory at leisure.
-    remove_if_exists('%s.old' % old)
+    rmtree('%s.old' % old, ignore_errors=True)
 
 
 class Command(BaseCommand):
@@ -136,9 +142,7 @@ class Command(BaseCommand):
             pxe_target_dir = PXE_TARGET_DIR
 
         dest = make_destination(pxe_target_dir, arch, subarch, release)
-        if are_identical_dirs(os.path.join(dest, purpose), image):
-            # Nothing new in this image.  Delete it.
-            rmtree(image)
-        else:
+        if not are_identical_dirs(os.path.join(dest, purpose), image):
             # Image has changed.  Move the new version into place.
             install_dir(image, os.path.join(dest, purpose))
+        rmtree(image, ignore_errors=True)

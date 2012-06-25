@@ -157,7 +157,6 @@ class TestInstallPXEImage(TestCase):
         self.assertThat(
             os.path.join(published_image, os.path.basename(sample_file)),
             FileContains(contents))
-        self.assertThat(download_image, Not(DirExists()))
 
     def test_install_dir_replaces_existing_dir(self):
         download_image = os.path.join(self.make_dir(), 'download-image')
@@ -171,4 +170,3 @@ class TestInstallPXEImage(TestCase):
             os.path.join(published_image, os.path.basename(sample_file)),
             FileExists())
         self.assertThat(obsolete_file, Not(FileExists()))
-        self.assertThat(download_image, Not(DirExists()))
