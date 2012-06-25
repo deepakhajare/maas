@@ -81,7 +81,7 @@ class TestFactory(TestCase):
     def test_make_name_returns_unicode(self):
         self.assertIsInstance(factory.make_name(), unicode)
 
-    def test_make_name_combines_prefix_sep_and_random_text(self):
+    def test_make_name_includes_prefix_and_separator(self):
         self.assertThat(factory.make_name('abc'), StartsWith('abc-'))
 
     def test_make_name_includes_random_text_of_requested_length(self):
@@ -90,8 +90,12 @@ class TestFactory(TestCase):
             len('prefix') + len('-') + size,
             len(factory.make_name('prefix', size=size)))
 
+    def test_make_name_includes_random_text(self):
+        self.assertNotEqual(
+            factory.make_name(size=100), factory.make_name(size=100))
+
     def test_make_name_uses_configurable_separator(self):
-        sep = ':%s:' % factory.getRandomString(3)
+        sep = 'SEPARATOR'
         prefix = factory.getRandomString(3)
         self.assertThat(
             factory.make_name(prefix, sep=sep),
