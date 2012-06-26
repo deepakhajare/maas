@@ -68,4 +68,4 @@ def locate_tftp_path(tftp_path, tftproot=None):
     """
     if tftproot is None:
         tftproot = TFTPROOT
-    return os.path.join(tftproot, tftp_path)
+    return os.path.join(tftproot, tftp_path.lstrip('/'))
