@@ -36,11 +36,17 @@ LOCAL_STATIC_ROOT = os.path.join(
 def get_location(abs_location=None, rel_location=None):
     """Return the absolute location of a static resource.
 
-    If the given absolute location (abs_location) is not None: return it.
-    If the STATIC_ROOT setting is not null, use it as the root for the given
-    relative location.
+    This utility exist to deal with the various places where MAAS can
+    find static resources.
+
+    If the given absolute location (abs_location) is not None: return it. This
+    will be used mainly when the resources will be provided by a package.
+    If no absolute location is given (this means that the resources must be
+    served from the tree) then use the relative location.
+    If the STATIC_ROOT setting is not null, meaning that this is a production
+    setup, use it as the root for the given relative location.
     Otherwise, use LOCAL_STATIC_ROOT as the root for the given relative
-    location.
+    location (this means that it's a development setup).
 
     :param abs_location: An optional absolute location.
     :type abs_location: basestring

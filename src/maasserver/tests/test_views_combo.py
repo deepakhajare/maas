@@ -34,7 +34,7 @@ class TestUtilities(TestCase):
         self.assertEqual(
             abs_location, get_location(
                 abs_location=abs_location,
-                rel_location=factory.getRandomString()))
+                rel_location=[factory.getRandomString()]))
 
     def test_get_location_returns_rel_location_if_static_root_not_none(self):
         static_root = factory.getRandomString()
@@ -120,7 +120,7 @@ class TestComboLoaderView(TestCase):
         response = self.client.get(reverse('combo-yui'))
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    def test_yui_combo_wrong_file_extension_returns_bad_request(self):
+    def test_yui_combo_other_file_extension_returns_bad_request(self):
         url = '%s?%s' % (reverse('combo-yui'), 'file.wrongextension')
         response = self.client.get(url)
         self.assertEqual(
