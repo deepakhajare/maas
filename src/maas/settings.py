@@ -72,12 +72,15 @@ if FORCE_SCRIPT_NAME is not None:
 API_URL_REGEXP = '^/api/1[.]0/'
 METADATA_URL_REGEXP = '^/metadata/'
 
-YUI_COMBO_URL = "combo/"
 # We handle exceptions ourselves (in
 # maasserver.middleware.APIErrorsMiddleware)
 PISTON_DISPLAY_ERRORS = False
 
 TEMPLATE_DEBUG = DEBUG
+
+# Set this to where Raphael JS's files can be found to serve these files
+# from a custom location.
+RAPHAELJS_LOCATION = None
 
 YUI_DEBUG = DEBUG
 
@@ -211,6 +214,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.contrib.messages.context_processors.messages",
     "maasserver.context_processors.yui",
     "maasserver.context_processors.global_options",
+    "maasserver.context_processors.static_ressources",
 )
 
 MIDDLEWARE_CLASSES = (
