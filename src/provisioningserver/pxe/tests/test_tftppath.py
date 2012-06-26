@@ -22,7 +22,10 @@ from provisioningserver.pxe.tftppath import (
     compose_image_path,
     locate_tftp_path,
     )
-from testtools.matchers import Not, StartsWith
+from testtools.matchers import (
+    Not,
+    StartsWith,
+    )
 
 
 class TestTFTPPath(TestCase):
