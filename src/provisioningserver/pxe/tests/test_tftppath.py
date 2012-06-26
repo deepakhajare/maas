@@ -64,7 +64,15 @@ class TestTFTPPath(TestCase):
             compose_image_path(arch, subarch, release, purpose),
             Not(StartsWith('/var/lib')))
 
-    def test_locate_tftp_path_prefixes_tftp_root(self):
+    def test_locate_tftp_path_prefixes_tftp_root_by_default(self):
+        pxefile = factory.make_name('pxefile')
         self.assertEqual(
-            os.path.join(TFTPROOT, 'x'),
-            locate_tftp_path('x'))
+            os.path.join(TFTPROOT, pxefile),
+            locate_tftp_path(pxefile))
+
+    def test_locate_tftp_path_overrides_default_tftproot(self):
+        tftproot = '/%s' % factory.make_name('tftproot')
+        pxefile = factory.make_name('pxefile')
+        self.assertEqual(
+            os.path.join(tftproot, pxefile),
+            locate_tftp_path(pxefile, tftproot=tftproot))
