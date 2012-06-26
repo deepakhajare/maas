@@ -16,6 +16,10 @@ __all__ = [
     'locate_tftp_path',
     ]
 
+import os.path
+
+from celeryconfig import TFTPROOT
+
 
 def compose_config_path(arch, subarch, name):
     """Compose the TFTP path for a PXE configuration file.
@@ -29,6 +33,9 @@ def compose_config_path(arch, subarch, name):
     :return: Path for the corresponding PXE config file as exposed over
         TFTP.
     """
+    # Not using os.path.join: this is a TFTP path, not a native path.
+    # Yes, in practice for us they're the same.
+    return '/'.join(['/maas', arch, subarch, 'pxelinux.cfg', name])
 
 
 def compose_image_path(arch, subarch, release, purpose):
@@ -45,6 +52,7 @@ def compose_image_path(arch, subarch, release, purpose):
     :return: Path for the corresponding image directory (containing a
         kernel and initrd) as exposed over TFTP.
     """
+    return '/'.join(['/maas', arch, subarch, release, purpose])
 
 
 def locate_tftp_path(tftp_path):
@@ -53,3 +61,4 @@ def locate_tftp_path(tftp_path):
     The return value gives the filesystem path where you'd have to put
     a file if you wanted it made available over TFTP as `tftp_path`.
     """
+    return os.path.join(TFTPROOT, tftp_path)
