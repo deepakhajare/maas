@@ -23,18 +23,13 @@ from maasserver.views.combo import get_combo_view
 
 urlpatterns = patterns('',
     url(
-        r'^maas/', get_combo_view(rel_location=None),
-        name='combo-maas'),
+        r'^maas/', get_combo_view(), name='combo-maas'),
     url(
         r'^raphael/',
-        get_combo_view(
-            abs_location=django_settings.RAPHAELJS_LOCATION,
-            rel_location=['jslibs', 'raphael']),
+        get_combo_view(location=django_settings.RAPHAELJS_LOCATION),
         name='combo-raphael'),
     url(
         r'^yui/',
-        get_combo_view(
-            abs_location=django_settings.YUI_LOCATION,
-            rel_location=['jslibs', 'yui']),
+        get_combo_view(location=django_settings.YUI_LOCATION),
         name='combo-yui'),
 )

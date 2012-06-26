@@ -33,54 +33,42 @@ LOCAL_STATIC_ROOT = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'static')
 
 
-def get_location(abs_location=None, rel_location=None):
+def get_absolute_location(location=''):
     """Return the absolute location of a static resource.
 
     This utility exist to deal with the various places where MAAS can
     find static resources.
 
-    If the given absolute location (abs_location) is not None: return it. This
-    will be used mainly when the resources will be provided by a package.
-    If no absolute location is given (this means that the resources must be
-    served from the tree) then use the relative location.
+    If the given location is an absolute location, return it.
+    If not, treat the location as a relative location.
     If the STATIC_ROOT setting is not null, meaning that this is a production
     setup, use it as the root for the given relative location.
     Otherwise, use LOCAL_STATIC_ROOT as the root for the given relative
     location (this means that it's a development setup).
 
-    :param abs_location: An optional absolute location.
-    :type abs_location: basestring
-    :param rel_location: A list of path elements composing the relative
-        location where the static resources can be found.
-    :param rel_location: A list of path elements or None.
-    :type rel_location: list
+    :param location: An optional absolute or relative location.
+    :type location: basestring
     :return: The absolute path.
     :rtype: basestring
     """
-    if rel_location is None:
-        rel_location = ['']
-    if abs_location is not None:
-        return abs_location
+    if location.startswith(os.path.sep):
+        return location
     elif django_settings.STATIC_ROOT:
         return os.path.join(
-            django_settings.STATIC_ROOT, *rel_location)
+            django_settings.STATIC_ROOT, location)
     else:
-        return os.path.join(LOCAL_STATIC_ROOT, *rel_location)
+        return os.path.join(LOCAL_STATIC_ROOT, location)
 
 
-def get_combo_view(abs_location=None, rel_location=None):
+def get_combo_view(location=''):
     """Return a Django view to serve static resources using a combo loader.
 
-    :param abs_location: An optional absolute location.
-    :type abs_location: basestring or None
-    :param rel_location: A list of path elements composing the relative
-        location where the static resources can be found.
-    :type rel_location: list or None
+    :param location: An optional absolute or relative location.
+    :type location: basestring
     :return: A Django view method.
     :rtype: callable
     """
-    location = get_location(
-        abs_location=abs_location, rel_location=rel_location)
+    location = get_absolute_location(location)
     return partial(combo_view, location=location)
 
 

@@ -22,40 +22,41 @@ from django.test.client import RequestFactory
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.views.combo import (
+    get_absolute_location,
     get_combo_view,
-    get_location,
     )
 
 
 class TestUtilities(TestCase):
 
-    def test_get_location_returns_absolute_location_if_not_None(self):
-        abs_location = factory.getRandomString()
+    def test_get_abs_location_returns_absolute_location_if_not_None(self):
+        abs_location = '%s%s' % (os.path.sep, factory.getRandomString())
         self.assertEqual(
-            abs_location, get_location(
-                abs_location=abs_location,
-                rel_location=[factory.getRandomString()]))
+            abs_location, get_absolute_location(location=abs_location))
 
-    def test_get_location_returns_rel_location_if_static_root_not_none(self):
+    def test_get_abs_location_returns_rel_loc_if_static_root_not_none(self):
         static_root = factory.getRandomString()
         self.patch(settings, 'STATIC_ROOT', static_root)
-        rel_location = [factory.getRandomString(), factory.getRandomString()]
-        expected_location = os.path.join(static_root, *rel_location)
+        rel_location = os.path.join(
+            factory.getRandomString(), factory.getRandomString())
+        expected_location = os.path.join(static_root, rel_location)
         self.assertEqual(
-            expected_location, get_location(rel_location=rel_location))
+            expected_location, get_absolute_location(location=rel_location))
 
-    def test_yui_location_returns_rel_location_if_static_root_is_none(self):
+    def test_get_abs_location_returns_rel_loc_if_static_root_is_none(self):
         self.patch(settings, 'STATIC_ROOT', None)
-        rel_location = [factory.getRandomString(), factory.getRandomString()]
+        rel_location = os.path.join(
+            factory.getRandomString(), factory.getRandomString())
         rel_location_base = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), 'static')
-        expected_location = os.path.join(rel_location_base, *rel_location)
+        expected_location = os.path.join(rel_location_base, rel_location)
         self.assertEqual(
-            expected_location, get_location(rel_location=rel_location))
+            expected_location, get_absolute_location(location=rel_location))
 
     def test_get_combo_view_returns_callable(self):
-        rel_location = [factory.getRandomString(), factory.getRandomString()]
-        view = get_combo_view(factory.getRandomString(), rel_location)
+        rel_location = os.path.join(
+            factory.getRandomString(), factory.getRandomString())
+        view = get_combo_view(rel_location)
         self.assertIsInstance(view, Callable)
 
     def test_get_combo_view_loads_from_disk(self):
@@ -66,8 +67,7 @@ class TestUtilities(TestCase):
         test_file = self.make_file(
             name=test_file_name, contents=test_file_contents)
         directory = os.path.dirname(test_file)
-        rel_location = [factory.getRandomString(), factory.getRandomString()]
-        view = get_combo_view(directory, rel_location)
+        view = get_combo_view(directory)
         # Create a request for test file.
         rf = RequestFactory()
         request = rf.get("/test/?%s" % test_file_name)
