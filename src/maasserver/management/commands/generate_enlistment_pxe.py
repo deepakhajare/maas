@@ -41,7 +41,7 @@ class Command(BaseCommand):
             help="Ubuntu release to run when enlisting nodes."),
         make_option(
             '--tftproot', dest='tftproot', default=None,
-            help="Root TFTP directory to place config into."),
+            help="Root of TFTP directory hierarchy to place config into."),
         )
 
     def handle(self, arch=None, subarch='generic', release=None,
