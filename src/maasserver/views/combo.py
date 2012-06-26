@@ -34,7 +34,7 @@ LOCAL_STATIC_ROOT = os.path.join(
 
 
 def get_location(abs_location=None, rel_location=None):
-    """Return the absolute location of a static ressource.
+    """Return the absolute location of a static resource.
 
     If the given absolute location (abs_location) is not None: return it.
     If the STATIC_ROOT setting is not null, use it as the root for the given
@@ -45,7 +45,7 @@ def get_location(abs_location=None, rel_location=None):
     :param abs_location: An optional absolute location.
     :type abs_location: basestring
     :param rel_location: A list of path elements composing the relative
-        location where the static ressources can be found.
+        location where the static resources can be found.
     :param rel_location: A list of path elements or None.
     :type rel_location: list
     :return: The absolute path.
@@ -63,12 +63,12 @@ def get_location(abs_location=None, rel_location=None):
 
 
 def get_combo_view(abs_location=None, rel_location=None):
-    """Return a Django view to serve static ressources using a combo loader.
+    """Return a Django view to serve static resources using a combo loader.
 
     :param abs_location: An optional absolute location.
     :type abs_location: basestring or None
     :param rel_location: A list of path elements composing the relative
-        location where the static ressources can be found.
+        location where the static resources can be found.
     :type rel_location: list or None
     :return: A Django view method.
     :rtype: callable

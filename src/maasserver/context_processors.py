@@ -11,6 +11,8 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "global_options",
+    "static_resources",
     "yui",
     ]
 
@@ -28,7 +30,7 @@ def yui(context):
     }
 
 
-def static_ressources(context):
+def static_resources(context):
     return {
         'CSS_LIST': [
             'css/base.css',

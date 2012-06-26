@@ -214,7 +214,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.contrib.messages.context_processors.messages",
     "maasserver.context_processors.yui",
     "maasserver.context_processors.global_options",
-    "maasserver.context_processors.static_ressources",
+    "maasserver.context_processors.static_resources",
 )
 
 MIDDLEWARE_CLASSES = (
