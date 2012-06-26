@@ -44,7 +44,7 @@ class TestTFTPPath(TestCase):
         name = factory.make_name('config')
         self.assertThat(
             compose_config_path(arch, subarch, name),
-            Not(StartsWith('/var/lib')))
+            Not(StartsWith(TFTPROOT)))
 
     def test_compose_image_path_follows_maas_pxe_directory_layout(self):
         arch = factory.make_name('arch')
@@ -62,7 +62,7 @@ class TestTFTPPath(TestCase):
         purpose = factory.make_name('purpose')
         self.assertThat(
             compose_image_path(arch, subarch, release, purpose),
-            Not(StartsWith('/var/lib')))
+            Not(StartsWith(TFTPROOT)))
 
     def test_locate_tftp_path_prefixes_tftp_root_by_default(self):
         pxefile = factory.make_name('pxefile')

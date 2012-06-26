@@ -50,8 +50,9 @@ class PXEConfig:
     :type mac: string
     :param tftproot: Base directory to write PXE configurations to,
         e.g.  /var/lib/tftpboot/ (which is also the default).  The config
-        file will go into a directory determined by the architecture that
-        it's for: `/maas/<arch>/<subarch>/pxelinux.cfg/`
+        file will go into a directory inside this tree that's determined by
+        the architecture that it's for:
+        `<tftproot>/maas/<arch>/<subarch>/pxelinux.cfg/`
     :type tftproot: string
 
     :raises PXEConfigFail: if there's a problem with template parameters
