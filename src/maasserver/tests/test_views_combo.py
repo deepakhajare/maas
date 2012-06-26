@@ -12,7 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from functools import partial
+from collections import Callable
 import httplib
 import os
 
@@ -53,10 +53,10 @@ class TestUtilities(TestCase):
         self.assertEqual(
             expected_location, get_location(rel_location=rel_location))
 
-    def test_get_combo_view_returns_partial(self):
+    def test_get_combo_view_returns_callable(self):
         rel_location = [factory.getRandomString(), factory.getRandomString()]
         view = get_combo_view(factory.getRandomString(), rel_location)
-        self.assertIsInstance(view, partial)
+        self.assertIsInstance(view, Callable)
 
     def test_get_combo_view_loads_from_disk(self):
         test_file_contents = factory.getRandomString()
