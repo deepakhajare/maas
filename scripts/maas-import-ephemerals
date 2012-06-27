@@ -382,7 +382,7 @@ install_tftp_image() {
     done
 
     maas install_pxe_image \
-        --arch=$arch --subarch=$2 --release=$release \
+        --arch=$arch --subarch=$subarch --release=$release \
         --purpose="commissioning" --image="$tmpdir"
 }
 
