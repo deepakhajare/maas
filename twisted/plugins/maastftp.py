@@ -12,9 +12,14 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from io import BytesIO
 from os import getcwd
+import re
 
-from tftp.backend import FilesystemSynchronousBackend
+from tftp.backend import (
+    FilesystemSynchronousBackend,
+    IReader,
+    )
 from tftp.protocol import TFTP
 from twisted.application import internet
 from twisted.application.service import IServiceMaker
@@ -22,9 +27,36 @@ from twisted.plugin import IPlugin
 from twisted.python import usage
 from zope.interface import implementer
 
-# Construct objects which *provide* the relevant interfaces. The name of
-# these variables is irrelevant, as long as there are *some* names bound
-# to providers of IPlugin and IServiceMaker.
+
+@implementer(IReader)
+class BytesReader:
+
+    def __init__(self, data):
+        super(BytesReader, self).__init__()
+        self.buffer = BytesIO(data)
+
+    def read(self, size):
+        return self.buffer.read(size)
+
+    def finish(self):
+        self.buffer.close()
+
+
+class TFTPBackend(FilesystemSynchronousBackend):
+
+    re_config_file = re.compile(
+        r'^maas/([^/]+)/([^/]+)/pxelinux[.]cfg/([^/]+)$')
+
+    def get_reader(self, file_name):
+        config_file_match = self.re_config_file.match(file_name)
+        if config_file_match is None:
+            return super(TFTPBackend, self).get_reader(file_name)
+        else:
+            arch, subarch, name = config_file_match.groups()
+            # TODO: return an actual PXE config file.
+            config_file = repr((arch, subarch, name)) + b"\n"
+            return BytesReader(config_file)
+
 
 @implementer(IServiceMaker, IPlugin)
 class TFTPServiceMaker:
@@ -38,8 +70,12 @@ class TFTPServiceMaker:
 
     def makeService(self, options):
         base = getcwd()
-        factory = TFTP(FilesystemSynchronousBackend(base))
+        backend = TFTPBackend(base, can_write=False)
+        factory = TFTP(backend)
         return internet.UDPServer(1069, factory)
 
 
+# Construct objects which *provide* the relevant interfaces. The name of
+# these variables is irrelevant, as long as there are *some* names bound
+# to providers of IPlugin and IServiceMaker.
 service = TFTPServiceMaker("maas-tftp", "...")  # TODO: finish
