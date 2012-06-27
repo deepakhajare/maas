@@ -313,6 +313,29 @@ replace() {
 	_RET=${input}
 }
 
+
+install_tftp_image() {
+    # Make image in directory $1, for architecture $2 and subarchitecture $3,
+    # and OS release $4, available over TFTP for netbooting nodes.  Only the
+    # kernel and initrd are needed.
+
+    local src="$1" arch="$2" subarch="$3" release="$4" tmpdir=""
+
+    # Create image in a temporary directory; the installation process
+    # deletes it.
+    tmpdir="$(mktemp -d)"
+
+    for filename in kernel initrd
+    do
+        cp -- "$src/$filename" "$src/"
+    done
+
+    maas install_pxe_image \
+        --arch=$arch --subarch=$2 --release=$release \
+        --purpose="commissioning" --image="$tmpdir"
+}
+
+
 short_opts="hciuv"
 long_opts="help,import,update,update-check,verbose"
 getopt_out=$(getopt --name "${0##*/}" \
@@ -409,6 +432,8 @@ for release in $RELEASES; do
 				"$r_release" "$r_stream" "$r_label" \
 				"$r_serial" "$r_arch" "$r_url" "$r_name" ||
 				fail "failed to prepare image for $release/$arch"
+
+            install_tftp_image "$wd" "$r_arch" "generic" "$r_release"
 
 			target_name="${TARGET_NAME_PREFIX}${r_name}"
 
