@@ -378,7 +378,7 @@ install_tftp_image() {
 
     for filename in kernel initrd
     do
-        cp -- "$src/$filename" "$src/"
+        cp -- "$src/$filename" "$tmpdir/"
     done
 
     maas install_pxe_image \
