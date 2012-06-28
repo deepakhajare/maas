@@ -19,6 +19,7 @@ __all__ = [
     'NodeGroup',
     'SSHKey',
     'UserProfile',
+    'Zone',
     ]
 
 from logging import getLogger
@@ -36,6 +37,7 @@ from maasserver.models.nodegroup import NodeGroup
 from maasserver.models.sshkey import SSHKey
 from maasserver.models.user import create_user
 from maasserver.models.userprofile import UserProfile
+from maasserver.models.zone import Zone
 from maasserver.utils import ignore_unused
 from piston.models import Consumer
 
@@ -45,7 +47,8 @@ logger = getLogger('maasserver')
 
 # Suppress warning about symbols being imported, but only used for
 # export in __all__.
-ignore_unused(Config, FileStorage, MACAddress, NodeGroup, SSHKey, UserProfile)
+ignore_unused(
+    Config, FileStorage, MACAddress, NodeGroup, SSHKey, UserProfile, Zone)
 
 
 # Connect the 'create_user' method to the post save signal of User.
