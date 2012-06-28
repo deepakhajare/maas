@@ -451,7 +451,7 @@ class EditUserForm(UserChangeForm):
     def __init__(self, *args, **kwargs):
         super(EditUserForm, self).__init__(*args, **kwargs)
         # Django 1.4 overrides the field 'password' thus adding it
-        # defacto to the list of the selected fields (Meta.fields).
+        # post-facto to the list of the selected fields (Meta.fields).
         # Here we don't want to use this form to edit the password.
         if 'password' in self.fields:
             del self.fields['password']
