@@ -39,7 +39,7 @@ class Sequence:
     def create(self):
         """Create this sequence in the database."""
         cursor = connection.cursor()
-        query = "CREATE SEQUENCE %s" % self.sequence_name
+        query = "CREATE SEQUENCE %s" % self.name
         cursor.execute(
             query + " INCREMENT BY %s MINVALUE %s MAXVALUE %s CYCLE",
             [self.incr, self.minvalue, self.maxvalue])
@@ -53,16 +53,12 @@ class Sequence:
         """
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT nextval(%s)", [self.sequence_name])
+            "SELECT nextval(%s)", [self.name])
         return cursor.fetchone()[0]
 
-    def delete(self):
+    def drop(self):
         """Drop this sequence from the database."""
         cursor = connection.cursor()
         cursor.execute(
-            "DROP SEQUENCE %s" % self.sequence_name)
+            "DROP SEQUENCE %s" % self.name)
         transaction.commit_unless_managed()
-
-    @property
-    def sequence_name(self):
-        return 'maasserver_%s_custom_seq' % self.name

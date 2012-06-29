@@ -18,7 +18,7 @@ class Migration(SchemaMigration):
 
 
     def backwards(self, orm):
-        zone_serial.delete()
+        zone_serial.drop()
 
 
     models = {
