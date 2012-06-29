@@ -12,17 +12,39 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import os.path
+
+from django.core.management import call_command
 from maasserver.management.commands.install_pxe_bootloader import (
     install_bootloader,
     make_destination,
     )
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from provisioningserver.pxe.tftppath import (
+    compose_bootloader_path,
+    locate_tftp_path,
+    )
+from testtools.matchers import FileContains
 
 
 class TestInstallPXEBootloader(TestCase):
 
     def test_integration(self):
-        self.fail("TEST THIS")
+        contents = factory.getRandomString()
+        loader = self.make_file(contents=contents)
+        tftproot = self.make_dir()
+        arch = factory.make_name('arch')
+        subarch = factory.make_name('subarch')
+
+        call_command(
+            'install_pxe_bootloader', arch=arch, subarch=subarch,
+            loader=loader, tftproot=tftproot)
+
+        self.assertThat(
+            locate_tftp_path(
+                compose_bootloader_path(arch, subarch), tftproot=tftproot),
+            FileContains(contents))
 
     def test_make_destination_creates_directory_if_not_present(self):
         self.fail("TEST THIS")
