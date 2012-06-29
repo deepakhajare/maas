@@ -64,7 +64,7 @@ class Factory:
 
     def getRandomIPAddress(self):
         octets = islice(self.random_octets, 4)
-        return b'%d.%d.%d.%d' % octets
+        return b'%d.%d.%d.%d' % tuple(octets)
 
     def getRandomMACAddress(self):
         octets = islice(self.random_octets, 6)
