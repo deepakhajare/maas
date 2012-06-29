@@ -24,6 +24,9 @@ from maasserver.sequence import (
 ZONE_SERIAL_SEQ_NAME = 'zone_serial'
 
 
+# A DNS zone's serial is a 32-bit integer.  Also, we start with the
+# value 1 because 0 has special meaning for some DNS servers.  Even if
+# we control the DNS server we use, better safe than sorry.
 zone_serial = Sequence(ZONE_SERIAL_SEQ_NAME, minvalue=1, maxvalue=INT_MAX)
 
 
