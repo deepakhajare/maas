@@ -46,7 +46,11 @@ def install_bootloader(loader, destination):
 
 
 class Command(BaseCommand):
-    """Install a PXE pre-boot loader into the TFTP directory structure."""
+    """Install a PXE pre-boot loader into the TFTP directory structure.
+
+    This won't overwrite an existing loader if its contents are unchanged.
+    However the new loader you give it will be deleted regardless.
+    """
 
     option_list = BaseCommand.option_list + (
         make_option(
