@@ -47,7 +47,16 @@ def make_destination(tftproot, arch, subarch):
 
 
 def install_bootloader(loader, destination):
-    """Install bootloader file at path `loader` as `destination`."""
+    """Install bootloader file at path `loader` as `destination`.
+
+    This will be done as near-atomically as possible, and if an identical
+    loader is already installed, it will be left untouched.
+
+    However it is still conceivable, depending on the TFTP implementation,
+    that a download that is already in progress may suddenly start receiving
+    data from the new file instead of the one it originally started
+    downloading.
+    """
 # TODO: Implement
 
 
