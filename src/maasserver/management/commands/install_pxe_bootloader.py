@@ -37,7 +37,13 @@ def make_destination(tftproot, arch, subarch):
         sub-architecture "generic") should install at
         /maas/i386/generic/pxelinux.0.
     """
-# TODO: Implement
+    path = locate_tftp_path(
+        compose_bootloader_path(arch, subarch),
+        tftproot=tftproot)
+    directory = os.path.dirname(path)
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    return path
 
 
 def install_bootloader(loader, destination):
