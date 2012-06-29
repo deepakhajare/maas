@@ -53,6 +53,7 @@ class TestInstallPXEBootloader(TestCase):
             locate_tftp_path(
                 compose_bootloader_path(arch, subarch), tftproot=tftproot),
             FileExists())
+        self.assertThat(loader, Not(FileExists()))
 
     def test_make_destination_creates_directory_if_not_present(self):
         tftproot = self.make_dir()
