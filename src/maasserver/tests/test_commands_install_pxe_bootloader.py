@@ -76,7 +76,6 @@ class TestInstallPXEBootloader(TestCase):
         dest = os.path.join(install_dir, factory.make_name('loader'))
         install_bootloader(loader, dest)
         self.assertThat(dest, FileContains(contents))
-        self.assertThat(loader, Not(FileExists()))
 
     def test_install_bootloader_replaces_bootloader_if_changed(self):
         contents = factory.getRandomString()
@@ -84,7 +83,6 @@ class TestInstallPXEBootloader(TestCase):
         dest = self.make_file(contents="Old contents")
         install_bootloader(loader, dest)
         self.assertThat(dest, FileContains(contents))
-        self.assertThat(loader, Not(FileExists()))
 
     def test_install_bootloader_skips_if_unchanged(self):
         contents = factory.getRandomString()
@@ -95,7 +93,6 @@ class TestInstallPXEBootloader(TestCase):
         install_bootloader(loader, dest)
         self.assertThat(dest, FileContains(contents))
         self.assertEqual(original_write_time, get_write_time(dest))
-        self.assertThat(loader, Not(FileExists()))
 
     def test_install_bootloader_sweeps_aside_dot_new_if_any(self):
         contents = factory.getRandomString()
@@ -106,4 +103,3 @@ class TestInstallPXEBootloader(TestCase):
             os.path.dirname(temp_file), name=os.path.basename(temp_file))
         install_bootloader(loader, dest)
         self.assertThat(dest, FileContains(contents))
-        self.assertThat(temp_file, Not(FileExists()))

@@ -14,8 +14,10 @@ __all__ = [
     'Command',
     ]
 
+import filecmp
 from optparse import make_option
 import os.path
+from shutil import copyfile
 
 from celeryconfig import TFTPROOT
 from django.core.management.base import BaseCommand
@@ -46,18 +48,44 @@ def make_destination(tftproot, arch, subarch):
     return path
 
 
+def are_identical_files(old, new):
+    """Are `old` and `new` identical?
+
+    If `old` does not exist, the two are considered different (`new` is
+    assumed to exist).
+    """
+    if os.path.isfile(old):
+        return filecmp.cmp(old, new, shallow=False)
+    else:
+        return False
+
+
 def install_bootloader(loader, destination):
     """Install bootloader file at path `loader` as `destination`.
 
-    This will be done as near-atomically as possible, and if an identical
-    loader is already installed, it will be left untouched.
+    Installation will be atomic.  If an identical loader is already
+    installed, it will be left untouched.
 
     However it is still conceivable, depending on the TFTP implementation,
     that a download that is already in progress may suddenly start receiving
     data from the new file instead of the one it originally started
     downloading.
+
+    :param loader: Name of loader to install.
+    :param destination: Loader's intended filename, including full path,
+        where it will become available over TFTP.
     """
-# TODO: Implement
+    if are_identical_files(destination, loader):
+        return
+
+    # Copy new loader next to the old one, to ensure that it is on the
+    # same filesystem.  Once it is, we can replace the old one with an
+    # atomic rename operation.
+    temp_file = '%s.new' % destination
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+    copyfile(loader, temp_file)
+    os.rename(temp_file, destination)
 
 
 class Command(BaseCommand):
