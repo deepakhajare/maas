@@ -64,6 +64,12 @@ class TestTFTPPath(TestCase):
             compose_image_path(arch, subarch, release, purpose),
             Not(StartsWith(TFTPROOT)))
 
+    def test_compose_bootloader_path_follows_maas_pxe_directory_layout(self):
+        self.fail("TEST THIS")
+
+    def test_compose_bootloader_path_does_not_include_tftp_root(self):
+        self.fail("TEST THIS")
+
     def test_locate_tftp_path_prefixes_tftp_root_by_default(self):
         pxefile = factory.make_name('pxefile')
         self.assertEqual(
