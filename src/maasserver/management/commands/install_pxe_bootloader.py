@@ -115,4 +115,7 @@ class Command(BaseCommand):
         if tftproot is None:
             tftproot = TFTPROOT
 
-# TODO: Implement
+        install_bootloader(loader, make_destination(tftproot, arch, subarch))
+
+        if os.path.exists(loader):
+            os.remove(loader)
