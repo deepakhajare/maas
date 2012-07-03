@@ -15,19 +15,14 @@ __all__ = []
 from textwrap import dedent
 
 from provisioningserver.dhcp import config
-from provisioningserver.pxe.tftppath import (
-    compose_bootloader_path,
-    locate_tftp_path,
-    )
+from provisioningserver.pxe.tftppath import compose_bootloader_path
 import tempita
 from testtools import TestCase
 from testtools.matchers import (
     Contains,
     MatchesAll,
     MatchesRegex,
-    Not,
     )
-
 
 # Simple test version of the DHCP template.  Contains parameter
 # substitutions, but none that aren't also in the real template.
@@ -93,33 +88,19 @@ class TestDHCPConfig(TestCase):
 
     def test_config_refers_to_PXE_for_supported_architectures(self):
         params = make_sample_params()
-        # Architectures that we have bootloaders for.  (We also have one
-        # for amd64, but the same systems can use the i386 one so the
-        # amd46 bootloader may not actually be used).
-        bootloader_archs = [
+        bootloaders = config.compose_bootloaders()
+        archs = [
             ('i386', 'generic'),
             ('arm', 'highbank'),
             ]
-        # Bootloaders' locations on TFTP.  These are the loaders we tell
-        # nodes to netboot from.
-        bootloader_tftp_paths = [
-            compose_bootloader_path(*arch)
-            for arch in bootloader_archs]
-        # Bootloaders' locations on the TFTP server's filesystem.  The
-        # nodes are not to hear about these.  We test that they don't
-        # because the correct (TFTP) paths are embedded in the strings
-        # and the two kinds of path may be easily confused.
-        bootloader_fs_paths = [
-            locate_tftp_path(compose_bootloader_path(*arch))
-            for arch in bootloader_archs]
-
+        paths = [bootloaders[arch] for arch in archs]
         output = config.get_config(**params)
-        # The DHCP config mentions all of the bootloaders' TFTP paths...
         self.assertThat(
             output,
-            MatchesAll(*[Contains(path) for path in bootloader_tftp_paths]))
-        # ...but none of their filesystem paths on the TFTP server.
-        self.assertThat(
-            output,
-            MatchesAll(
-                *[Not(Contains(path)) for path in bootloader_fs_paths]))
+            MatchesAll(*[Contains(path) for path in paths]))
+
+    def test_compose_bootloaders_lists_tftp_paths(self):
+        sample_arch = ('i386', 'generic')
+        self.assertEqual(
+            compose_bootloader_path(*sample_arch),
+            config.compose_bootloaders()[sample_arch])
