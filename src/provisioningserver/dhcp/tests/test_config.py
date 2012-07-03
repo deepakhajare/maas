@@ -14,15 +14,12 @@ __all__ = []
 
 from textwrap import dedent
 
+from maastesting.matchers import ContainsAll
 from provisioningserver.dhcp import config
 from provisioningserver.pxe.tftppath import compose_bootloader_path
 import tempita
 from testtools import TestCase
-from testtools.matchers import (
-    Contains,
-    MatchesAll,
-    MatchesRegex,
-    )
+from testtools.matchers import MatchesRegex
 
 # Simple test version of the DHCP template.  Contains parameter
 # substitutions, but none that aren't also in the real template.
@@ -93,9 +90,7 @@ class TestDHCPConfig(TestCase):
             ]
         paths = [bootloaders[arch] for arch in archs]
         output = config.get_config(**params)
-        self.assertThat(
-            output,
-            MatchesAll(*[Contains(path) for path in paths]))
+        self.assertThat(output, ContainsAll(paths))
 
     def test_compose_bootloaders_lists_tftp_paths(self):
         sample_arch = ('i386', 'generic')
