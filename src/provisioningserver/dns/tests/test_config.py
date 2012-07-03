@@ -116,7 +116,7 @@ class TestBlankDNSConfig(TestCase):
 
 
 class TestDNSZoneConfig(TestCase):
-    """Tests for BlankDNSConfig."""
+    """Tests for DNSZoneConfig."""
 
     def test_DNSZoneConfig_fields(self):
         zone_id = random.randint(0, 100)
