@@ -37,8 +37,8 @@ class TFTP(DatagramProtocol):
         datagram = TFTPDatagramFactory(*split_opcode(datagram))
         log.msg("Datagram received from %s: %s" % (addr, datagram))
 
-        mode = getattr(datagram, "mode", "octet").lower()
-        if mode not in ('netascii', 'octet'):
+        mode = datagram.mode.lower()
+        if datagram.mode not in ('netascii', 'octet'):
             return self.transport.write(ERRORDatagram.from_code(ERR_ILLEGAL_OP,
                 "Unknown transfer mode %s, - expected "
                 "'netascii' or 'octet' (case-insensitive)" % mode).to_wire(), addr)
