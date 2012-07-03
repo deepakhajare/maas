@@ -71,6 +71,7 @@ def setup_rndc():
         f.write(named_content)
 
 
+# Directory where the DNS configuration template files can be found.
 TEMPLATES_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 
