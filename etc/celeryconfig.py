@@ -15,7 +15,7 @@ from __future__ import (
 
 __metaclass__ = type
 
-from os import path
+import os
 
 from maas import import_settings
 
@@ -31,7 +31,7 @@ PXE_TEMPLATES_DIR = None
 TFTPROOT = "/var/lib/tftpboot"
 
 # Location of MAAS' bind configuration files.
-DNS_CONFIG_DIR = path.join('var', 'cache', 'maas', 'bind')
+DNS_CONFIG_DIR = os.path.join(os.sep, 'var', 'cache', 'maas', 'bind')
 
 try:
     import user_maasceleryconfig
