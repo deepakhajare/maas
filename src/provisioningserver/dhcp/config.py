@@ -26,9 +26,9 @@ class DHCPConfigError(Exception):
     """Exception raised for errors processing the DHCP config."""
 
 
-# Architectures that we have PXE bootloaders for.
-# Actually we don't use the one for amd64; those systems get the i386
-# loader.
+# Architectures that we support netbooting for.
+# Actually we don't really do amd64; those systems get to use the i386
+# bootloader instead.
 bootloader_architectures = [
     ('amd64', 'generic'),
     ('arm', 'highbank'),
