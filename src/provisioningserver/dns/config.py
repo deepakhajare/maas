@@ -76,8 +76,7 @@ TEMPLATES_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 
 class DNSConfig:
-    """
-    A DNS configuration file.
+    """A DNS configuration file.
 
     Encapsulation of DNS config templates and parameter substitution.
 
