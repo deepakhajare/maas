@@ -105,7 +105,7 @@ class TestDNSConfig(TestCase):
 class TestBlankDNSConfig(TestCase):
     """Tests for BlankDNSConfig."""
 
-    def test_write_config_writes_config(self):
+    def test_write_config_writes_empty_config(self):
         target_file = self.make_file()
         target_file_name = os.path.basename(target_file)
         target_dir = os.path.dirname(target_file)
