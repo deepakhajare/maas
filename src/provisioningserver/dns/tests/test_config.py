@@ -47,8 +47,7 @@ class TestRNDCGeneration(TestCase):
         setup_rndc()
         expected = (
             ('rndc.conf', '# Start of rndc.conf'),
-            ('named.conf.rndc', 'controls {'),
-            )
+            ('named.conf.rndc', 'controls {'))
         for filename, content in expected:
             with open(os.path.join(dns_conf_dir, filename), "rb") as stream:
                 conf_content = stream.read()
@@ -63,7 +62,8 @@ class TestDNSConfig(TestCase):
         self.assertEqual(
             (
                 os.path.join(TEMPLATES_PATH, 'named.conf.template'),
-                os.path.join(conf.DNS_CONFIG_DIR, 'named.conf')),
+                os.path.join(conf.DNS_CONFIG_DIR, 'named.conf')
+            ),
             (dnsconfig.template_name, dnsconfig.target_file))
 
     def test_get_template_retrieves_template(self):
@@ -124,5 +124,6 @@ class TestDNSZoneConfig(TestCase):
         self.assertEqual(
             (
                 os.path.join(TEMPLATES_PATH, 'zone.template'),
-                os.path.join(conf.DNS_CONFIG_DIR, 'zone.%d' % zone_id)),
+                os.path.join(conf.DNS_CONFIG_DIR, 'zone.%d' % zone_id)
+            ),
             (dnszoneconfig.template_name, dnszoneconfig.target_file))
