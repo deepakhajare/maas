@@ -67,11 +67,9 @@ class TestDHCPConfig(TestCase):
     def test_param_substitution(self):
         template = self.patch_template()
         params = make_sample_params()
-
-        output = config.get_config(**params)
-
-        expected = template.substitute(params)
-        self.assertEqual(expected, output)
+        self.assertEqual(
+            template.substitute(params),
+            config.get_config(**params))
 
     def test_get_config_with_too_few_parameters(self):
         template = self.patch_template()
