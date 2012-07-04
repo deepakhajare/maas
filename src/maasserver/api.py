@@ -981,7 +981,7 @@ def api_doc(request):
 
 
 def pxeconfig(request):
-    """Get the pxe configuration for a set of parameters passed as parameters.
+    """Get the PXE configuration given a node's details.
 
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.

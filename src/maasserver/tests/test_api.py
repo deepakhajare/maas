@@ -81,7 +81,6 @@ from provisioningserver.enum import (
     POWER_TYPE_CHOICES,
     )
 from testtools.matchers import (
-    AllMatch,
     Equals,
     MatchesListwise,
     StartsWith,
@@ -2252,27 +2251,25 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 )),
             response)
 
-    def test_pxe_config_returns_ok_if_optional_params_are_missing(self):
+    def get_without_param(self, param):
         params = self.get_params()
-        for optional_param in self.get_optional_params():
-            del params[optional_param]
-        response = self.client.get(reverse('pxeconfig'), params)
+        del params[param]
+        return self.client.get(reverse('pxeconfig'), params)
 
-        self.assertEqual(httplib.OK, response.status_code, response)
-
-    def test_pxe_config_returns_bad_request_if_missing_param(self):
-        # If any one of the mandatory params is missing, the API returns a
-        # 'Bad request' response.
-        # For each mandatory parameter, create a dict of all but this
-        # parameter.
-        request_params = []
-        for param in self.get_params():
-            if param not in self.get_optional_params():
-                request_param = self.get_params()
-                del request_param[param]
-                request_params.append(request_param)
-        # Compute all the responses.
-        statuses = [
-            self.client.get(reverse('pxeconfig'), param).status_code
-            for param in request_params]
-        self.assertThat(statuses, AllMatch(Equals(httplib.BAD_REQUEST)))
+    def test_pxe_config_missing_parameters(self):
+        # Some parameters are optional, others are mandatory. The
+        # absence of a mandatory parameter always results in a BAD
+        # REQUEST response.
+        expected = {
+            'arch': httplib.BAD_REQUEST,
+            'subarch': httplib.OK,
+            'mac': httplib.OK,
+            'menutitle': httplib.BAD_REQUEST,
+            'kernelimage': httplib.BAD_REQUEST,
+            'append': httplib.BAD_REQUEST,
+            }
+        observed = {
+            param: self.get_without_param(param).status_code
+            for param in self.get_params()
+            }
+        self.assertEqual(expected, observed)
