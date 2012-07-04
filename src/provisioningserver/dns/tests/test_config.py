@@ -64,14 +64,14 @@ class TestDNSConfig(TestCase):
                 os.path.join(TEMPLATES_PATH, 'named.conf.template'),
                 os.path.join(conf.DNS_CONFIG_DIR, 'named.conf')
             ),
-            (dnsconfig.template_name, dnsconfig.target_file))
+            (dnsconfig.template_path, dnsconfig.target_path))
 
     def test_get_template_retrieves_template(self):
         dnsconfig = DNSConfig()
         template = dnsconfig.get_template()
         self.assertIsInstance(template, tempita.Template)
         self.assertThat(
-            dnsconfig.template_name, FileContains(template.content))
+            dnsconfig.template_path, FileContains(template.content))
 
     def test_render_template(self):
         dnsconfig = DNSConfig()
@@ -88,31 +88,31 @@ class TestDNSConfig(TestCase):
         self.assertIn("'test' is not defined", exception.message)
 
     def test_write_config_writes_config(self):
-        target_file = self.make_file()
-        target_file_name = os.path.basename(target_file)
-        target_dir = os.path.dirname(target_file)
+        target_dir = self.make_dir()
         template_file = self.make_file(contents="{{test}}")
         template_file_name = os.path.basename(template_file)
         template_dir = os.path.dirname(template_file)
-        dnsconfig = DNSConfig(
-            path=template_dir, target_path=target_dir,
-            filename=template_file_name, target_filename=target_file_name)
+        self.patch(DNSConfig, 'target_dir', target_dir)
+        self.patch(DNSConfig, 'template_file_name', template_file_name)
+        self.patch(DNSConfig, 'template_dir', template_dir)
+        dnsconfig = DNSConfig()
         random_content = factory.getRandomString()
         dnsconfig.write_config(test=random_content)
-        self.assertThat(target_file, FileContains(random_content))
+        self.assertThat(
+            os.path.join(target_dir, 'named.conf'),
+            FileContains(random_content))
 
 
 class TestBlankDNSConfig(TestCase):
     """Tests for BlankDNSConfig."""
 
     def test_write_config_writes_empty_config(self):
-        target_file = self.make_file()
-        target_file_name = os.path.basename(target_file)
-        target_dir = os.path.dirname(target_file)
-        dnsconfig = BlankDNSConfig(
-            target_path=target_dir, target_filename=target_file_name)
+        target_dir = self.make_dir()
+        self.patch(BlankDNSConfig, 'target_dir', target_dir)
+        dnsconfig = BlankDNSConfig()
         dnsconfig.write_config()
-        self.assertThat(target_file, FileContains(''))
+        self.assertThat(
+            os.path.join(target_dir, 'named.conf'), FileContains(''))
 
 
 class TestDNSZoneConfig(TestCase):
@@ -126,4 +126,4 @@ class TestDNSZoneConfig(TestCase):
                 os.path.join(TEMPLATES_PATH, 'zone.template'),
                 os.path.join(conf.DNS_CONFIG_DIR, 'zone.%d' % zone_id)
             ),
-            (dnszoneconfig.template_name, dnszoneconfig.target_file))
+            (dnszoneconfig.template_path, dnszoneconfig.target_path))

@@ -18,6 +18,10 @@ __all__ = [
     ]
 
 
+from abc import (
+    ABCMeta,
+    abstractproperty,
+    )
 import os.path
 from subprocess import check_output
 
@@ -75,31 +79,28 @@ def setup_rndc():
 TEMPLATES_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 
-class DNSConfig:
-    """A DNS configuration file.
+class DNSConfigBase:
+    __metaclass__ = ABCMeta
 
-    Encapsulation of DNS config templates and parameter substitution.
+    @abstractproperty
+    def template_path(self):
+        """Return the full path of the template to be used."""
 
-    :param path: The directory where the template can be found.
-    :type path: string
-    :param target_path: The directory where the configuration will be written.
-    :type target_path: string
-    :param filename: The name of the template file.
-    :type filename: string
-    :param target_filename: The name of the configuration file to be written.
-    :type target_filename: string
-    :raises DNSConfigFail: if there's a problem with template parameters.
-    """
+    @abstractproperty
+    def target_path(self):
+        """Return the full path of the target file to be written."""
 
-    def __init__(self, path=TEMPLATES_PATH, target_path=conf.DNS_CONFIG_DIR,
-                 filename='named.conf.template',
-                 target_filename='named.conf'):
-        self.template_name = os.path.join(path, filename)
-        self.target_file = os.path.join(target_path, target_filename)
+    @property
+    def template_dir(self):
+        return TEMPLATES_PATH
+
+    @property
+    def target_dir(self):
+        return conf.DNS_CONFIG_DIR
 
     def get_template(self):
-        with open(self.template_name, "r") as f:
-            return tempita.Template(f.read(), name=self.template_name)
+        with open(self.template_path, "r") as f:
+            return tempita.Template(f.read(), name=self.template_path)
 
     def render_template(self, template, **kwargs):
         try:
@@ -111,8 +112,26 @@ class DNSConfig:
         """Write out this DNS config file."""
         template = self.get_template()
         rendered = self.render_template(template, **kwargs)
-        with open(self.target_file, "wb") as f:
+        with open(self.target_path, "wb") as f:
             f.write(rendered)
+
+
+class DNSConfig(DNSConfigBase):
+    """A DNS configuration file.
+
+    Encapsulation of DNS config templates and parameter substitution.
+    """
+
+    template_file_name = 'named.conf.template'
+    target_file_name = 'named.conf'
+
+    @property
+    def template_path(self):
+        return os.path.join(self.template_dir, self.template_file_name)
+
+    @property
+    def target_path(self):
+        return os.path.join(self.target_dir, self.target_file_name)
 
 
 class BlankDNSConfig(DNSConfig):
@@ -120,16 +139,23 @@ class BlankDNSConfig(DNSConfig):
     configuration file.
     """
 
-    def write_config(self, **kwargs):
-        """Write out an empty DNS config file."""
-        with open(self.target_file, "wb") as f:
-            f.write('')
+    def get_template(self):
+        """Return an empty template."""
+        return tempita.Template('', 'empty template')
 
 
 class DNSZoneConfig(DNSConfig):
     """A specialized version of DNSConfig that writes zone files."""
 
+    template_file_name = 'zone.template'
+
     def __init__(self, zone_id):
-        self.template_name = os.path.join(TEMPLATES_PATH, 'zone.template')
-        self.target_file = os.path.join(
-            conf.DNS_CONFIG_DIR, 'zone.%d' % zone_id)
+        self.zone_id = zone_id
+
+    @property
+    def template_path(self):
+        return os.path.join(self.template_dir, self.template_file_name)
+
+    @property
+    def target_path(self):
+        return os.path.join(self.target_dir, 'zone.%d' % self.zone_id)
