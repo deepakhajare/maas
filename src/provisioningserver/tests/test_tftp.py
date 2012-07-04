@@ -24,10 +24,6 @@ class TestTFTPBackend(TestCase):
 
     run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
-    def setUp(self):
-        super(TestTFTPBackend, self).setUp()
-        self.tempdir = self.make_dir()
-
     def test_re_config_file(self):
         # The regular expression for extracting components of the file path is
         # compatible with the PXE config path generator.
