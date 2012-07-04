@@ -994,10 +994,15 @@ def pxeconfig(request):
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', None)
     mac = request.GET.get('mac', None)
+    # Rendering parameters.
+    menutitle = get_mandatory_param(request.GET, 'menutitle')
+    kernelimage = get_mandatory_param(request.GET, 'kernelimage')
+    append = get_mandatory_param(request.GET, 'append')
     config = PXEConfig(arch, subarch, mac)
     try:
         return HttpResponse(
-            config.get_config(**request.GET),
+            config.get_config(
+                menutitle=menutitle, kernelimage=kernelimage, append=append),
             content_type="text/plain; charset=utf-8")
     except PXEConfigFail, e:
         raise ValidationError(e.message)

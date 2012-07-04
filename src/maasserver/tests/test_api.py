@@ -2276,16 +2276,3 @@ class TestPXEConfigAPI(AnonAPITestCase):
             self.client.get(reverse('pxeconfig'), param).status_code
             for param in request_params]
         self.assertThat(statuses, AllMatch(Equals(httplib.BAD_REQUEST)))
-
-    def test_pxe_config_returns_bad_request_if_error_during_rendering(self):
-        params = self.get_params()
-        del params['kernelimage']
-        response = self.client.get(reverse('pxeconfig'), params)
-        self.assertThat(
-            (response.status_code, response.content),
-            MatchesListwise(
-                (
-                    Equals(httplib.BAD_REQUEST),
-                    StartsWith("name 'kernelimage' is not defined at")
-                )),
-            response)
