@@ -10,7 +10,9 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "TFTPBackend",
+    ]
 
 from io import BytesIO
 from os import getcwd
@@ -45,7 +47,8 @@ class BytesReader:
 class TFTPBackend(FilesystemSynchronousBackend):
 
     re_config_file = re.compile(
-        r'^maas/([^/]+)/([^/]+)/pxelinux[.]cfg/([^/]+)$')
+        r'^maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/'
+        r'pxelinux[.]cfg/(?P<name>[^/]+)$')
 
     def get_reader(self, file_name):
         config_file_match = self.re_config_file.match(file_name)
