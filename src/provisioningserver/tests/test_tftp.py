@@ -15,8 +15,33 @@ __all__ = []
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.pxe.tftppath import compose_config_path
-from provisioningserver.tftp.plugin import TFTPBackend
+from provisioningserver.tftp import (
+    BytesReader,
+    TFTPBackend,
+    )
 from testtools.deferredruntest import AsynchronousDeferredRunTest
+from tftp.backend import IReader
+from zope.interface.verify import verifyObject
+
+
+class TestBytesReader(TestCase):
+    """Tests for `provisioningserver.tftp.BytesReader`."""
+
+    def test_interfaces(self):
+        reader = BytesReader(b"")
+        verifyObject(IReader, reader)
+
+    def test_read(self):
+        data = factory.getRandomString(size=10).encode("ascii")
+        reader = BytesReader(data)
+        self.assertEqual(data[:7], reader.read(7))
+        self.assertEqual(data[7:], reader.read(7))
+        self.assertEqual(b"", reader.read(7))
+
+    def test_finish(self):
+        reader = BytesReader(b"1234")
+        reader.finish()
+        self.assertRaises(ValueError, reader.read, 1)
 
 
 class TestTFTPBackend(TestCase):

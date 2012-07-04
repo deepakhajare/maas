@@ -36,6 +36,7 @@ class BytesReader:
     def __init__(self, data):
         super(BytesReader, self).__init__()
         self.buffer = BytesIO(data)
+        self.size = len(data)
 
     def read(self, size):
         return self.buffer.read(size)
