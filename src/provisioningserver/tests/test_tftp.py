@@ -20,7 +20,7 @@ from testtools.deferredruntest import AsynchronousDeferredRunTest
 
 
 class TestTFTPBackend(TestCase):
-    """Tests for `provisioningserver.tftp.plugin.TFTPBackend`."""
+    """Tests for `provisioningserver.tftp.TFTPBackend`."""
 
     run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
