@@ -14,7 +14,7 @@ __all__ = []
 
 
 try:
-    from maasserver.tftp.plugin import TFTPServiceMaker
+    from provisioningserver.tftp.plugin import TFTPServiceMaker
 except ImportError:
     pass  # Ignore.
 else:
