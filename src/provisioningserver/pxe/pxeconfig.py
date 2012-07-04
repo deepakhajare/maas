@@ -84,7 +84,14 @@ class PXEConfig:
 
     @property
     def template_basedir(self):
-        return PXE_TEMPLATES_DIR
+        """Directory where PXE templates are stored."""
+        if PXE_TEMPLATES_DIR is None:
+            # The PXE templates are installed into the same location as this
+            # file, and also live in the same directory as this file in the
+            # source tree.
+            return os.path.join(os.path.dirname(__file__), 'templates')
+        else:
+            return PXE_TEMPLATES_DIR
 
     def _validate_mac(self, mac):
         # A MAC address should be of the form aa:bb:cc:dd:ee:ff with
@@ -108,6 +115,16 @@ class PXEConfig:
         except NameError as error:
             raise PXEConfigFail(*error.args)
 
+    def get_config(self, **kwargs):
+        """Return this PXE config file as a unicode string.
+
+        :param menutitle: The PXE menu title shown.
+        :param kernelimage: The path to the kernel in the TFTP server
+        :param append: Kernel parameters to append.
+        """
+        template = self.get_template()
+        return self.render_template(template, **kwargs)
+
     def write_config(self, **kwargs):
         """Write out this PXE config file.
 
@@ -118,8 +135,7 @@ class PXEConfig:
         Any required directories will be created but the caller must have
         permission to make them and write the file.
         """
-        template = self.get_template()
-        rendered = self.render_template(template, **kwargs)
+        rendered = self.get_config(**kwargs)
         target_dir = os.path.dirname(self.target_file)
         if not os.path.isdir(target_dir):
             os.makedirs(target_dir)
