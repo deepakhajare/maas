@@ -63,11 +63,11 @@ def setup_rndc():
     rndc_content, named_content = generate_rndc()
 
     target_file = os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
-    with open(target_file, "w") as f:
+    with open(target_file, "wb") as f:
         f.write(rndc_content)
 
     target_file = os.path.join(conf.DNS_CONFIG_DIR, 'named.conf.rndc')
-    with open(target_file, "w") as f:
+    with open(target_file, "wb") as f:
         f.write(named_content)
 
 
@@ -111,7 +111,7 @@ class DNSConfig:
         """Write out this DNS config file."""
         template = self.get_template()
         rendered = self.render_template(template, **kwargs)
-        with open(self.target_file, "w") as f:
+        with open(self.target_file, "wb") as f:
             f.write(rendered)
 
 
@@ -122,7 +122,7 @@ class BlankDNSConfig(DNSConfig):
 
     def write_config(self, **kwargs):
         """Write out an empty DNS config file."""
-        with open(self.target_file, "w") as f:
+        with open(self.target_file, "wb") as f:
             f.write('')
 
 
