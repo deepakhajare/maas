@@ -176,7 +176,7 @@ class TestProvisioningServiceMaker(TestCase):
         service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
-            ["log", "oops", "site"],
+            ["log", "oops", "site", "tftp"],
             sorted(service.namedServices))
         self.assertEqual(
             len(service.namedServices), len(service.services),
@@ -194,7 +194,7 @@ class TestProvisioningServiceMaker(TestCase):
         service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
-            ["amqp", "log", "oops", "site"],
+            ["amqp", "log", "oops", "site", "tftp"],
             sorted(service.namedServices))
         self.assertEqual(
             len(service.namedServices), len(service.services),

@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from getpass import getuser
+from os import getcwd
 
 from formencode import Schema
 from formencode.validators import (
@@ -28,6 +29,9 @@ from provisioningserver.services import (
     LogService,
     OOPSService,
     )
+from provisioningserver.tftp import TFTPBackend
+from tftp.protocol import TFTP
+from twisted.application import internet
 from twisted.application.internet import (
     TCPClient,
     TCPServer,
@@ -243,6 +247,14 @@ class ProvisioningServiceMaker(object):
         client_service.setName("amqp")
         return client_service
 
+    def _makeTFTPService(self, tftp_config):
+        """Create the dynamic TFTP service."""
+        backend = TFTPBackend(getcwd(), can_write=False)
+        factory = TFTP(backend)
+        tftp_service = internet.UDPServer(1069, factory)
+        tftp_service.setName("tftp")
+        return tftp_service
+
     def makeService(self, options):
         """Construct a service."""
         services = MultiService()
@@ -268,5 +280,8 @@ class ProvisioningServiceMaker(object):
 
         site_service = self._makeSiteService(papi_root, config)
         site_service.setServiceParent(services)
+
+        tftp_service = self._makeTFTPService(None)  # TODO: config
+        tftp_service.setServiceParent(services)
 
         return services
