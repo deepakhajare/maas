@@ -145,6 +145,19 @@ class ConfigCobbler(Schema):
     password = String(if_missing=b"test")
 
 
+class ConfigTFTP(Schema):
+    """Configuration validator for the TFTP service."""
+
+    if_key_missing = None
+
+    root = String(if_missing=getcwd())
+    port = Int(min=1, max=65535, if_missing=5244)
+    generator = URL(
+        add_http=True, require_tld=False,
+        if_missing=b"http://localhost:5243/api/latest/pxeconfig",
+        )
+
+
 class Config(Schema):
     """Configuration validator."""
 
@@ -158,6 +171,7 @@ class Config(Schema):
     oops = ConfigOops
     broker = ConfigBroker
     cobbler = ConfigCobbler
+    tftp = ConfigTFTP
 
     @classmethod
     def parse(cls, stream):
@@ -249,9 +263,9 @@ class ProvisioningServiceMaker(object):
 
     def _makeTFTPService(self, tftp_config):
         """Create the dynamic TFTP service."""
-        backend = TFTPBackend(getcwd(), can_write=False)
+        backend = TFTPBackend(tftp_config["root"], can_write=False)
         factory = TFTP(backend)
-        tftp_service = internet.UDPServer(1069, factory)
+        tftp_service = internet.UDPServer(tftp_config["port"], factory)
         tftp_service.setName("tftp")
         return tftp_service
 
@@ -281,7 +295,7 @@ class ProvisioningServiceMaker(object):
         site_service = self._makeSiteService(papi_root, config)
         site_service.setServiceParent(services)
 
-        tftp_service = self._makeTFTPService(None)  # TODO: config
+        tftp_service = self._makeTFTPService(config["tftp"])
         tftp_service.setServiceParent(services)
 
         return services

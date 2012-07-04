@@ -40,7 +40,11 @@ from testtools.matchers import (
     MatchesException,
     Raises,
     )
-from twisted.application.internet import TCPServer
+from tftp.protocol import TFTP
+from twisted.application.internet import (
+    TCPServer,
+    UDPServer,
+    )
 from twisted.application.service import MultiService
 from twisted.cred.credentials import UsernamePassword
 from twisted.cred.error import UnauthorizedLogin
@@ -77,6 +81,11 @@ class TestConfig(TestCase):
             'oops': {
                 'directory': '',
                 'reporter': '',
+                },
+            'tftp': {
+                'generator': 'http://localhost:5243/api/latest/pxeconfig',
+                'port': 5244,
+                'root': os.getcwd(),
                 },
             'interface': '127.0.0.1',
             'port': 5241,
@@ -267,6 +276,32 @@ class TestProvisioningServiceMaker(TestCase):
             self.write_config(config), "abigail", "williams")
         # The request has not been authorized.
         self.assertEqual(httplib.UNAUTHORIZED, request.responseCode)
+
+    def test_tftp_service(self):
+        # A TFTP service is configured and added to the top-level service.
+        config = {
+            "tftp": {
+                "generator": "http://candlemass/solitude",
+                "root": self.tempdir,
+                "port": factory.getRandomPort(),
+                },
+            }
+        options = Options()
+        options["config-file"] = self.write_config(config)
+        service_maker = ProvisioningServiceMaker("Harry", "Hill")
+        service = service_maker.makeService(options)
+        tftp_service = service.getServiceNamed("tftp")
+        self.assertIsInstance(tftp_service, UDPServer)
+        port, protocol = tftp_service.args
+        self.assertEqual(config["tftp"]["port"], port)
+        self.assertIsInstance(protocol, TFTP)
+        # The TFTP server is rooted at the configured directory, and is
+        # available only for read requests.
+        self.assertEqual(
+            (config["tftp"]["root"], True, False),
+            (protocol.backend.base.path,
+             protocol.backend.can_read,
+             protocol.backend.can_write))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
