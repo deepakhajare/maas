@@ -71,6 +71,15 @@ class TestTFTPBackend(TestCase):
             self.assertIsNotNone(match, config_path)
             self.assertEqual(args, match.groupdict())
 
+    def test_init(self):
+        temp_dir = self.make_dir()
+        generator_url = "http://%s.example.com/%s" % (
+            factory.getRandomString(), factory.getRandomString())
+        backend = TFTPBackend(temp_dir, generator_url)
+        self.assertEqual((True, False), (backend.can_read, backend.can_write))
+        self.assertEqual(temp_dir, backend.base.path)
+        self.assertEqual(generator_url, backend.generator_url)
+
     def test_get_reader_regular_file(self):
         # TFTPBackend.get_reader() returns a regular FilesystemReader for
         # paths not matching re_config_file.
@@ -79,7 +88,7 @@ class TestTFTPBackend(TestCase):
         temp_file = path.join(temp_dir, "example")
         with open(temp_file, "wb") as stream:
             stream.write(data)
-        backend = TFTPBackend(temp_dir)
+        backend = TFTPBackend(temp_dir, "http://nowhere.example.com/")
         reader = backend.get_reader("example")
         self.addCleanup(reader.finish)
         self.assertEqual(len(data), reader.size)
@@ -96,7 +105,7 @@ class TestTFTPBackend(TestCase):
             )
         config_path = compose_config_path(*args)
         temp_dir = self.make_dir()
-        backend = TFTPBackend(temp_dir)
+        backend = TFTPBackend(temp_dir, "http://nowhere.example.com/")
         reader = backend.get_reader(config_path.lstrip("/"))
         self.addCleanup(reader.finish)
         self.assertIsInstance(reader, BytesReader)

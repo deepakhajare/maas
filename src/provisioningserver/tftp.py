@@ -45,6 +45,11 @@ class TFTPBackend(FilesystemSynchronousBackend):
         r'^maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/'
         r'pxelinux[.]cfg/(?P<name>[^/]+)$')
 
+    def __init__(self, base_path, generator_url):
+        super(TFTPBackend, self).__init__(
+            base_path, can_read=True, can_write=False)
+        self.generator_url = generator_url
+
     def get_reader(self, file_name):
         config_file_match = self.re_config_file.match(file_name)
         if config_file_match is None:
