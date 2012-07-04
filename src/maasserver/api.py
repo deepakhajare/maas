@@ -65,6 +65,7 @@ __all__ = [
     "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
+    "pxeconfig",
     ]
 
 from base64 import b64decode
@@ -128,6 +129,10 @@ from piston.handler import (
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
+from provisioningserver.pxe.pxeconfig import (
+    PXEConfig,
+    PXEConfigFail,
+    )
 
 
 dispatch_methods = {
@@ -972,3 +977,16 @@ def api_doc(request):
         'maasserver/api_doc.html',
         {'doc': reST_to_html_fragment(generate_api_doc())},
         context_instance=RequestContext(request))
+
+
+def pxeconfig(request):
+    arch = get_mandatory_param(request.GET, 'arch')
+    subarch = get_mandatory_param(request.GET, 'subarch')
+    mac = get_mandatory_param(request.GET, 'mac')
+    config = PXEConfig(arch, subarch, mac)
+    try:
+        return HttpResponse(
+            config.get_config(**request.GET),
+            content_type="text/plain; charset=utf-8")
+    except PXEConfigFail, e:
+        raise ValidationError(e.message)

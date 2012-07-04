@@ -30,6 +30,7 @@ import shutil
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.core.urlresolvers import reverse
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
@@ -78,6 +79,12 @@ from metadataserver.nodeinituser import get_node_init_user
 from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
+    )
+from testtools.matchers import (
+    AllMatch,
+    Equals,
+    MatchesListwise,
+    StartsWith,
     )
 
 
@@ -2211,3 +2218,61 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         node = reload_object(node)
         self.assertEqual(NODE_STATUS.FAILED_TESTS, node.status)
+
+
+class TestPXEConfigAPI(AnonAPITestCase):
+
+    def get_params(self):
+        return {
+                'arch': "armhf",
+                'subarch': "armadaxp",
+                'mac': "AA:BB:CC:DD:EE:FF",
+                'menutitle': "menutitle",
+                'kernelimage': "/my/kernel",
+                'append': "append",
+            }
+
+    def test_pxe_config_returns_config(self):
+        response = self.client.get(reverse('pxeconfig'), self.get_params())
+
+        self.assertThat(
+            (
+                response.status_code,
+                response['Content-Type'],
+                response.content
+            ),
+            MatchesListwise(
+                (
+                    Equals(httplib.OK),
+                    Equals("text/plain; charset=utf-8"),
+                    StartsWith('DEFAULT menu'),
+                )),
+            response)
+
+    def test_pxe_config_returns_bad_request_if_missing_param(self):
+        # If any one of the params is missing, the API returns a 'Bad
+        # request' response.
+        # For each parameter, create a dict of all but this parameter.
+        request_params = []
+        for param in self.get_params():
+            request_param = self.get_params()
+            del request_param[param]
+            request_params.append(request_param)
+        # Compute all the responses.
+        statuses = [
+            self.client.get(reverse('pxeconfig'), param).status_code
+            for param in request_params]
+        self.assertThat(statuses, AllMatch(Equals(httplib.BAD_REQUEST)))
+
+    def test_pxe_config_returns_bad_request_if_error_during_rendering(self):
+        params = self.get_params()
+        del params['kernelimage']
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertThat(
+            (response.status_code, response.content),
+            MatchesListwise(
+                (
+                    Equals(httplib.BAD_REQUEST),
+                    StartsWith("name 'kernelimage' is not defined at")
+                )),
+            response)
