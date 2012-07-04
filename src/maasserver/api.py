@@ -985,7 +985,7 @@ def pxeconfig(request):
 
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.
-    :param mac: If specified will return a mac-specific pxe file.
+    :param mac: If specified will return a mac-specific PXE file.
         If not specified will return a "default" file.
     :param menutitle: The PXE menu title shown.
     :param kernelimage: The path to the kernel in the TFTP server
