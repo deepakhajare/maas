@@ -85,3 +85,21 @@ class TestTFTPBackend(TestCase):
         self.assertEqual(len(data), reader.size)
         self.assertEqual(data, reader.read(len(data)))
         self.assertEqual(b"", reader.read(1))
+
+    def test_get_reader_config_file(self):
+        # TFTPBackend.get_reader() returns a BytesReader for paths matching
+        # re_config_file.
+        args = (
+            factory.getRandomString(),  # arch
+            factory.getRandomString(),  # subarch
+            factory.getRandomString(),  # name
+            )
+        config_path = compose_config_path(*args)
+        temp_dir = self.make_dir()
+        backend = TFTPBackend(temp_dir)
+        reader = backend.get_reader(config_path.lstrip("/"))
+        self.addCleanup(reader.finish)
+        self.assertIsInstance(reader, BytesReader)
+        # TODO: update this with real content; right now TFTPBackend just
+        # renders this stub data.
+        self.assertEqual(repr(args) + b"\n", reader.read(1000))
