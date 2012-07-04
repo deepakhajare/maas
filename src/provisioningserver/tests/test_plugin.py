@@ -32,6 +32,7 @@ from provisioningserver.plugin import (
     SingleUsernamePasswordChecker,
     )
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
+from provisioningserver.tftp import TFTPBackend
 from testtools.deferredruntest import (
     assert_fails_with,
     AsynchronousDeferredRunTest,
@@ -295,13 +296,12 @@ class TestProvisioningServiceMaker(TestCase):
         port, protocol = tftp_service.args
         self.assertEqual(config["tftp"]["port"], port)
         self.assertIsInstance(protocol, TFTP)
-        # The TFTP server is rooted at the configured directory, and is
-        # available only for read requests.
+        self.assertIsInstance(protocol.backend, TFTPBackend)
         self.assertEqual(
-            (config["tftp"]["root"], True, False),
+            (config["tftp"]["root"],
+             config["tftp"]["generator"]),
             (protocol.backend.base.path,
-             protocol.backend.can_read,
-             protocol.backend.can_write))
+             protocol.backend.generator_url))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):

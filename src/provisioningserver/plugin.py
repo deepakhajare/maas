@@ -263,7 +263,7 @@ class ProvisioningServiceMaker(object):
 
     def _makeTFTPService(self, tftp_config):
         """Create the dynamic TFTP service."""
-        backend = TFTPBackend(tftp_config["root"], can_write=False)
+        backend = TFTPBackend(tftp_config["root"], tftp_config["generator"])
         factory = TFTP(backend)
         tftp_service = internet.UDPServer(tftp_config["port"], factory)
         tftp_service.setName("tftp")
