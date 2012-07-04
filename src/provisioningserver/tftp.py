@@ -15,18 +15,12 @@ __all__ = [
     ]
 
 from io import BytesIO
-from os import getcwd
 import re
 
 from tftp.backend import (
     FilesystemSynchronousBackend,
     IReader,
     )
-from tftp.protocol import TFTP
-from twisted.application import internet
-from twisted.application.service import IServiceMaker
-from twisted.plugin import IPlugin
-from twisted.python import usage
 from zope.interface import implementer
 
 
@@ -60,20 +54,3 @@ class TFTPBackend(FilesystemSynchronousBackend):
             # TODO: return an actual PXE config file.
             config_file = repr((arch, subarch, name)) + b"\n"
             return BytesReader(config_file)
-
-
-@implementer(IServiceMaker, IPlugin)
-class TFTPServiceMaker:
-    """Create a service for the Twisted plugin."""
-
-    options = usage.Options
-
-    def __init__(self, name, description):
-        self.tapname = name
-        self.description = description
-
-    def makeService(self, options):
-        base = getcwd()
-        backend = TFTPBackend(base, can_write=False)
-        factory = TFTP(backend)
-        return internet.UDPServer(1069, factory)
