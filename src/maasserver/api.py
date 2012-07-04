@@ -994,11 +994,11 @@ def pxeconfig(request):
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', None)
     mac = request.GET.get('mac', None)
+    config = PXEConfig(arch, subarch, mac)
     # Rendering parameters.
     menutitle = get_mandatory_param(request.GET, 'menutitle')
     kernelimage = get_mandatory_param(request.GET, 'kernelimage')
     append = get_mandatory_param(request.GET, 'append')
-    config = PXEConfig(arch, subarch, mac)
     try:
         return HttpResponse(
             config.get_config(
