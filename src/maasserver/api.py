@@ -981,8 +981,8 @@ def api_doc(request):
 
 def pxeconfig(request):
     arch = get_mandatory_param(request.GET, 'arch')
-    subarch = get_mandatory_param(request.GET, 'subarch')
-    mac = get_mandatory_param(request.GET, 'mac')
+    subarch = request.GET.get('subarch', None)
+    mac = request.GET.get('mac', None)
     config = PXEConfig(arch, subarch, mac)
     try:
         return HttpResponse(

@@ -2232,6 +2232,9 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 'append': "append",
             }
 
+    def get_optional_params(self):
+        return ['subarch', 'mac']
+
     def test_pxe_config_returns_config(self):
         response = self.client.get(reverse('pxeconfig'), self.get_params())
 
@@ -2249,15 +2252,25 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 )),
             response)
 
+    def test_pxe_config_returns_ok_if_optional_params_are_missing(self):
+        params = self.get_params()
+        for optional_param in self.get_optional_params():
+            del params[optional_param]
+        response = self.client.get(reverse('pxeconfig'), params)
+
+        self.assertEqual(httplib.OK, response.status_code, response)
+
     def test_pxe_config_returns_bad_request_if_missing_param(self):
-        # If any one of the params is missing, the API returns a 'Bad
-        # request' response.
-        # For each parameter, create a dict of all but this parameter.
+        # If any one of the mandatory params is missing, the API returns a
+        # 'Bad request' response.
+        # For each mandatory parameter, create a dict of all but this
+        # parameter.
         request_params = []
         for param in self.get_params():
-            request_param = self.get_params()
-            del request_param[param]
-            request_params.append(request_param)
+            if param not in self.get_optional_params():
+                request_param = self.get_params()
+                del request_param[param]
+                request_params.append(request_param)
         # Compute all the responses.
         statuses = [
             self.client.get(reverse('pxeconfig'), param).status_code
