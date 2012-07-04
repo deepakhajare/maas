@@ -967,6 +967,7 @@ _API_DOC = None
 
 
 def api_doc(request):
+    """Get ReST documentation for the REST API."""
     # Generate the documentation and keep it cached.  Note that we can't do
     # that at the module level because the API doc generation needs Django
     # fully initialized.
@@ -980,6 +981,16 @@ def api_doc(request):
 
 
 def pxeconfig(request):
+    """Get the pxe configuration for a set of parameters passed as parameters.
+
+    :param arch: Main machine architecture.
+    :param subarch: Sub-architecture, or "generic" if there is none.
+    :param mac: If specified will return a mac-specific pxe file.
+        If not specified will return a "default" file.
+    :param menutitle: The PXE menu title shown.
+    :param kernelimage: The path to the kernel in the TFTP server
+    :param append: Kernel parameters to append.
+    """
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', None)
     mac = request.GET.get('mac', None)
