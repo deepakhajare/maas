@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from os import path
+
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.pxe.tftppath import compose_config_path
@@ -29,11 +31,13 @@ class TestBytesReader(TestCase):
 
     def test_interfaces(self):
         reader = BytesReader(b"")
+        self.addCleanup(reader.finish)
         verifyObject(IReader, reader)
 
     def test_read(self):
         data = factory.getRandomString(size=10).encode("ascii")
         reader = BytesReader(data)
+        self.addCleanup(reader.finish)
         self.assertEqual(data[:7], reader.read(7))
         self.assertEqual(data[7:], reader.read(7))
         self.assertEqual(b"", reader.read(7))
@@ -66,3 +70,18 @@ class TestTFTPBackend(TestCase):
             match = regex.match(config_path)
             self.assertIsNotNone(match, config_path)
             self.assertEqual(args, match.groupdict())
+
+    def test_get_reader_regular_file(self):
+        # TFTPBackend.get_reader() returns a regular FilesystemReader for
+        # paths not matching re_config_file.
+        data = factory.getRandomString().encode("ascii")
+        temp_dir = self.make_dir()
+        temp_file = path.join(temp_dir, "example")
+        with open(temp_file, "wb") as stream:
+            stream.write(data)
+        backend = TFTPBackend(temp_dir)
+        reader = backend.get_reader("example")
+        self.addCleanup(reader.finish)
+        self.assertEqual(len(data), reader.size)
+        self.assertEqual(data, reader.read(len(data)))
+        self.assertEqual(b"", reader.read(1))
