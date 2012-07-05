@@ -50,7 +50,7 @@ class TestSafe(TestCase):
 class TestWriteAtomic(TestCase):
     """Test `write_atomic`."""
 
-    def test_write_atomic_writes_file(self):
+    def test_write_atomic_overwrites_dest_file(self):
         content = factory.getRandomString()
         filename = self.make_file(contents=factory.getRandomString())
         write_atomic(content, filename)
