@@ -1,6 +1,7 @@
 '''
 @author: shylent
 '''
+from os import fstat
 from tftp.errors import Unsupported, FileExists, AccessViolation, FileNotFound
 from twisted.python.filepath import FilePath, InsecurePath
 import shutil
@@ -32,7 +33,8 @@ class IBackend(interface.Interface):
         @raise BackendError: for any other errors, that were encountered while
         attempting to construct a reader
 
-        @return: an object, that provides L{IReader}
+        @return: an object, that provides L{IReader}, or a L{Deferred} that
+        will fire with an L{IReader}
 
         """
 
@@ -55,7 +57,8 @@ class IBackend(interface.Interface):
         @raise BackendError: for any other errors, that were encountered while
         attempting to construct a writer
 
-        @return: an object, that provides L{IWriter}
+        @return: an object, that provides L{IWriter}, or a L{Deferred} that
+        will fire with an L{IWriter}
 
         """
 
@@ -139,7 +142,10 @@ class FilesystemReader(object):
         @see: L{IReader.size}
 
         """
-        return self.file_path.getsize()
+        if self.file_obj.closed:
+            return None
+        else:
+            return fstat(self.file_obj.fileno()).st_size
 
     def read(self, size):
         """
