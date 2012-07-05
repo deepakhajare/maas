@@ -301,7 +301,7 @@ class TestProvisioningServiceMaker(TestCase):
             (config["tftp"]["root"],
              config["tftp"]["generator"]),
             (protocol.backend.base.path,
-             protocol.backend.generator_url))
+             protocol.backend.generator_url.geturl()))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):

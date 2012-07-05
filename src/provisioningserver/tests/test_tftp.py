@@ -13,6 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 from os import path
+from urllib import urlencode
+from urlparse import (
+    parse_qsl,
+    urlparse,
+    )
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
@@ -23,6 +28,10 @@ from provisioningserver.tftp import (
     )
 from testtools.deferredruntest import AsynchronousDeferredRunTest
 from tftp.backend import IReader
+from twisted.internet.defer import (
+    inlineCallbacks,
+    succeed,
+    )
 from zope.interface.verify import verifyObject
 
 
@@ -78,7 +87,7 @@ class TestTFTPBackend(TestCase):
         backend = TFTPBackend(temp_dir, generator_url)
         self.assertEqual((True, False), (backend.can_read, backend.can_write))
         self.assertEqual(temp_dir, backend.base.path)
-        self.assertEqual(generator_url, backend.generator_url)
+        self.assertEqual(generator_url, backend.generator_url.geturl())
 
     def test_get_reader_regular_file(self):
         # TFTPBackend.get_reader() returns a regular FilesystemReader for
@@ -95,20 +104,33 @@ class TestTFTPBackend(TestCase):
         self.assertEqual(data, reader.read(len(data)))
         self.assertEqual(b"", reader.read(1))
 
+    @inlineCallbacks
     def test_get_reader_config_file(self):
         # TFTPBackend.get_reader() returns a BytesReader for paths matching
         # re_config_file.
-        args = (
-            factory.getRandomString(),  # arch
-            factory.getRandomString(),  # subarch
-            factory.getRandomString(),  # name
-            )
-        config_path = compose_config_path(*args)
-        temp_dir = self.make_dir()
-        backend = TFTPBackend(temp_dir, "http://nowhere.example.com/")
-        reader = backend.get_reader(config_path.lstrip("/"))
+        arch = factory.getRandomString().encode("ascii")
+        subarch = factory.getRandomString().encode("ascii")
+        name = factory.getRandomString().encode("ascii")
+        kernelimage = factory.getRandomString().encode("ascii")
+        menutitle = factory.getRandomString().encode("ascii")
+        append = factory.getRandomString().encode("ascii")
+        backend_url = "http://example.com/?" + urlencode(
+            {b"kernelimage": kernelimage, b"menutitle": menutitle,
+             b"append": append})
+        config_path = compose_config_path(arch, subarch, name)
+        backend = TFTPBackend(self.make_dir(), backend_url)
+        backend.get_page = succeed  # Return the URL, via a Deferred.
+        reader = yield backend.get_reader(config_path.lstrip("/"))
         self.addCleanup(reader.finish)
         self.assertIsInstance(reader, BytesReader)
-        # TODO: update this with real content; right now TFTPBackend just
-        # renders this stub data.
-        self.assertEqual(repr(args) + b"\n", reader.read(1000))
+        url = reader.read(1000)
+        query = parse_qsl(urlparse(url).query)
+        query_expected = [
+            ("append", append),
+            ("kernelimage", kernelimage),
+            ("arch", arch),
+            ("subarch", subarch),
+            ("menutitle", menutitle),
+            ("name", name),
+            ]
+        self.assertItemsEqual(query_expected, sorted(query))
