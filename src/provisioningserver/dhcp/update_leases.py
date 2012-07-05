@@ -63,7 +63,10 @@ def check_lease_changes():
     if get_leases_timestamp() == recorded_leases_time:
         return None
     timestamp, leases = parse_leases()
-    return timestamp != recorded_leases_time and leases != recorded_leases
+    if leases == recorded_leases:
+        return None
+    else:
+        return timestamp, leases
 
 
 def record_lease_state(last_change, leases):
@@ -95,5 +98,8 @@ def upload_leases():
 def update_leases():
     """Check for DHCP lease updates, and send them to the server if needed.
     """
-    if check_lease_changes():
-        upload_leases()
+    updated_lease_info = check_lease_changes()
+    if updated_lease_info is not None:
+        timestamp, leases = updated_lease_info
+        record_lease_state(timestamp, leases)
+        send_leases(leases)
