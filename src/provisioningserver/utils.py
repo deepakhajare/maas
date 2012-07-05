@@ -14,6 +14,7 @@ __all__ = [
     "ActionScript",
     "deferred",
     "ShellTemplate",
+    "write_atomic",
     "xmlrpc_export",
     ]
 
