@@ -35,7 +35,7 @@ def parse_leases():
     :return: A dict mapping each leased IP address to the MAC address that
         it has been assigned to.
     """
-    pass
+    # TODO: Implement leases-file parser here.
 
 
 def record_lease_state(last_change, leases):
@@ -51,7 +51,7 @@ def record_lease_state(last_change, leases):
 
 def send_leases(leases):
     """Send snapshot of current leases to the MAAS server."""
-    pass
+    # TODO: Implement API call for uploading leases.
 
 
 def update_leases():
