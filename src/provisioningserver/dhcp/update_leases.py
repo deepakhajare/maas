@@ -89,7 +89,13 @@ def send_leases(leases):
 
 
 def upload_leases():
-    """Unconditionally send the current DHCP leases to the server."""
+    """Unconditionally send the current DHCP leases to the server.
+
+    Run this periodically just so no changes slip through the cracks.
+    Examples of such cracks would be: subtle races, failure to upload,
+    server restarts, or zone-file update commands getting lost on their
+    way to the DNS server.
+    """
     timestamp, leases = parse_leases()
     record_lease_state(timestamp, leases)
     send_leases(leases)
@@ -97,6 +103,10 @@ def upload_leases():
 
 def update_leases():
     """Check for DHCP lease updates, and send them to the server if needed.
+
+    Run this whenever a lease has been added, removed, or changed.  It
+    will be very cheap to run if the leases file has not been touched,
+    and it won't upload unless there have been relevant changes.
     """
     updated_lease_info = check_lease_changes()
     if updated_lease_info is not None:
