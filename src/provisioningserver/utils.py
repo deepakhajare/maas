@@ -19,11 +19,13 @@ __all__ = [
 
 from argparse import ArgumentParser
 from functools import wraps
+import os
 from os import fdopen
 from pipes import quote
 import signal
 from subprocess import CalledProcessError
 import sys
+import tempfile
 
 import tempita
 from twisted.internet.defer import maybeDeferred
@@ -62,6 +64,20 @@ def xmlrpc_export(iface):
                 setattr(cls, "xmlrpc_%s" % name, method)
         return cls
     return decorate
+
+
+def write_atomic(content, filename):
+    """Write the given `content` into the file `filename` in an atomic
+    fashion.
+    """
+    # Write the file to a temporary place (next to the target destination,
+    # to ensure that it is on the same filesystem).
+    directory = os.path.dirname(filename)
+    _, temp_file = tempfile.mkstemp(dir=directory)
+    with open(temp_file, "wb") as f:
+        f.write(content)
+    # Rename the temporary file to self.target_path.
+    os.rename(temp_file, filename)
 
 
 class Safe:

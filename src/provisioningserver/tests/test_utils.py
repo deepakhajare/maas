@@ -28,7 +28,9 @@ from provisioningserver.utils import (
     ActionScript,
     Safe,
     ShellTemplate,
+    write_atomic,
     )
+from testtools.matchers import FileContains
 
 
 class TestSafe(TestCase):
@@ -43,6 +45,16 @@ class TestSafe(TestCase):
         string = factory.getRandomString()
         safe = Safe(string)
         self.assertEqual("<Safe %r>" % string, repr(safe))
+
+
+class TestWriteAtomic(TestCase):
+    """Test `write_atomic`."""
+
+    def test_write_atomic_writes_file(self):
+        content = factory.getRandomString()
+        filename = self.make_file(contents=factory.getRandomString())
+        write_atomic(content, filename)
+        self.assertThat(filename, FileContains(content))
 
 
 class TestShellTemplate(TestCase):

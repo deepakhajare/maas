@@ -27,9 +27,9 @@ from subprocess import (
     check_call,
     check_output,
     )
-import tempfile
 
 from celery.conf import conf
+from provisioningserver.utils import write_atomic
 import tempita
 
 
@@ -128,13 +128,7 @@ class DNSConfigBase:
         template = self.get_template()
         kwargs.update(self.get_extra_context())
         rendered = self.render_template(template, **kwargs)
-        # Write the file to a temporary place (next to the target destination,
-        # to ensure that it is on the same filesystem).
-        _, temp_file = tempfile.mkstemp(dir=self.target_dir)
-        with open(temp_file, "wb") as f:
-            f.write(rendered)
-        # Rename the temporary file to self.target_path.
-        os.rename(temp_file, self.target_path)
+        write_atomic(rendered, self.target_path)
 
 
 class DNSConfig(DNSConfigBase):
