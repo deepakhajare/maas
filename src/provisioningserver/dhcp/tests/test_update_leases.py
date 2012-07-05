@@ -24,7 +24,7 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
-from provisioningserver import update_leases
+from provisioningserver.dhcp import update_leases
 
 
 class TestUpdateLeases(TestCase):
@@ -41,14 +41,14 @@ class TestUpdateLeases(TestCase):
         lease_file = self.make_file()
         if age is not None:
             age_file(lease_file, age)
-        self.patch(update_leases, 'LEASES_FILE', lease_file)
+        self.patch(update_leases, 'DHCP_LEASES_FILE', lease_file)
         # TODO: We don't have a lease-file parser yet.  For now, just
         # fake up a "parser" that returns the given data.
         self.patch(update_leases, 'parse_leases', lambda: leases)
         return lease_file
 
     def test_check_lease_changes_returns_True_if_no_state_cached(self):
-        update_leases.record_lease_state()
+        update_leases.record_lease_state(None, None)
         self.fake_leases_file()
         self.assertTrue(update_leases.check_lease_changes())
 
@@ -102,12 +102,13 @@ class TestUpdateLeases(TestCase):
         self.assertFalse(update_leases.check_lease_changes())
 
     def test_update_leases_sends_leases_if_changed(self):
+        update_leases.record_lease_state(None, None)
         send_leases = FakeMethod()
         self.patch(update_leases, 'send_leases', send_leases)
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
-        update_leases.record_lease_state(leases)
+        self.fake_leases_file(leases)
         update_leases.update_leases()
         self.assertSequenceEqual([leases], send_leases.extract_args())
 
