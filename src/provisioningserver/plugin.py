@@ -13,7 +13,6 @@ __metaclass__ = type
 __all__ = []
 
 from getpass import getuser
-from os import getcwd
 
 from formencode import Schema
 from formencode.validators import (
@@ -29,9 +28,6 @@ from provisioningserver.services import (
     LogService,
     OOPSService,
     )
-from provisioningserver.tftp import TFTPBackend
-from tftp.protocol import TFTP
-from twisted.application import internet
 from twisted.application.internet import (
     TCPClient,
     TCPServer,
@@ -145,19 +141,6 @@ class ConfigCobbler(Schema):
     password = String(if_missing=b"test")
 
 
-class ConfigTFTP(Schema):
-    """Configuration validator for the TFTP service."""
-
-    if_key_missing = None
-
-    root = String(if_missing=getcwd())
-    port = Int(min=1, max=65535, if_missing=5244)
-    generator = URL(
-        add_http=True, require_tld=False,
-        if_missing=b"http://localhost:5243/api/1.0/pxeconfig",
-        )
-
-
 class Config(Schema):
     """Configuration validator."""
 
@@ -171,7 +154,6 @@ class Config(Schema):
     oops = ConfigOops
     broker = ConfigBroker
     cobbler = ConfigCobbler
-    tftp = ConfigTFTP
 
     @classmethod
     def parse(cls, stream):
@@ -261,14 +243,6 @@ class ProvisioningServiceMaker(object):
         client_service.setName("amqp")
         return client_service
 
-    def _makeTFTPService(self, tftp_config):
-        """Create the dynamic TFTP service."""
-        backend = TFTPBackend(tftp_config["root"], tftp_config["generator"])
-        factory = TFTP(backend)
-        tftp_service = internet.UDPServer(tftp_config["port"], factory)
-        tftp_service.setName("tftp")
-        return tftp_service
-
     def makeService(self, options):
         """Construct a service."""
         services = MultiService()
@@ -294,8 +268,5 @@ class ProvisioningServiceMaker(object):
 
         site_service = self._makeSiteService(papi_root, config)
         site_service.setServiceParent(services)
-
-        tftp_service = self._makeTFTPService(config["tftp"])
-        tftp_service.setServiceParent(services)
 
         return services

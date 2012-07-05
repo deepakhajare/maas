@@ -13,12 +13,10 @@ __metaclass__ = type
 __all__ = []
 
 
-try:
-    from provisioningserver.plugin import ProvisioningServiceMaker
-except ImportError:
-    pass  # Ignore.
-else:
-    # Construct objects which *provide* the relevant interfaces. The name of
-    # these variables is irrelevant, as long as there are *some* names bound
-    # to providers of IPlugin and IServiceMaker.
-    service = ProvisioningServiceMaker("maas-pserv", "...")  # TODO: finish
+from provisioningserver.plugin import ProvisioningServiceMaker
+
+# Construct objects which *provide* the relevant interfaces. The name of
+# these variables is irrelevant, as long as there are *some* names bound
+# to providers of IPlugin and IServiceMaker.
+
+service = ProvisioningServiceMaker("maas-pserv", "...")  # TODO: finish

@@ -32,7 +32,6 @@ from provisioningserver.plugin import (
     SingleUsernamePasswordChecker,
     )
 from provisioningserver.testing.fakecobbler import make_fake_cobbler_session
-from provisioningserver.tftp import TFTPBackend
 from testtools.deferredruntest import (
     assert_fails_with,
     AsynchronousDeferredRunTest,
@@ -41,11 +40,7 @@ from testtools.matchers import (
     MatchesException,
     Raises,
     )
-from tftp.protocol import TFTP
-from twisted.application.internet import (
-    TCPServer,
-    UDPServer,
-    )
+from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
 from twisted.cred.credentials import UsernamePassword
 from twisted.cred.error import UnauthorizedLogin
@@ -82,11 +77,6 @@ class TestConfig(TestCase):
             'oops': {
                 'directory': '',
                 'reporter': '',
-                },
-            'tftp': {
-                'generator': 'http://localhost:5243/api/latest/pxeconfig',
-                'port': 5244,
-                'root': os.getcwd(),
                 },
             'interface': '127.0.0.1',
             'port': 5241,
@@ -186,7 +176,7 @@ class TestProvisioningServiceMaker(TestCase):
         service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
-            ["log", "oops", "site", "tftp"],
+            ["log", "oops", "site"],
             sorted(service.namedServices))
         self.assertEqual(
             len(service.namedServices), len(service.services),
@@ -204,7 +194,7 @@ class TestProvisioningServiceMaker(TestCase):
         service = service_maker.makeService(options)
         self.assertIsInstance(service, MultiService)
         self.assertSequenceEqual(
-            ["amqp", "log", "oops", "site", "tftp"],
+            ["amqp", "log", "oops", "site"],
             sorted(service.namedServices))
         self.assertEqual(
             len(service.namedServices), len(service.services),
@@ -277,31 +267,6 @@ class TestProvisioningServiceMaker(TestCase):
             self.write_config(config), "abigail", "williams")
         # The request has not been authorized.
         self.assertEqual(httplib.UNAUTHORIZED, request.responseCode)
-
-    def test_tftp_service(self):
-        # A TFTP service is configured and added to the top-level service.
-        config = {
-            "tftp": {
-                "generator": "http://candlemass/solitude",
-                "root": self.tempdir,
-                "port": factory.getRandomPort(),
-                },
-            }
-        options = Options()
-        options["config-file"] = self.write_config(config)
-        service_maker = ProvisioningServiceMaker("Harry", "Hill")
-        service = service_maker.makeService(options)
-        tftp_service = service.getServiceNamed("tftp")
-        self.assertIsInstance(tftp_service, UDPServer)
-        port, protocol = tftp_service.args
-        self.assertEqual(config["tftp"]["port"], port)
-        self.assertIsInstance(protocol, TFTP)
-        self.assertIsInstance(protocol.backend, TFTPBackend)
-        self.assertEqual(
-            (config["tftp"]["root"],
-             config["tftp"]["generator"]),
-            (protocol.backend.base.path,
-             protocol.backend.generator_url.geturl()))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
