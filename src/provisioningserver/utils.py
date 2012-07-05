@@ -14,7 +14,7 @@ __all__ = [
     "ActionScript",
     "deferred",
     "ShellTemplate",
-    "write_atomic",
+    "atomic_write",
     "xmlrpc_export",
     ]
 
@@ -67,7 +67,7 @@ def xmlrpc_export(iface):
     return decorate
 
 
-def write_atomic(content, filename):
+def atomic_write(content, filename):
     """Write the given `content` into the file `filename` in an atomic
     fashion.
     """
@@ -77,6 +77,8 @@ def write_atomic(content, filename):
     _, temp_file = tempfile.mkstemp(dir=directory)
     with open(temp_file, "wb") as f:
         f.write(content)
+        f.flush()
+        os.fsync(f.fileno())
     # Rename the temporary file to `filename`, that operation is atomic on
     # POSIX systems.
     os.rename(temp_file, filename)

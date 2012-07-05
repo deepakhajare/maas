@@ -26,9 +26,9 @@ from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.utils import (
     ActionScript,
+    atomic_write,
     Safe,
     ShellTemplate,
-    write_atomic,
     )
 from testtools.matchers import FileContains
 
@@ -48,12 +48,12 @@ class TestSafe(TestCase):
 
 
 class TestWriteAtomic(TestCase):
-    """Test `write_atomic`."""
+    """Test `atomic_write`."""
 
-    def test_write_atomic_overwrites_dest_file(self):
+    def test_atomic_write_overwrites_dest_file(self):
         content = factory.getRandomString()
         filename = self.make_file(contents=factory.getRandomString())
-        write_atomic(content, filename)
+        atomic_write(content, filename)
         self.assertThat(filename, FileContains(content))
 
 

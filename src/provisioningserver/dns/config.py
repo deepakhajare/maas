@@ -29,7 +29,7 @@ from subprocess import (
     )
 
 from celery.conf import conf
-from provisioningserver.utils import write_atomic
+from provisioningserver.utils import atomic_write
 import tempita
 
 
@@ -128,7 +128,7 @@ class DNSConfigBase:
         template = self.get_template()
         kwargs.update(self.get_extra_context())
         rendered = self.render_template(template, **kwargs)
-        write_atomic(rendered, self.target_path)
+        atomic_write(rendered, self.target_path)
 
 
 class DNSConfig(DNSConfigBase):
