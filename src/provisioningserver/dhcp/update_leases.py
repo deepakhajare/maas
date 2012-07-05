@@ -51,19 +51,19 @@ def get_leases_timestamp():
 def parse_leases():
     """Parse the DHCP leases file.
 
-    :return: A dict mapping each leased IP address to the MAC address that
-        it has been assigned to.
+    :return: A tuple: (timestamp, leases).  The `timestamp` is the last
+        modification time of the leases file, and `leases` is a dict
+        mapping leased IP addresses to their associated MAC addresses.
     """
     # TODO: Implement leases-file parser here.
 
 
 def check_lease_changes():
     """Has the DHCP leases file changed in any significant way?"""
-# TODO: Eliminate races -- propagate the timestamp and leases.
     if get_leases_timestamp() == recorded_leases_time:
-        return False
-    leases = parse_leases()
-    return leases != recorded_leases
+        return None
+    timestamp, leases = parse_leases()
+    return timestamp != recorded_leases_time and leases != recorded_leases
 
 
 def record_lease_state(last_change, leases):
@@ -87,8 +87,8 @@ def send_leases(leases):
 
 def upload_leases():
     """Unconditionally send the current DHCP leases to the server."""
-    leases = parse_leases()
-    record_lease_state(get_leases_timestamp(), leases)
+    timestamp, leases = parse_leases()
+    record_lease_state(timestamp, leases)
     send_leases(leases)
 
 

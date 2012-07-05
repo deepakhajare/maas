@@ -48,14 +48,16 @@ class TestUpdateLeases(TestCase):
         if leases is None:
             leases = {}
         leases = leases.copy()
-        lease_file = self.make_file()
+        leases_file = self.make_file()
         if age is not None:
-            age_file(lease_file, age)
-        self.patch(update_leases, 'DHCP_LEASES_FILE', lease_file)
+            age_file(leases_file, age)
+        timestamp = get_write_time(leases_file)
+        self.patch(update_leases, 'DHCP_LEASES_FILE', leases_file)
         # TODO: We don't have a lease-file parser yet.  For now, just
         # fake up a "parser" that returns the given data.
-        self.patch(update_leases, 'parse_leases', lambda: leases)
-        return lease_file
+        self.patch(
+            update_leases, 'parse_leases', lambda: (timestamp, leases))
+        return leases_file
 
     def test_check_lease_changes_returns_True_if_no_state_cached(self):
         update_leases.record_lease_state(None, None)
@@ -72,8 +74,8 @@ class TestUpdateLeases(TestCase):
 
     def test_check_lease_changes_does_not_parse_unchanged_leases_file(self):
         parser = FakeMethod()
-        self.patch(update_leases, 'parse_leases', parser)
         leases_file = self.fake_leases_file()
+        self.patch(update_leases, 'parse_leases', parser)
         update_leases.record_lease_state(get_write_time(leases_file), {})
         update_leases.update_leases()
         self.assertSequenceEqual([], parser.calls)
