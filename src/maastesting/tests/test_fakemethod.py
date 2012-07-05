@@ -49,3 +49,21 @@ class TestFakeMethod(TestCase):
         stub = FakeMethod()
         stub(x=10)
         self.assertSequenceEqual([((), {'x': 10})], stub.calls)
+
+    def test_call_count_is_zero_initially(self):
+        self.assertEqual(0, FakeMethod().call_count)
+
+    def test_call_count_counts_calls(self):
+        stub = FakeMethod()
+        stub()
+        self.assertEqual(1, stub.call_count)
+
+    def test_extract_args_returns_just_call_args(self):
+        stub = FakeMethod()
+        stub(1, 2, 3, x=12)
+        self.assertItemsEqual([(1, 2, 3)], stub.extract_args())
+
+    def test_extract_kwargs_returns_just_call_kwargs(self):
+        stub = FakeMethod()
+        stub(1, 2, 3, x=12)
+        self.assertItemsEqual([{'x': 12}], stub.extract_kwargs())
