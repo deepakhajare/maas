@@ -79,8 +79,6 @@ def atomic_write(content, filename):
         prefix=".%s." % os.path.basename(filename))
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
-        f.flush()
-        os.fsync(f.fileno())
     # Rename the temporary file to `filename`, that operation is atomic on
     # POSIX systems.
     os.rename(temp_file, filename)
