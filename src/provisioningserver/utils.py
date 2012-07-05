@@ -74,8 +74,10 @@ def atomic_write(content, filename):
     # Write the file to a temporary place (next to the target destination,
     # to ensure that it is on the same filesystem).
     directory = os.path.dirname(filename)
-    _, temp_file = tempfile.mkstemp(dir=directory)
-    with open(temp_file, "wb") as f:
+    temp_fd, temp_file = tempfile.mkstemp(
+        dir=directory, suffix=".tmp",
+        prefix=".%s." % os.path.basename(filename))
+    with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
         f.flush()
         os.fsync(f.fileno())
