@@ -6,6 +6,17 @@
 This code runs inside node-group workers.  It watches for changes to DHCP
 leases, and notifies the MAAS server so that it can rewrite DNS zone files
 as appropriate.
+
+Leases in this module are represented as dicts, mapping each leased IP
+address to the MAC address that it belongs to.
+
+The modification time and leases of the last-uploaded leases are cached,
+so as to suppress unwanted redundant updates.  This cache is updated
+*before* the actual upload, so as to prevent thundering-herd problems:
+if an upload takes too long for whatever reason, subsequent updates
+should not be uploaded until the first upload is done.  Some uploads may
+be lost due to concurrency or failures, but the situation will right
+itself eventually.
 """
 
 from __future__ import (
@@ -16,7 +27,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'send_leases',
+    'upload_leases',
     'update_leases',
     ]
 
@@ -52,6 +63,11 @@ def record_lease_state(last_change, leases):
 def send_leases(leases):
     """Send snapshot of current leases to the MAAS server."""
     # TODO: Implement API call for uploading leases.
+
+
+def upload_leases():
+    """Unconditionally send the current DHCP leases to the server."""
+    pass
 
 
 def update_leases():

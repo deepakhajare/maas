@@ -25,6 +25,16 @@ from maastesting.utils import (
     get_write_time,
     )
 from provisioningserver.dhcp import update_leases
+from testtools.testcase import ExpectedException
+
+
+class StopExecuting(BaseException):
+    """Exception class to stop execution at a desired point.
+
+    This is deliberately not just an :class:`Exception`.  We want to
+    interrupt the code that's being tested, not just exercise its
+    error-handling capabilities.
+    """
 
 
 class TestUpdateLeases(TestCase):
@@ -121,3 +131,46 @@ class TestUpdateLeases(TestCase):
         leases_file = self.fake_leases_file(leases)
         update_leases.record_lease_state(get_write_time(leases_file), leases)
         self.assertSequenceEqual([], send_leases.calls)
+
+    def test_update_leases_records_update(self):
+        update_leases.record_lease_state(None, None)
+        self.fake_leases_file()
+        self.patch(update_leases, 'send_leases', FakeMethod())
+        update_leases.update_leases()
+        self.assertFalse(update_leases.check_lease_changes())
+
+    def test_update_leases_records_state_before_sending(self):
+        update_leases.record_lease_state(None, None)
+        self.fake_leases_file()
+        self.patch(
+            update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
+        with ExpectedException(StopExecuting()):
+            update_leases.update_leases()
+        self.assertFalse(update_leases.check_lease_changes())
+
+    def test_upload_leases_sends_leases_unconditionally(self):
+        send_leases = FakeMethod()
+        leases = {
+            factory.getRandomIPAddress(): factory.getRandomMACAddress(),
+        }
+        leases_file = self.fake_leases_file(leases)
+        update_leases.record_lease_state(get_write_time(leases_file), leases)
+        self.patch(update_leases, 'send_leases', send_leases)
+        update_leases.upload_leases()
+        self.assertSequenceEqual([leases], send_leases.extract_args())
+
+    def test_upload_leases_records_update(self):
+        update_leases.record_lease_state(None, None)
+        self.fake_leases_file()
+        self.patch(update_leases, 'send_leases', FakeMethod())
+        update_leases.upload_leases()
+        self.assertFalse(update_leases.check_lease_changes())
+
+    def test_upload_leases_records_state_before_sending(self):
+        update_leases.record_lease_state(None, None)
+        self.fake_leases_file()
+        self.patch(
+            update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
+        with ExpectedException(StopExecuting()):
+            update_leases.upload_leases()
+        self.assertFalse(update_leases.check_lease_changes())
