@@ -32,12 +32,20 @@ __all__ = [
     ]
 
 
+from os import stat
+
 from celeryconfig import DHCP_LEASES_FILE
 
+# Modification time on last-processed leases file.
+recorded_leases_time = None
 
-def check_lease_changes():
-    """Has the DHCP leases file changed in any significant way?"""
-    pass
+# Leases as last parsed.
+recorded_leases = None
+
+
+def get_leases_timestamp():
+    """Return the last modification timestamp of the DHCP leases file."""
+    return stat(DHCP_LEASES_FILE).st_mtime
 
 
 def parse_leases():
@@ -49,6 +57,15 @@ def parse_leases():
     # TODO: Implement leases-file parser here.
 
 
+def check_lease_changes():
+    """Has the DHCP leases file changed in any significant way?"""
+# TODO: Eliminate races -- propagate the timestamp and leases.
+    if get_leases_timestamp() == recorded_leases_time:
+        return False
+    leases = parse_leases()
+    return leases != recorded_leases
+
+
 def record_lease_state(last_change, leases):
     """Record a snapshot of the state of DHCP leases.
 
@@ -57,7 +74,10 @@ def record_lease_state(last_change, leases):
     :param leases: A dict mapping each leased IP address to the MAC address
         that it has been assigned to.
     """
-    pass
+    global recorded_leases_time
+    global recorded_leases
+    recorded_leases_time = last_change
+    recorded_leases = leases
 
 
 def send_leases(leases):
@@ -67,10 +87,13 @@ def send_leases(leases):
 
 def upload_leases():
     """Unconditionally send the current DHCP leases to the server."""
-    pass
+    leases = parse_leases()
+    record_lease_state(get_leases_timestamp(), leases)
+    send_leases(leases)
 
 
 def update_leases():
     """Check for DHCP lease updates, and send them to the server if needed.
     """
-    pass
+    if check_lease_changes():
+        upload_leases()

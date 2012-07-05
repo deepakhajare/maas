@@ -25,7 +25,6 @@ from maastesting.utils import (
     get_write_time,
     )
 from provisioningserver.dhcp import update_leases
-from testtools.testcase import ExpectedException
 
 
 class StopExecuting(BaseException):
@@ -48,6 +47,7 @@ class TestUpdateLeases(TestCase):
         """
         if leases is None:
             leases = {}
+        leases = leases.copy()
         lease_file = self.make_file()
         if age is not None:
             age_file(lease_file, age)
@@ -83,7 +83,7 @@ class TestUpdateLeases(TestCase):
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
         update_leases.record_lease_state(
-            datetime.utcnow() - timedelta(seconds=10), leases)
+            datetime.utcnow() - timedelta(seconds=10), leases.copy())
         leases[factory.getRandomIPAddress()] = factory.getRandomMACAddress()
         self.fake_leases_file(leases)
         self.assertTrue(update_leases.check_lease_changes())
@@ -120,7 +120,7 @@ class TestUpdateLeases(TestCase):
         }
         self.fake_leases_file(leases)
         update_leases.update_leases()
-        self.assertSequenceEqual([leases], send_leases.extract_args())
+        self.assertSequenceEqual([(leases, )], send_leases.extract_args())
 
     def test_update_leases_does_nothing_without_lease_changes(self):
         send_leases = FakeMethod()
@@ -144,8 +144,10 @@ class TestUpdateLeases(TestCase):
         self.fake_leases_file()
         self.patch(
             update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
-        with ExpectedException(StopExecuting()):
+        try:
             update_leases.update_leases()
+        except StopExecuting:
+            pass
         self.assertFalse(update_leases.check_lease_changes())
 
     def test_upload_leases_sends_leases_unconditionally(self):
@@ -157,7 +159,7 @@ class TestUpdateLeases(TestCase):
         update_leases.record_lease_state(get_write_time(leases_file), leases)
         self.patch(update_leases, 'send_leases', send_leases)
         update_leases.upload_leases()
-        self.assertSequenceEqual([leases], send_leases.extract_args())
+        self.assertSequenceEqual([(leases, )], send_leases.extract_args())
 
     def test_upload_leases_records_update(self):
         update_leases.record_lease_state(None, None)
@@ -171,6 +173,8 @@ class TestUpdateLeases(TestCase):
         self.fake_leases_file()
         self.patch(
             update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
-        with ExpectedException(StopExecuting()):
+        try:
             update_leases.upload_leases()
+        except StopExecuting:
+            pass
         self.assertFalse(update_leases.check_lease_changes())
