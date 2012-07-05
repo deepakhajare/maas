@@ -77,7 +77,8 @@ def write_atomic(content, filename):
     _, temp_file = tempfile.mkstemp(dir=directory)
     with open(temp_file, "wb") as f:
         f.write(content)
-    # Rename the temporary file to self.target_path.
+    # Rename the temporary file to `filename`, that operation is atomic on
+    # POSIX systems.
     os.rename(temp_file, filename)
 
 
