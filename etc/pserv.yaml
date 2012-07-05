@@ -63,4 +63,4 @@ tftp:
   # root: <current directory>
   # port: 5244
   ## The URL to be contacted to generate PXE configurations.
-  # generator: http://localhost:5243/api/latest/pxeconfig
+  # generator: http://localhost:5243/api/1.0/pxeconfig
