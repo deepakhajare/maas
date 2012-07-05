@@ -1,10 +1,12 @@
 
+include "{{ DNS_CONFIG_DIR }}/named.conf.rndc";
+
 options {
         listen-on port 53 { any; };
-        directory       "/var/named";
-        dump-file       "/var/named/data/cache_dump.db";
-        statistics-file "/var/named/data/named_stats.txt";
-        memstatistics-file "/var/named/data/named_mem_stats.txt";
+        directory       "{{ DNS_CONFIG_DIR }}/";
+        dump-file       "{{ DNS_CONFIG_DIR }}/data/cache_dump.db";
+        statistics-file "{{ DNS_CONFIG_DIR }}/data/named_stats.txt";
+        memstatistics-file "{{ DNS_CONFIG_DIR }}/data/named_mem_stats.txt";
         recursion yes;
 };
 
@@ -16,17 +18,16 @@ logging {
 };
 
 # Zone declarations
-
-{{for zone_bunch in zones}}
-zone "{{zone_bunch.zone}}." {
+{{for id in zone_ids}}
+zone "{{id}}" {
     type master;
-    file "{{zone_bunch.file}}";
+    file "{{ DNS_CONFIG_DIR }}/zone.{{id}}";
 };
 {{endfor}}
 
-{{for reverse_bunch in reverse_zones}}
-zone "{{reverse_bunch.arpa}}." {
+{{for id in zone_ids}}
+zone "{{id}}.rev" {
     type master;
-    file "{{reverse_bunch.file}}";
+    file "{{ DNS_CONFIG_DIR }}/zone.rev.{{id}}";
 };
 {{endfor}}

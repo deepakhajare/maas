@@ -17,12 +17,15 @@ import random
 
 from celery.conf import conf
 from maastesting.factory import factory
+from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
+from provisioningserver.dns import config
 from provisioningserver.dns.config import (
     BlankDNSConfig,
     DNSConfig,
     DNSConfigFail,
     DNSZoneConfig,
+    execute_rndc_command,
     generate_rndc,
     setup_rndc,
     TEMPLATES_PATH,
@@ -31,7 +34,7 @@ import tempita
 from testtools.matchers import FileContains
 
 
-class TestRNDCGeneration(TestCase):
+class TestRNDCUtilities(TestCase):
 
     def test_generate_rndc_returns_configurations(self):
         rndc_content, named_content = generate_rndc()
@@ -52,6 +55,18 @@ class TestRNDCGeneration(TestCase):
             with open(os.path.join(dns_conf_dir, filename), "rb") as stream:
                 conf_content = stream.read()
                 self.assertIn(content, conf_content)
+
+    def test_execute_rndc_command_executes_command(self):
+        recorder = FakeMethod()
+        fake_dir = factory.getRandomString()
+        self.patch(config, 'check_call', recorder)
+        self.patch(conf, 'DNS_CONFIG_DIR', fake_dir)
+        command = factory.getRandomString()
+        execute_rndc_command(command)
+        rndc_conf_path = os.path.join(fake_dir, 'rndc.conf')
+        self.assertSequenceEqual(
+            [((['rndc', '-c', rndc_conf_path, command],), {})],
+            recorder.calls)
 
 
 class TestDNSConfig(TestCase):

@@ -23,7 +23,10 @@ from abc import (
     abstractproperty,
     )
 import os.path
-from subprocess import check_output
+from subprocess import (
+    check_call,
+    check_output,
+    )
 
 from celery.conf import conf
 import tempita
@@ -75,6 +78,12 @@ def setup_rndc():
         f.write(named_content)
 
 
+def execute_rndc_command(command):
+    """Execute a rndc command."""
+    rndc_conf = os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
+    check_call(['rndc', '-c', rndc_conf, command])
+
+
 # Directory where the DNS configuration template files can be found.
 TEMPLATES_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -108,9 +117,15 @@ class DNSConfigBase:
         except NameError as error:
             raise DNSConfigFail(*error.args)
 
+    def get_extra_context(self):
+        """Dictionary containing extra parameters to be included in the
+        parameters used when rendering the template."""
+        return {}
+
     def write_config(self, **kwargs):
         """Write out this DNS config file."""
         template = self.get_template()
+        kwargs.update(self.get_extra_context())
         rendered = self.render_template(template, **kwargs)
         with open(self.target_path, "wb") as f:
             f.write(rendered)
@@ -132,6 +147,11 @@ class DNSConfig(DNSConfigBase):
     @property
     def target_path(self):
         return os.path.join(self.target_dir, self.target_file_name)
+
+    def get_extra_context(self):
+        return {
+            'DNS_CONFIG_DIR': conf.DNS_CONFIG_DIR,
+        }
 
 
 class BlankDNSConfig(DNSConfig):
