@@ -63,17 +63,25 @@ def generate_rndc():
     return rndc_content, named_conf
 
 
+def get_named_rndc_conf_path():
+    return os.path.join(conf.DNS_CONFIG_DIR, 'named.conf.rndc')
+
+
+def get_rndc_conf_path():
+    return os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
+
+
 def setup_rndc():
     """Writes out the two files needed to enable MAAS to use rndc commands:
     rndc.conf and named.conf.rndc, both stored in conf.DNS_CONFIG_DIR.
     """
     rndc_content, named_content = generate_rndc()
 
-    target_file = os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
+    target_file = get_rndc_conf_path()
     with open(target_file, "wb") as f:
         f.write(rndc_content)
 
-    target_file = os.path.join(conf.DNS_CONFIG_DIR, 'named.conf.rndc')
+    target_file = get_named_rndc_conf_path()
     with open(target_file, "wb") as f:
         f.write(named_content)
 
@@ -159,6 +167,7 @@ class DNSConfig(DNSConfigBase):
                 RevDNSZoneConfig(reverse_zone_id)
                 for reverse_zone_id in self.reverse_zone_ids],
             'DNS_CONFIG_DIR': conf.DNS_CONFIG_DIR,
+            'named_rndc_conf_path':  get_named_rndc_conf_path()
         }
 
 

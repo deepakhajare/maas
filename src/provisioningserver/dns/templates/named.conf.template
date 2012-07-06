@@ -1,4 +1,4 @@
-include "{{ DNS_CONFIG_DIR }}/named.conf.rndc";
+include "{{named_rndc_conf_path}}";
 
 options {
     listen-on port 53 { any; };
