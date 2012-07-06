@@ -124,7 +124,7 @@ class TestDNSTasks(TestCase):
 
     def test_write_dns_config_writes_file(self):
         zone_ids = [random.randint(1, 100), random.randint(1, 100)]
-        result = write_dns_config.delay(blank=False, zone_ids=zone_ids)
+        result = write_dns_config.delay(inactive=False, zone_ids=zone_ids)
 
         self.assertThat(
             (
@@ -140,8 +140,8 @@ class TestDNSTasks(TestCase):
                 )),
             result)
 
-    def test_write_dns_config_with_blank_True(self):
-        result = write_dns_config.delay(blank=True)
+    def test_write_dns_config_with_inactive_True(self):
+        result = write_dns_config.delay(inactive=True)
 
         self.assertThat(
             (

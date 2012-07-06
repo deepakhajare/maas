@@ -112,9 +112,9 @@ def write_dns_config(inactive=False, zone_ids=(),
                      reverse_zone_ids=(), **kwargs):
     """Write out the DNS configuration file.
 
-    :param blank: Whether or not an inactive (i.e. blank)
+    :param inactive: Whether or not an inactive (i.e. blank)
         configuration should be written. False by default.
-    :type blank: boolean
+    :type inactive: boolean
     :param zone_ids: List of zone ids to include as part of the main config.
     :type zone_ids: list
     :param reverse_zone_ids: List of reverse zone ids to include as part of
