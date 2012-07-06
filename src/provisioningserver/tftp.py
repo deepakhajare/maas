@@ -46,6 +46,11 @@ class BytesReader:
 
 
 class TFTPBackend(FilesystemSynchronousBackend):
+    """A partially dynamic read-only TFTP server.
+
+    Requests for PXE configurations are forwarded to a configurable URL. See
+    `re_config_file`.
+    """
 
     get_page = staticmethod(getPage)
 
@@ -54,11 +59,22 @@ class TFTPBackend(FilesystemSynchronousBackend):
         r'pxelinux[.]cfg/(?P<name>[^/]+)$')
 
     def __init__(self, base_path, generator_url):
+        """
+        :param base_path: The root directory for this TFTP server.
+        :param generator_url: The URL which can be queried for the PXE
+            config. See `get_generator_url` for the types of queries it is
+            expected to accept.
+        """
         super(TFTPBackend, self).__init__(
             base_path, can_read=True, can_write=False)
         self.generator_url = urlparse(generator_url)
 
     def get_generator_url(self, params):
+        """Calculate the URL, including query, that the PXE config is at.
+
+        :param params: A dict, or iterable suitable for updating a dict, of
+            additional query parameters.
+        """
         # TODO: update query defaults.
         query = {
             b"menutitle": b"",
@@ -76,6 +92,12 @@ class TFTPBackend(FilesystemSynchronousBackend):
         return url.geturl().encode("ascii")
 
     def get_reader(self, file_name):
+        """See `IBackend.get_reader()`.
+
+        If `file_name` matches `re_config_file` then the response is obtained
+        from a remote server. Otherwise the filesystem is used to service the
+        response.
+        """
         config_file_match = self.re_config_file.match(file_name)
         if config_file_match is None:
             return super(TFTPBackend, self).get_reader(file_name)
