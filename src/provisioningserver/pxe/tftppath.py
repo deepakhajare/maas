@@ -61,7 +61,7 @@ def compose_image_path(arch, subarch, release, purpose):
     return '/'.join(['/maas', arch, subarch, release, purpose])
 
 
-def locate_tftp_path(tftp_path, tftproot=None):
+def locate_tftp_path(tftp_path=None, tftproot=None):
     """Return the local filesystem path corresponding to `tftp_path`.
 
     The return value gives the filesystem path where you'd have to put
@@ -74,4 +74,6 @@ def locate_tftp_path(tftp_path, tftproot=None):
     """
     if tftproot is None:
         tftproot = TFTPROOT
+    if tftp_path is None:
+        return tftproot
     return os.path.join(tftproot, tftp_path.lstrip('/'))

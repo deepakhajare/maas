@@ -150,7 +150,7 @@ class ConfigTFTP(Schema):
 
     if_key_missing = None
 
-    root = String(if_missing=locate_tftp_path(""))
+    root = String(if_missing=locate_tftp_path())
     port = Int(min=1, max=65535, if_missing=5244)
     generator = URL(
         add_http=True, require_tld=False,

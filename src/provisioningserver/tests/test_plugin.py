@@ -87,7 +87,7 @@ class TestConfig(TestCase):
             'tftp': {
                 'generator': 'http://localhost:5243/api/1.0/pxeconfig',
                 'port': 5244,
-                'root': locate_tftp_path(""),
+                'root': locate_tftp_path(),
                 },
             'interface': '127.0.0.1',
             'port': 5241,
