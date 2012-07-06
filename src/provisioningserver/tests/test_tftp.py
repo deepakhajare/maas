@@ -93,10 +93,8 @@ class TestTFTPBackend(TestCase):
         # TFTPBackend.get_reader() returns a regular FilesystemReader for
         # paths not matching re_config_file.
         data = factory.getRandomString().encode("ascii")
-        temp_dir = self.make_dir()
-        temp_file = path.join(temp_dir, "example")
-        with open(temp_file, "wb") as stream:
-            stream.write(data)
+        temp_file = self.make_file(name="example", contents=data)
+        temp_dir = path.dirname(temp_file)
         backend = TFTPBackend(temp_dir, "http://nowhere.example.com/")
         reader = backend.get_reader("example")
         self.addCleanup(reader.finish)
