@@ -22,12 +22,12 @@ from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 from provisioningserver.dns import config
 from provisioningserver.dns.config import (
-    BlankDNSConfig,
     DNSConfig,
     DNSConfigFail,
     DNSZoneConfig,
     execute_rndc_command,
     generate_rndc,
+    InactiveDNSConfig,
     setup_rndc,
     TEMPLATES_PATH,
     )
@@ -123,13 +123,13 @@ class TestDNSConfig(TestCase):
                     ])))
 
 
-class TestBlankDNSConfig(TestCase):
-    """Tests for BlankDNSConfig."""
+class TestInactiveDNSConfig(TestCase):
+    """Tests for InactiveDNSConfig."""
 
     def test_write_config_writes_empty_config(self):
         target_dir = self.make_dir()
-        self.patch(BlankDNSConfig, 'target_dir', target_dir)
-        dnsconfig = BlankDNSConfig()
+        self.patch(InactiveDNSConfig, 'target_dir', target_dir)
+        dnsconfig = InactiveDNSConfig()
         dnsconfig.write_config()
         self.assertThat(
             os.path.join(target_dir, 'named.conf'), FileContains(''))

@@ -157,13 +157,6 @@ class TestDNSTasks(TestCase):
                 )),
             result)
 
-    def test_write_dns_config_skip_config_reload(self):
-        result = write_dns_config.delay(blank=True, reload_config=False)
-
-        self.assertEqual(
-            (result.successful(), self.rndc_recorder.call_count),
-            (True, 0))
-
     def test_write_dns_zone_config_writes_file(self):
         zone_id = random.randint(1, 100)
         result = write_dns_zone_config.delay(
@@ -184,17 +177,6 @@ class TestDNSTasks(TestCase):
                 )),
             result)
 
-    def test_write_dns_zone_config_skip_config_reload(self):
-        zone_id = random.randint(1, 100)
-        result = write_dns_zone_config.delay(
-            zone_id=zone_id, maas_server=factory.getRandomString(),
-            serial=random.randint(1, 100), hosts=[],
-            reload_config=False)
-
-        self.assertEqual(
-            (result.successful(), self.rndc_recorder.call_count),
-            (True, 0))
-
     def test_setup_rndc_configuration_writes_files(self):
         result = setup_rndc_configuration.delay()
 
@@ -213,13 +195,6 @@ class TestDNSTasks(TestCase):
                     Equals([(('reload',), {})]),
                 )),
             result)
-
-    def test_setup_rndc_configuration_skip_config_reload(self):
-        result = setup_rndc_configuration.delay(reload_config=False)
-
-        self.assertEqual(
-            (result.successful(), self.rndc_recorder.call_count),
-            (True, 0))
 
     def test_reload_dns_config_issues_reload_command(self):
         result = reload_dns_config.delay()

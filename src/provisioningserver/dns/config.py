@@ -11,9 +11,9 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'BlankDNSConfig',
     'DNSConfig',
     'DNSZoneConfig',
+    'InactiveDNSConfig',
     'setup_rndc',
     ]
 
@@ -171,7 +171,7 @@ class DNSConfig(DNSConfigBase):
         }
 
 
-class BlankDNSConfig(DNSConfig):
+class InactiveDNSConfig(DNSConfig):
     """A specialized version of DNSConfig that simply writes a blank/empty
     configuration file.
     """

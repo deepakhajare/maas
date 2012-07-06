@@ -24,10 +24,10 @@ __all__ = [
 from celery.task import task
 from celery.task.sets import subtask
 from provisioningserver.dns.config import (
-    BlankDNSConfig,
     DNSConfig,
     DNSZoneConfig,
     execute_rndc_command,
+    InactiveDNSConfig,
     setup_rndc,
     )
 from provisioningserver.power.poweraction import (
@@ -108,59 +108,46 @@ def reload_zone_config(zone_id):
 
 
 @task
-def write_dns_config(blank=False, zone_ids=(), reverse_zone_ids=(),
-                     reload_config=True, **kwargs):
+def write_dns_config(inactive=False, zone_ids=(),
+                     reverse_zone_ids=(), **kwargs):
     """Write out the DNS configuration file.
 
-    :param blank: Whether or not a blank configuration should be written.
-        False by default.
+    :param blank: Whether or not an inactive (i.e. blank)
+        configuration should be written. False by default.
     :type blank: boolean
     :param zone_ids: List of zone ids to include as part of the main config.
     :type zone_ids: list
     :param reverse_zone_ids: List of reverse zone ids to include as part of
         the main config.
     :type reverse_zone_ids: list
-    :param reload_config: Whether or not to reload the configuration after it
-        has been written.  True by default.
-    :type reload_config: boolean
     :param **kwargs: Keyword args passed to DNSConfig.write_config()
     """
-    if blank:
-        BlankDNSConfig().write_config()
+    if inactive:
+        InactiveDNSConfig().write_config()
     else:
         config = DNSConfig(
             zone_ids=zone_ids,
             reverse_zone_ids=reverse_zone_ids)
         config.write_config(**kwargs)
-    if reload_config:
-        subtask(reload_dns_config.subtask()).delay()
+    subtask(reload_dns_config.subtask()).delay()
 
 
 @task
-def write_dns_zone_config(zone_id, reload_config=True, **kwargs):
+def write_dns_zone_config(zone_id, **kwargs):
     """Write out a DNS zone configuration file.
 
     :param zone_id: The identifier of the zone to write the configuration for.
     :type zone_id: int
-    :param reload_config: Whether or not to reload the configuration after it
-        has been written.  True by default.
-    :type reload_config: boolean
     :param **kwargs: Keyword args passed to DNSZoneConfig.write_config()
     """
     DNSZoneConfig(zone_id).write_config(**kwargs)
-    if reload_config:
-        subtask(reload_zone_config.subtask(args=[zone_id])).delay()
+    subtask(reload_zone_config.subtask(args=[zone_id])).delay()
 
 
 @task
-def setup_rndc_configuration(reload_config=True):
+def setup_rndc_configuration():
     """Write out the two rndc configuration files (rndc.conf and
     named.conf.rndc).
-
-    :param reload_config: Whether or not to reload the configuration after it
-        has been written.  True by default.
-    :type reload_config: boolean
     """
     setup_rndc()
-    if reload_config:
-        subtask(reload_dns_config.subtask()).delay()
+    subtask(reload_dns_config.subtask()).delay()
