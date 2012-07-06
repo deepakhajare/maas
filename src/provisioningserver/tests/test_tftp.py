@@ -112,7 +112,7 @@ class TestTFTPBackend(TestCase):
         kernelimage = factory.make_name("kernelimage").encode("ascii")
         menutitle = factory.make_name("menutitle").encode("ascii")
         append = factory.make_name("append").encode("ascii")
-        backend_url = "http://example.com/?" + urlencode(
+        backend_url = b"http://example.com/?" + urlencode(
             {b"kernelimage": kernelimage, b"menutitle": menutitle,
              b"append": append})
         config_path = compose_config_path(arch, subarch, name)
