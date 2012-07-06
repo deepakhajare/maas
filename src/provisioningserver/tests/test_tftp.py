@@ -68,9 +68,9 @@ class TestTFTPBackend(TestCase):
         regex = TFTPBackend.re_config_file
         for iteration in range(10):
             args = {
-                "arch": factory.getRandomString(),
-                "subarch": factory.getRandomString(),
-                "name": factory.getRandomString(),
+                "arch": factory.make_name("arch"),
+                "subarch": factory.make_name("subarch"),
+                "name": factory.make_name("name"),
                 }
             config_path = compose_config_path(**args)
             # Remove leading slash from config path; the TFTP server does not
@@ -83,7 +83,7 @@ class TestTFTPBackend(TestCase):
     def test_init(self):
         temp_dir = self.make_dir()
         generator_url = "http://%s.example.com/%s" % (
-            factory.getRandomString(), factory.getRandomString())
+            factory.make_name("domain"), factory.make_name("path"))
         backend = TFTPBackend(temp_dir, generator_url)
         self.assertEqual((True, False), (backend.can_read, backend.can_write))
         self.assertEqual(temp_dir, backend.base.path)
@@ -108,12 +108,12 @@ class TestTFTPBackend(TestCase):
     def test_get_reader_config_file(self):
         # TFTPBackend.get_reader() returns a BytesReader for paths matching
         # re_config_file.
-        arch = factory.getRandomString().encode("ascii")
-        subarch = factory.getRandomString().encode("ascii")
-        name = factory.getRandomString().encode("ascii")
-        kernelimage = factory.getRandomString().encode("ascii")
-        menutitle = factory.getRandomString().encode("ascii")
-        append = factory.getRandomString().encode("ascii")
+        arch = factory.make_name("arch").encode("ascii")
+        subarch = factory.make_name("subarch").encode("ascii")
+        name = factory.make_name("name").encode("ascii")
+        kernelimage = factory.make_name("kernelimage").encode("ascii")
+        menutitle = factory.make_name("menutitle").encode("ascii")
+        append = factory.make_name("append").encode("ascii")
         backend_url = "http://example.com/?" + urlencode(
             {b"kernelimage": kernelimage, b"menutitle": menutitle,
              b"append": append})
