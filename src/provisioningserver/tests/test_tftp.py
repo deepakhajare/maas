@@ -131,4 +131,4 @@ class TestTFTPBackend(TestCase):
             ("menutitle", menutitle),
             ("name", name),
             ]
-        self.assertItemsEqual(query_expected, sorted(query))
+        self.assertItemsEqual(query_expected, query)
