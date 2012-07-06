@@ -28,6 +28,8 @@ from provisioningserver.power.poweraction import PowerActionFail
 from provisioningserver.tasks import (
     power_off,
     power_on,
+    reload_dns_config,
+    reload_zone_config,
     setup_rndc_configuration,
     write_dns_config,
     write_dns_zone_config,
@@ -111,7 +113,7 @@ class TestDNSTasks(TestCase):
 
     def setUp(self):
         super(TestDNSTasks, self).setUp()
-        # Path DNS_CONFIG_DIR so that the configuration files will be
+        # Patch DNS_CONFIG_DIR so that the configuration files will be
         # written in a temporary directory.
         self.dns_conf_dir = self.make_dir()
         self.patch(conf, 'DNS_CONFIG_DIR', self.dns_conf_dir)
@@ -178,7 +180,7 @@ class TestDNSTasks(TestCase):
                 (
                     Equals(True),
                     FileExists(),
-                    Equals([(('reload',), {})]),
+                    Equals([(('reload', zone_id), {})]),
                 )),
             result)
 
@@ -218,3 +220,26 @@ class TestDNSTasks(TestCase):
         self.assertEqual(
             (result.successful(), self.rndc_recorder.call_count),
             (True, 0))
+
+    def test_reload_dns_config_issues_reload_command(self):
+        result = reload_dns_config.delay()
+
+        self.assertThat(
+            (result.successful(), self.rndc_recorder.calls),
+            MatchesListwise(
+                (
+                    Equals(True),
+                    Equals([(('reload',), {})]),
+                )))
+
+    def test_reload_zone_config_issues_zone_reload_command(self):
+        zone_id = random.randint(1, 100)
+        result = reload_zone_config.delay(zone_id)
+
+        self.assertThat(
+            (result.successful(), self.rndc_recorder.calls),
+            MatchesListwise(
+                (
+                    Equals(True),
+                    Equals([(('reload', zone_id), {})]),
+                )))

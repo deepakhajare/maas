@@ -14,6 +14,10 @@ __all__ = [
     'power_off',
     'power_on',
     'reload_dns_config',
+    'reload_zone_config',
+    'write_dns_config',
+    'write_dns_zone_config',
+    'setup_rndc_configuration',
     ]
 
 
@@ -98,7 +102,14 @@ def reload_dns_config():
 
 
 @task
-def write_dns_config(blank=False, reload_config=True, **kwargs):
+def reload_zone_config(zone_id):
+    """Use rndc to reload the DNS configuration for a zone."""
+    execute_rndc_command('reload', zone_id)
+
+
+@task
+def write_dns_config(blank=False, zone_ids=(), reverse_zone_ids=(),
+                     reload_config=True, **kwargs):
     """Write out the DNS configuration file.
 
     :param blank: Whether or not a blank configuration should be written.
@@ -110,7 +121,9 @@ def write_dns_config(blank=False, reload_config=True, **kwargs):
     :param **kwargs: Keyword args passed to DNSConfig.write_config()
     """
     if blank:
-        BlankDNSConfig().write_config()
+        BlankDNSConfig(
+            zone_ids=zone_ids,
+            reverse_zone_ids=reverse_zone_ids).write_config()
     else:
         DNSConfig().write_config(**kwargs)
     if reload_config:
@@ -121,8 +134,12 @@ def write_dns_config(blank=False, reload_config=True, **kwargs):
 def write_dns_zone_config(zone_id, reload_config=True, **kwargs):
     """Write out a DNS zone configuration file.
 
-    :param id: The identifier of the zone to write the configuration for.
-    :type id: int
+    :param zone_id: The identifier of the zone to write the configuration for.
+    :type zone_id: int
+    :param hosts: The list of hosts in this zone. Each element in this list
+        must be a dict (or provide dict-like access) containing an 'ip' and a
+        'hostname'.
+    :type hosts: list
     :param reload_config: Whether or not to reload the configuration after it
         has been written.  True by default.
     :type reload_config: boolean
@@ -130,7 +147,7 @@ def write_dns_zone_config(zone_id, reload_config=True, **kwargs):
     """
     DNSZoneConfig(zone_id).write_config(**kwargs)
     if reload_config:
-        subtask(reload_dns_config.subtask()).delay()
+        subtask(reload_zone_config.subtask(args=[zone_id])).delay()
 
 
 @task
