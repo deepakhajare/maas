@@ -58,25 +58,30 @@ class TFTPBackend(FilesystemSynchronousBackend):
             base_path, can_read=True, can_write=False)
         self.generator_url = urlparse(generator_url)
 
+    def get_generator_url(self, params):
+        # TODO: update query defaults.
+        query = {
+            b"menutitle": b"",
+            b"kernelimage": b"",
+            b"append": b"",
+            }
+        # Merge parameters from the generator URL.
+        query.update(parse_qsl(self.generator_url.query))
+        # Merge parameters obtained from the request.
+        query.update(params)
+        # Merge updated query into the generator URL.
+        url = self.generator_url._replace(query=urlencode(query))
+        # TODO: do something more intelligent with unicode URLs here; see
+        # maas_client._ascii_url() for inspiration.
+        return url.geturl().encode("ascii")
+
     def get_reader(self, file_name):
         config_file_match = self.re_config_file.match(file_name)
         if config_file_match is None:
             return super(TFTPBackend, self).get_reader(file_name)
         else:
-            # TODO: update query defaults.
-            query = {
-                b"menutitle": b"",
-                b"kernelimage": b"",
-                b"append": b"",
-                }
-            # Merge parameters from the generator URL.
-            query.update(parse_qsl(self.generator_url.query))
-            # Merge parameters obtained from the request.
-            query.update(config_file_match.groupdict())
-            # Merge updated query into the generator URL.
-            url = self.generator_url._replace(query=urlencode(query))
-            # TODO: do something more intelligent with unicode URLs here; see
-            # maas_client._ascii_url() for inspiration.
-            d = self.get_page(url.geturl().encode("ascii"))
+            params = config_file_match.groupdict()
+            url = self.get_generator_url(params)
+            d = self.get_page(url)
             d.addCallback(BytesReader)
             return d

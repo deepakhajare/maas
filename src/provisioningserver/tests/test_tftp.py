@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from functools import partial
 from os import path
 from urllib import urlencode
 from urlparse import (
@@ -89,6 +90,34 @@ class TestTFTPBackend(TestCase):
         self.assertEqual(temp_dir, backend.base.path)
         self.assertEqual(generator_url, backend.generator_url.geturl())
 
+    def test_get_generator_url(self):
+        # get_generator_url() merges the parameters obtained from the request
+        # file path (arch, subarch, name) into the configured generator URL.
+        arch = factory.make_name("arch").encode("ascii")
+        subarch = factory.make_name("subarch").encode("ascii")
+        name = factory.make_name("name").encode("ascii")
+        kernelimage = factory.make_name("kernelimage").encode("ascii")
+        menutitle = factory.make_name("menutitle").encode("ascii")
+        append = factory.make_name("append").encode("ascii")
+        backend_url = b"http://example.com/?" + urlencode(
+            {b"kernelimage": kernelimage, b"menutitle": menutitle,
+             b"append": append})
+        backend = TFTPBackend(self.make_dir(), backend_url)
+        # params is an example of the parameters obtained from a request.
+        params = {"arch": arch, "subarch": subarch, "name": name}
+        generator_url = urlparse(backend.get_generator_url(params))
+        self.assertEqual("example.com", generator_url.hostname)
+        query = parse_qsl(generator_url.query)
+        query_expected = [
+            ("append", append),
+            ("kernelimage", kernelimage),
+            ("arch", arch),
+            ("subarch", subarch),
+            ("menutitle", menutitle),
+            ("name", name),
+            ]
+        self.assertItemsEqual(query_expected, query)
+
     def test_get_reader_regular_file(self):
         # TFTPBackend.get_reader() returns a regular FilesystemReader for
         # paths not matching re_config_file.
@@ -109,26 +138,20 @@ class TestTFTPBackend(TestCase):
         arch = factory.make_name("arch").encode("ascii")
         subarch = factory.make_name("subarch").encode("ascii")
         name = factory.make_name("name").encode("ascii")
-        kernelimage = factory.make_name("kernelimage").encode("ascii")
-        menutitle = factory.make_name("menutitle").encode("ascii")
-        append = factory.make_name("append").encode("ascii")
-        backend_url = b"http://example.com/?" + urlencode(
-            {b"kernelimage": kernelimage, b"menutitle": menutitle,
-             b"append": append})
         config_path = compose_config_path(arch, subarch, name)
-        backend = TFTPBackend(self.make_dir(), backend_url)
+        backend = TFTPBackend(self.make_dir(), b"http://example.com/")
+
+        # Patch get_generator_url() to check params.
+        generator_url = factory.make_name("generator-url").encode("ascii")
+
+        @partial(self.patch, backend, "get_generator_url")
+        def get_generator_url(params):
+            expected_params = {"arch": arch, "subarch": subarch, "name": name}
+            self.assertEqual(expected_params, params)
+            return generator_url
+
         backend.get_page = succeed  # Return the URL, via a Deferred.
         reader = yield backend.get_reader(config_path.lstrip("/"))
         self.addCleanup(reader.finish)
         self.assertIsInstance(reader, BytesReader)
-        url = reader.read(1000)
-        query = parse_qsl(urlparse(url).query)
-        query_expected = [
-            ("append", append),
-            ("kernelimage", kernelimage),
-            ("arch", arch),
-            ("subarch", subarch),
-            ("menutitle", menutitle),
-            ("name", name),
-            ]
-        self.assertItemsEqual(query_expected, query)
+        self.assertEqual(generator_url, reader.read(1000))
