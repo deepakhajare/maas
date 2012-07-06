@@ -142,10 +142,6 @@ def write_dns_zone_config(zone_id, reload_config=True, **kwargs):
 
     :param zone_id: The identifier of the zone to write the configuration for.
     :type zone_id: int
-    :param hosts: The list of hosts in this zone. Each element in this list
-        must be a dict (or provide dict-like access) containing an 'ip' and a
-        'hostname'.
-    :type hosts: list
     :param reload_config: Whether or not to reload the configuration after it
         has been written.  True by default.
     :type reload_config: boolean
