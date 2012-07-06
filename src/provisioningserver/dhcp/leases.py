@@ -34,7 +34,6 @@ __all__ = [
 
 from os import stat
 
-from celery.decorators import task
 from celeryconfig import DHCP_LEASES_FILE
 
 # Modification time on last-processed leases file.
@@ -89,8 +88,7 @@ def send_leases(leases):
     # TODO: Implement API call for uploading leases.
 
 
-@task
-def upload_leases(**kwargs):
+def upload_leases():
     """Unconditionally send the current DHCP leases to the server.
 
     Run this periodically just so no changes slip through the cracks.
@@ -103,8 +101,7 @@ def upload_leases(**kwargs):
     send_leases(leases)
 
 
-@task
-def update_leases(**kwargs):
+def update_leases():
     """Check for DHCP lease updates, and send them to the server if needed.
 
     Run this whenever a lease has been added, removed, or changed.  It
