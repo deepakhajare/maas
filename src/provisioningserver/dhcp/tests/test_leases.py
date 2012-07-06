@@ -24,7 +24,13 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
-from provisioningserver.dhcp import update_leases
+from provisioningserver.dhcp import leases as leases_module
+from provisioningserver.dhcp.leases import (
+    check_lease_changes,
+    record_lease_state,
+    update_leases,
+    upload_leases,
+    )
 
 
 class StopExecuting(BaseException):
@@ -56,131 +62,127 @@ class TestUpdateLeases(TestCase):
         if age is not None:
             age_file(leases_file, age)
         timestamp = get_write_time(leases_file)
-        self.patch(update_leases, 'DHCP_LEASES_FILE', leases_file)
+        self.patch(leases_module, 'DHCP_LEASES_FILE', leases_file)
         # TODO: We don't have a lease-file parser yet.  For now, just
         # fake up a "parser" that returns the given data.
-        self.patch(
-            update_leases, 'parse_leases', lambda: (timestamp, leases))
+        self.patch(leases_module, 'parse_leases', lambda: (timestamp, leases))
         return leases_file
 
     def test_check_lease_changes_returns_tuple_if_no_state_cached(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
         self.assertEqual(
             (get_write_time(leases_file), leases),
-            update_leases.check_lease_changes())
+            check_lease_changes())
 
     def test_check_lease_changes_returns_tuple_if_lease_changed(self):
         ip = factory.getRandomIPAddress()
         leases = {ip: factory.getRandomMACAddress()}
-        update_leases.record_lease_state(
+        record_lease_state(
             datetime.utcnow() - timedelta(seconds=10), leases.copy())
         leases[ip] = factory.getRandomMACAddress()
         leases_file = self.fake_leases_file(leases)
         self.assertEqual(
             (get_write_time(leases_file), leases),
-            update_leases.check_lease_changes())
+            check_lease_changes())
 
     def test_check_lease_changes_does_not_parse_unchanged_leases_file(self):
         parser = FakeMethod()
         leases_file = self.fake_leases_file()
-        self.patch(update_leases, 'parse_leases', parser)
-        update_leases.record_lease_state(get_write_time(leases_file), {})
-        update_leases.update_leases()
+        self.patch(leases_module, 'parse_leases', parser)
+        record_lease_state(get_write_time(leases_file), {})
+        update_leases()
         self.assertSequenceEqual([], parser.calls)
 
     def test_check_lease_changes_returns_tuple_if_lease_added(self):
         leases = self.make_lease()
-        update_leases.record_lease_state(
+        record_lease_state(
             datetime.utcnow() - timedelta(seconds=10), leases.copy())
         leases[factory.getRandomIPAddress()] = factory.getRandomMACAddress()
         leases_file = self.fake_leases_file(leases)
         self.assertEqual(
             (get_write_time(leases_file), leases),
-            update_leases.check_lease_changes())
+            check_lease_changes())
 
     def test_check_lease_changes_returns_tuple_if_leases_dropped(self):
-        update_leases.record_lease_state(
+        record_lease_state(
             datetime.utcnow() - timedelta(seconds=10), self.make_lease())
         leases_file = self.fake_leases_file({})
         self.assertEqual(
             (get_write_time(leases_file), {}),
-            update_leases.check_lease_changes())
+            check_lease_changes())
 
     def test_check_lease_changes_returns_None_if_no_change(self):
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        update_leases.record_lease_state(
-            get_write_time(leases_file), leases.copy())
-        self.assertIsNone(update_leases.check_lease_changes())
+        record_lease_state(get_write_time(leases_file), leases.copy())
+        self.assertIsNone(check_lease_changes())
 
     def test_check_lease_changes_ignores_irrelevant_changes(self):
         leases = self.make_lease()
         self.fake_leases_file(leases, age=10)
-        update_leases.record_lease_state(datetime.utcnow(), leases.copy())
-        self.assertIsNone(update_leases.check_lease_changes())
+        record_lease_state(datetime.utcnow(), leases.copy())
+        self.assertIsNone(check_lease_changes())
 
     def test_update_leases_sends_leases_if_changed(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         send_leases = FakeMethod()
-        self.patch(update_leases, 'send_leases', send_leases)
+        self.patch(leases_module, 'send_leases', send_leases)
         leases = self.make_lease()
         self.fake_leases_file(leases)
-        update_leases.update_leases()
+        update_leases()
         self.assertSequenceEqual([(leases, )], send_leases.extract_args())
 
     def test_update_leases_does_nothing_without_lease_changes(self):
         send_leases = FakeMethod()
-        self.patch(update_leases, 'send_leases', send_leases)
+        self.patch(leases_module, 'send_leases', send_leases)
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        update_leases.record_lease_state(
-            get_write_time(leases_file), leases.copy())
+        record_lease_state(get_write_time(leases_file), leases.copy())
         self.assertSequenceEqual([], send_leases.calls)
 
     def test_update_leases_records_update(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         self.fake_leases_file()
-        self.patch(update_leases, 'send_leases', FakeMethod())
-        update_leases.update_leases()
-        self.assertIsNone(update_leases.check_lease_changes())
+        self.patch(leases_module, 'send_leases', FakeMethod())
+        update_leases()
+        self.assertIsNone(check_lease_changes())
 
     def test_update_leases_records_state_before_sending(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         self.fake_leases_file()
         self.patch(
-            update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
+            leases_module, 'send_leases', FakeMethod(failure=StopExecuting()))
         try:
-            update_leases.update_leases()
+            update_leases()
         except StopExecuting:
             pass
-        self.assertIsNone(update_leases.check_lease_changes())
+        self.assertIsNone(check_lease_changes())
 
     def test_upload_leases_sends_leases_unconditionally(self):
         send_leases = FakeMethod()
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        update_leases.record_lease_state(get_write_time
-            (leases_file), leases.copy())
-        self.patch(update_leases, 'send_leases', send_leases)
-        update_leases.upload_leases()
+        record_lease_state(get_write_time(leases_file), leases.copy())
+        self.patch(leases_module, 'send_leases', send_leases)
+        upload_leases()
         self.assertSequenceEqual([(leases, )], send_leases.extract_args())
 
     def test_upload_leases_records_update(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         self.fake_leases_file()
-        self.patch(update_leases, 'send_leases', FakeMethod())
-        update_leases.upload_leases()
-        self.assertIsNone(update_leases.check_lease_changes())
+        self.patch(leases_module, 'send_leases', FakeMethod())
+        upload_leases()
+        self.assertIsNone(check_lease_changes())
 
     def test_upload_leases_records_state_before_sending(self):
-        update_leases.record_lease_state(None, None)
+        record_lease_state(None, None)
         self.fake_leases_file()
         self.patch(
-            update_leases, 'send_leases', FakeMethod(failure=StopExecuting()))
+            leases_module, 'send_leases', FakeMethod(failure=StopExecuting()))
         try:
-            update_leases.upload_leases()
+            upload_leases()
         except StopExecuting:
             pass
-        self.assertIsNone(update_leases.check_lease_changes())
+        self.assertIsNone(check_lease_changes())
