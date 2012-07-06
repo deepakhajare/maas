@@ -104,8 +104,8 @@ class TestTFTPBackend(TestCase):
 
     @inlineCallbacks
     def test_get_reader_config_file(self):
-        # TFTPBackend.get_reader() returns a BytesReader for paths matching
-        # re_config_file.
+        # For paths matching re_config_file, TFTPBackend.get_reader() returns
+        # a Deferred that will yield a BytesReader.
         arch = factory.make_name("arch").encode("ascii")
         subarch = factory.make_name("subarch").encode("ascii")
         name = factory.make_name("name").encode("ascii")
