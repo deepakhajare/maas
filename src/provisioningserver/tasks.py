@@ -115,17 +115,23 @@ def write_dns_config(blank=False, zone_ids=(), reverse_zone_ids=(),
     :param blank: Whether or not a blank configuration should be written.
         False by default.
     :type blank: boolean
+    :param zone_ids: List of zone ids to include as part of the main config.
+    :type zone_ids: list
+    :param reverse_zone_ids: List of reverse zone ids to include as part of
+        the main config.
+    :type reverse_zone_ids: list
     :param reload_config: Whether or not to reload the configuration after it
         has been written.  True by default.
     :type reload_config: boolean
     :param **kwargs: Keyword args passed to DNSConfig.write_config()
     """
     if blank:
-        BlankDNSConfig(
-            zone_ids=zone_ids,
-            reverse_zone_ids=reverse_zone_ids).write_config()
+        BlankDNSConfig().write_config()
     else:
-        DNSConfig().write_config(**kwargs)
+        config = DNSConfig(
+            zone_ids=zone_ids,
+            reverse_zone_ids=reverse_zone_ids)
+        config.write_config(**kwargs)
     if reload_config:
         subtask(reload_dns_config.subtask()).delay()
 

@@ -1,11 +1,11 @@
 $TTL    300
 @   IN    SOA {{maas_server}}. nobody.example.com. (
-                  {{serial}} ; serial
-                  600 ; Refresh
-                  1800 ; Retry
-                  604800 ; Expire
-                  300 ; TTL
-                 )
+              {{serial}} ; serial
+              600 ; Refresh
+              1800 ; Retry
+              604800 ; Expire
+              300 ; TTL
+              )
 
     IN  NS  {{maas_server}}.
 {{for host in hosts}}
