@@ -12,17 +12,17 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'BINDServer',
-    'set_up_named',
     ]
 
 import os
 from shutil import copy
 import subprocess
+from textwrap import dedent
 import time
 
 import fixtures
-from provisioningserver.utils import atomic_write
 from provisioningserver.dns.config import generate_rndc
+from provisioningserver.utils import atomic_write
 from rabbitfixture.server import (
     allocate_ports,
     preexec_fn,
@@ -30,89 +30,6 @@ from rabbitfixture.server import (
 import tempita
 from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
-
-
-def get_named_path():
-    """Return the full path where the 'named' executable can be
-    found.
-
-    Note that it will be copied over to a temporary
-    location in order to by-pass the limitations imposed by
-    apparmor if the executable is in its default location
-    (/usr/sbin/named).
-    """
-    return os.environ.get(
-        'MAAS_NAMED_PATH', '/usr/sbin/named')
-
-
-# Where the executable 'rndc' can be found (belongs to the package
-# 'bind9utils').
-RNDCBIN = "/usr/sbin/rndc"
-
-# The configuration template for the BIND server.  The goal here
-# is to override the defaults (default configuration files location,
-# default port) to avoid clashing with the system's BIND (if
-# running).
-NAMED_CONF_TEMPLATE = tempita.Template("""
-options {
-  directory "{{homedir}}";
-  listen-on port {{port}} {127.0.0.1;};
-  pid-file "{{homedir}}/named.pid";
-  session-keyfile "{{homedir}}/session.key";
-};
-
-logging{
-  channel simple_log {
-    file "{{log_file}}";
-    severity info;
-    print-severity yes;
-  };
-  category default{
-    simple_log;
-  };
-};
-""")
-
-
-def set_up_named(homedir, port, rndc_port, log_file, named_file,
-                conf_file, rndcconf_file):
-    """Setup an environment to run 'named'.
-
-    - Create the default configuration for 'named' and setup rndc.
-    - Copies the 'named' executable inside homedir (to by-pass the
-    restrictions that apparmor imposes
-
-    :param homedir: Home directory where the executable should be
-        copied.
-    :param port: Port that will be used by 'named'.
-    :param rndc_port: rndc port that will be used by 'named'.
-    :param log_file: Full path of the main logging file.
-    :param named_file: Full path of where 'named' should be copied.
-    :param conf_file: Full path of the main configuration file.
-    :param rndcconf_file: Full path of the rndc configuration file.
-    """
-    # Generate rndc configuration (rndc config and named snippet).
-    rndcconf, namedrndcconf = generate_rndc(
-        rndc_port, 'dnsfixture-rndc-key')
-    # Write main BIND config file.
-    named_conf = (
-        NAMED_CONF_TEMPLATE.substitute(
-            homedir=homedir, port=port, log_file=log_file)
-        + namedrndcconf)
-    atomic_write(named_conf, conf_file)
-   # Write rndc config file.
-    atomic_write(rndcconf, rndcconf_file)
-
-    # Copy named executable to home dir.  This is done to avoid
-    # the limitations imposed by apparmor if the executable
-    # is in /usr/sbin/named.
-    named_path = get_named_path()
-    assert os.path.exists(named_path), (
-        "'%s' executable not found.  Install the package "
-        "'bind9' or define an environment variable named "
-        "MAAS_NAMED_PATH with the path where the 'named' "
-        "executable can be found." % named_path)
-    copy(named_path, named_file)
 
 
 class BINDServerResources(fixtures.Fixture):
@@ -126,6 +43,39 @@ class BINDServerResources(fixtures.Fixture):
         BIND server needs (configuration files and executable).
     :ivar log_file: The log_file allocated for the server.
     """
+
+    # The full path where the 'named' executable can be
+    # found.
+    # Note that it will be copied over to a temporary
+    # location in order to by-pass the limitations imposed by
+    # apparmor if the executable is in /usr/sbin/named.
+    NAMED_PATH = '/usr/sbin/named'
+
+    # The configuration template for the BIND server.  The goal here
+    # is to override the defaults (default configuration files location,
+    # default port) to avoid clashing with the system's BIND (if
+    # running).
+    NAMED_CONF_TEMPLATE = tempita.Template(dedent("""
+      options {
+        directory "{{homedir}}";
+        listen-on port {{port}} {127.0.0.1;};
+        pid-file "{{homedir}}/named.pid";
+        session-keyfile "{{homedir}}/session.key";
+      };
+
+      logging{
+        channel simple_log {
+          file "{{log_file}}";
+          severity info;
+          print-severity yes;
+        };
+        category default{
+          simple_log;
+        };
+      };
+
+      {{extra}}
+    """))
 
     def __init__(self, port=None, rndc_port=None, homedir=None,
                  log_file=None):
@@ -141,9 +91,41 @@ class BINDServerResources(fixtures.Fixture):
         super(BINDServerResources, self).setUp()
         self.__dict__.update(self._defaults)
         self.set_up_config()
-        set_up_named(
-            self.homedir, self.port, self.rndc_port, self.log_file,
-            self.named_file, self.conf_file, self.rndcconf_file)
+        self.set_up_named()
+
+    def set_up_named(self):
+        """Setup an environment to run 'named'.
+
+        - Create the default configuration for 'named' and setup rndc.
+        - Copies the 'named' executable inside homedir (to by-pass the
+        restrictions that apparmor imposes
+        """
+        # Generate rndc configuration (rndc config and named snippet).
+        rndcconf, namedrndcconf = generate_rndc(
+            self.rndc_port, 'dnsfixture-rndc-key')
+        # Write main BIND config file.
+        named_conf = (
+            self.NAMED_CONF_TEMPLATE.substitute(
+                homedir=self.homedir, port=self.port,
+                log_file=self.log_file,
+                extra=namedrndcconf))
+        atomic_write(named_conf, self.conf_file)
+        # Write rndc config file.
+        atomic_write(rndcconf, self.rndcconf_file)
+
+        # Copy named executable to home dir.  This is done to avoid
+        # the limitations imposed by apparmor if the executable
+        # is in /usr/sbin/named.
+        # named's apparmor profile prevents loading of zone and
+        # configuration files from outside of a restricted set,
+        # none of which an ordinary user has write access to.
+        named_path = self.NAMED_PATH
+        assert os.path.exists(named_path), (
+            "'%s' executable not found.  Install the package "
+            "'bind9' or define an environment variable named "
+            "NAMED_PATH with the path where the 'named' "
+            "executable can be found." % named_path)
+        copy(named_path, self.named_file)
 
     def set_up_config(self):
         if self.port is None:
@@ -155,19 +137,17 @@ class BINDServerResources(fixtures.Fixture):
         if self.log_file is None:
             self.log_file = os.path.join(self.homedir, 'named.log')
         self.named_file = os.path.join(
-            self.homedir, os.path.basename(get_named_path()))
+            self.homedir, os.path.basename(self.NAMED_PATH))
         self.conf_file = os.path.join(self.homedir, 'named.conf')
         self.rndcconf_file = os.path.join(self.homedir, 'rndc.conf')
-
-    def tearDown(self):
-        super(BINDServerResources, self).tearDown()
-        # Restore defaults, setting dynamic values back to None for
-        # reallocation in setUp.
-        self.__dict__.update(self._defaults)
 
 
 class BINDServerRunner(fixtures.Fixture):
     """Run a BIND server."""
+
+    # Where the executable 'rndc' can be found (belongs to the
+    # package 'bind9utils').
+    RNDC_PATH = "/usr/sbin/rndc"
 
     def __init__(self, config):
         """Create a `BINDServerRunner` instance.
@@ -214,7 +194,8 @@ class BINDServerRunner(fixtures.Fixture):
         if isinstance(command, basestring):
             command = (command,)
         ctl = subprocess.Popen(
-            (RNDCBIN, "-c", self.config.rndcconf_file) + command,
+            (self.RNDC_PATH, "-c", self.config.rndcconf_file) +
+                command,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             preexec_fn=preexec_fn)
         outstr, errstr = ctl.communicate()
@@ -260,20 +241,6 @@ class BINDServerRunner(fixtures.Fixture):
         else:
             raise Exception(
                 "Timeout waiting for BIND server to go down.")
-        # Wait at least 5 more seconds for the process to end...
-        timeout = max(timeout, time.time() + 5)
-        while time.time() < timeout:
-            if not self.is_running():
-                break
-            self.process.terminate()
-            time.sleep(0.1)
-        else:
-            # Die!!!
-            if self.is_running():
-                self.process.kill()
-                time.sleep(0.5)
-            if self.is_running():
-                raise Exception("BIND server just won't die.")
 
 
 class BINDServer(fixtures.Fixture):

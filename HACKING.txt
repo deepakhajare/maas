@@ -127,18 +127,6 @@ Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
 tests will modify your Cobbler database.
 
 
-DNS tests
-^^^^^^^^^
-
-MAAS needs to have access to a BIND executable to setup a test DNS
-service.  You can either install the ``bind9`` package and MAAS will
-find the executable (in /usr/sbin/named) or define an
-environment variable named ``MAAS_NAMED_PATH`` with the path where
-the executable can be found::
-
-    $ MAAS_NAMED_PATH=/where/to/find/named
-
-
 Running JavaScript tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

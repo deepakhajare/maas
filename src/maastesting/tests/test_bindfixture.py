@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 
+import os
 from subprocess import (
     CalledProcessError,
     check_output,
@@ -23,13 +24,10 @@ from maastesting.bindfixture import (
     BINDServerResources,
     )
 from maastesting.testcase import TestCase
-import os
 from testtools.matchers import (
     Contains,
-    Equals,
     FileContains,
     FileExists,
-    MatchesListwise,
     )
 from testtools.testcase import gather_details
 
@@ -45,19 +43,15 @@ def dig_call(port=53, server='127.0.0.1', command=''):
     :param server: IP address of the queried DNS server (defaults
         to '127.0.0.1').
     :param command: Dig command to run (defaults to '').
-    :return: A tuple containing 2 elements: the returned string
-        output and the exit code.
-    :rtype: tuple
+    :return: The output as a string.
+    :rtype: basestring
     """
-    try:
-        cmd = [
-            'dig', '+time=1', '+tries=1', '@%s' % server, '-p',
-            '%d' % port]
-        if command != '':
-            cmd.append(command)
-        return check_output(cmd), 0
-    except CalledProcessError, e:
-        return '', e.returncode
+    cmd = [
+        'dig', '+time=1', '+tries=1', '@%s' % server, '-p',
+        '%d' % port]
+    if command != '':
+        cmd.append(command)
+    return check_output(cmd)
 
 
 class TestBINDFixture(TestCase):
@@ -66,19 +60,18 @@ class TestBINDFixture(TestCase):
         # The fixture correctly starts and stops BIND.
         with BINDServer() as fixture:
             try:
-                result, retcode = dig_call(fixture.config.port)
-                self.assertThat(
-                    (result, retcode),
-                    MatchesListwise(
-                        [Contains("Got answer"), Equals(0)]))
+                result = dig_call(fixture.config.port)
+                self.assertIn("Got answer", result)
             except Exception:
                 # self.useFixture() is not being used because we want to
                 # handle the fixture's lifecycle, so we must also be
                 # responsible for propagating fixture details.
                 gather_details(fixture.getDetails(), self.getDetails())
                 raise
-        result, retcode = dig_call(fixture.config.port)
-        self.assertEqual(9, retcode)  # return code 9 means timeout.
+        error = self.assertRaises(
+            CalledProcessError, dig_call, fixture.config.port)
+        self.assertEqual(9, error.returncode)
+        # return code 9 means timeout.
 
     def test_config(self):
         # The configuration can be passed in.
