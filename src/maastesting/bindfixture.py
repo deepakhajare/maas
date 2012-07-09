@@ -283,8 +283,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--rndc-port', type=int,
         help='The rndc port that will be used by BIND')
-
     arguments = parser.parse_args()
+
     # Cleanup homedir.
     shutil.rmtree(arguments.homedir, ignore_errors=True)
     # Recreate homedir.
