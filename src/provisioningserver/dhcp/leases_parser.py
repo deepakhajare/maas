@@ -1,7 +1,13 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Parser for ISC dhcpd leases file."""
+"""Parser for ISC dhcpd leases file.
+
+The parser is very minimal.  All we really care about is which IP
+addresses are currently associated with which respective MAC addresses.
+The parser works out no other information than that, and does not
+pretend to parse the full format of the leases file faithfully.
+"""
 
 from __future__ import (
     absolute_import,
