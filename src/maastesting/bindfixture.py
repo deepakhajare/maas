@@ -14,14 +14,15 @@ __all__ = [
     'BINDServer',
     ]
 
+import argparse
 import os
+import shutil
 from shutil import copy
 import subprocess
 from textwrap import dedent
 import time
 
 import fixtures
-import argparse
 from provisioningserver.dns.config import generate_rndc
 from provisioningserver.utils import atomic_write
 from rabbitfixture.server import (
@@ -285,6 +286,8 @@ if __name__ == "__main__":
         help='The rndc port that will be used by BIND')
 
     arguments = parser.parse_args()
+    shutil.rmtree(arguments.homedir)
+    os.makedirs(arguments.homedir)
     resources = BINDServerResources(
         homedir=arguments.homedir, log_file=arguments.log_file,
         port=arguments.port, rndc_port=arguments.rndc_port)
