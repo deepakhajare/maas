@@ -96,6 +96,9 @@ def parse_leases(leases_contents):
     """
     now = datetime.utcnow()
     leases = lease_parser.searchString(leases_contents)
+    # If multiple leases for the same address are valid at the same
+    # time, for whatever reason, the dict will contain the one that was
+    # last appended to the leases file.
     return {
         lease.ip: lease.hardware.mac
         for lease in leases

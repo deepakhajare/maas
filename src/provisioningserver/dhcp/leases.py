@@ -32,7 +32,10 @@ __all__ = [
     ]
 
 
-from os import stat
+from os import (
+    fstat,
+    stat,
+    )
 
 from celeryconfig import DHCP_LEASES_FILE
 from provisioningserver.dhcp.leases_parser import parse_leases
@@ -56,9 +59,9 @@ def parse_leases_file():
         modification time of the leases file, and `leases` is a dict
         mapping leased IP addresses to their associated MAC addresses.
     """
-    with open(DHCP_LEASES_FILE) as leases_file:
+    with open(DHCP_LEASES_FILE, 'rb') as leases_file:
         contents = leases_file.read().decode('utf-8')
-    return get_leases_timestamp(), parse_leases(contents)
+        return fstat(leases_file.fileno()).st_mtime, parse_leases(contents)
 
 
 def check_lease_changes():
