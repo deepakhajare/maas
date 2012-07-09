@@ -139,6 +139,7 @@ distclean: clean stop
 	$(RM) -r docs/_build
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
+	$(RM) etc/named
 
 harness: bin/maas bin/database
 	$(dbrun) bin/maas shell --settings=maas.demo
@@ -173,7 +174,7 @@ endef
 # Development services.
 #
 
-service_names := celeryd database pserv reloader txlongpoll web webapp
+service_names := celeryd database dns pserv reloader txlongpoll web webapp
 services := $(patsubst %,services/%/,$(service_names))
 
 run:
@@ -246,6 +247,8 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
+services/dns/@deps: bin/maas
+
 services/celeryd/@deps:
 
 services/database/@deps: bin/database
@@ -259,6 +262,7 @@ services/txlongpoll/@deps: bin/twistd.txlongpoll
 services/web/@deps:
 
 services/webapp/@deps: bin/maas
+
 
 #
 # Phony stuff.
