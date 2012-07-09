@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for the Bind fixture."""
+"""Tests for the BIND fixture."""
 
 from __future__ import (
     absolute_import,
@@ -19,8 +19,8 @@ from subprocess import (
     )
 
 from maastesting.bindfixture import (
-    BindServer,
-    BindServerResources,
+    BINDServer,
+    BINDServerResources,
     )
 from maastesting.testcase import TestCase
 import os
@@ -60,11 +60,11 @@ def dig_call(port=53, server='127.0.0.1', command=''):
         return '', e.returncode
 
 
-class TestBindFixture(TestCase):
+class TestBINDFixture(TestCase):
 
     def test_start_check_shutdown(self):
-        # The fixture correctly starts and stops Bind.
-        with BindServer() as fixture:
+        # The fixture correctly starts and stops BIND.
+        with BINDServer() as fixture:
             try:
                 result, retcode = dig_call(fixture.config.port)
                 self.assertThat(
@@ -82,15 +82,15 @@ class TestBindFixture(TestCase):
 
     def test_config(self):
         # The configuration can be passed in.
-        config = BindServerResources()
-        fixture = self.useFixture(BindServer(config))
+        config = BINDServerResources()
+        fixture = self.useFixture(BINDServer(config))
         self.assertIs(config, fixture.config)
 
 
-class TestBindServerResources(TestCase):
+class TestBINDServerResources(TestCase):
 
     def test_defaults(self):
-        with BindServerResources() as resources:
+        with BINDServerResources() as resources:
             self.assertIsInstance(resources.port, int)
             self.assertIsInstance(resources.rndc_port, int)
             self.assertIsInstance(resources.homedir, basestring)
@@ -101,11 +101,11 @@ class TestBindServerResources(TestCase):
                 resources.rndcconf_file, basestring)
 
     def test_setUp_copies_executable(self):
-        with BindServerResources() as resources:
+        with BINDServerResources() as resources:
             self.assertThat(resources.named_file, FileExists())
 
     def test_setUp_creates_config_files(self):
-        with BindServerResources() as resources:
+        with BINDServerResources() as resources:
             self.assertThat(
                 resources.conf_file,
                 FileContains(matcher=Contains(
@@ -118,7 +118,7 @@ class TestBindServerResources(TestCase):
 
     def test_defaults_reallocated_after_teardown(self):
         seen_homedirs = set()
-        resources = BindServerResources()
+        resources = BINDServerResources()
         for i in range(2):
             with resources:
                 self.assertTrue(os.path.exists(resources.homedir))

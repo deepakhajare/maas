@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Server fixture for Bind."""
+"""Server fixture for BIND."""
 
 from __future__ import (
     absolute_import,
@@ -11,7 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'BindServer',
+    'BINDServer',
     'set_up_named',
     ]
 
@@ -49,9 +49,9 @@ def get_named_path():
 # 'bind9utils').
 RNDCBIN = "/usr/sbin/rndc"
 
-# The configuration template for the Bind server.  The goal here
+# The configuration template for the BIND server.  The goal here
 # is to override the defaults (default configuration files location,
-# default port) to avoid clashing with the system's bind (if
+# default port) to avoid clashing with the system's BIND (if
 # running).
 NAMED_CONF_TEMPLATE = tempita.Template("""
 options {
@@ -94,7 +94,7 @@ def set_up_named(homedir, port, rndc_port, log_file, named_file,
     # Generate rndc configuration (rndc config and named snippet).
     rndcconf, namedrndcconf = generate_rndc(
         rndc_port, 'dnsfixture-rndc-key')
-    # Write main bind config file.
+    # Write main BIND config file.
     named_conf = (
         NAMED_CONF_TEMPLATE.substitute(
             homedir=homedir, port=port, log_file=log_file)
@@ -115,21 +115,21 @@ def set_up_named(homedir, port, rndc_port, log_file, named_file,
     copy(named_path, named_file)
 
 
-class BindServerResources(fixtures.Fixture):
-    """Allocate the resources a Bind server needs.
+class BINDServerResources(fixtures.Fixture):
+    """Allocate the resources a BIND server needs.
 
     :ivar port: A port that was free at the time setUp() was
         called.
     :ivar rndc_port: A port that was free at the time setUp() was
         called (used for rndc communication).
     :ivar homedir: A directory where to put all the files the
-        Bind server needs (configuration files and executable).
+        BIND server needs (configuration files and executable).
     :ivar log_file: The log_file allocated for the server.
     """
 
     def __init__(self, port=None, rndc_port=None, homedir=None,
                  log_file=None):
-        super(BindServerResources, self).__init__()
+        super(BINDServerResources, self).__init__()
         self._defaults = dict(
             port=port,
             rndc_port=rndc_port,
@@ -138,7 +138,7 @@ class BindServerResources(fixtures.Fixture):
             )
 
     def setUp(self):
-        super(BindServerResources, self).setUp()
+        super(BINDServerResources, self).setUp()
         self.__dict__.update(self._defaults)
         self.set_up_config()
         set_up_named(
@@ -160,38 +160,38 @@ class BindServerResources(fixtures.Fixture):
         self.rndcconf_file = os.path.join(self.homedir, 'rndc.conf')
 
     def tearDown(self):
-        super(BindServerResources, self).tearDown()
+        super(BINDServerResources, self).tearDown()
         # Restore defaults, setting dynamic values back to None for
         # reallocation in setUp.
         self.__dict__.update(self._defaults)
 
 
-class BindServerRunner(fixtures.Fixture):
-    """Run a Bind server."""
+class BINDServerRunner(fixtures.Fixture):
+    """Run a BIND server."""
 
     def __init__(self, config):
-        """Create a `BindServerRunner` instance.
+        """Create a `BINDServerRunner` instance.
 
         :param config: An object exporting the variables
-            `BindServerResources` exports.
+            `BINDServerResources` exports.
         """
-        super(BindServerRunner, self).__init__()
+        super(BINDServerRunner, self).__init__()
         self.config = config
         self.process = None
 
     def setUp(self):
-        super(BindServerRunner, self).setUp()
+        super(BINDServerRunner, self).setUp()
         self._start()
 
     def is_running(self):
-        """Is the Bind server process still running?"""
+        """Is the BIND server process still running?"""
         if self.process is None:
             return False
         else:
             return self.process.poll() is None
 
     def _spawn(self):
-        """Spawn the Bind server process."""
+        """Spawn the BIND server process."""
         env = dict(os.environ, HOME=self.config.homedir)
         with open(self.config.log_file, "wb") as log_file:
             with open(os.devnull, "rb") as devnull:
@@ -221,12 +221,12 @@ class BindServerRunner(fixtures.Fixture):
         return outstr, errstr
 
     def is_server_running(self):
-        """Checks that the Bind server is up and running."""
+        """Checks that the BIND server is up and running."""
         outdata, errdata = self.rndc("status")
         return "server is up and running" in outdata
 
     def _start(self):
-        """Start the Bind server."""
+        """Start the BIND server."""
         self._spawn()
         # Wait for the server to come up: stop when the process is dead, or
         # the timeout expires, or the server responds.
@@ -237,7 +237,7 @@ class BindServerRunner(fixtures.Fixture):
             time.sleep(0.3)
         else:
             raise Exception(
-                "Timeout waiting for Bind server to start: log in %r." %
+                "Timeout waiting for BIND server to start: log in %r." %
                 (self.config.log_file,))
         self.addCleanup(self._stop)
 
@@ -259,7 +259,7 @@ class BindServerRunner(fixtures.Fixture):
             time.sleep(0.3)
         else:
             raise Exception(
-                "Timeout waiting for Bind server to go down.")
+                "Timeout waiting for BIND server to go down.")
         # Wait at least 5 more seconds for the process to end...
         timeout = max(timeout, time.time() + 5)
         while time.time() < timeout:
@@ -273,25 +273,25 @@ class BindServerRunner(fixtures.Fixture):
                 self.process.kill()
                 time.sleep(0.5)
             if self.is_running():
-                raise Exception("Bind server just won't die.")
+                raise Exception("BIND server just won't die.")
 
 
-class BindServer(fixtures.Fixture):
-    """A Bind server fixture.
+class BINDServer(fixtures.Fixture):
+    """A BIND server fixture.
 
-    When setup a Bind instance will be running.
+    When setup a BIND instance will be running.
 
-    :ivar config: The `BindServerResources` used to start the server.
+    :ivar config: The `BINDServerResources` used to start the server.
     """
 
     def __init__(self, config=None):
-        super(BindServer, self).__init__()
+        super(BINDServer, self).__init__()
         self.config = config
 
     def setUp(self):
-        super(BindServer, self).setUp()
+        super(BINDServer, self).setUp()
         if self.config is None:
-            self.config = BindServerResources()
+            self.config = BINDServerResources()
         self.useFixture(self.config)
-        self.runner = BindServerRunner(self.config)
+        self.runner = BINDServerRunner(self.config)
         self.useFixture(self.runner)
