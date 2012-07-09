@@ -267,7 +267,6 @@ class BINDServer(fixtures.Fixture):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description='Run a BIND server.')
     parser.add_argument(
         '--homedir',
