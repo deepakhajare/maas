@@ -99,9 +99,7 @@ def set_up_named(homedir, port, rndc_port, log_file, named_file,
         + namedrndcconf)
     atomic_write(named_conf, conf_file)
    # Write rndc config file.
-    atomic_write(
-        rndcconf,
-        rndcconf_file)
+    atomic_write(rndcconf, rndcconf_file)
 
     # Copy named executable to home dir.  This is done to avoid
     # the limitations imposed by apparmor if the executable
