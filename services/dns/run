@@ -13,4 +13,7 @@ cd "$(dirname "$0")/../.."
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
 # Run named.
-exec bin/py -m maastesting.bindfixture -- --homedir `pwd`/run/named --log-file `pwd`/logs/dns/current  --port 5244 --rndc-port 5245
+exec bin/py -m maastesting.bindfixture -- \
+    --homedir `pwd`/run/named \
+    --log-file `pwd`/logs/dns/current \
+    --port 5244 --rndc-port 5245

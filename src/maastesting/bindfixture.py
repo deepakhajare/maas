@@ -285,10 +285,11 @@ if __name__ == "__main__":
         help='The rndc port that will be used by BIND')
     arguments = parser.parse_args()
 
-    # Cleanup homedir.
-    shutil.rmtree(arguments.homedir, ignore_errors=True)
-    # Recreate homedir.
-    os.makedirs(arguments.homedir)
+    # Create homedir if it does not already exist.
+    try:
+        os.makedirs(arguments.homedir)
+    except OSError:
+        pass
     # Create BINDServerResources with the provided options.
     resources = BINDServerResources(
         homedir=arguments.homedir, log_file=arguments.log_file,
