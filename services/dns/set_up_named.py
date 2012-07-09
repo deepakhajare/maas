@@ -13,8 +13,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.bindfixture import set_up_named
 import os
+import shutil
+
+from maastesting.bindfixture import set_up_named
 
 
 PROJECT_DIR = os.path.join(
@@ -26,16 +28,17 @@ NAMED_HOMEDIR = os.path.join(
 
 
 if __name__ == "__main__":
-    # Only create the config files if 'etc/named' does not exist
-    # yet.
-    if not os.path.exists(NAMED_HOMEDIR):
-        os.makedirs(NAMED_HOMEDIR)
-        set_up_named(
-            homedir=NAMED_HOMEDIR,
-            port=5244,
-            rndc_port=5245,
-            log_file=os.path.join(PROJECT_DIR, 'logs', 'dns', 'current'),
-            named_file=os.path.join(NAMED_HOMEDIR, 'named'),
-            conf_file=os.path.join(NAMED_HOMEDIR, 'named.conf'),
-            rndcconf_file=os.path.join(NAMED_HOMEDIR, 'rndc.conf')
-            )
+    # Cleanup the old configuration.
+    shutil.rmtree(NAMED_HOMEDIR)
+    # Create the directory.
+    os.makedirs(NAMED_HOMEDIR)
+    # Write the config.
+    set_up_named(
+        homedir=NAMED_HOMEDIR,
+        port=5244,
+        rndc_port=5245,
+        log_file=os.path.join(PROJECT_DIR, 'logs', 'dns', 'current'),
+        named_file=os.path.join(NAMED_HOMEDIR, 'named'),
+        conf_file=os.path.join(NAMED_HOMEDIR, 'named.conf'),
+        rndcconf_file=os.path.join(NAMED_HOMEDIR, 'rndc.conf')
+        )
