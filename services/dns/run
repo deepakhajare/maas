@@ -15,4 +15,4 @@ cd "$(dirname "$0")/../.."
 # Set up named.
 ./bin/py services/dns/set_up_named.py
 # Run named.
-./etc/named/named -f -c ./etc/named/named.conf
+exec ./etc/named/named -g -c ./etc/named/named.conf
