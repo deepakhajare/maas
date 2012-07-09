@@ -45,7 +45,7 @@ This is the list of runtime dependencies that you'll need to install::
         python-twisted python-oops-wsgi python-oops-twisted \
         python-psycopg2 python-yaml python-convoy python-django-south \
         python-avahi python-dbus python-celery python-tempita distro-info \
-        bind9utils libpq-dev
+        bind9utils libpq-dev dnsutils bind9
 
 Additionally, you need to install the following python libraries
 for development convenience::
@@ -125,6 +125,18 @@ tests that can be run against it::
 
 Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
 tests will modify your Cobbler database.
+
+
+DNS tests
+^^^^^^^^^
+
+MAAS needs to have access to a bind executable to setup a test DNS
+service.  You can either install the ``bind9`` package and MAAS will
+find the executable (in /usr/sbin/named) or define an
+environment variable named ``MAAS_NAMED_PATH`` with the path where
+the executable can be found::
+
+    $ MAAS_NAMED_PATH=/where/to/find/named
 
 
 Running JavaScript tests
