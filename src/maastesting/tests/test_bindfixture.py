@@ -35,6 +35,20 @@ from testtools.testcase import gather_details
 
 
 def dig_call(port=53, server='127.0.0.1', command=''):
+    """Call `dig` with the given command.
+
+    Note that calling dig without a command will perform an NS
+    query for "." (the root) which is useful to check if there
+    is a running server.
+
+    :param port: Port of the queried DNS server (defaults to 53).
+    :param server: IP address of the queried DNS server (defaults
+        to '127.0.0.1').
+    :param command: Dig command to run (defaults to '').
+    :return: A tuple containing 2 elements: the returned string
+        output and the exit code.
+    :rtype: tuple
+    """
     try:
         cmd = [
             'dig', '+time=1', '+tries=1', '@%s' % server, '-p',
