@@ -139,7 +139,7 @@ distclean: clean stop
 	$(RM) -r docs/_build
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
-	$(RM) etc/named
+	$(RM) -r etc/named
 
 harness: bin/maas bin/database
 	$(dbrun) bin/maas shell --settings=maas.demo
@@ -247,7 +247,7 @@ services/%/@supervise: services/%/@deps
 
 # Dependencies for individual services.
 
-services/dns/@deps: bin/maas
+services/dns/@deps: bin/py
 
 services/celeryd/@deps:
 

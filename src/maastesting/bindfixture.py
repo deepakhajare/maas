@@ -21,6 +21,7 @@ from textwrap import dedent
 import time
 
 import fixtures
+import argparse
 from provisioningserver.dns.config import generate_rndc
 from provisioningserver.utils import atomic_write
 from rabbitfixture.server import (
@@ -41,7 +42,7 @@ class BINDServerResources(fixtures.Fixture):
         called (used for rndc communication).
     :ivar homedir: A directory where to put all the files the
         BIND server needs (configuration files and executable).
-    :ivar log_file: The log_file allocated for the server.
+    :ivar log_file: The log file allocated for the server.
     """
 
     # The full path where the 'named' executable can be
@@ -262,3 +263,32 @@ class BINDServer(fixtures.Fixture):
         self.useFixture(self.config)
         self.runner = BINDServerRunner(self.config)
         self.useFixture(self.runner)
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Run a BIND server.')
+    parser.add_argument(
+        '--homedir',
+        help=(
+            'A directory where to put all the files the BIND'
+            'server needs (configuration files and executable)'
+           ))
+    parser.add_argument(
+        '--log-file',
+        help='The log file allocated for the server')
+    parser.add_argument(
+        '--port', type=int,
+        help='The port that will be used by BIND')
+    parser.add_argument(
+        '--rndc-port', type=int,
+        help='The rndc port that will be used by BIND')
+
+    arguments = parser.parse_args()
+    resources = BINDServerResources(
+        homedir=arguments.homedir, log_file=arguments.log_file,
+        port=arguments.port, rndc_port=arguments.rndc_port)
+    resources.setUp()
+    os.execlp(
+        resources.named_file, resources.named_file, "-g", "-c",
+        resources.conf_file)

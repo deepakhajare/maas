@@ -12,7 +12,5 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
-# Set up named.
-./bin/py services/dns/set_up_named.py
 # Run named.
-exec ./etc/named/named -g -c ./etc/named/named.conf
+exec bin/py -m maastesting.bindfixture -- --homedir `pwd`/etc/named --log-file `pwd`/logs/dns/current  --port 5244 --rndc-port 5245
