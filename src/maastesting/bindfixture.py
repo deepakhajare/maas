@@ -57,6 +57,8 @@ NAMED_CONF_TEMPLATE = tempita.Template("""
 options {
   directory "{{homedir}}";
   listen-on port {{port}} {127.0.0.1;};
+  pid-file "{{homedir}}/named.pid";
+  session-keyfile "{{homedir}}/session.key";
 };
 
 logging{
