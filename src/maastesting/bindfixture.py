@@ -16,7 +16,6 @@ __all__ = [
 
 import argparse
 import os
-import shutil
 from shutil import copy
 import subprocess
 from textwrap import dedent
