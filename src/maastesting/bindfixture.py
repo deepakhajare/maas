@@ -286,12 +286,16 @@ if __name__ == "__main__":
         help='The rndc port that will be used by BIND')
 
     arguments = parser.parse_args()
+    # Cleanup homedir.
     shutil.rmtree(arguments.homedir, ignore_errors=True)
+    # Recreate homedir.
     os.makedirs(arguments.homedir)
+    # Create BINDServerResources with the provided options.
     resources = BINDServerResources(
         homedir=arguments.homedir, log_file=arguments.log_file,
         port=arguments.port, rndc_port=arguments.rndc_port)
     resources.setUp()
+    # exec named.
     os.execlp(
         resources.named_file, resources.named_file, "-g", "-c",
         resources.conf_file)
