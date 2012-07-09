@@ -130,7 +130,7 @@ tests will modify your Cobbler database.
 DNS tests
 ^^^^^^^^^
 
-MAAS needs to have access to a bind executable to setup a test DNS
+MAAS needs to have access to a BIND executable to setup a test DNS
 service.  You can either install the ``bind9`` package and MAAS will
 find the executable (in /usr/sbin/named) or define an
 environment variable named ``MAAS_NAMED_PATH`` with the path where
