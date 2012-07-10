@@ -75,10 +75,11 @@ class TestDHCPLeaseManager(TestCase):
         self.assertEqual({ip: new_mac}, map_leases(nodegroup))
 
     def test_update_keeps_unchanged_mappings(self):
-        lease = factory.make_dhcp_lease()
-        lease_id = lease.id
-        nodegroup = lease.nodegroup
-        DHCPLease.objects.update(nodegroup, {lease.ip: lease.mac})
+        original_lease = factory.make_dhcp_lease()
+        lease_id = original_lease.id
+        nodegroup = original_lease.nodegroup
+        DHCPLease.objects.update(
+            nodegroup, {original_lease.ip: original_lease.mac})
         self.assertEqual(
             [lease_id],
             [lease.id for lease in map_leases(nodegroup)])
