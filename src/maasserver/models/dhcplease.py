@@ -15,6 +15,7 @@ __all__ = [
     ]
 
 
+from django.db import connection
 from django.db.models import (
     ForeignKey,
     IPAddressField,
@@ -34,7 +35,7 @@ class DHCPLeaseManager(Manager):
     """
 
     def _delete_obsolete_leases(self, nodegroup, current_leases):
-        """Delete leases for `nodegroup` that aren't in `current_leaes`."""
+        """Delete leases for `nodegroup` that aren't in `current_leases`."""
         clauses = ["nodegroup_id = %s" % nodegroup.id]
         leases_sql = ", ".join(
             "('%s', '%s')" % pair
@@ -44,13 +45,12 @@ class DHCPLeaseManager(Manager):
         elif len(current_leases) == 1:
             clauses.append("(ip, mac) <> %s" % leases_sql)
         else:
-            clauses.append("(ip, mac) NOT IN %s" % leases_sql)
-        result = self.raw("""
+            clauses.append("(ip, mac) NOT IN (%s)" % leases_sql)
+        connection.cursor().execute("""
             DELETE FROM maasserver_dhcplease
             WHERE %s
-            RETURNING id
+            RETURNING 0
             """ % " AND ".join(clauses)),
-        list(result)
 
     def update_leases(self, nodegroup, leases):
         """Refresh our knowledge of a node group's IP mappings.

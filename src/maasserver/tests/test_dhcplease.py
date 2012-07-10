@@ -64,7 +64,7 @@ class TestDHCPLeaseManager(TestCase):
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
         DHCPLease.objects.update_leases(nodegroup, {})
-        self.assertEqual({}, map_leases(nodegroup))
+        self.assertItemsEqual([], get_leases(nodegroup))
 
     def test_update_leases_replaces_reassigned_ip(self):
         nodegroup = factory.make_node_group()
