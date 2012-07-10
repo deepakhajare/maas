@@ -24,7 +24,7 @@ class TestDHCPLease(TestCase):
     """Tests for :class:`DHCPLease`."""
 
     def test_init(self):
-        nodegroup = factory.makeNodeGroup()
+        nodegroup = factory.make_node_group()
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
 
