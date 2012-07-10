@@ -87,7 +87,7 @@ class TestDHCPLeaseManager(TestCase):
         ip1 = factory.getRandomIPAddress()
         ip2 = factory.getRandomIPAddress()
         factory.make_dhcp_lease(nodegroup=nodegroup, mac=mac, ip=ip1)
-        DHCPLease.objects.update_leases(nodegroup, {ip2: mac})
+        DHCPLease.objects.update_leases(nodegroup, {ip1: mac, ip2: mac})
         self.assertEqual({ip1: mac, ip2: mac}, map_leases(nodegroup))
 
     def test_update_leases_deletes_only_obsolete_ips(self):

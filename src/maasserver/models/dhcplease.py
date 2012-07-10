@@ -27,6 +27,18 @@ from maasserver.fields import MACAddressField
 from maasserver.models.cleansave import CleanSave
 
 
+def sqlify_ip_mac_pairs(pairs):
+    """Return an SQL string representing a sequence of IP/MAC pairs."""
+    return ", ".join("('%s', '%s')" % pair for pair in pairs)
+
+
+def sqlify_nodegroup_ip_mac_pairs(nodegroup, pairs):
+    """Return an SQL string representing IP/MAC pairs for a nodegroup."""
+    return ", ".join(
+        "(%s, '%s', '%s')" % (nodegroup.id, ip, mac)
+        for ip, mac in pairs)
+
+
 class DHCPLeaseManager(Manager):
     """Utility that manages :class:`DHCPLease` objects.
 
@@ -37,20 +49,43 @@ class DHCPLeaseManager(Manager):
     def _delete_obsolete_leases(self, nodegroup, current_leases):
         """Delete leases for `nodegroup` that aren't in `current_leases`."""
         clauses = ["nodegroup_id = %s" % nodegroup.id]
-        leases_sql = ", ".join(
-            "('%s', '%s')" % pair
-            for pair in current_leases.items())
+        leases_sql = sqlify_ip_mac_pairs(current_leases.items())
         if len(current_leases) == 0:
             pass
         elif len(current_leases) == 1:
             clauses.append("(ip, mac) <> %s" % leases_sql)
         else:
             clauses.append("(ip, mac) NOT IN (%s)" % leases_sql)
-        connection.cursor().execute("""
-            DELETE FROM maasserver_dhcplease
-            WHERE %s
-            RETURNING 0
-            """ % " AND ".join(clauses)),
+        connection.cursor().execute(
+            "DELETE FROM maasserver_dhcplease WHERE %s"
+            % " AND ".join(clauses)),
+
+    def _get_leased_ips(self, nodegroup):
+        """Query the currently leased IP addresses for `nodegroup`."""
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT ip FROM maasserver_dhcplease WHERE nodegroup_id = %s"
+            % nodegroup.id)
+        return frozenset(ip for ip, in cursor.fetchall())
+
+    def _add_missing_leases(self, nodegroup, leases):
+        """Add items from `leases` that aren't in the database yet.
+
+        This is assumed to be run right after _delete_obsolete_leases,
+        so that a lease from `leases` is in the database if and only if
+        `nodegroup` has a DHCPLease with the same `ip` field.  There
+        can't be any DHCPLease entries with the same `ip` as in `leases`
+        but a different `mac`.
+        """
+        leased_ips = self._get_leased_ips(nodegroup)
+        new_pairs = [
+            (ip, mac)
+            for ip, mac in leases.items() if ip not in leased_ips]
+        if len(new_pairs) > 0:
+            connection.cursor().execute("""
+                INSERT INTO maasserver_dhcplease (nodegroup_id, ip, mac)
+                VALUES %s
+                """ % sqlify_nodegroup_ip_mac_pairs(nodegroup, new_pairs))
 
     def update_leases(self, nodegroup, leases):
         """Refresh our knowledge of a node group's IP mappings.
@@ -66,6 +101,7 @@ class DHCPLeaseManager(Manager):
             deleted.
         """
         self._delete_obsolete_leases(nodegroup, leases)
+        self._add_missing_leases(nodegroup, leases)
 
 
 class DHCPLease(CleanSave, Model):
