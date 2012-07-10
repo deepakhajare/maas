@@ -27,10 +27,10 @@ from maasserver.models.cleansave import CleanSave
 
 
 class DHCPLeaseManager(Manager):
-    """Utility for managing :class:`DHCPLease` objects.
+    """Utility that manages :class:`DHCPLease` objects.
 
     This will be a large and busy part of the database.  Try to perform
-    operations in bulk, in this manager class, where at all possible.
+    operations in bulk, using this manager class, where at all possible.
     """
 
     def update(self, nodegroup, leases):
