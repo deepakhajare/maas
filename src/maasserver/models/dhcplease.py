@@ -33,7 +33,26 @@ class DHCPLeaseManager(Manager):
     operations in bulk, using this manager class, where at all possible.
     """
 
-    def update(self, nodegroup, leases):
+    def _delete_obsolete_leases(self, nodegroup, current_leases):
+        """Delete leases for `nodegroup` that aren't in `current_leaes`."""
+        clauses = ["nodegroup_id = %s" % nodegroup.id]
+        leases_sql = ", ".join(
+            "('%s', '%s')" % pair
+            for pair in current_leases.items())
+        if len(current_leases) == 0:
+            pass
+        elif len(current_leases) == 1:
+            clauses.append("(ip, mac) <> %s" % leases_sql)
+        else:
+            clauses.append("(ip, mac) NOT IN %s" % leases_sql)
+        result = self.raw("""
+            DELETE FROM maasserver_dhcplease
+            WHERE %s
+            RETURNING id
+            """ % " AND ".join(clauses)),
+        list(result)
+
+    def update_leases(self, nodegroup, leases):
         """Refresh our knowledge of a node group's IP mappings.
 
         This deletes entries that are no longer current, adds new ones,
@@ -46,6 +65,7 @@ class DHCPLeaseManager(Manager):
             entries for `nodegroup` that are not in `leases` will be
             deleted.
         """
+        self._delete_obsolete_leases(nodegroup, leases)
 
 
 class DHCPLease(CleanSave, Model):

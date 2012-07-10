@@ -48,68 +48,68 @@ class TestDHCPLease(TestCase):
 class TestDHCPLeaseManager(TestCase):
     """Tests for :class:`DHCPLeaseManager`."""
 
-    def test_update_accepts_empty_leases(self):
+    def test_update_leases_accepts_empty_leases(self):
         nodegroup = factory.make_node_group()
-        DHCPLease.objects.update(nodegroup, {})
+        DHCPLease.objects.update_leases(nodegroup, {})
         self.assertItemsEqual([], get_leases(nodegroup))
 
-    def test_update_creates_new_lease(self):
+    def test_update_leases_creates_new_lease(self):
         nodegroup = factory.make_node_group()
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
-        DHCPLease.objects.update(nodegroup, {ip: mac})
+        DHCPLease.objects.update_leases(nodegroup, {ip: mac})
         self.assertEqual({ip: mac}, map_leases(nodegroup))
 
-    def test_update_deletes_obsolete_lease(self):
+    def test_update_leases_deletes_obsolete_lease(self):
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
-        DHCPLease.objects.update(nodegroup, {})
+        DHCPLease.objects.update_leases(nodegroup, {})
         self.assertEqual({}, map_leases(nodegroup))
 
-    def test_update_replaces_reassigned_ip(self):
+    def test_update_leases_replaces_reassigned_ip(self):
         nodegroup = factory.make_node_group()
         ip = factory.getRandomIPAddress()
         factory.make_dhcp_lease(nodegroup=nodegroup, ip=ip)
         new_mac = factory.getRandomMACAddress()
-        DHCPLease.objects.update(nodegroup, {ip: new_mac})
+        DHCPLease.objects.update_leases(nodegroup, {ip: new_mac})
         self.assertEqual({ip: new_mac}, map_leases(nodegroup))
 
-    def test_update_keeps_unchanged_mappings(self):
+    def test_update_leases_keeps_unchanged_mappings(self):
         original_lease = factory.make_dhcp_lease()
         nodegroup = original_lease.nodegroup
-        DHCPLease.objects.update(
+        DHCPLease.objects.update_leases(
             nodegroup, {original_lease.ip: original_lease.mac})
         self.assertItemsEqual([original_lease], get_leases(nodegroup))
 
-    def test_update_adds_new_ip_to_mac(self):
+    def test_update_leases_adds_new_ip_to_mac(self):
         nodegroup = factory.make_node_group()
         mac = factory.getRandomMACAddress()
         ip1 = factory.getRandomIPAddress()
         ip2 = factory.getRandomIPAddress()
         factory.make_dhcp_lease(nodegroup=nodegroup, mac=mac, ip=ip1)
-        DHCPLease.objects.update(nodegroup, {ip2: mac})
+        DHCPLease.objects.update_leases(nodegroup, {ip2: mac})
         self.assertEqual({ip1: mac, ip2: mac}, map_leases(nodegroup))
 
-    def test_update_deletes_only_obsolete_ips(self):
+    def test_update_leases_deletes_only_obsolete_ips(self):
         nodegroup = factory.make_node_group()
         mac = factory.getRandomMACAddress()
         obsolete_ip = factory.getRandomIPAddress()
         current_ip = factory.getRandomIPAddress()
         factory.make_dhcp_lease(nodegroup=nodegroup, mac=mac, ip=obsolete_ip)
         factory.make_dhcp_lease(nodegroup=nodegroup, mac=mac, ip=current_ip)
-        DHCPLease.objects.update(nodegroup, {current_ip: mac})
+        DHCPLease.objects.update_leases(nodegroup, {current_ip: mac})
         self.assertEqual({current_ip: mac}, map_leases(nodegroup))
 
-    def test_update_leaves_other_nodegroups_alone(self):
+    def test_update_leases_leaves_other_nodegroups_alone(self):
         innocent_nodegroup = factory.make_node_group()
         innocent_lease = factory.make_dhcp_lease(nodegroup=innocent_nodegroup)
-        DHCPLease.objects.update(
+        DHCPLease.objects.update_leases(
             factory.make_node_group(),
             {factory.getRandomIPAddress(): factory.getRandomMACAddress()})
         self.assertItemsEqual(
             [innocent_lease], get_leases(innocent_nodegroup))
 
-    def test_update_combines_additions_deletions_and_replacements(self):
+    def test_update_leases_combines_additions_deletions_and_replacements(self):
         nodegroup = factory.make_node_group()
         mac1 = factory.getRandomMACAddress()
         mac2 = factory.getRandomMACAddress()
@@ -122,7 +122,7 @@ class TestDHCPLeaseManager(TestCase):
         reassigned_lease = factory.make_dhcp_lease(
             nodegroup=nodegroup, mac=mac1)
         new_ip = factory.getRandomIPAddress()
-        DHCPLease.objects.update(nodegroup, {
+        DHCPLease.objects.update_leases(nodegroup, {
             reassigned_lease.ip: mac2,
             unchanged_lease.ip: mac1,
             new_ip: mac1,
