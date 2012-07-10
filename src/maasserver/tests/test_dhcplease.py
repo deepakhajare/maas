@@ -51,7 +51,7 @@ class TestDHCPLeaseManager(TestCase):
     def test_update_accepts_empty_leases(self):
         nodegroup = factory.make_node_group()
         DHCPLease.objects.update(nodegroup, {})
-        self.assertItemsEqual([], self.get_leases(nodegroup))
+        self.assertItemsEqual([], get_leases(nodegroup))
 
     def test_update_creates_new_lease(self):
         nodegroup = factory.make_node_group()
@@ -115,11 +115,14 @@ class TestDHCPLeaseManager(TestCase):
         nodegroup = factory.make_node_group()
         mac1 = factory.getRandomMACAddress()
         mac2 = factory.getRandomMACAddress()
-        obsolete_lease = factory.make_lease(nodegroup=nodegroup, mac=mac1)
+        obsolete_lease = factory.make_dhcp_lease(
+            nodegroup=nodegroup, mac=mac1)
         # The obsolete lease won't be in the update, so it'll disappear.
         ignore_unused(obsolete_lease)
-        unchanged_lease = factory.make_lease(nodegroup=nodegroup, mac=mac1)
-        reassigned_lease = factory.make_lease(nodegroup=nodegroup, mac=mac1)
+        unchanged_lease = factory.make_dhcp_lease(
+            nodegroup=nodegroup, mac=mac1)
+        reassigned_lease = factory.make_dhcp_lease(
+            nodegroup=nodegroup, mac=mac1)
         new_ip = factory.getRandomIPAddress()
         DHCPLease.objects.update(nodegroup, {
             reassigned_lease.ip: mac2,
