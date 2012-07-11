@@ -33,6 +33,18 @@ from testtools.content import Content
 from testtools.content_type import UTF8_TEXT
 
 
+def should_write(path, overwrite_config=False):
+    """Does the DNS config file at `path` need writing?
+
+    :param path: File that may need to be written out.
+    :param overwrite_config: Overwrite config files even if they
+        already exist?
+    :return: Whether the file should be written.
+    :rtype: bool
+    """
+    return overwrite_config or not os.path.exists(path)
+
+
 class BINDServerResources(fixtures.Fixture):
     """Allocate the resources a BIND server needs.
 
@@ -88,13 +100,13 @@ class BINDServerResources(fixtures.Fixture):
             log_file=log_file,
             )
 
-    def setUp(self, overwrite=False):
+    def setUp(self, overwrite_config=False):
         super(BINDServerResources, self).setUp()
         self.__dict__.update(self._defaults)
         self.set_up_config()
-        self.set_up_named(overwrite=overwrite)
+        self.set_up_named(overwrite_config=overwrite_config)
 
-    def set_up_named(self, overwrite=True):
+    def set_up_named(self, overwrite_config=True):
         """Setup an environment to run 'named'.
 
         - Create the default configuration for 'named' and setup rndc.
@@ -105,7 +117,7 @@ class BINDServerResources(fixtures.Fixture):
         rndcconf, namedrndcconf = generate_rndc(
             self.rndc_port, 'dnsfixture-rndc-key')
         # Write main BIND config file.
-        if not os.path.exists(self.conf_file) or overwrite:
+        if should_write(self.conf_file, overwrite_config):
             named_conf = (
                 self.NAMED_CONF_TEMPLATE.substitute(
                     homedir=self.homedir, port=self.port,
@@ -113,7 +125,7 @@ class BINDServerResources(fixtures.Fixture):
                     extra=namedrndcconf))
             atomic_write(named_conf, self.conf_file)
         # Write rndc config file.
-        if not os.path.exists(self.rndcconf_file) or overwrite:
+        if should_write(self.rndcconf_file, overwrite_config):
             atomic_write(rndcconf, self.rndcconf_file)
 
         # Copy named executable to home dir.  This is done to avoid
@@ -122,7 +134,7 @@ class BINDServerResources(fixtures.Fixture):
         # named's apparmor profile prevents loading of zone and
         # configuration files from outside of a restricted set,
         # none of which an ordinary user has write access to.
-        if not os.path.exists(self.named_file) or overwrite:
+        if should_write(self.named_file, overwrite_config):
             named_path = self.NAMED_PATH
             assert os.path.exists(named_path), (
                 "'%s' executable not found.  Install the package "
@@ -286,7 +298,7 @@ if __name__ == "__main__":
         '--rndc-port', type=int,
         help="The rndc port that will be used by BIND")
     parser.add_argument(
-        '--overwrite', type=bool,
+        '--overwrite_config', type=bool,
         help="Whether or not to overwrite the configuration files "
              "if they already exist", default=False)
     arguments = parser.parse_args()
@@ -300,7 +312,7 @@ if __name__ == "__main__":
     resources = BINDServerResources(
         homedir=arguments.homedir, log_file=arguments.log_file,
         port=arguments.port, rndc_port=arguments.rndc_port)
-    resources.setUp(overwrite=arguments.overwrite)
+    resources.setUp(overwrite_config=arguments.overwrite_config)
     # exec named.
     os.execlp(
         resources.named_file, resources.named_file, "-g", "-c",
