@@ -33,7 +33,9 @@ from provisioningserver.utils import atomic_write
 import tempita
 
 
-MAAS_NAMED_CONF_NAME = 'maas_named.conf'
+MAAS_NAMED_CONF_NAME = 'named.conf.maas'
+MAAS_NAMED_RNDC_CONF_NAME = 'named.conf.rndc.maas'
+MAAS_RNDC_CONF_NAME = 'rndc.conf.maas'
 
 
 class DNSConfigFail(Exception):
@@ -68,16 +70,18 @@ def generate_rndc(port=953, key_name='rndc-maas-key'):
 
 
 def get_named_rndc_conf_path():
-    return os.path.join(conf.DNS_CONFIG_DIR, 'named.conf.rndc')
+    return os.path.join(
+        conf.DNS_CONFIG_DIR, MAAS_NAMED_RNDC_CONF_NAME)
 
 
 def get_rndc_conf_path():
-    return os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
+    return os.path.join(conf.DNS_CONFIG_DIR, MAAS_RNDC_CONF_NAME)
 
 
 def setup_rndc():
     """Writes out the two files needed to enable MAAS to use rndc commands:
-    rndc.conf and named.conf.rndc, both stored in conf.DNS_CONFIG_DIR.
+    MAAS_RNDC_CONF_NAME and MAAS_NAMED_RNDC_CONF_NAME, both stored in
+    conf.DNS_CONFIG_DIR.
     """
     rndc_content, named_content = generate_rndc()
 
@@ -92,7 +96,8 @@ def setup_rndc():
 
 def execute_rndc_command(*arguments):
     """Execute a rndc command."""
-    rndc_conf = os.path.join(conf.DNS_CONFIG_DIR, 'rndc.conf')
+    rndc_conf = os.path.join(
+        conf.DNS_CONFIG_DIR, MAAS_RNDC_CONF_NAME)
     check_call(['rndc', '-c', rndc_conf] + map(str, arguments))
 
 
