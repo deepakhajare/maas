@@ -24,6 +24,7 @@ from maasserver.enum import (
     NODE_STATUS,
     )
 from maasserver.models import (
+    DHCPLease,
     FileStorage,
     MACAddress,
     Node,
@@ -107,9 +108,11 @@ class Factory(maastesting.factory.Factory):
             Node.objects.filter(id=node.id).update(created=created)
         return reload_object(node)
 
-    def make_node_group(self, api_token=None, worker_ip=None,
+    def make_node_group(self, name=None, api_token=None, worker_ip=None,
                         subnet_mask=None, broadcast_ip=None, router_ip=None,
                         ip_range_low=None, ip_range_high=None, **kwargs):
+        if name is None:
+            name = self.make_name('nodegroup')
         if api_token is None:
             user = self.make_user()
             api_token = create_auth_token(user)
@@ -126,10 +129,10 @@ class Factory(maastesting.factory.Factory):
         if ip_range_high is None:
             ip_range_high = factory.getRandomIPAddress()
         ng = NodeGroup(
-            api_token=api_token, api_key=api_token.key, worker_ip=worker_ip,
-            subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
-            router_ip=router_ip, ip_range_low=ip_range_low,
-            ip_range_high=ip_range_high, **kwargs)
+            name=name, api_token=api_token, api_key=api_token.key,
+            worker_ip=worker_ip, subnet_mask=subnet_mask,
+            broadcast_ip=broadcast_ip, router_ip=router_ip,
+            ip_range_low=ip_range_low, ip_range_high=ip_range_high, **kwargs)
         ng.save()
         return ng
 
@@ -153,6 +156,18 @@ class Factory(maastesting.factory.Factory):
         mac = MACAddress(mac_address=address, node=node)
         mac.save()
         return mac
+
+    def make_dhcp_lease(self, nodegroup=None, ip=None, mac=None):
+        """Create a :class:`DHCPLease`."""
+        if nodegroup is None:
+            nodegroup = self.make_node_group()
+        if ip is None:
+            ip = self.getRandomIPAddress()
+        if mac is None:
+            mac = self.getRandomMACAddress()
+        lease = DHCPLease(nodegroup=nodegroup, ip=ip, mac=mac)
+        lease.save()
+        return lease
 
     def make_user(self, username=None, password=None, email=None):
         if username is None:
