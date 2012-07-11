@@ -88,13 +88,13 @@ class BINDServerResources(fixtures.Fixture):
             log_file=log_file,
             )
 
-    def setUp(self):
+    def setUp(self, overwrite=True):
         super(BINDServerResources, self).setUp()
         self.__dict__.update(self._defaults)
         self.set_up_config()
-        self.set_up_named()
+        self.set_up_named(overwrite=overwrite)
 
-    def set_up_named(self):
+    def set_up_named(self, overwrite=True):
         """Setup an environment to run 'named'.
 
         - Create the default configuration for 'named' and setup rndc.
@@ -105,14 +105,16 @@ class BINDServerResources(fixtures.Fixture):
         rndcconf, namedrndcconf = generate_rndc(
             self.rndc_port, 'dnsfixture-rndc-key')
         # Write main BIND config file.
-        named_conf = (
-            self.NAMED_CONF_TEMPLATE.substitute(
-                homedir=self.homedir, port=self.port,
-                log_file=self.log_file,
-                extra=namedrndcconf))
-        atomic_write(named_conf, self.conf_file)
+        if not os.path.exists(self.conf_file) or overwrite:
+            named_conf = (
+                self.NAMED_CONF_TEMPLATE.substitute(
+                    homedir=self.homedir, port=self.port,
+                    log_file=self.log_file,
+                    extra=namedrndcconf))
+            atomic_write(named_conf, self.conf_file)
         # Write rndc config file.
-        atomic_write(rndcconf, self.rndcconf_file)
+        if not os.path.exists(self.rndcconf_file) or overwrite:
+            atomic_write(rndcconf, self.rndcconf_file)
 
         # Copy named executable to home dir.  This is done to avoid
         # the limitations imposed by apparmor if the executable
@@ -120,13 +122,14 @@ class BINDServerResources(fixtures.Fixture):
         # named's apparmor profile prevents loading of zone and
         # configuration files from outside of a restricted set,
         # none of which an ordinary user has write access to.
-        named_path = self.NAMED_PATH
-        assert os.path.exists(named_path), (
-            "'%s' executable not found.  Install the package "
-            "'bind9' or define an environment variable named "
-            "NAMED_PATH with the path where the 'named' "
-            "executable can be found." % named_path)
-        copy(named_path, self.named_file)
+        if not os.path.exists(self.named_file) or overwrite:
+            named_path = self.NAMED_PATH
+            assert os.path.exists(named_path), (
+                "'%s' executable not found.  Install the package "
+                "'bind9' or define an environment variable named "
+                "NAMED_PATH with the path where the 'named' "
+                "executable can be found." % named_path)
+            copy(named_path, self.named_file)
 
     def set_up_config(self):
         if self.port is None:
@@ -270,18 +273,22 @@ if __name__ == "__main__":
     parser.add_argument(
         '--homedir',
         help=(
-            'A directory where to put all the files the BIND'
-            'server needs (configuration files and executable)'
+            "A directory where to put all the files the BIND"
+            "server needs (configuration files and executable)"
            ))
     parser.add_argument(
         '--log-file',
-        help='The log file allocated for the server')
+        help="The log file allocated for the server")
     parser.add_argument(
         '--port', type=int,
-        help='The port that will be used by BIND')
+        help="The port that will be used by BIND")
     parser.add_argument(
         '--rndc-port', type=int,
-        help='The rndc port that will be used by BIND')
+        help="The rndc port that will be used by BIND")
+    parser.add_argument(
+        '--overwrite', type=bool,
+        help="Whether or not to overwrite the configuration files "
+             "if they already exist", default=False)
     arguments = parser.parse_args()
 
     # Create homedir if it does not already exist.
@@ -293,7 +300,7 @@ if __name__ == "__main__":
     resources = BINDServerResources(
         homedir=arguments.homedir, log_file=arguments.log_file,
         port=arguments.port, rndc_port=arguments.rndc_port)
-    resources.setUp()
+    resources.setUp(overwrite=arguments.overwrite)
     # exec named.
     os.execlp(
         resources.named_file, resources.named_file, "-g", "-c",
