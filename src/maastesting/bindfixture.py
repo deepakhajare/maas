@@ -88,7 +88,7 @@ class BINDServerResources(fixtures.Fixture):
             log_file=log_file,
             )
 
-    def setUp(self, overwrite=True):
+    def setUp(self, overwrite=False):
         super(BINDServerResources, self).setUp()
         self.__dict__.update(self._defaults)
         self.set_up_config()
