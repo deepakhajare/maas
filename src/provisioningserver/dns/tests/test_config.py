@@ -32,6 +32,8 @@ from provisioningserver.dns.config import (
     generate_rndc,
     InactiveDNSConfig,
     MAAS_NAMED_CONF_NAME,
+    MAAS_NAMED_RNDC_CONF_NAME,
+    MAAS_RNDC_CONF_NAME,
     setup_rndc,
     TEMPLATES_PATH,
     )
@@ -59,8 +61,8 @@ class TestRNDCUtilities(TestCase):
         self.patch(conf, 'DNS_CONFIG_DIR', dns_conf_dir)
         setup_rndc()
         expected = (
-            ('rndc.conf', '# Start of rndc.conf'),
-            ('named.conf.rndc', 'controls {'))
+            (MAAS_RNDC_CONF_NAME, '# Start of rndc.conf'),
+            (MAAS_NAMED_RNDC_CONF_NAME, 'controls {'))
         for filename, content in expected:
             with open(os.path.join(dns_conf_dir, filename), "rb") as stream:
                 conf_content = stream.read()
@@ -73,7 +75,7 @@ class TestRNDCUtilities(TestCase):
         self.patch(conf, 'DNS_CONFIG_DIR', fake_dir)
         command = factory.getRandomString()
         execute_rndc_command(command)
-        rndc_conf_path = os.path.join(fake_dir, 'rndc.conf')
+        rndc_conf_path = os.path.join(fake_dir, MAAS_RNDC_CONF_NAME)
         expected_command = ['rndc', '-c', rndc_conf_path, command]
         self.assertSequenceEqual(
             [((expected_command,), {})],
@@ -128,7 +130,7 @@ class TestDNSConfig(TestCase):
                     [
                         'zone "%s"' % zone_names[0],
                         'zone "%s.rev"' % reverse_zone_names[0],
-                        'named.conf.rndc',
+                        MAAS_NAMED_RNDC_CONF_NAME,
                     ])))
 
     def test_get_include_snippet_returns_snippet(self):
