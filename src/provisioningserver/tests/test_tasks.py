@@ -25,6 +25,8 @@ from provisioningserver import tasks
 from provisioningserver.dns.config import (
     conf,
     MAAS_NAMED_CONF_NAME,
+    MAAS_NAMED_RNDC_CONF_NAME,
+    MAAS_RNDC_CONF_NAME,
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
@@ -187,8 +189,9 @@ class TestDNSTasks(TestCase):
         self.assertThat(
             (
                 result.successful(),
-                os.path.join(self.dns_conf_dir, 'rndc.conf'),
-                os.path.join(self.dns_conf_dir, 'named.conf.rndc'),
+                os.path.join(self.dns_conf_dir, MAAS_RNDC_CONF_NAME),
+                os.path.join(
+                    self.dns_conf_dir, MAAS_NAMED_RNDC_CONF_NAME),
                 self.rndc_recorder.calls,
             ),
             MatchesListwise(
