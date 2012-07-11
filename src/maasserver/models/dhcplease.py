@@ -27,18 +27,6 @@ from maasserver.fields import MACAddressField
 from maasserver.models.cleansave import CleanSave
 
 
-def sqlify_ip_mac_pairs(pairs):
-    """Return an SQL string representing a sequence of IP/MAC pairs."""
-    return ", ".join("('%s', '%s')" % pair for pair in pairs)
-
-
-def sqlify_nodegroup_ip_mac_pairs(nodegroup, pairs):
-    """Return an SQL string representing IP/MAC pairs for a nodegroup."""
-    return ", ".join(
-        "(%s, '%s', '%s')" % (nodegroup.id, ip, mac)
-        for ip, mac in pairs)
-
-
 class DHCPLeaseManager(Manager):
     """Utility that manages :class:`DHCPLease` objects.
 
@@ -48,15 +36,17 @@ class DHCPLeaseManager(Manager):
 
     def _delete_obsolete_leases(self, nodegroup, current_leases):
         """Delete leases for `nodegroup` that aren't in `current_leases`."""
+        cursor = connection.cursor()
         clauses = ["nodegroup_id = %s" % nodegroup.id]
-        leases_sql = sqlify_ip_mac_pairs(current_leases.items())
+        if len(current_leases) > 0:
+            leases = tuple(current_leases.items())
         if len(current_leases) == 0:
             pass
         elif len(current_leases) == 1:
-            clauses.append("(ip, mac) <> %s" % leases_sql)
+            clauses.append(cursor.mogrify("(ip, mac) <> %s", leases))
         else:
-            clauses.append("(ip, mac) NOT IN (%s)" % leases_sql)
-        connection.cursor().execute(
+            clauses.append(cursor.mogrify("(ip, mac) NOT IN %s", [leases]))
+        cursor.execute(
             "DELETE FROM maasserver_dhcplease WHERE %s"
             % " AND ".join(clauses)),
 
@@ -78,14 +68,17 @@ class DHCPLeaseManager(Manager):
         but a different `mac`.
         """
         leased_ips = self._get_leased_ips(nodegroup)
-        new_pairs = [
-            (ip, mac)
-            for ip, mac in leases.items() if ip not in leased_ips]
-        if len(new_pairs) > 0:
-            connection.cursor().execute("""
+        new_leases = tuple(
+            (nodegroup.id, ip, mac)
+            for ip, mac in leases.items() if ip not in leased_ips)
+        if len(new_leases) > 0:
+            cursor = connection.cursor()
+            new_tuples = ", ".join(
+                cursor.mogrify("%s", [lease]) for lease in new_leases)
+            cursor.execute("""
                 INSERT INTO maasserver_dhcplease (nodegroup_id, ip, mac)
                 VALUES %s
-                """ % sqlify_nodegroup_ip_mac_pairs(nodegroup, new_pairs))
+                """ % new_tuples)
 
     def update_leases(self, nodegroup, leases):
         """Refresh our knowledge of a node group's IP mappings.
