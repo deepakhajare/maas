@@ -53,7 +53,7 @@ class Command(BaseCommand):
         include_snippet = DNSConfig().get_include_snippet()
 
         if edit is True:
-            with open(config_path, "a") as conf_file:
+            with open(config_path, "ab") as conf_file:
                 conf_file.write(include_snippet)
         else:
             return INCLUDE_SNIPPET_COMMENT + include_snippet
