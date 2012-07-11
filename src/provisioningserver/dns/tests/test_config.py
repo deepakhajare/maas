@@ -133,7 +133,8 @@ class TestInactiveDNSConfig(TestCase):
         dnsconfig = InactiveDNSConfig()
         dnsconfig.write_config()
         self.assertThat(
-            os.path.join(target_dir, 'named.conf'), FileContains(''))
+            os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
+            FileContains(''))
 
 
 class TestDNSZoneConfig(TestCase):
