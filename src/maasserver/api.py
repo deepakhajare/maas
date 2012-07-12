@@ -847,6 +847,9 @@ class NodeGroupsHandler(BaseHandler):
             # Request is for the NodeGroups index.
             return HttpResponse(sorted(
                 [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
+        else:
+            # We don't support gets of individual NodeGroups yet.
+            raise MAASAPINotFound("Getting NodeGroups is not supported.")
 
     @classmethod
     def resource_uri(cls, nodegroup=None):
