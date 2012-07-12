@@ -2296,11 +2296,11 @@ class TestNodeGroupsAPI(APITestCase):
             self.get_nodegroup_uri(nodegroup),
             {
                 'op': 'update_leases',
-                'leases': {},
+                'leases': json.dumps({}),
             })
         self.assertEqual(
             (httplib.OK, "Leases updated."),
-            (response.status_code, response.contents))
+            (response.status_code, response.content))
         self.assertItemsEqual(
             [], DHCPLease.objects.filter(nodegroup=nodegroup))
 
@@ -2312,11 +2312,11 @@ class TestNodeGroupsAPI(APITestCase):
             self.get_nodegroup_uri(nodegroup),
             {
                 'op': 'update_leases',
-                'leases': {ip: mac},
+                'leases': json.dumps({ip: mac}),
             })
         self.assertEqual(
             (httplib.OK, "Leases updated."),
-            (response.status_code, response.contents))
+            (response.status_code, response.content))
         self.assertEqual([ip], [
             lease.ip
             for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
