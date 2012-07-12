@@ -2273,3 +2273,13 @@ class TestPXEConfigAPI(AnonAPITestCase):
             for param in self.get_params()
             }
         self.assertEqual(expected, observed)
+
+
+class TestNodeGroupAPI(APITestCase):
+
+    def test_nodegroups_index(self):
+        # The nodegroups index lists node groups for the MAAS.
+        nodegroup = factory.make_node_group()
+        response = self.client.get(self.get_uri('nodegroups/'))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn(nodegroup.name, json.loads(response.content))
