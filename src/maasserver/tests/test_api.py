@@ -2278,22 +2278,42 @@ class TestPXEConfigAPI(AnonAPITestCase):
 
 class TestNodeGroupsAPI(APITestCase):
 
-    def get_nodegroup_uri(self, nodegroup):
-        """Compose the API URI for `nodegroup`."""
-        return self.get_uri('nodegroups/%s/' % nodegroup.name)
+    def test_reverse_points_to_nodegroups_api(self):
+        self.assertEqual(self.get_uri('nodegroups/'), reverse('nodegroups'))
 
     def test_nodegroups_index_lists_nodegroups(self):
         # The nodegroups index lists node groups for the MAAS.
         nodegroup = factory.make_node_group()
-        response = self.client.get(self.get_uri('nodegroups/'))
+        response = self.client.get(reverse('nodegroups'))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertIn(nodegroup.name, json.loads(response.content))
+
+
+class TestNodeGroupAPI(APITestCase):
+
+    def test_reverse_points_to_nodegroup(self):
+        nodegroup = factory.make_node_group()
+        self.assertEqual(
+            self.get_uri('nodegroups/%s/' % nodegroup.name),
+            reverse('nodegroup', args=[nodegroup.name]))
+
+    def test_GET_returns_node_group(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(reverse('nodegroup', args=[nodegroup.name]))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            nodegroup.name, json.loads(response.content).get('name'))
+
+    def test_GET_returns_404_for_unknown_node_group(self):
+        response = self.client.get(
+            self.get_uri('nodegroups/%s/' % factory.make_name('nodegroup')))
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_update_leases_processes_empty_leases_dict(self):
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
         response = self.client.post(
-            self.get_nodegroup_uri(nodegroup),
+            reverse('nodegroup', args=[nodegroup.name]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps({}),
@@ -2309,7 +2329,7 @@ class TestNodeGroupsAPI(APITestCase):
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
         response = self.client.post(
-            self.get_nodegroup_uri(nodegroup),
+            reverse('nodegroup', args=[nodegroup.name]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps({ip: mac}),
@@ -2324,6 +2344,7 @@ class TestNodeGroupsAPI(APITestCase):
 
 class TestAnonNodeGroupsAPI(AnonAPITestCase):
 
-    def test_nodegroups_require_authentication(self):
-        response = self.client.get(self.get_uri('nodegroups/'))
+    def test_nodegroup_requires_authentication(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(reverse('nodegroup', args=[nodegroup.name]))
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)

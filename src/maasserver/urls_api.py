@@ -22,6 +22,7 @@ from maasserver.api import (
     api_doc,
     FilesHandler,
     MAASHandler,
+    NodeGroupHandler,
     NodeGroupsHandler,
     NodeHandler,
     NodeMacHandler,
@@ -40,6 +41,8 @@ nodes_handler = RestrictedResource(NodesHandler, authentication=api_auth)
 node_mac_handler = RestrictedResource(NodeMacHandler, authentication=api_auth)
 node_macs_handler = RestrictedResource(
     NodeMacsHandler, authentication=api_auth)
+nodegroup_handler = RestrictedResource(
+    NodeGroupHandler, authentication=api_auth)
 nodegroups_handler = RestrictedResource(
     NodeGroupsHandler, authentication=api_auth)
 
@@ -69,8 +72,9 @@ urlpatterns += patterns('',
         name='node_handler'),
     url(r'nodes/$', nodes_handler, name='nodes_handler'),
     url(
-        r'nodegroups/(?P<nodegroup>[^/]+)?/*$',
-        nodegroups_handler, name='nodegroups_handler'),
+        r'nodegroups/(?P<name>[^/]+)/$',
+        nodegroup_handler, name='nodegroup'),
+    url(r'nodegroups/$', nodegroups_handler, name='nodegroups'),
     url(r'files/$', files_handler, name='files_handler'),
     url(r'account/$', account_handler, name='account_handler'),
 )

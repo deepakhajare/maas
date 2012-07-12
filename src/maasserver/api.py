@@ -837,36 +837,44 @@ class FilesHandler(BaseHandler):
 
 @api_operations
 class NodeGroupsHandler(BaseHandler):
-    """Node-groups API."""
+    """Node-groups API.  Lists the registered node groups."""
 
-    allowed_methods = ('GET', 'POST')
+    allowed_methods = ('GET', )
 
-    def read(self, request, nodegroup=None):
+    def read(self, request):
         """Index of node groups."""
-        if nodegroup is None:
-            # Request is for the NodeGroups index.
-            return HttpResponse(sorted(
-                [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
-        else:
-            # We don't support gets of individual NodeGroups yet.
-            raise MAASAPINotFound("Getting NodeGroups is not supported.")
+        return HttpResponse(sorted(
+            [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
 
     @classmethod
-    def resource_uri(cls, nodegroup=None):
+    def resource_uri(cls):
+        return ('nodegroups_handler', [])
+
+
+@api_operations
+class NodeGroupHandler(BaseHandler):
+    """Node-group API."""
+
+    allowed_methods = ('GET', 'POST')
+    fields = ('name', )
+
+    def read(self, request, name):
+        """GET a node group."""
+        return get_object_or_404(NodeGroup, name=name)
+
+    @classmethod
+    def resource_uri(cls, nodegroup):
         if nodegroup is None:
-            nodegroup = 'name'
-        return ('nodegroups_handler', (nodegroup, ))
+            name = 'name'
+        else:
+            name = nodegroup.name
+        return ('nodegroup_handler', [name])
 
     @api_exported('POST')
-    def update_leases(self, request, nodegroup):
-        nodegroup = get_object_or_404(NodeGroup, name=nodegroup)
-
-        leases = request.data.get('leases', None)
-        if leases is None:
-            raise MAASAPIBadRequest("No leases given.")
-
+    def update_leases(self, request, name):
+        leases = get_mandatory_param(request.data, 'leases')
+        nodegroup = get_object_or_404(NodeGroup, name=name)
         DHCPLease.objects.update_leases(nodegroup, json.loads(leases))
-
         return HttpResponse("Leases updated.", status=httplib.OK)
 
 
