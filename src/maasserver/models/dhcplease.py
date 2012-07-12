@@ -98,7 +98,7 @@ class DHCPLeaseManager(Manager):
 
     def get_hostname_ip_mapping(self, nodegroup):
         """Return a mapping {hostnames -> ips} for the currently leased
-        IP addresses for `nodegroup`.
+        IP addresses for the nodes in `nodegroup`.
 
         This will consider only the first interface (i.e. the first
         MAC Address) associated with each node withing the given
