@@ -855,6 +855,7 @@ class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
     allowed_methods = ('GET', 'POST')
+    fields = ('name', )
 
     def read(self, request, name):
         """GET a node group."""
