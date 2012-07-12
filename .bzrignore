@@ -13,6 +13,7 @@
 ./docs/_autosummary
 ./docs/_build
 ./docs/api.rst
+./etc/named
 ./eggs
 ./include
 ./lib

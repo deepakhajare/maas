@@ -139,6 +139,7 @@ distclean: clean stop
 	$(RM) -r docs/_build
 	$(RM) -r run/* services/*/supervise
 	$(RM) twisted/plugins/dropin.cache
+	$(RM) -r etc/named
 
 harness: bin/maas bin/database
 	$(dbrun) bin/maas shell --settings=maas.demo
