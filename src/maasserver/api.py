@@ -61,6 +61,7 @@ __all__ = [
     "AccountHandler",
     "AnonNodesHandler",
     "FilesHandler",
+    "NodeGroupsHandler",
     "NodeHandler",
     "NodesHandler",
     "NodeMacHandler",
@@ -119,6 +120,7 @@ from maasserver.models import (
     FileStorage,
     MACAddress,
     Node,
+    NodeGroup,
     )
 from piston.doc import generate_doc
 from piston.handler import (
@@ -830,6 +832,26 @@ class FilesHandler(BaseHandler):
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('files_handler', [])
+
+
+@api_operations
+class NodeGroupsHandler(BaseHandler):
+    """Node-groups API."""
+
+    allowed_methods = ('GET', )
+
+    def read(self, request, nodegroup=None):
+        """Index of node groups."""
+        if nodegroup is None:
+            # Request is for the NodeGroups index.
+            return HttpResponse(
+                [nodegroup.name for nodegroup in NodeGroup.objects.all()])
+
+    @classmethod
+    def resource_uri(cls, nodegroup=None):
+        if nodegroup is None:
+            nodegroup = 'name'
+        return ('nodegroups_handler', (nodegroup, ))
 
 
 @api_operations
