@@ -2298,7 +2298,9 @@ class TestNodeGroupsAPI(APITestCase):
                 'op': 'update_leases',
                 'leases': {},
             })
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            (httplib.OK, "Leases updated."),
+            (response.status_code, response.contents))
         self.assertItemsEqual(
             [], DHCPLease.objects.filter(nodegroup=nodegroup))
 
@@ -2312,7 +2314,9 @@ class TestNodeGroupsAPI(APITestCase):
                 'op': 'update_leases',
                 'leases': {ip: mac},
             })
-        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            (httplib.OK, "Leases updated."),
+            (response.status_code, response.contents))
         self.assertEqual([ip], [
             lease.ip
             for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
