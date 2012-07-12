@@ -2289,4 +2289,4 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
 
     def test_nodegroups_require_authentication(self):
         response = self.client.get(self.get_uri('nodegroups/'))
-        self.assertEqual(httplib.NOT_AUTHORIZED, response.status_code)
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
