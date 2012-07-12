@@ -845,8 +845,8 @@ class NodeGroupsHandler(BaseHandler):
         """Index of node groups."""
         if nodegroup is None:
             # Request is for the NodeGroups index.
-            return HttpResponse(
-                [nodegroup.name for nodegroup in NodeGroup.objects.all()])
+            return HttpResponse(sorted(
+                [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
 
     @classmethod
     def resource_uri(cls, nodegroup=None):
