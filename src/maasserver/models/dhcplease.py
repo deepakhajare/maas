@@ -105,7 +105,7 @@ class DHCPLeaseManager(Manager):
         `nodegroup`.
         """
         cursor = connection.cursor()
-        # The subquery fetches the ID of the first MAC Address for
+        # The subquery fetches the IDs of the first MAC Address for
         # all the nodes in this nodegroup.
         # Then the main query returns the hostname -> ip mapping for
         # these MAC Addresses.
