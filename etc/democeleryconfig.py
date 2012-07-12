@@ -25,4 +25,4 @@ DEV_ROOT_DIRECTORY = os.path.join(
 
 
 DNS_CONFIG_DIR = os.path.join(
-    DEV_ROOT_DIRECTORY, 'etc/named/')
+    DEV_ROOT_DIRECTORY, 'run/named/')
