@@ -840,9 +840,9 @@ class NodeGroupsHandler(BaseHandler):
 
     allowed_methods = ('GET', )
 
-    def read(self, request, nodegroup=None):
+    def read(self, request, name=None):
         """Index of node groups."""
-        if nodegroup is None:
+        if name is None:
             # Request is for the NodeGroups index.
             return HttpResponse(sorted(
                 [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
