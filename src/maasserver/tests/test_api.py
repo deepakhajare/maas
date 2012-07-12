@@ -51,6 +51,7 @@ from maasserver.enum import (
 from maasserver.exceptions import Unauthorized
 from maasserver.models import (
     Config,
+    DHCPLease,
     MACAddress,
     Node,
     )
@@ -2277,12 +2278,44 @@ class TestPXEConfigAPI(AnonAPITestCase):
 
 class TestNodeGroupsAPI(APITestCase):
 
+    def get_nodegroup_uri(self, nodegroup):
+        """Compose the API URI for `nodegroup`."""
+        return self.get_uri('nodegroups/%s/' % nodegroup.name)
+
     def test_nodegroups_index_lists_nodegroups(self):
         # The nodegroups index lists node groups for the MAAS.
         nodegroup = factory.make_node_group()
         response = self.client.get(self.get_uri('nodegroups/'))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertIn(nodegroup.name, json.loads(response.content))
+
+    def test_update_leases_processes_empty_leases_dict(self):
+        nodegroup = factory.make_node_group()
+        factory.make_dhcp_lease(nodegroup=nodegroup)
+        response = self.client.post(
+            self.get_nodegroup_uri(nodegroup),
+            {
+                'op': 'update_leases',
+                'leases': {},
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertItemsEqual(
+            [], DHCPLease.objects.filter(nodegroup=nodegroup))
+
+    def test_update_leases_stores_leases(self):
+        nodegroup = factory.make_node_group()
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        response = self.client.post(
+            self.get_nodegroup_uri(nodegroup),
+            {
+                'op': 'update_leases',
+                'leases': {ip: mac},
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual([ip], [
+            lease.ip
+            for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
 
 
 class TestAnonNodeGroupsAPI(AnonAPITestCase):
