@@ -836,21 +836,32 @@ class FilesHandler(BaseHandler):
 
 @api_operations
 class NodeGroupsHandler(BaseHandler):
-    """Node-groups API."""
+    """Node-groups API.  Lists the registered node groups."""
 
     allowed_methods = ('GET', )
 
-    def read(self, request, name=None):
+    def read(self, request):
         """Index of node groups."""
-        if name is None:
-            # Request is for the NodeGroups index.
-            return HttpResponse(sorted(
-                [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
+        return HttpResponse(sorted(
+            [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
 
     @classmethod
-    def resource_uri(cls, nodegroup=None):
-        if nodegroup is None:
-            nodegroup = 'name'
+    def resource_uri(cls):
+        return ('nodegroup_handler', ())
+
+
+@api_operations
+class NodeGroupHandler(BaseHandler):
+    """Node-group API."""
+
+    allowed_methods = ('GET', 'POST')
+
+    def read(self, request, name):
+        """GET a node group."""
+        return get_object_or_404(NodeGroup, name=name)
+
+    @classmethod
+    def resource_uri(cls, nodegroup):
         return ('nodegroups_handler', (nodegroup, ))
 
 
