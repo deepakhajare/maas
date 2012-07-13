@@ -14,6 +14,7 @@ __metaclass__ = type
 
 import provisioningserver.dhcp.writer
 import provisioningserver.pxe.install_bootloader
+import provisioningserver.pxe.install_image
 from provisioningserver.utils import ActionScript
 
 
@@ -24,4 +25,7 @@ main.register(
 main.register(
     "install-pxe-bootloader",
     provisioningserver.pxe.install_bootloader)
+main.register(
+    "install-pxe-image",
+    provisioningserver.pxe.install_image)
 main()
