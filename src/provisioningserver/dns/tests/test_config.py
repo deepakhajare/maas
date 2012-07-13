@@ -76,9 +76,7 @@ class TestRNDCUtilities(TestCase):
         execute_rndc_command(command)
         rndc_conf_path = os.path.join(fake_dir, MAAS_RNDC_CONF_NAME)
         expected_command = ['rndc', '-c', rndc_conf_path, command]
-        self.assertSequenceEqual(
-            [((expected_command,), {})],
-            recorder.calls)
+        self.assertEqual((expected_command,), recorder.calls[0][0])
 
 
 class TestDNSConfig(TestCase):
