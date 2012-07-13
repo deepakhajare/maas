@@ -28,6 +28,7 @@ from subprocess import (
     )
 
 from celery.conf import conf
+import datetime
 from provisioningserver.utils import atomic_write
 import tempita
 
@@ -111,6 +112,8 @@ TEMPLATES_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 class DNSConfigBase:
     __metaclass__ = ABCMeta
 
+    incremental_age = False
+
     @abstractproperty
     def template_path(self):
         """Return the full path of the template to be used."""
@@ -147,7 +150,9 @@ class DNSConfigBase:
         template = self.get_template()
         kwargs.update(self.get_extra_context())
         rendered = self.render_template(template, **kwargs)
-        atomic_write(rendered, self.target_path)
+        atomic_write(
+            rendered, self.target_path,
+            incremental_age=self.incremental_age)
 
 
 class DNSConfig(DNSConfigBase):
@@ -180,7 +185,8 @@ class DNSConfig(DNSConfigBase):
                 RevDNSZoneConfig(reverse_zone_name)
                 for reverse_zone_name in self.reverse_zone_names],
             'DNS_CONFIG_DIR': conf.DNS_CONFIG_DIR,
-            'named_rndc_conf_path':  get_named_rndc_conf_path()
+            'named_rndc_conf_path':  get_named_rndc_conf_path(),
+            'modified': unicode(datetime.today()),
         }
 
     def get_include_snippet(self):
@@ -193,6 +199,7 @@ class DNSZoneConfig(DNSConfig):
     template_file_name = 'zone.template'
     zone_name_string = '%s'
     zone_filename_string = 'zone.%s'
+    incremental_age = True
 
     def __init__(self, zone_name):
         self.zone_name = zone_name
