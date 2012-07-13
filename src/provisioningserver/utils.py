@@ -98,13 +98,13 @@ DELTA = 1000
 
 
 def increment_age(filename, old_mtime=None, delta=DELTA):
-    """Increment the modification time by one compared to the given
+    """Increment the modification time by 1 sec compared to the given
     `old_mtime`.
 
     This function is used to manage the modification time of files
     for which we need to see an increment in the modification time
     each time the file is modified.  This is the case for DNS zone
-    files which only get properly reloaded if BIND sees a that the
+    files which only get properly reloaded if BIND sees that the
     modification time is > to the time it has in its database.
 
     Since the resolution of the modification time is one second,
@@ -113,7 +113,7 @@ def increment_age(filename, old_mtime=None, delta=DELTA):
     time by 1 manually each time the file gets written again.
 
     We also want to be careful not to set the modification time in
-    the future (mostly because BIND does deal with that well).
+    the future (mostly because BIND doesn't deal with that well).
 
     Finally, note that the access time is set to the same value as
     the modification time.
