@@ -119,7 +119,7 @@ class DHCPLeaseManager(Manager):
             FROM maasserver_macaddress as mac,
                  maasserver_node as node
             WHERE node.nodegroup_id = %s AND mac.node_id = node.id
-            ORDER BY node_id, mac.created
+            ORDER BY node_id, mac.id
         )
         AND mac.node_id = node.id
         AND mac.mac_address = lease.mac
