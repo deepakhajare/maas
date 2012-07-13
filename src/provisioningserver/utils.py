@@ -12,9 +12,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "ActionScript",
+    "atomic_write",
     "deferred",
     "ShellTemplate",
-    "atomic_write",
+    "incremental_write",
     "xmlrpc_export",
     ]
 
@@ -27,7 +28,7 @@ import signal
 from subprocess import CalledProcessError
 import sys
 import tempfile
-import time
+from time import time
 
 import tempita
 from twisted.internet.defer import maybeDeferred
@@ -91,21 +92,18 @@ def atomic_write(content, filename, incremental_age=False):
         increment_age(filename, old_mtime=old_mtime)
 
 
-# Time resolution (this is the unit by which the modification time
-# of a file will be incremented).
-# Note that ext3 supports a resolution of 1 sec and ext4 a resolution
-# of 1 nanosecond.
-# To be on the safe side we stick with 1 sec.
-TIME_RESOLUTION = 1
+def incremental_write(content, filename):
+    """Write the given `content` into the file `filename` and
+    increment the modification time by 1 sec.
+    """
+    old_mtime = None
+    if os.path.exists(filename):
+        old_mtime = os.stat(filename).st_mtime
+    atomic_write(content, filename)
+    increment_age(filename, old_mtime=old_mtime)
 
 
-# Default delta (in seconds) used to set the modification time for
-# files in the past (to be able to increment the modification
-# time each time the file is written again).
-DELTA = 1000 * TIME_RESOLUTION
-
-
-def increment_age(filename, old_mtime=None, delta=DELTA):
+def increment_age(filename, old_mtime=None, delta=1000):
     """Increment the modification time by 1 sec compared to the given
     `old_mtime`.
 
@@ -126,7 +124,7 @@ def increment_age(filename, old_mtime=None, delta=DELTA):
     Finally, note that the access time is set to the same value as
     the modification time.
     """
-    now = time.mktime(time.localtime())
+    now = time()
     if old_mtime is None:
         # Set modification time in the past to have room for
         # sub-second modifications.
@@ -135,8 +133,8 @@ def increment_age(filename, old_mtime=None, delta=DELTA):
         # If the modification time can be incremented by 1 sec
         # without being in the future, do it.  Otherwise we give
         # up and set it to 'now'.
-        if old_mtime + TIME_RESOLUTION <= now:
-            new_mtime = old_mtime + TIME_RESOLUTION
+        if old_mtime + 1 <= now:
+            new_mtime = old_mtime + 1
         else:
             new_mtime = old_mtime
     os.utime(filename, (new_mtime, new_mtime))
