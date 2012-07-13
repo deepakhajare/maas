@@ -22,12 +22,10 @@ import random
 from random import randint
 from subprocess import CalledProcessError
 import sys
-import time
 import types
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
-from provisioningserver import utils
 from provisioningserver.utils import (
     ActionScript,
     atomic_write,
@@ -36,11 +34,7 @@ from provisioningserver.utils import (
     Safe,
     ShellTemplate,
     )
-from testtools.matchers import (
-    FileContains,
-    LessThan,
-    Not,
-    )
+from testtools.matchers import FileContains
 
 
 class TestSafe(TestCase):
@@ -79,7 +73,7 @@ class TestIncrementalWrite(TestCase):
         os.utime(filename, (old_mtime, old_mtime))
         incremental_write(content, filename)
         self.assertThat(
-            os.stat(filename).st_mtime, Not(LessThan(old_mtime + 1)))
+            os.stat(filename).st_mtime, old_mtime + 1)
 
 
 class TestIncrementAge(TestCase):
@@ -87,32 +81,26 @@ class TestIncrementAge(TestCase):
 
     def setUp(self):
         super(TestIncrementAge, self).setUp()
-        self.now = int(time.time())
-
-        def fixed_time():
-            return self.now
-        self.patch(utils, "time", fixed_time)
+        self.filename = self.make_file()
+        self.now = os.stat(self.filename).st_mtime
 
     def test_increment_age_sets_mtime_in_the_past(self):
-        filename = self.make_file()
         delta = random.randint(10, 200)
-        increment_age(filename, old_mtime=None, delta=delta)
+        increment_age(self.filename, old_mtime=None, delta=delta)
         self.assertEqual(
-            os.stat(filename).st_mtime, self.now - delta)
+            os.stat(self.filename).st_mtime, self.now - delta)
 
     def test_increment_age_increments_mtime(self):
-        filename = self.make_file()
         old_mtime = self.now - 200
-        increment_age(filename, old_mtime=old_mtime)
+        increment_age(self.filename, old_mtime=old_mtime)
         self.assertEqual(
-            os.stat(filename).st_mtime, old_mtime + 1)
+            os.stat(self.filename).st_mtime, old_mtime + 1)
 
     def test_increment_age_does_not_increment_mtime_if_in_future(self):
-        filename = self.make_file()
         old_mtime = self.now + 200
-        increment_age(filename, old_mtime=old_mtime)
+        increment_age(self.filename, old_mtime=old_mtime)
         self.assertEqual(
-            os.stat(filename).st_mtime, old_mtime)
+            os.stat(self.filename).st_mtime, old_mtime)
 
 
 class TestShellTemplate(TestCase):
