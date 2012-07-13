@@ -154,9 +154,9 @@ class DNSConfigBase:
         kwargs.update(self.get_extra_context())
         rendered = self.render_template(template, **kwargs)
         if self.incremental_write:
-            atomic_write(rendered, self.target_path)
-        else:
             incremental_write(rendered, self.target_path)
+        else:
+            atomic_write(rendered, self.target_path)
 
 
 class DNSConfig(DNSConfigBase):
