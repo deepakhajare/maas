@@ -68,10 +68,10 @@ POWER_TYPE_PARAMETERS = {
             [
                 (
                     'power_address',
-                    forms.CharField(label="Address", required=False)),
+                    forms.CharField(label="IP Address or Hostname", required=False)),
                 (
                     'power_user',
-                    forms.CharField(label="User", required=False)),
+                    forms.CharField(label="Username", required=False)),
                 (
                     'power_pass',
                     forms.CharField(label="Password", required=False)),
@@ -82,14 +82,14 @@ POWER_TYPE_PARAMETERS = {
         DictCharField(
             [
                 (
+                    'power_address',
+                    forms.CharField(label="IP Address or Hostname", required=False)),
+                (
                     'power_user',
-                    forms.CharField(label="User", required=False)),
+                    forms.CharField(label="Username", required=False)),
                 (
                     'power_pass',
                     forms.CharField(label="Password", required=False)),
-                (
-                    'power_id',
-                    forms.CharField(label="Power ID", required=False)),
             ],
             required=False,
             skip_check=True),
