@@ -166,7 +166,7 @@ class TestPowerAction(TestCase):
         stdout, stderr = action.run_shell(script)
         self.assertIn("Got unknown power state from ipmitool", stderr)
 
-    def test_ipmi_lan_checks_status(self):
+    def test_ipmi_lan_checks_state(self):
         action = PowerAction(POWER_TYPE.IPMI_LAN)
         script = action.render_template(
             action.get_template(), power_change='on',
