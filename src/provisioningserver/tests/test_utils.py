@@ -34,7 +34,11 @@ from provisioningserver.utils import (
     Safe,
     ShellTemplate,
     )
-from testtools.matchers import FileContains
+from testtools.matchers import (
+    FileContains,
+    LessThan,
+    Not,
+    )
 
 
 class TestSafe(TestCase):
@@ -68,8 +72,8 @@ class TestWriteAtomic(TestCase):
         old_mtime = os.stat(filename).st_mtime - 10
         os.utime(filename, (old_mtime, old_mtime))
         atomic_write(content, filename, incremental_age=True)
-        self.assertEqual(
-            os.stat(filename).st_mtime, old_mtime + 1)
+        self.assertThat(
+            os.stat(filename).st_mtime, Not(LessThan(old_mtime + 1)))
 
 
 class TestIncrementAge(TestCase):
