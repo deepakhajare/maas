@@ -91,10 +91,18 @@ def atomic_write(content, filename, incremental_age=False):
         increment_age(filename, old_mtime=old_mtime)
 
 
+# Time resolution (this is the unit by which the modification time
+# of a file will be incremented).
+# Note that ext3 supports a resolution of 1 sec and ext4 a resolution
+# of 1 nanosecond.
+# To be on the safe side we stick with 1 sec.
+TIME_RESOLUTION = 1
+
+
 # Default delta (in seconds) used to set the modification time for
 # files in the past (to be able to increment the modification
 # time each time the file is written again).
-DELTA = 1000
+DELTA = 1000 * TIME_RESOLUTION
 
 
 def increment_age(filename, old_mtime=None, delta=DELTA):
@@ -127,8 +135,8 @@ def increment_age(filename, old_mtime=None, delta=DELTA):
         # If the modification time can be incremented by 1 sec
         # without being in the future, do it.  Otherwise we give
         # up and set it to 'now'.
-        if old_mtime + 1 <= now:
-            new_mtime = old_mtime + 1
+        if old_mtime + TIME_RESOLUTION <= now:
+            new_mtime = old_mtime + TIME_RESOLUTION
         else:
             new_mtime = old_mtime
     os.utime(filename, (new_mtime, new_mtime))
