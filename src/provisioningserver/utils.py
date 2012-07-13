@@ -168,11 +168,20 @@ class ActionScript:
         handler.add_arguments(parser)
         return parser
 
+    def execute(self, argv=None):
+        """Execute this action.
+
+        This is intended for in-process invocation of an action, though it may
+        still raise L{SystemExit}. The L{__call__} method is intended for when
+        this object is executed as a script proper.
+        """
+        args = self.parser.parse_args(argv)
+        args.handler.run(args)
+
     def __call__(self, argv=None):
         try:
             self.setup()
-            args = self.parser.parse_args(argv)
-            args.handler.run(args)
+            self.execute(argv)
         except CalledProcessError, error:
             # Print error.cmd and error.output too?
             raise SystemExit(error.returncode)
