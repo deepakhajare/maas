@@ -13,6 +13,7 @@ from __future__ import (
 __metaclass__ = type
 
 import provisioningserver.dhcp.writer
+import provisioningserver.pxe.install_bootloader
 from provisioningserver.utils import ActionScript
 
 
@@ -20,4 +21,7 @@ main = ActionScript(__doc__)
 main.register(
     "generate-dhcp-config",
     provisioningserver.dhcp.writer)
+main.register(
+    "install-pxe-bootloader",
+    provisioningserver.pxe.install_bootloader)
 main()
