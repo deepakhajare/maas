@@ -28,7 +28,7 @@ import signal
 from subprocess import CalledProcessError
 import sys
 import tempfile
-import time
+from time import time
 
 import tempita
 from twisted.internet.defer import maybeDeferred
@@ -124,7 +124,7 @@ def increment_age(filename, old_mtime=None, delta=1000):
     Finally, note that the access time is set to the same value as
     the modification time.
     """
-    now = time.time()
+    now = time()
     if old_mtime is None:
         # Set modification time in the past to have room for
         # sub-second modifications.
