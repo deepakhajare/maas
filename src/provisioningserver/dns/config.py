@@ -13,7 +13,6 @@ __metaclass__ = type
 __all__ = [
     'DNSConfig',
     'DNSZoneConfig',
-    'InactiveDNSConfig',
     'setup_rndc',
     ]
 
@@ -83,7 +82,8 @@ def setup_rndc():
     MAAS_RNDC_CONF_NAME and MAAS_NAMED_RNDC_CONF_NAME, both stored in
     conf.DNS_CONFIG_DIR.
     """
-    rndc_content, named_content = generate_rndc()
+    rndc_content, named_content = generate_rndc(
+        conf.DNS_RNDC_PORT)
 
     target_file = get_rndc_conf_path()
     with open(target_file, "wb") as f:
@@ -98,7 +98,10 @@ def execute_rndc_command(*arguments):
     """Execute a rndc command."""
     rndc_conf = os.path.join(
         conf.DNS_CONFIG_DIR, MAAS_RNDC_CONF_NAME)
-    check_call(['rndc', '-c', rndc_conf] + map(str, arguments))
+    with open(os.devnull, "ab") as devnull:
+        check_call(
+        ['rndc', '-c', rndc_conf] + map(str, arguments),
+        stdout=devnull)
 
 
 # Directory where the DNS configuration template files can be found.
@@ -182,16 +185,6 @@ class DNSConfig(DNSConfigBase):
 
     def get_include_snippet(self):
         return '\ninclude "%s";\n' % self.target_path
-
-
-class InactiveDNSConfig(DNSConfig):
-    """A specialized version of DNSConfig that simply writes a blank/empty
-    configuration file.
-    """
-
-    def get_template(self):
-        """Return an empty template."""
-        return tempita.Template('', 'empty template')
 
 
 class DNSZoneConfig(DNSConfig):
