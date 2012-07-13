@@ -110,7 +110,7 @@ class DHCPLeaseManager(Manager):
         # Then the main query returns the hostname -> ip mapping for
         # these MAC Addresses.
         cursor.execute("""
-        SELECT hostname, ip
+        SELECT node.hostname, lease.ip
         FROM maasserver_macaddress as mac,
              maasserver_node as node,
              maasserver_dhcplease as lease
