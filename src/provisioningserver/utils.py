@@ -187,3 +187,5 @@ class ActionScript:
             raise SystemExit(error.returncode)
         except KeyboardInterrupt:
             raise SystemExit(1)
+        else:
+            raise SystemExit(0)
