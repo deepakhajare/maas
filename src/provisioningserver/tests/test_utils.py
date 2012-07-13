@@ -72,7 +72,7 @@ class TestIncrementalWrite(TestCase):
         old_mtime = os.stat(filename).st_mtime - 10
         os.utime(filename, (old_mtime, old_mtime))
         incremental_write(content, filename)
-        self.assertThat(
+        self.assertEqual(
             os.stat(filename).st_mtime, old_mtime + 1)
 
 
@@ -85,22 +85,23 @@ class TestIncrementAge(TestCase):
         self.now = os.stat(self.filename).st_mtime
 
     def test_increment_age_sets_mtime_in_the_past(self):
-        delta = random.randint(10, 200)
+        delta = random.randint(100, 200)
         increment_age(self.filename, old_mtime=None, delta=delta)
-        self.assertEqual(
-            os.stat(self.filename).st_mtime, self.now - delta)
+        self.assertAlmostEqual(
+            os.stat(self.filename).st_mtime,
+            self.now - delta, delta=2)
 
     def test_increment_age_increments_mtime(self):
         old_mtime = self.now - 200
         increment_age(self.filename, old_mtime=old_mtime)
-        self.assertEqual(
-            os.stat(self.filename).st_mtime, old_mtime + 1)
+        self.assertAlmostEqual(
+            os.stat(self.filename).st_mtime, old_mtime + 1, delta=0.01)
 
     def test_increment_age_does_not_increment_mtime_if_in_future(self):
         old_mtime = self.now + 200
         increment_age(self.filename, old_mtime=old_mtime)
-        self.assertEqual(
-            os.stat(self.filename).st_mtime, old_mtime)
+        self.assertAlmostEqual(
+            os.stat(self.filename).st_mtime, old_mtime, delta=0.01)
 
 
 class TestShellTemplate(TestCase):
