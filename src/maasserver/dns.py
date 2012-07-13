@@ -42,10 +42,12 @@ def next_zone_serial():
 def change_dns_zone(nodegroup):
     mapping = DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
     zone_name = nodegroup.name
+    zone_reload_subtask = tasks.rndc_command.subtask(
+        args=['reload', zone_name])
     tasks.write_dns_zone_config.delay(
         zone_name=zone_name, domain=zone_name,
         serial=next_zone_serial(), hostname_ip_mapping=mapping,
-        callback=tasks.rndc_command.subtask(args=['reload', zone_name]))
+        callback=zone_reload_subtask)
 
 
 def add_zone(nodegroup):
@@ -55,12 +57,13 @@ def add_zone(nodegroup):
     tasks.write_dns_config(zone_names=zone_names)
     mapping = DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
     zone_name = nodegroup.name
+    reconfig_subtask = tasks.rndc_command.subtask(args=['reconfig'])
+    write_dns_config_subtask = tasks.write_dns_config.subtask(
+        zone_names=zone_names, callback=reconfig_subtask)
     tasks.write_dns_zone_config.delay(
         zone_name=zone_name, domain=zone_name,
         serial=next_zone_serial(), hostname_ip_mapping=mapping,
-        callback=tasks.write_dns_config.subtask(
-            zone_names=zone_names,
-            callback=tasks.rndc_command.subtask(args=['reconfig'])))
+        callback=write_dns_config_subtask)
 
 
 def write_full_dns_config():

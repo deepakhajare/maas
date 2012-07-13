@@ -21,6 +21,7 @@ from abc import (
     ABCMeta,
     abstractproperty,
     )
+from datetime import datetime
 import os.path
 from subprocess import (
     check_call,
@@ -28,7 +29,6 @@ from subprocess import (
     )
 
 from celery.conf import conf
-import datetime
 from provisioningserver.utils import atomic_write
 import tempita
 
@@ -218,7 +218,9 @@ class DNSZoneConfig(DNSConfig):
             self.target_dir, self.zone_filename_string % self.zone_name)
 
     def get_extra_context(self):
-        return {}
+        return {
+            'modified': unicode(datetime.today()),
+        }
 
 
 class RevDNSZoneConfig(DNSZoneConfig):
