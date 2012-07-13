@@ -17,9 +17,12 @@ from argparse import (
     Namespace,
     )
 from io import BytesIO
+import os
+import random
 from random import randint
 from subprocess import CalledProcessError
 import sys
+import time
 import types
 
 from maastesting.factory import factory
@@ -27,6 +30,7 @@ from maastesting.testcase import TestCase
 from provisioningserver.utils import (
     ActionScript,
     atomic_write,
+    increment_age,
     Safe,
     ShellTemplate,
     )
@@ -55,6 +59,45 @@ class TestWriteAtomic(TestCase):
         filename = self.make_file(contents=factory.getRandomString())
         atomic_write(content, filename)
         self.assertThat(filename, FileContains(content))
+
+    def test_atomic_write_increments_modification_time(self):
+        content = factory.getRandomString()
+        filename = self.make_file(contents=factory.getRandomString())
+        # Pretend that this file is older than it is.  So that
+        # incrementing its mtime won't put it in the future.
+        old_mtime = os.stat(filename).st_mtime - 10
+        os.utime(filename, (old_mtime, old_mtime))
+        atomic_write(content, filename, incremental_age=True)
+        self.assertEqual(
+            os.stat(filename).st_mtime, old_mtime + 1)
+
+
+class TestIncrementAge(TestCase):
+    """Test `increment_age`."""
+
+    def test_increment_age_sets_mtime_in_the_past(self):
+        filename = self.make_file()
+        delta = random.randint(10, 200)
+        increment_age(filename, old_mtime=None, delta=delta)
+        now = time.mktime(time.localtime())
+        self.assertEqual(
+            os.stat(filename).st_mtime, now - delta)
+
+    def test_increment_age_increments_mtime(self):
+        filename = self.make_file()
+        now = time.mktime(time.localtime())
+        old_mtime = now - 200
+        increment_age(filename, old_mtime=old_mtime)
+        self.assertEqual(
+            os.stat(filename).st_mtime, old_mtime + 1)
+
+    def test_increment_age_does_not_increment_mtime_if_in_future(self):
+        filename = self.make_file()
+        now = time.mktime(time.localtime())
+        old_mtime = now + 200
+        increment_age(filename, old_mtime=old_mtime)
+        self.assertEqual(
+            os.stat(filename).st_mtime, old_mtime)
 
 
 class TestShellTemplate(TestCase):
