@@ -124,7 +124,7 @@ class DHCPLeaseManager(Manager):
         AND mac.node_id = node.id
         AND mac.mac_address = lease.mac
         AND lease.nodegroup_id = %s
-        """ % (nodegroup.id, nodegroup.id))
+        """, (nodegroup.id, nodegroup.id))
         return dict(cursor.fetchall())
 
 
