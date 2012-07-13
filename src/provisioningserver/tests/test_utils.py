@@ -72,8 +72,8 @@ class TestIncrementalWrite(TestCase):
         old_mtime = os.stat(filename).st_mtime - 10
         os.utime(filename, (old_mtime, old_mtime))
         incremental_write(content, filename)
-        self.assertEqual(
-            os.stat(filename).st_mtime, old_mtime + 1)
+        self.assertAlmostEqual(
+            os.stat(filename).st_mtime, old_mtime + 1, delta=0.01)
 
 
 class TestIncrementAge(TestCase):
