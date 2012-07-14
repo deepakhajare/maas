@@ -40,6 +40,11 @@ def next_zone_serial():
 
 
 def change_dns_zone(nodegroup):
+    """Update in the DNS server the zone for the given `nodegroup`.
+
+    :param nodegroup: The nodegroup for which the zone should be cupdated.
+    :type nodegroup: :class:`NodeGroup`
+    """
     mapping = DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
     zone_name = nodegroup.name
     zone_reload_subtask = tasks.rndc_command.subtask(
@@ -51,6 +56,11 @@ def change_dns_zone(nodegroup):
 
 
 def add_zone(nodegroup):
+    """Add to the DNS server a new zone for the given `nodegroup`.
+
+    :param nodegroup: The nodegroup for which the zone should be added.
+    :type nodegroup: :class:`NodeGroup`
+    """
     zone_names = [
         result[0]
         for result in NodeGroup.objects.all().values_list('name')]
@@ -67,6 +77,7 @@ def add_zone(nodegroup):
 
 
 def write_full_dns_config():
+    """Write the DNS configuration for all the nodegroups."""
     groups = NodeGroup.objects.all()
     serial = next_zone_serial()
     zones = {
