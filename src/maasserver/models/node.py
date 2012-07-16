@@ -558,7 +558,7 @@ class Node(CleanSave, TimestampedModel):
         power_params.setdefault('username', '')
         power_params.setdefault('power_id', self.system_id)
 
-	# Set the default ipmi interface based on the IPMI/IPMI_LAN
+        # Set the default ipmi interface based on the IPMI/IPMI_LAN
         # POWER_TYPE selected
         if self.power_type == POWER_TYPE.IPMI:
             power_params.setdefault('power_ipmi_interface', 'lan')

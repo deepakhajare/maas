@@ -68,7 +68,8 @@ POWER_TYPE_PARAMETERS = {
             [
                 (
                     'power_address',
-                    forms.CharField(label="IP Address or Hostname", required=False)),
+                    forms.CharField(label="IP Address or Hostname",
+                        required=False)),
                 (
                     'power_user',
                     forms.CharField(label="Username", required=False)),
@@ -83,7 +84,8 @@ POWER_TYPE_PARAMETERS = {
             [
                 (
                     'power_address',
-                    forms.CharField(label="IP Address or Hostname", required=False)),
+                    forms.CharField(label="IP Address or Hostname",
+                        required=False)),
                 (
                     'power_user',
                     forms.CharField(label="Username", required=False)),
