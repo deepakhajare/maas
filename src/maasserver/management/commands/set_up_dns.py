@@ -17,7 +17,9 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    'Command',
+    ]
 
 
 from django.core.management.base import BaseCommand
