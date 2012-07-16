@@ -50,6 +50,6 @@ CELERY_IMPORTS = (
 
 CELERY_ACKS_LATE = True
 
-# Do not store the tasks return values (aka tombstones);
+# Do not store the tasks' return values (aka tombstones);
 # This improves performance.
 CELERY_IGNORE_RESULT = True
