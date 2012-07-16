@@ -3,7 +3,7 @@
 
 """Django command: set up the MAAS named configuration.
 
-This creates a basic, empty DNS configuration which will allow MAAS to
+This creates a basic, blank DNS configuration which will allow MAAS to
 reload its configuration once zone files will be written.
 
 The main purpose of this command is for it to be run when MAAS is
