@@ -187,7 +187,8 @@ class TestDNSZoneConfig(TestCase):
             ))
 
     def test_DNSZoneConfig_reverse_data_slash_24(self):
-        # Test the values of the reverse data for a /24 network.
+        # DNSZoneConfig calculates the reverse data correctly for
+        # a /24 network.
         zone_name = factory.getRandomString()
         hostname = factory.getRandomString()
         dns_zone_config = DNSZoneConfig(
@@ -207,7 +208,8 @@ class TestDNSZoneConfig(TestCase):
             ))
 
     def test_DNSZoneConfig_reverse_data_slash_22(self):
-        # Test the values of the reverse data for a /22 network.
+        # DNSZoneConfig calculates the reverse data correctly for
+        # a /22 network.
         zone_name = factory.getRandomString()
         hostname = factory.getRandomString()
         dns_zone_config = DNSZoneConfig(
