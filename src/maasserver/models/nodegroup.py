@@ -50,6 +50,16 @@ class NodeGroupManager(Manager):
         from maasserver.models.user import create_auth_token
         from maasserver.worker_user import get_worker_user
 
+        dhcp_values = [
+            subnet_mask,
+            broadcast_ip,
+            router_ip,
+            ip_range_low,
+            ip_range_high,
+            ]
+        assert all(dhcp_values) or not any(dhcp_values), (
+            "Provide all DHCP settings, or none at all.")
+
         api_token = create_auth_token(get_worker_user())
         nodegroup = NodeGroup(
             name=name, worker_ip=worker_ip, subnet_mask=subnet_mask,
