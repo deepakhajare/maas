@@ -96,8 +96,13 @@ class NodeGroup(TimestampedModel):
     worker_ip = IPAddressField(null=False, editable=True, unique=True)
 
     # DHCP server settings.
-    subnet_mask = IPAddressField(editable=True, unique=False, blank=True)
-    broadcast_ip = IPAddressField(editable=True, unique=False, blank=True)
-    router_ip = IPAddressField(editable=True, unique=False, blank=True)
-    ip_range_low = IPAddressField(editable=True, unique=True, blank=True)
-    ip_range_high = IPAddressField(editable=True, unique=True, blank=True)
+    subnet_mask = IPAddressField(
+        editable=True, unique=False, blank=True, null=True, default='')
+    broadcast_ip = IPAddressField(
+        editable=True, unique=False, blank=True, null=True, default='')
+    router_ip = IPAddressField(
+        editable=True, unique=False, blank=True, null=True, default='')
+    ip_range_low = IPAddressField(
+        editable=True, unique=True, blank=True, null=True, default='')
+    ip_range_high = IPAddressField(
+        editable=True, unique=True, blank=True, null=True, default='')
