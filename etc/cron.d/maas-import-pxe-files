@@ -3,5 +3,5 @@
 # Installation images:
 11 4 * * 0 root	/usr/sbin/maas-import-pxe-files &> /dev/null
 
-# Ephemeral imaages:
+# Ephemeral images:
 44 4 * * 0 root /usr/sbin/maas-import-ephemerals &> /dev/null
