@@ -74,7 +74,7 @@ class TestRNDCUtilities(TestCase):
         self.patch(config, 'check_call', recorder)
         self.patch(conf, 'DNS_CONFIG_DIR', fake_dir)
         command = factory.getRandomString()
-        execute_rndc_command(command)
+        execute_rndc_command([command])
         rndc_conf_path = os.path.join(fake_dir, MAAS_RNDC_CONF_NAME)
         expected_command = ['rndc', '-c', rndc_conf_path, command]
         self.assertEqual((expected_command,), recorder.calls[0][0])
