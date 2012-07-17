@@ -13,14 +13,12 @@ cd "$(dirname "$0")/../.."
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
 homedir=`pwd`/run/named
-log_file=`pwd`/logs/dns/current
 port=5246
 rndc_port=5247
 # Create DNS config.
 bin/py -m maastesting.bindfixture -- \
-    --create_config --overwrite_config \
+    --create-config-only --overwrite-config \
     --homedir $homedir \
-    --log-file $log_file \
     --port $port --rndc-port $rndc_port
 # Create MAAS' DNS config.
 ./bin/maas set_up_dns
@@ -30,5 +28,4 @@ bin/py -m maastesting.bindfixture -- \
 # Run named.
 exec bin/py -m maastesting.bindfixture -- \
     --homedir $homedir \
-    --log-file $log_file \
     --port $port --rndc-port $rndc_port
