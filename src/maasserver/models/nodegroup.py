@@ -32,6 +32,14 @@ from piston.models import (
 worker_user_name = 'maas-nodegroup-worker'
 
 
+def convert_to_django(string_value=None):
+    """Convert a string to its Django representation: empty means null."""
+    if string_value is None:
+        return ''
+    else:
+        return string_value
+
+
 class NodeGroupManager(Manager):
     """Manager for the NodeGroup class.
 
@@ -49,6 +57,13 @@ class NodeGroupManager(Manager):
         # Avoid circular imports.
         from maasserver.models.user import create_auth_token
         from maasserver.worker_user import get_worker_user
+
+        # Django wants empty strings where we mean null strings.
+        subnet_mask = convert_to_django(subnet_mask)
+        broadcast_ip = convert_to_django(broadcast_ip)
+        router_ip = convert_to_django(router_ip)
+        ip_range_low = convert_to_django(ip_range_low)
+        ip_range_high = convert_to_django(ip_range_high)
 
         api_token = create_auth_token(get_worker_user())
         nodegroup = NodeGroup(
@@ -71,16 +86,18 @@ class NodeGroup(TimestampedModel):
     name = CharField(
         max_length=80, unique=True, editable=True, blank=False, null=False)
 
+    # Credentials for the worker to access the API with.
     api_token = ForeignKey(Token, null=False, editable=False, unique=True)
     api_key = CharField(
         max_length=KEY_SIZE, null=False, blank=False, editable=False,
         unique=True)
 
+    # Address of the worker.
     worker_ip = IPAddressField(null=False, editable=True, unique=True)
 
     # DHCP server settings.
-    subnet_mask = IPAddressField(editable=True, unique=False)
-    broadcast_ip = IPAddressField(editable=True, unique=False)
-    router_ip = IPAddressField(editable=True, unique=False)
-    ip_range_low = IPAddressField(editable=True, unique=True)
-    ip_range_high = IPAddressField(editable=True, unique=True)
+    subnet_mask = IPAddressField(editable=True, unique=False, blank=True)
+    broadcast_ip = IPAddressField(editable=True, unique=False, blank=True)
+    router_ip = IPAddressField(editable=True, unique=False, blank=True)
+    ip_range_low = IPAddressField(editable=True, unique=True, blank=True)
+    ip_range_high = IPAddressField(editable=True, unique=True, blank=True)
