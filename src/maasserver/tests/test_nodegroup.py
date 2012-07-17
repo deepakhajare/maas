@@ -45,6 +45,13 @@ class TestNodeGroupManager(TestCase):
         self.assertIsNone(nodegroup.ip_range_low)
         self.assertIsNone(nodegroup.ip_range_high)
 
+    def test_new_requires_all_dhcp_settings_or_none(self):
+        name = factory.make_name('nodegroup')
+        ip = factory.getRandomIPAddress()
+        self.assertRaises(
+            AssertionError,
+            NodeGroup.objects.new, name, ip, subnet_mask='255.0.0.0')
+
     def test_new_creates_nodegroup_with_given_dhcp_settings(self):
         name = factory.make_name('nodegroup')
         ip = factory.getRandomIPAddress()
