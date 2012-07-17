@@ -13,10 +13,10 @@ __metaclass__ = type
 __all__ = []
 
 from maasserver.models import NodeGroup
-from maasserver.worker_user import get_worker_user
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maasserver.testing import reload_object
+from maasserver.worker_user import get_worker_user
 from testtools.matchers import MatchesStructure
 
 
@@ -45,7 +45,7 @@ class TestNodeGroupManager(TestCase):
         self.assertIsNone(nodegroup.ip_range_low)
         self.assertIsNone(nodegroup.ip_range_high)
 
-    def test_new_creates_nodegroup_with_given_settings(self):
+    def test_new_creates_nodegroup_with_given_dhcp_settings(self):
         name = factory.make_name('nodegroup')
         ip = factory.getRandomIPAddress()
         dhcp_settings = make_dhcp_settings()

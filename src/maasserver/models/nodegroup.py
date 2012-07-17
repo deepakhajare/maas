@@ -32,14 +32,6 @@ from piston.models import (
 worker_user_name = 'maas-nodegroup-worker'
 
 
-def convert_to_django(string_value=None):
-    """Convert a string to its Django representation: empty means null."""
-    if string_value is None:
-        return ''
-    else:
-        return string_value
-
-
 class NodeGroupManager(Manager):
     """Manager for the NodeGroup class.
 
@@ -57,13 +49,6 @@ class NodeGroupManager(Manager):
         # Avoid circular imports.
         from maasserver.models.user import create_auth_token
         from maasserver.worker_user import get_worker_user
-
-        # Django wants empty strings where we mean null strings.
-        subnet_mask = convert_to_django(subnet_mask)
-        broadcast_ip = convert_to_django(broadcast_ip)
-        router_ip = convert_to_django(router_ip)
-        ip_range_low = convert_to_django(ip_range_low)
-        ip_range_high = convert_to_django(ip_range_high)
 
         api_token = create_auth_token(get_worker_user())
         nodegroup = NodeGroup(
