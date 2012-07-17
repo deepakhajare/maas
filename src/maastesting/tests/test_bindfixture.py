@@ -50,7 +50,7 @@ def dig_call(port=53, server='127.0.0.1', commands=None):
     cmd = [
         'dig', '+time=1', '+tries=1', '@%s' % server, '-p',
         '%d' % port]
-    if commands != None:
+    if commands is not None:
         if not isinstance(commands, list):
             commands = (commands, )
         cmd.extend(commands)
