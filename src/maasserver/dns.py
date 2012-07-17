@@ -40,8 +40,7 @@ def next_zone_serial():
 
 
 def change_dns_zone(nodegroup):
-    """In the DNS server, update the zone configurtion for the
-    given `nodegroup`.
+    """Update the zone configurtion for the given `nodegroup`.
 
     :param nodegroup: The nodegroup for which the zone should be cupdated.
     :type nodegroup: :class:`NodeGroup`
