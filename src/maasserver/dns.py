@@ -41,6 +41,11 @@ def next_zone_serial():
 
 
 def get_zone(nodegroup, serial=None):
+    """Create a :class:`DNSZoneConfig` object from a nodegroup.
+
+    This method also accepts a serial to reuse the same serial when
+    we are creating DNSZoneConfig objects in bulk.
+    """
     if serial is None:
         serial = next_zone_serial()
     return DNSZoneConfig(
