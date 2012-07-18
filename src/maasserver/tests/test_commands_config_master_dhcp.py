@@ -115,4 +115,4 @@ class TestConfigMasterDHCP(TestCase):
         call_command('config_master_dhcp', ensure=True)
         self.assertThat(
             NodeGroup.objects.get(name='master'),
-            MatchesStructure.fromExample(**settings))
+            MatchesStructure.fromExample(settings))

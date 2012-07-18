@@ -21,6 +21,7 @@ __all__ = [
 
 from optparse import (
     make_option,
+    OptionConflictError,
     OptionValueError,
     )
 
@@ -59,20 +60,25 @@ class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
         make_option(
-            '--clear', dest='clear', action='store_true',
-            default=False,
+            '--clear', dest='clear', action='store_true', default=False,
             help=(
                 "Clear settings.  Do only when MAAS DHCP is disabled.  "
                 "If given, any DHCP parameters are ignored.")),
+        make_option(
+            '--ensure', dest='ensure', action='store_true', default=False,
+            help=(
+                "Ensure that the master node group is configured, "
+                "but if it was already set up, don't change its settings.")),
       )
     help = "Initialize master DHCP settings."
 
     def handle(self, *args, **options):
-        if options.get('clear'):
-            settings = clear_settings
-        else:
-            settings = get_settings(options)
         master_nodegroup = NodeGroup.objects.ensure_master()
-        for item, value in settings.items():
-            setattr(master_nodegroup, item, value)
-        master_nodegroup.save()
+        if not options.get('ensure'):
+            if options.get('clear'):
+                settings = clear_settings
+            else:
+                settings = get_settings(options)
+            for item, value in settings.items():
+                setattr(master_nodegroup, item, value)
+            master_nodegroup.save()
