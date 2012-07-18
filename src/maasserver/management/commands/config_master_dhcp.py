@@ -21,7 +21,6 @@ __all__ = [
 
 from optparse import (
     make_option,
-    OptionConflictError,
     OptionValueError,
     )
 
@@ -74,6 +73,9 @@ class Command(BaseCommand):
     help = "Initialize master DHCP settings."
 
     def handle(self, *args, **options):
+        if options.get('ensure') and options.get('clear'):
+            raise OptionValueError(
+                "The --ensure option conflicts with --clear.")
         master_nodegroup = NodeGroup.objects.ensure_master()
         if not options.get('ensure'):
             if options.get('clear'):

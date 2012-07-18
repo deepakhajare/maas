@@ -12,10 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from optparse import (
-    OptionConflictError,
-    OptionValueError,
-    )
+from optparse import OptionValueError
 
 from django.core.management import call_command
 from maasserver.models import NodeGroup
@@ -93,7 +90,7 @@ class TestConfigMasterDHCP(TestCase):
 
     def test_clear_conflicts_with_ensure(self):
         self.assertRaises(
-            OptionConflictError,
+            OptionValueError,
             call_command, 'config_master_dhcp', clear=True, ensure=True)
 
     def test_ensure_creates_master_nodegroup_without_dhcp_settings(self):
