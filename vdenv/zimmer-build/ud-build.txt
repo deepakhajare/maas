@@ -14,12 +14,6 @@ bucket:
    #ONE_TIME_PROXY=http://local-proxy:3128/
    PROXY_COPY_SYS_TO_COBBLER=1
 
-   echo === $(date) ====
-   debconf-set-selections <<EOF
-   cobbler  cobbler/password  password xcobbler
-   cloud-init	cloud-init/datasources	multiselect	NoCloud
-   EOF
-
    [ -n "$ONE_TIME_PROXY" ] && export http_proxy="$ONE_TIME_PROXY"
    export DEBIAN_FRONTEND=noninteractive;
    dpkg-reconfigure cloud-init
@@ -39,7 +33,6 @@ bucket:
    pkgs=""
    pkgs="$pkgs distro-info" # (LP: #960142)
    pkgs="$pkgs libvirt-bin" # for power control via virsh
-   pkgs="$pkgs cobbler-web" # for debugging and ease of use of cobbler
    pkgs="$pkgs maas" # main maas package
    apt_get update
    apt_get install ${pkgs}
