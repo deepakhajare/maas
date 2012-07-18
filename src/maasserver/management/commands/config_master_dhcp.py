@@ -28,13 +28,13 @@ from django.core.management.base import BaseCommand
 from maasserver.models import NodeGroup
 
 
-dhcp_items = (
-    'subnet_mask',
-    'broadcast_ip',
-    'router_ip',
-    'ip_range_low',
-    'ip_range_high',
-    )
+dhcp_items = {
+    'subnet_mask': "Subnet mask, e.g. 255.0.0.0",
+    'broadcast_ip': "Broadcast address for this subnet, e.g. 10.255.255.255",
+    'router_ip': "Address of default gateway.",
+    'ip_range_low': "Lowest IP address to assign to clients.",
+    'ip_range_high': "Highest IP address to assign to clients.",
+    }
 
 
 # DHCP settings when disabled.
@@ -75,8 +75,10 @@ class Command(BaseCommand):
                 "but if it was already set up, don't change its settings.  "
                 "If given, any DHCP parameters are ignored.")),
         ) + tuple(
-            make_option(name_option(item), dest=item, default=None)
-            for item in dhcp_items)
+            make_option(
+                name_option(item), dest=item, default=None,
+                help="DHCP parameter: %s" % help)
+            for item, help in dhcp_items.items())
     help = "Initialize master DHCP settings."
 
     def handle(self, *args, **options):
