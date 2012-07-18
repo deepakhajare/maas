@@ -19,9 +19,40 @@ __all__ = [
     'Command',
     ]
 
-from optparse import make_option
+from optparse import (
+    make_option,
+    OptionValueError,
+    )
 
 from django.core.management.base import BaseCommand
+from maasserver.models import NodeGroup
+
+
+dhcp_items = (
+    'subnet_mask',
+    'broadcast_ip',
+    'router_ip',
+    'ip_range_low',
+    'ip_range_high',
+    )
+
+
+# DHCP settings when disabled.
+clear_settings = {item: None for item in dhcp_items}
+
+
+def get_settings(options):
+    """Get the DHCP settings from `options`, as a dict.
+
+    Checks validity of the settings.
+    """
+    settings = {
+        item: options.get(item)
+        for item in dhcp_items}
+    if not all(settings.values()):
+        raise OptionValueError(
+            "Specify all DHCP settings: %s" % ', '.join(dhcp_items))
+    return settings
 
 
 class Command(BaseCommand):
@@ -35,4 +66,11 @@ class Command(BaseCommand):
     help = "Purpose of this command."
 
     def handle(self, *args, **options):
-        pass
+        if options.get('clear'):
+            settings = clear_settings
+        else:
+            settings = get_settings(options)
+        master_nodegroup = NodeGroup.objects.ensure_master()
+        for item, value in settings.items():
+            setattr(master_nodegroup, item, value)
+        master_nodegroup.save()

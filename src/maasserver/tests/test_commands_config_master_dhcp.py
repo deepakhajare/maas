@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from optparse import OptionValueError
+
 from django.core.management import call_command
 from maasserver.models import NodeGroup
 from maasserver.testing.factory import factory
@@ -73,7 +75,7 @@ class TestConfigMasterDHCP(TestCase):
         settings = make_dhcp_settings()
         del settings['subnet_mask']
         self.assertRaises(
-            Exception,
+            OptionValueError,
             call_command, 'config_master_dhcp', **settings)
 
     def test_ignores_nonsense_settings_when_clear_is_passed(self):
