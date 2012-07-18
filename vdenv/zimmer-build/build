@@ -129,6 +129,7 @@ output="$1"
 command -v genisoimage >/dev/null ||
     fail "you do not have genisoimage installed. install genisoimage package"
 
+: > "$LOG"
 
 [ -f "$ud_file" ] ||
     fail "user data file $ud_file" is not a file
