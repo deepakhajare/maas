@@ -15,6 +15,7 @@ __all__ = []
 from optparse import OptionValueError
 
 from django.core.management import call_command
+from maasserver.management.commands.config_master_dhcp import name_option
 from maasserver.models import NodeGroup
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -113,3 +114,6 @@ class TestConfigMasterDHCP(TestCase):
         self.assertThat(
             NodeGroup.objects.get(name='master'),
             MatchesStructure.fromExample(settings))
+
+    def test_name_option_turns_dhcp_setting_name_into_option(self):
+        self.assertEqual('--subnet-mask', name_option('subnet_mask'))
