@@ -38,6 +38,13 @@ def make_dhcp_settings():
     }
 
 
+def make_cleared_dhcp_settings():
+    """Return dict of cleared DHCP settings."""
+    return {
+        setting: None
+        for setting in make_dhcp_settings().keys()}
+
+
 class TestConfigMasterDHCP(TestCase):
 
     def test_configures_dhcp_for_master_nodegroup(self):
@@ -51,16 +58,16 @@ class TestConfigMasterDHCP(TestCase):
 
     def test_clears_dhcp_settings(self):
         master = NodeGroup.objects.ensure_master()
-        for attribute, value in make_dhcp_settings():
+        for attribute, value in make_dhcp_settings().items():
             setattr(master, attribute, value)
         master.save()
-        call_command('config_master_dhcp', disable=True)
+        call_command('config_master_dhcp', clear=True)
         self.assertThat(
             master,
             MatchesStructure.fromExample(make_master_constants()))
-        self.assertThat(master, MatchesStructure.fromExample({
-            setting: None
-            for setting in make_dhcp_settings().keys()}))
+        self.assertThat(
+            master,
+            MatchesStructure.fromExample(make_cleared_dhcp_settings()))
 
     def test_does_not_accept_partial_dhcp_settings(self):
         settings = make_dhcp_settings()
@@ -68,3 +75,13 @@ class TestConfigMasterDHCP(TestCase):
         self.assertRaises(
             Exception,
             call_command, 'config_master_dhcp', **settings)
+
+    def test_ignores_nonsense_settings_when_clear_is_passed(self):
+        settings = make_dhcp_settings()
+        call_command('config_master_dhcp', **settings)
+        settings['subnet_mask'] = '@%$^&'
+        settings['broadcast_ip'] = ''
+        call_command('config_master_dhcp', clear=True, **settings)
+        self.assertThat(
+            NodeGroup.objects.get(name='master'),
+            MatchesStructure.fromExample(make_cleared_dhcp_settings()))
