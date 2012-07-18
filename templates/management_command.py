@@ -24,8 +24,9 @@ class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
         # XXX: Define actual options.
-        make_option('--option', dest='option', default=None,
-            help="Your option goes here."),
+        make_option(
+            '--option', dest='option', default=None,
+            help="Describe option."),
       )
     # XXX: Describe the command.
     help = "Purpose of this command."
