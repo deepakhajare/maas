@@ -61,9 +61,11 @@ class Command(BaseCommand):
         make_option(
             '--clear', dest='clear', action='store_true',
             default=False,
-            help="Clear settings.  Do only when MAAS DHCP is disabled."),
+            help=(
+                "Clear settings.  Do only when MAAS DHCP is disabled.  "
+                "If given, any DHCP parameters are ignored.")),
       )
-    help = "Purpose of this command."
+    help = "Initialize master DHCP settings."
 
     def handle(self, *args, **options):
         if options.get('clear'):
