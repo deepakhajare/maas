@@ -68,7 +68,8 @@ class Command(BaseCommand):
             '--ensure', dest='ensure', action='store_true', default=False,
             help=(
                 "Ensure that the master node group is configured, "
-                "but if it was already set up, don't change its settings.")),
+                "but if it was already set up, don't change its settings.  "
+                "If given, any DHCP parameters are ignored.")),
       )
     help = "Initialize master DHCP settings."
 
