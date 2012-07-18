@@ -19,8 +19,7 @@ GUEST_RELEASE=${ZIMMER_GUEST_RELEASE:-quantal}
 DEF_ZIMG="http://cloud-images.ubuntu.com/server/${GUEST_RELEASE}/current/${GUEST_RELEASE}-server-cloudimg-${GUEST_ARCHITECTURE}-disk1.img"
 DEF_SAVE_D="pristine"
 DEF_UD_FILE="ud-build.txt"
-ZIMMER_SSH_FORWARD=""
-#ZIMMER_SSH_FORWARD=${ZIMMER_SSH_FORWARD:-"hostfwd=tcp::2222-:22"}
+ZIMMER_SSH_FORWARD=${ZIMMER_SSH_FORWARD:-""} # hostfwd=tcp::2222-:22
 ZIMMER_MEM="${ZIMMER_MEM:-1024}"
 KVM_PID=""
 TAIL_PID=""
