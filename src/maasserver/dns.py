@@ -94,5 +94,6 @@ def write_full_dns_config():
     zones = [
         get_zone(nodegroup, serial)
         for nodegroup in NodeGroup.objects.all()]
-    tasks.write_full_dns_config(
-        zones, callback=tasks.rndc_command.subtask(args=[['reload']]))
+    tasks.write_full_dns_config.delay(
+        zones=zones,
+        callback=tasks.rndc_command.subtask(args=[['reload']]))
