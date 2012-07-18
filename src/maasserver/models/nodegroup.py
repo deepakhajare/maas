@@ -69,6 +69,9 @@ class NodeGroupManager(Manager):
         nodegroup.save()
         return nodegroup
 
+    def ensure_master(self):
+        """Obtain the master node group, creating it first if needed."""
+
 
 class NodeGroup(TimestampedModel):
 
