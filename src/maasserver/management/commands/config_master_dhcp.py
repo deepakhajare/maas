@@ -55,6 +55,11 @@ def get_settings(options):
     return settings
 
 
+def name_option(dhcp_setting):
+    """Formulate the option name corresponding to a DHCP setting name."""
+    return '--%s' % dhcp_setting.replace('_', '-')
+
+
 class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
@@ -69,7 +74,9 @@ class Command(BaseCommand):
                 "Ensure that the master node group is configured, "
                 "but if it was already set up, don't change its settings.  "
                 "If given, any DHCP parameters are ignored.")),
-      )
+        ) + tuple(
+            make_option(name_option(item), dest=item, default=None)
+            for item in dhcp_items)
     help = "Initialize master DHCP settings."
 
     def handle(self, *args, **options):
