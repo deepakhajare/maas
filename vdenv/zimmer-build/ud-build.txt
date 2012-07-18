@@ -15,6 +15,12 @@ bucket:
    PROXY_COPY_SYS_TO_COBBLER=1
 
    [ -n "$ONE_TIME_PROXY" ] && export http_proxy="$ONE_TIME_PROXY"
+
+   echo === $(date) ====
+   debconf-set-selections <<EOF
+   cloud-init	cloud-init/datasources	multiselect	NoCloud
+   EOF
+
    export DEBIAN_FRONTEND=noninteractive;
    dpkg-reconfigure cloud-init
 
