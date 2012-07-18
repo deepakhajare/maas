@@ -88,6 +88,11 @@ class TestNodeGroupManager(TestCase):
             'ip_range_high': None,
         }))
 
+    def test_writes_master_nodegroup_to_database(self):
+        master = NodeGroup.objects.ensure_master()
+        self.assertEqual(
+            master.id, NodeGroup.objects.get(name=master.name).id)
+
     def test_ensure_master_returns_same_nodegroup_every_time(self):
         self.assertEqual(
             NodeGroup.objects.ensure_master().id,
