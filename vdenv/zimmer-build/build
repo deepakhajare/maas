@@ -181,6 +181,7 @@ else
     img=${zimg%.zimg}.img
     debug 0 "creating uncompressed img $img from $zimg"
     qemu-img convert -O qcow2 "$zimg" "$img"
+    qemu-img resize "$img" 4G
 fi
 
 debug 0 "making nocloud data source in iso"
