@@ -27,14 +27,12 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
 
     option_list = BaseCommand.option_list + (
-        # XXX: Define actual options.
-        make_option('--option', dest='option', default=None,
-            help="Your option goes here."),
+        make_option(
+            '--clear', dest='clear', action='store_true',
+            default=False,
+            help="Clear settings.  Do only when MAAS DHCP is disabled."),
       )
-    # XXX: Describe the command.
     help = "Purpose of this command."
 
     def handle(self, *args, **options):
-        # XXX: Replace the lines below with your actual code.
-        option = options.get('option', None)
-        print(option)
+        pass
