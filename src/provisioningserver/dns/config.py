@@ -217,8 +217,10 @@ class DNSZoneConfig(DNSConfig):
         """Return the reverse mapping: (shortened) ip->fqdn."""
         reverse_mapping = {}
         for hostname, ip in self.mapping.items():
-            rel_zone_ip = '.'.join(list(
-                reversed(ip.split('.')))[:4 - self.byte_num])
+            ip_octets = ip.split('.')
+            significant_octets = list(
+                reversed(ip_octets))[:4 - self.byte_num]
+            rel_zone_ip = '.'.join(significant_octets)
             fqdn = '%s.%s.' % (hostname, self.zone_name)
             reverse_mapping[rel_zone_ip] = fqdn
         return reverse_mapping
@@ -240,7 +242,7 @@ class DNSZoneConfig(DNSConfig):
             self.target_dir, 'zone.rev.%s' % self.zone_name)
 
     def get_base_context(self):
-        """Return the context used to render both zone files."""
+        """Return the dict used to render both zone files."""
         return {
             'domain': self.zone_name,
             'serial': self.serial,
@@ -248,24 +250,24 @@ class DNSZoneConfig(DNSConfig):
         }
 
     def get_context(self):
-        """Return the context used to render the DNS zone file."""
+        """Return the dict used to render the DNS zone file.
+
+        That context dict is used to render the DNS zone file.
+        """
         context = self.get_base_context()
         mapping = self.mapping.copy()
         # TODO: Add NS record.
         mapping['%s.' % self.zone_name] = '127.0.0.1'
-        context.update({
-            'mapping': mapping,
-            'type': 'A',
-        })
+        context.update(mapping=mapping, type='A')
         return context
 
     def get_reverse_context(self):
-        """Return the context used to render the DNS reverse zone file."""
+        """Return the dict used to render the DNS reverse zone file.
+
+        That context dict is used to render the DNS reverse zone file.
+        """
         context = self.get_base_context()
-        context.update({
-            'mapping': self.reverse_mapping,
-            'type': 'PTR',
-        })
+        context.update(mapping=self.reverse_mapping, type='PTR')
         return context
 
     def write_config(self, **kwargs):
