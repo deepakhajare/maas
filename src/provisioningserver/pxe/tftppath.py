@@ -19,7 +19,7 @@ __all__ = [
 
 import os.path
 
-from celeryconfig import TFTPROOT
+TFTPROOT = "XXX"  # TODO: get this from config.
 
 
 def compose_bootloader_path(arch, subarch):
