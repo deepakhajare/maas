@@ -15,8 +15,8 @@ case "$GUEST_ARCHITECTURE" in
     x86_64) GUEST_ARCHITECTURE="amd64" ;;
 esac
 
-
-DEF_ZIMG="http://cloud-images.ubuntu.com/server/precise/current/precise-server-cloudimg-${GUEST_ARCHITECTURE}-disk1.img"
+GUEST_RELEASE=${ZIMMER_GUEST_RELEASE:-quantal}
+DEF_ZIMG="http://cloud-images.ubuntu.com/server/${GUEST_RELEASE}/current/${GUEST_RELEASE}-server-cloudimg-${GUEST_ARCHITECTURE}-disk1.img"
 DEF_SAVE_D="pristine"
 DEF_UD_FILE="ud-build.txt"
 ZIMMER_SSH_FORWARD=""
