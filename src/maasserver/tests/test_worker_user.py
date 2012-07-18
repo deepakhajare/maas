@@ -14,6 +14,7 @@ __all__ = []
 
 from django.contrib.auth.models import User
 from maasserver.models import UserProfile
+from maasserver.models.user import SYSTEM_USERS
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import (
     get_worker_user,
@@ -32,6 +33,7 @@ class TestNodeGroupUser(TestCase):
         self.assertIsInstance(worker_user, User)
         self.assertEqual(user_name, worker_user.username)
 
-    def test_worker_user_has_no_profile(self):
+    def test_worker_user_is_system_user(self):
         worker_user = get_worker_user()
+        self.assertIn(worker_user.username, SYSTEM_USERS)
         self.assertRaises(UserProfile.DoesNotExist, worker_user.get_profile)

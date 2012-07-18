@@ -33,17 +33,22 @@ def make_dhcp_settings():
 
 class TestNodeGroupManager(TestCase):
 
+    def test_new_creates_nodegroup(self):
+        name = factory.make_name('nodegroup')
+        ip = factory.getRandomIPAddress()
+        self.assertThat(
+            NodeGroup.objects.new(name, ip),
+            MatchesStructure.fromExample({'name': name, 'worker_ip': ip}))
+
     def test_new_does_not_require_dhcp_settings(self):
         name = factory.make_name('nodegroup')
         ip = factory.getRandomIPAddress()
         nodegroup = NodeGroup.objects.new(name, ip)
-        self.assertEqual(name, nodegroup.name)
-        self.assertEqual(ip, nodegroup.worker_ip)
-        self.assertIsNone(nodegroup.subnet_mask)
-        self.assertIsNone(nodegroup.broadcast_ip)
-        self.assertIsNone(nodegroup.router_ip)
-        self.assertIsNone(nodegroup.ip_range_low)
-        self.assertIsNone(nodegroup.ip_range_high)
+        self.assertThat(
+            nodegroup,
+            MatchesStructure.fromExample({
+                item: None
+                for item in make_dhcp_settings().keys()}))
 
     def test_new_requires_all_dhcp_settings_or_none(self):
         name = factory.make_name('nodegroup')
