@@ -12,7 +12,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from optparse import OptionValueError
+from optparse import (
+    OptionConflictError,
+    OptionValueError,
+    )
 
 from django.core.management import call_command
 from maasserver.models import NodeGroup
@@ -87,3 +90,29 @@ class TestConfigMasterDHCP(TestCase):
         self.assertThat(
             NodeGroup.objects.get(name='master'),
             MatchesStructure.fromExample(make_cleared_dhcp_settings()))
+
+    def test_clear_conflicts_with_ensure(self):
+        self.assertRaises(
+            OptionConflictError,
+            call_command, 'config_master_dhcp', clear=True, ensure=True)
+
+    def test_ensure_creates_master_nodegroup_without_dhcp_settings(self):
+        call_command('config_master_dhcp', ensure=True)
+        self.assertThat(
+            NodeGroup.objects.get(name='master'),
+            MatchesStructure.fromExample(make_cleared_dhcp_settings()))
+
+    def test_ensure_leaves_cleared_settings_cleared(self):
+        call_command('config_master_dhcp', clear=True)
+        call_command('config_master_dhcp', ensure=True)
+        self.assertThat(
+            NodeGroup.objects.get(name='master'),
+            MatchesStructure.fromExample(make_cleared_dhcp_settings()))
+
+    def test_ensure_leaves_dhcp_settings_intact(self):
+        settings = make_dhcp_settings()
+        call_command('config_master_dhcp', **settings)
+        call_command('config_master_dhcp', ensure=True)
+        self.assertThat(
+            NodeGroup.objects.get(name='master'),
+            MatchesStructure.fromExample(**settings))
