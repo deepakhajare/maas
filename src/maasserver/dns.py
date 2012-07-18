@@ -73,6 +73,10 @@ def change_dns_zone(nodegroup):
 def add_zone(nodegroup):
     """Add to the DNS server a new zone for the given `nodegroup`.
 
+    To do this we have to write a new configuration file for the zone
+    and update the master config to include this new configuration.
+    These are done in turn by chaining Celery subtasks.
+
     :param nodegroup: The nodegroup for which the zone should be added.
     :type nodegroup: :class:`NodeGroup`
     """

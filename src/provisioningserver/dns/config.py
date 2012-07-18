@@ -198,13 +198,10 @@ class DNSZoneConfig(DNSConfig):
         self.mask = mask
         self.bcast = bcast
         self.serial = serial
-        # How many bytes should be returned in the reverse mapping.
 
     @property
     def byte_num(self):
-        """Return the number of significant bits for the IPs of this
-        zone.
-        """
+        """Number of significant octets for the IPs of this zone."""
         return len(
             [byte for byte in self.mask.split('.')
              if byte == '255'])
