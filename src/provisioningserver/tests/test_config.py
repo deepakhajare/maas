@@ -17,25 +17,76 @@ from getpass import getuser
 import os
 from textwrap import dedent
 
-from fixtures import EnvironmentVariableFixture
+from fixtures import (
+    EnvironmentVariableFixture,
+    Fixture,
+    )
 import formencode
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mocker import Mocker
 import provisioningserver.config
 from provisioningserver.config import Config
-from provisioningserver.pxe.tftppath import locate_tftp_path
 from testtools.matchers import (
     MatchesException,
     Raises,
     )
 
 
+class ConfigFixture(Fixture):
+
+    def __init__(self, config=None):
+        super(ConfigFixture, self).__init__()
+        # The smallest config snippet that will validate.
+        self.config = {
+            "password": factory.getRandomString(),
+            }
+        if config is not None:
+            self.config.update(config)
+
+    def setUp(self):
+        super(ConfigFixture, self).setUp()
+        # Restore the cached config to its current state on exit.
+        self.addCleanup(
+            setattr, provisioningserver.config, "config",
+            provisioningserver.config.config)
+        # Set the cached config to something predefined.
+        provisioningserver.config.config = (
+            provisioningserver.config.Config.to_python(self.config))
+
+
+class TestConfigFixture(TestCase):
+    """Tests for `ConfigFixture`."""
+
+    def test_use_minimal(self):
+        # With no arguments, ConfigFixture can arrange a minimal global
+        # configuration.
+        dummy_cached_config = object()
+        self.patch(provisioningserver.config, "config", dummy_cached_config)
+        self.assertIs(dummy_cached_config, provisioningserver.config.get())
+        with ConfigFixture():
+            config = provisioningserver.config.get()
+            self.assertIsNot(dummy_cached_config, config)
+            self.assertIsInstance(config, dict)
+        self.assertIs(dummy_cached_config, provisioningserver.config.get())
+
+    def test_use_with_config(self):
+        # Given a configuration, ConfigFixture can arrange a minimal global
+        # configuration with the additional options merged in.
+        dummy_cached_config = object()
+        dummy_logfile = factory.make_name("logfile")
+        self.patch(provisioningserver.config, "config", dummy_cached_config)
+        self.assertIs(dummy_cached_config, provisioningserver.config.get())
+        with ConfigFixture({"logfile": dummy_logfile}):
+            config = provisioningserver.config.get()
+            self.assertIsNot(dummy_cached_config, config)
+            self.assertIsInstance(config, dict)
+            self.assertEqual(dummy_logfile, config["logfile"])
+        self.assertIs(dummy_cached_config, provisioningserver.config.get())
+
+
 class TestGet(TestCase):
     """Tests for `provisioningserver.config.get`."""
-
-    # The smallest config file snippet (YAML) that will validate.
-    minimal_config = b"{password: killing_joke}"
 
     def exercise_get(self, env_config_filename, expected_config_filename):
         """Exercise `...config.get()` with the given environment set.
