@@ -63,6 +63,7 @@ bucket:
      mv /etc/rc.local /etc/rc.local.d/00-rc-local
    fi
    printf "#!/bin/sh\nrun-parts /etc/rc.local.d\n" >> /etc/rc.local
+   chmod 755 /etc/rc.local
 
    # add an rc.local.d job that sets MAAS_PROVISION_URL and cobbler
    # to have the right ip address.
