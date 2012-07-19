@@ -104,3 +104,16 @@ class TestNodeGroupManager(TestCase):
         master.worker_ip = ip
         master.save()
         self.assertEqual(ip, NodeGroup.objects.ensure_master().worker_ip)
+
+
+class TestNodeGroup(TestCase):
+
+    def test_iterhosts_returns_hosts_in_network(self):
+        nodegroup = NodeGroup(
+            name=factory.make_name('nodegroup'),
+            ip_range_low='192.168.0.1',
+            ip_range_high='192.168.0.10',
+            )
+        self.assertItemsEqual(
+            ['192.168.0.%d' % i for i in range(1, 11)],
+            nodegroup.iterhosts())
