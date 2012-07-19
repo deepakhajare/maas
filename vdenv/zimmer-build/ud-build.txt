@@ -72,25 +72,88 @@ bucket:
    # reconfigure maas in case our IP address has changed
    # get the right value for maas/default-maas-url. it will take
    # care of restarting things that need to be
-   sudo dpkg-reconfigure -pmedium maas
+   /usr/local/bin/maas-set-ip set auto
 
    # now basically wait around until cobbler is available
-   max=30; i=0;
-   while [ $i -lt $max ]; do
-     # will exit 155 if "cobblerd does not appear to be running"
-     cobbler system list >/dev/null
-     [ $? -eq 155 ] || break
-     sleep 1
-     i=$(($i+1))
-   done
+   # detach to not block the rest of boot
+   sh -c '
+     max=3; i=0;
+     while [ $i -lt $max ]; do
+       # will exit 155 if "cobblerd does not appear to be running"
+       cobbler system list >/dev/null
+       [ $? -eq 155 ] || break
+       sleep 4
+       i=$(($i+1))
+     done
 
-   if [ $i -ne $max ]; then
-     # if we talked to cobbler above, then sync it and import-isos
-     cobbler sync
-     maas-import-isos --update
-   fi
+     if [ $i -ne $max ]; then
+       # if we talked to cobbler above, then sync it and import-isos
+       cobbler sync
+       maas-import-isos --update
+     fi' &
    END_MAAS_IP_FIXUP
    chmod 755 /etc/rc.local.d/maas-ip-fixup
+
+   cat > /usr/local/bin/maas-set-ip <<"END_MAAS_SET_IP"
+   #!/bin/sh
+
+   FIELDS="maas/default-maas-url"
+   Usage() {
+     cat <<EOF
+   Usage ${0##*/} [set|show]
+    Set or show the IP addresses for maas.
+    for set, provide IP address or "auto"
+   EOF
+   }
+   [ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
+   [ "$1" = "set" -o "$1" = "show" ] || { Usage 1>&2; exit 1; }
+   
+   get() {
+     _RET=$(debconf-show ${1%%/*} 2>/dev/null |
+       awk '{gsub("*","");} $1 == key { print $2 }' "key=$1:")
+   }
+   show() {
+     while [ $# -ne 0 ]; do
+       get $1; echo "$1: $_RET"
+       shift
+     done 
+   }
+   get_ip() {
+     # stolen from /var/lib/dpkg/info/maas.postinst
+     local Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window \
+     local IRTT interface ipaddr
+     while read Iface Destination Gateway Flags RefCnt Use Metric Mask MTU \
+                Window IRTT; do
+       [ "$Mask" = "00000000" ] && break
+     done < /proc/net/route
+     interface="$Iface"
+     ipaddr=$(LC_ALL=C /sbin/ip -4 addr list dev "$interface" scope global)
+     ipaddr=${ipaddr#* inet }
+     ipaddr=${ipaddr%%/*}
+     _RET=${ipaddr}
+   }
+   if [ "$1" = "show" ]; then
+     show $FIELDS
+   else
+     [ "$(id -u)" = "0" ] || { echo "must be root to set" 1>&2; exit 1; }
+     url_val=$2
+     url_key="maas/default-maas-url"
+     if [ "${url_val:-auto}" = "auto" ]; then
+       get_ip
+       url_val=$_RET
+     fi
+     printf "%s\t%s\t%s\t%s\n" \
+       "${url_key%%/*}" "${url_key}" "string" "$url_val" |
+       debconf-set-selections
+     DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-noninteractive} \
+       dpkg-reconfigure -plow ${url_key%%/*}
+     sudo service apache2 restart
+     show $FIELDS
+     #grep MAAS_URL /etc/maas/maas_local_settings.py
+     #egrep "^(server|next_server)" /etc/cobbler/settings
+   fi
+   END_MAAS_SET_IP
+   chmod 755 /usr/local/bin/maas-set-ip
    
    cat >> /etc/maas/import_isos <<END
    RELEASES="precise"
