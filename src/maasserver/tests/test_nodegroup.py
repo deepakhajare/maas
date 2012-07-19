@@ -79,14 +79,14 @@ class TestNodeGroupManager(TestCase):
         self.assertThat(
             NodeGroup.objects.ensure_master(),
             MatchesStructure.fromExample({
-            'name': 'master',
-            'worker_ip': '127.0.0.1',
-            'subnet_mask': None,
-            'broadcast_ip': None,
-            'router_ip': None,
-            'ip_range_low': None,
-            'ip_range_high': None,
-        }))
+                'name': 'master',
+                'worker_ip': '127.0.0.1',
+                'subnet_mask': None,
+                'broadcast_ip': None,
+                'router_ip': None,
+                'ip_range_low': None,
+                'ip_range_high': None,
+            }))
 
     def test_writes_master_nodegroup_to_database(self):
         master = NodeGroup.objects.ensure_master()

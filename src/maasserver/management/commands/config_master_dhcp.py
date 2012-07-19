@@ -49,6 +49,7 @@ def get_settings(options):
     settings = {
         item: options.get(item)
         for item in dhcp_items}
+    # All of the DHCP settings must have (non-empty) values.
     if not all(settings.values()):
         raise OptionValueError(
             "Specify all DHCP settings: %s" % ', '.join(dhcp_items))
