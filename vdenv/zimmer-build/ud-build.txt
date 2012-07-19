@@ -155,8 +155,9 @@ bucket:
    END_MAAS_SET_IP
    chmod 755 /usr/local/bin/maas-set-ip
    
+   my_release=$(lsb_release -c)
    cat >> /etc/maas/import_isos <<END
-   RELEASES="precise"
+   RELEASES="${my_release}"
    ARCHES="i386 amd64"
    END
 
