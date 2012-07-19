@@ -170,3 +170,10 @@ class TestConfig(TestCase):
         self.assertThat(
             partial(Config.parse, config),
             Raises(expected))
+
+    def test_field(self):
+        self.assertIs(Config, Config.field())
+        self.assertIs(Config.fields["tftp"], Config.field("tftp"))
+        self.assertIs(
+            Config.fields["tftp"].fields["root"],
+            Config.field("tftp", "root"))

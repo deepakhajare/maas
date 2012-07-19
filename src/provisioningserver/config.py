@@ -107,6 +107,13 @@ class Config(Schema):
         with open(filename, "rb") as stream:
             return cls.parse(stream)
 
+    @classmethod
+    def field(target, *steps):
+        """Obtain a field by following `steps`."""
+        for step in steps:
+            target = target.fields[step]
+        return target
+
 
 config = None
 config_lock = RLock()
