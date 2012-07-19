@@ -1,7 +1,7 @@
 # Copyright 2005-2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for the psmaas TAP."""
+"""Tests for provisioning configuration."""
 
 from __future__ import (
     absolute_import,
@@ -17,46 +17,22 @@ from getpass import getuser
 import os
 from textwrap import dedent
 
-from fixtures import (
-    EnvironmentVariableFixture,
-    Fixture,
-    )
+from fixtures import EnvironmentVariableFixture
 import formencode
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mocker import Mocker
 import provisioningserver.config
 from provisioningserver.config import Config
+from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import (
     MatchesException,
     Raises,
     )
 
 
-class ConfigFixture(Fixture):
-
-    def __init__(self, config=None):
-        super(ConfigFixture, self).__init__()
-        # The smallest config snippet that will validate.
-        self.config = {
-            "password": factory.getRandomString(),
-            }
-        if config is not None:
-            self.config.update(config)
-
-    def setUp(self):
-        super(ConfigFixture, self).setUp()
-        # Restore the cached config to its current state on exit.
-        self.addCleanup(
-            setattr, provisioningserver.config, "config",
-            provisioningserver.config.config)
-        # Set the cached config to something predefined.
-        provisioningserver.config.config = (
-            provisioningserver.config.Config.to_python(self.config))
-
-
 class TestConfigFixture(TestCase):
-    """Tests for `ConfigFixture`."""
+    """Tests for `provisioningserver.testing.config.ConfigFixture`."""
 
     def test_use_minimal(self):
         # With no arguments, ConfigFixture can arrange a minimal global
