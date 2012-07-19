@@ -12,9 +12,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "Config",
+    "get",
     ]
 
 from getpass import getuser
+from os import environ
+from threading import RLock
 
 from formencode import Schema
 from formencode.validators import (
@@ -103,3 +106,29 @@ class Config(Schema):
         """Load a YAML configuration from `filename` and validate."""
         with open(filename, "rb") as stream:
             return cls.parse(stream)
+
+
+config = None
+config_lock = RLock()
+
+
+def get():
+    """Load and return the MAAS provisioning configuration.
+
+    The file used is obtained from the `MAAS_PROVISION_SETTINGS` environment
+    variable, or `/etc/maas/pserv.yaml` if that is not defined.
+
+    Once the configuration has loaded successfully, it is cached. Subsequent
+    calls to this function will return the cached configuration.
+
+    This function is thread-safe.
+    """
+    global config
+    with config_lock:
+        if config is None:
+            config_filename = (
+                environ["MAAS_PROVISION_SETTINGS"]
+                if "MAAS_PROVISION_SETTINGS" in environ
+                else "/etc/maas/pserv.yaml")
+            config = Config.load(config_filename)
+        return config

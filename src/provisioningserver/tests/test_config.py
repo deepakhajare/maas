@@ -17,8 +17,12 @@ from getpass import getuser
 import os
 from textwrap import dedent
 
+from fixtures import EnvironmentVariableFixture
 import formencode
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from mocker import Mocker
+import provisioningserver.config
 from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import locate_tftp_path
 from testtools.matchers import (
@@ -27,8 +31,73 @@ from testtools.matchers import (
     )
 
 
+class TestGet(TestCase):
+    """Tests for `provisioningserver.config.get`."""
+
+    # The smallest config file snippet (YAML) that will validate.
+    minimal_config = b"{password: killing_joke}"
+
+    def exercise_get(self, env_config_filename, expected_config_filename):
+        """Exercise `...config.get()` with the given environment set.
+
+        :param env_config_filename: A configuration filename to set in the
+            environment, or `None` to erase it from the environment.
+        :param expected_config_filename: The filename expected in the call to
+            `Config.load()`.
+        """
+        self.useFixture(
+            EnvironmentVariableFixture(
+                "MAAS_PROVISION_SETTINGS", env_config_filename))
+
+        dummy_config = object()
+
+        # Create a mock Config object that expects a load() call.
+        mocker = Mocker()
+        mock_Config = mocker.mock()
+        mock_Config.load(expected_config_filename)
+        mocker.result(dummy_config)
+
+        # Clear cached config, and patch in the mock Config class.
+        self.patch(provisioningserver.config, "config", None)
+        self.patch(provisioningserver.config, "Config", mock_Config)
+
+        with mocker:
+            config = provisioningserver.config.get()
+
+        self.assertIs(dummy_config, config)
+
+    def test_get_with_environment(self):
+        # When MAAS_PROVISION_SETTINGS is defined, configuration is obtained
+        # from the filename it names.
+        dummy_config_filename = factory.make_name("config")
+        self.exercise_get(dummy_config_filename, dummy_config_filename)
+
+    def test_get_without_environment(self):
+        # When MAAS_PROVISION_SETTINGS is *not* defined, configuration is
+        # obtained from a standard location.
+        self.exercise_get(None, "/etc/maas/pserv.yaml")
+
+    def test_get_config_already_cached(self):
+        # When the configuration has already been loaded it is returned
+        # without reloading the configuration.
+        dummy_config = object()
+
+        # Create a mock Config object that expects that it will not be used.
+        mocker = Mocker()
+        mock_Config = mocker.mock()
+
+        # Set the cached config, and patch in the mock Config class.
+        self.patch(provisioningserver.config, "config", dummy_config)
+        self.patch(provisioningserver.config, "Config", mock_Config)
+
+        with mocker:
+            config = provisioningserver.config.get()
+
+        self.assertIs(dummy_config, config)
+
+
 class TestConfig(TestCase):
-    """Tests for `provisioningserver.plugin.Config`."""
+    """Tests for `provisioningserver.config.Config`."""
 
     def test_defaults(self):
         mandatory = {
