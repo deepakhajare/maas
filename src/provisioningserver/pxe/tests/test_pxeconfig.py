@@ -26,6 +26,7 @@ from provisioningserver.pxe.tftppath import (
     compose_config_path,
     locate_tftp_path,
     )
+from provisioningserver.testing.config import ConfigFixture
 import tempita
 from testtools.matchers import (
     Contains,
@@ -36,6 +37,12 @@ from testtools.matchers import (
 
 class TestPXEConfig(TestCase):
     """Tests for PXEConfig."""
+
+    def setUp(self):
+        super(TestPXEConfig, self).setUp()
+        self.tftproot = self.make_dir()
+        self.config = {"tftp": {"root": self.tftproot}}
+        self.useFixture(ConfigFixture(self.config))
 
     def configure_templates_dir(self, path=None):
         """Configure PXE_TEMPLATES_DIR to `path`."""

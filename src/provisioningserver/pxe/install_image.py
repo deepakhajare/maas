@@ -22,7 +22,7 @@ from shutil import (
     rmtree,
     )
 
-from celeryconfig import TFTPROOT
+from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import (
     compose_image_path,
     locate_tftp_path,
@@ -131,7 +131,8 @@ def add_arguments(parser):
         '--image', dest='image', default=None,
         help="Netboot image directory, containing kernel & initrd.")
     parser.add_argument(
-        '--tftproot', dest='tftproot', default=TFTPROOT, help=(
+        '--tftproot', dest='tftproot',
+        default=Config.field("tftp", "root").if_missing, help=(
             "Store to this TFTP directory tree instead of the "
             "default [%(default)s]."))
 

@@ -19,7 +19,7 @@ import filecmp
 import os.path
 from shutil import copyfile
 
-from celeryconfig import TFTPROOT
+from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import (
     compose_bootloader_path,
     locate_tftp_path,
@@ -98,7 +98,8 @@ def add_arguments(parser):
         '--loader', dest='loader', default=None,
         help="PXE pre-boot loader to install.")
     parser.add_argument(
-        '--tftproot', dest='tftproot', default=TFTPROOT, help=(
+        '--tftproot', dest='tftproot',
+        default=Config.field("tftp", "root").if_missing, help=(
             "Store to this TFTP directory tree instead of the "
             "default [%(default)s]."))
 

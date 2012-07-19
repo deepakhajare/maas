@@ -26,7 +26,6 @@ from formencode.validators import (
     String,
     URL,
     )
-from provisioningserver.pxe.tftppath import locate_tftp_path
 import yaml
 
 
@@ -73,7 +72,7 @@ class ConfigTFTP(Schema):
 
     if_key_missing = None
 
-    root = String(if_missing=locate_tftp_path())
+    root = String(if_missing="/var/lib/tftpboot")
     port = Int(min=1, max=65535, if_missing=5244)
     generator = URL(
         add_http=True, require_tld=False,

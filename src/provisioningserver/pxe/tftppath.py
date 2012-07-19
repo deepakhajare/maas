@@ -19,7 +19,7 @@ __all__ = [
 
 import os.path
 
-TFTPROOT = "XXX"  # TODO: get this from config.
+from provisioningserver import config
 
 
 def compose_bootloader_path(arch, subarch):
@@ -74,7 +74,7 @@ def locate_tftp_path(tftp_path=None, tftproot=None):
         configured default.
     """
     if tftproot is None:
-        tftproot = TFTPROOT
+        tftproot = config.get()["tftp"]["root"]
     if tftp_path is None:
         return tftproot
     return os.path.join(tftproot, tftp_path.lstrip('/'))
