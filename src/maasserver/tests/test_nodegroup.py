@@ -112,8 +112,8 @@ class TestNodeGroup(TestCase):
         nodegroup = NodeGroup(
             name=factory.make_name('nodegroup'),
             ip_range_low='192.168.0.1',
-            ip_range_high='192.168.0.10',
+            ip_range_high='192.168.0.3',
             )
-        self.assertItemsEqual(
-            ['192.168.0.%d' % i for i in range(1, 11)],
-            nodegroup.iterhosts())
+        self.assertSequenceEqual(
+            ['192.168.0.1', '192.168.0.2', '192.168.0.3'],
+            list(nodegroup.iterhosts()))

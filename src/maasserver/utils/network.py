@@ -13,11 +13,12 @@ __metaclass__ = type
 __all__ = [
     'int_to_dotted_quad',
     'dotted_quad_to_int',
-    'next_ip',
+    'ip_range',
     ]
 
 import socket
 import struct
+from itertools import imap
 
 
 def int_to_dotted_quad(n):
@@ -38,13 +39,13 @@ def dotted_quad_to_int(ip):
     return struct.unpack(str('>L'), socket.inet_aton(ip))[0]
 
 
-def next_ip(ip):
-    """Return the next IP Address.
+def ip_range(ip_low, ip_high):
+    """Return an Iterator over the IP Addresses between the two provided IPs.
 
-    IP Addresses being essentially 32-bit integers, this returns
-    the next IP Address conresponding to the next 32-bit integer.
-
-    >>> next_ip('192.168.0.1')
-    '192.168.0.2'
+    >>> ip_range('192.168.0.1', '192.168.0.3')
+    ['192.168.0.1', '192.168.0.2', '192.168.0.3']
     """
-    return int_to_dotted_quad(dotted_quad_to_int(ip) + 1)
+    ip_low_int = dotted_quad_to_int(ip_low)
+    ip_high_int = dotted_quad_to_int(ip_high)
+    ip_range = range(ip_low_int, ip_high_int + 1)
+    return imap(int_to_dotted_quad, ip_range)
