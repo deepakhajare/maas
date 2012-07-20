@@ -26,6 +26,7 @@ from provisioningserver.pxe.tftppath import (
     compose_image_path,
     locate_tftp_path,
     )
+from provisioningserver.testing.config import ConfigFixture
 from provisioningserver.utils import ActionScript
 from testtools.matchers import (
     DirExists,
@@ -48,11 +49,13 @@ def make_arch_subarch_release_purpose():
 class TestInstallPXEImage(TestCase):
 
     def test_integration(self):
+        config = {"tftp": {"root": self.make_dir()}}
+        self.useFixture(ConfigFixture(config))
+
         download_dir = self.make_dir()
         image_dir = os.path.join(download_dir, 'image')
         os.makedirs(image_dir)
         factory.make_file(image_dir, 'kernel')
-        tftproot = self.make_dir()
         arch, subarch, release, purpose = make_arch_subarch_release_purpose()
 
         action = factory.make_name("action")
@@ -60,14 +63,12 @@ class TestInstallPXEImage(TestCase):
         script.register(action, provisioningserver.pxe.install_image)
         script.execute(
             (action, "--arch", arch, "--subarch", subarch, "--release",
-             release, "--purpose", purpose, "--image", image_dir,
-             "--tftproot", tftproot))
+             release, "--purpose", purpose, "--image", image_dir))
 
         self.assertThat(
             os.path.join(
                 locate_tftp_path(
-                    compose_image_path(arch, subarch, release, purpose),
-                    tftproot=tftproot),
+                    compose_image_path(arch, subarch, release, purpose)),
                 'kernel'),
             FileExists())
 
