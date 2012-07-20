@@ -13,6 +13,8 @@ __metaclass__ = type
 __all__ = [
     "Config",
     "get",
+    "get_config_filename",
+    "set_config_filename",
     ]
 
 from getpass import getuser
@@ -115,7 +117,33 @@ class Config(Schema):
 
 
 config = None
+config_filename = None
 config_lock = RLock()
+
+
+def set_config_filename(filename):
+    """Sets the configuration filename."""
+    global config_filename
+    with config_lock:
+        if config is not None:
+            raise ValueError("Config already loaded.")
+        elif config_filename is None:
+            config_filename = filename
+        elif config_filename == filename:
+            pass  # No change.
+        else:
+            raise ValueError("Already set")
+
+
+def get_config_filename():
+    global config_filename
+    with config_lock:
+        if config_filename is None:
+            return environ.get(
+                "MAAS_PROVISION_SETTINGS",
+                "/etc/maas/pserv.yaml")
+        else:
+            return config_filename
 
 
 def get():
@@ -130,11 +158,9 @@ def get():
     This function is thread-safe.
     """
     global config
+    global config_filename
     with config_lock:
         if config is None:
-            config_filename = (
-                environ["MAAS_PROVISION_SETTINGS"]
-                if "MAAS_PROVISION_SETTINGS" in environ
-                else "/etc/maas/pserv.yaml")
+            config_filename = get_config_filename()
             config = Config.load(config_filename)
         return config

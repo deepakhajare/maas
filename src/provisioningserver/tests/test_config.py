@@ -23,7 +23,11 @@ from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mocker import Mocker
 import provisioningserver.config
-from provisioningserver.config import Config
+from provisioningserver.config import (
+    Config,
+    get_config_filename,
+    set_config_filename,
+    )
 from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import (
     MatchesException,
@@ -38,13 +42,25 @@ class TestConfigFixture(TestCase):
         # With no arguments, ConfigFixture can arrange a minimal global
         # configuration.
         dummy_cached_config = object()
+        dummy_cached_config_filename = object()
         self.patch(provisioningserver.config, "config", dummy_cached_config)
+        self.patch(
+            provisioningserver.config, "config_filename",
+            dummy_cached_config_filename)
         self.assertIs(dummy_cached_config, provisioningserver.config.get())
+        self.assertIs(
+            dummy_cached_config_filename,
+            provisioningserver.config.config_filename)
         with ConfigFixture():
             config = provisioningserver.config.get()
+            config_filename = provisioningserver.config.config_filename
             self.assertIsNot(dummy_cached_config, config)
+            self.assertIsNot(dummy_cached_config_filename, config_filename)
             self.assertIsInstance(config, dict)
         self.assertIs(dummy_cached_config, provisioningserver.config.get())
+        self.assertIs(
+            dummy_cached_config_filename,
+            provisioningserver.config.config_filename)
 
     def test_use_with_config(self):
         # Given a configuration, ConfigFixture can arrange a minimal global
@@ -61,48 +77,109 @@ class TestConfigFixture(TestCase):
         self.assertIs(dummy_cached_config, provisioningserver.config.get())
 
 
+class TestGetConfigFilename(TestCase):
+    """Tests for `provisioningserver.config.get_config_filename`."""
+
+    def setUp(self):
+        super(TestGetConfigFilename, self).setUp()
+        # Clear config_filename to ensure a consistent starting point.
+        self.patch(provisioningserver.config, "config_filename", None)
+
+    def test_call_with_environment(self):
+        # get_config_filename() returns the value of MAAS_PROVISION_SETTINGS
+        # when it's defined in the environment.
+        dummy_config_filename = factory.make_name("config")
+        self.useFixture(
+            EnvironmentVariableFixture(
+                "MAAS_PROVISION_SETTINGS", dummy_config_filename))
+        self.assertEquals(dummy_config_filename, get_config_filename())
+
+    def test_call_without_environment(self):
+        # get_config_filename() returns a hard-coded path when
+        # MAAS_PROVISION_SETTINGS is not defined in the environment.
+        self.useFixture(
+            EnvironmentVariableFixture("MAAS_PROVISION_SETTINGS", None))
+        self.assertEquals("/etc/maas/pserv.yaml", get_config_filename())
+
+    def test_call_when_set(self):
+        # get_config_filename() returns the value of config_filename when it
+        # has already been defined.
+        dummy_config_filename = factory.make_name("config")
+        self.patch(
+            provisioningserver.config, "config_filename",
+            dummy_config_filename)
+        self.assertEquals(dummy_config_filename, get_config_filename())
+
+
+class TestSetConfigFilename(TestCase):
+    """Tests for `provisioningserver.config.set_config_filename`."""
+
+    def setUp(self):
+        super(TestSetConfigFilename, self).setUp()
+        # Clear config_filename to ensure a consistent starting point.
+        self.patch(provisioningserver.config, "config_filename", None)
+
+    def test_call_with_no_prior_setting(self):
+        # set_config_filename() sets config_filename when it has not
+        # previously been defined.
+        dummy_config_filename = factory.make_name("config")
+        set_config_filename(dummy_config_filename)
+        self.assertEquals(
+            dummy_config_filename,
+            provisioningserver.config.config_filename)
+
+    def test_call_with_prior_setting(self):
+        # set_config_filename() raises ValueError when config_filename has
+        # already been set.
+        self.patch(
+            provisioningserver.config, "config_filename",
+            factory.make_name("existing-config"))
+        self.assertRaises(
+            ValueError, set_config_filename,
+            factory.make_name("updated-config"))
+
+    def test_call_with_config_already_set(self):
+        # set_config_filename() raises ValueError when config has already been
+        # set.
+        self.patch(provisioningserver.config, "config", object())
+        self.assertRaises(
+            ValueError, set_config_filename,
+            factory.make_name("updated-config"))
+
+    def test_call_with_same_filename(self):
+        # set_config_filename() ignores calls to set the filename when it's
+        # identical to an already set filename.
+        dummy_config_filename = factory.make_name("config")
+        set_config_filename(dummy_config_filename)
+        set_config_filename(dummy_config_filename)
+
+
 class TestGet(TestCase):
     """Tests for `provisioningserver.config.get`."""
 
-    def exercise_get(self, env_config_filename, expected_config_filename):
-        """Exercise `...config.get()` with the given environment set.
-
-        :param env_config_filename: A configuration filename to set in the
-            environment, or `None` to erase it from the environment.
-        :param expected_config_filename: The filename expected in the call to
-            `Config.load()`.
-        """
-        self.useFixture(
-            EnvironmentVariableFixture(
-                "MAAS_PROVISION_SETTINGS", env_config_filename))
-
+    def test_get(self):
+        # When the configuration has not yet been loaded, get() loads the
+        # configuration file returned from get_config_filename().
         dummy_config = object()
+        dummy_config_filename = factory.make_name("config")
 
         # Create a mock Config object that expects a load() call.
         mocker = Mocker()
         mock_Config = mocker.mock()
-        mock_Config.load(expected_config_filename)
+        mock_Config.load(dummy_config_filename)
         mocker.result(dummy_config)
 
         # Clear cached config, and patch in the mock Config class.
         self.patch(provisioningserver.config, "config", None)
+        self.patch(
+            provisioningserver.config, "config_filename",
+            dummy_config_filename)
         self.patch(provisioningserver.config, "Config", mock_Config)
 
         with mocker:
             config = provisioningserver.config.get()
 
         self.assertIs(dummy_config, config)
-
-    def test_get_with_environment(self):
-        # When MAAS_PROVISION_SETTINGS is defined, configuration is obtained
-        # from the filename it names.
-        dummy_config_filename = factory.make_name("config")
-        self.exercise_get(dummy_config_filename, dummy_config_filename)
-
-    def test_get_without_environment(self):
-        # When MAAS_PROVISION_SETTINGS is *not* defined, configuration is
-        # obtained from a standard location.
-        self.exercise_get(None, "/etc/maas/pserv.yaml")
 
     def test_get_config_already_cached(self):
         # When the configuration has already been loaded it is returned

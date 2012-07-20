@@ -36,6 +36,11 @@ class ConfigFixture(Fixture):
         self.addCleanup(
             setattr, provisioningserver.config, "config",
             provisioningserver.config.config)
+        self.addCleanup(
+            setattr, provisioningserver.config, "config_filename",
+            provisioningserver.config.config_filename)
         # Set the cached config to something predefined.
         provisioningserver.config.config = (
+            provisioningserver.config.Config.to_python(self.config))
+        provisioningserver.config.config_filename = (
             provisioningserver.config.Config.to_python(self.config))
