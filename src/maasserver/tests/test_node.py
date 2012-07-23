@@ -44,7 +44,6 @@ from metadataserver.models import (
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
-from provisioningserver import tasks
 from testtools.matchers import FileContains
 
 
