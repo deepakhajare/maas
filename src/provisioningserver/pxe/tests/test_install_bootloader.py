@@ -30,7 +30,7 @@ from provisioningserver.pxe.tftppath import (
     locate_tftp_path,
     )
 from provisioningserver.testing.config import ConfigFixture
-from provisioningserver.utils import ActionScript
+from provisioningserver.utils import MainScript
 from testtools.matchers import (
     DirExists,
     FileContains,
@@ -42,23 +42,26 @@ from testtools.matchers import (
 class TestInstallPXEBootloader(TestCase):
 
     def test_integration(self):
-        config = {"tftp": {"root": self.make_dir()}}
-        self.useFixture(ConfigFixture(config))
+        tftproot = self.make_dir()
+        config = {"tftp": {"root": tftproot}}
+        config_fixture = ConfigFixture(config)
+        self.useFixture(config_fixture)
 
         loader = self.make_file()
         arch = factory.make_name('arch')
         subarch = factory.make_name('subarch')
 
         action = factory.make_name("action")
-        script = ActionScript(action)
+        script = MainScript(action)
         script.register(action, provisioningserver.pxe.install_bootloader)
         script.execute(
-            (action, "--arch", arch, "--subarch", subarch,
-             "--loader", loader))
+            ("--config-file", config_fixture.filename, action, "--arch", arch,
+             "--subarch", subarch, "--loader", loader))
 
         self.assertThat(
             locate_tftp_path(
-                compose_bootloader_path(arch, subarch)),
+                compose_bootloader_path(arch, subarch),
+                tftproot=tftproot),
             FileExists())
         self.assertThat(loader, Not(FileExists()))
 
