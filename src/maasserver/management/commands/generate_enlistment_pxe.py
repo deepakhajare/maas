@@ -26,7 +26,7 @@ from django.core.management.base import BaseCommand
 from provisioningserver.pxe.pxeconfig import PXEConfig
 from provisioningserver.pxe.tftppath import compose_image_path
 
-
+# TODO: Remove this; it's obsolete.
 class Command(BaseCommand):
     """Print out enlistment PXE config."""
 

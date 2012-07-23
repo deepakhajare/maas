@@ -22,7 +22,7 @@ from shutil import (
     rmtree,
     )
 
-from provisioningserver import config
+from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import (
     compose_image_path,
     locate_tftp_path,
@@ -140,7 +140,8 @@ def run(args):
     containing identical files, the new image is deleted and the old one
     is left untouched.
     """
-    tftproot = config.get()["tftp"]["root"]
+    config = Config.load(args.config_file)
+    tftproot = config["tftp"]["root"]
     destination = make_destination(
         tftproot, args.arch, args.subarch, args.release, args.purpose)
     if not are_identical_dirs(destination, args.image):
