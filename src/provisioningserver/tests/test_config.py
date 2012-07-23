@@ -23,29 +23,44 @@ from maastesting.testcase import TestCase
 from provisioningserver.config import Config
 from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import (
+    DirExists,
+    FileExists,
     MatchesException,
     Raises,
     )
+import yaml
 
 
 class TestConfigFixture(TestCase):
     """Tests for `provisioningserver.testing.config.ConfigFixture`."""
 
+    def exercise_fixture(self, fixture):
+        # ConfigFixture arranges a minimal configuration on disk, and exports
+        # the configuration filename to the environment so that subprocesses
+        # can find it.
+        with fixture:
+            self.assertThat(fixture.dir, DirExists())
+            self.assertThat(fixture.filename, FileExists())
+            self.assertEqual(
+                {"MAAS_PROVISION_SETTINGS": fixture.filename},
+                fixture.environ)
+            self.assertEqual(
+                fixture.filename, os.environ["MAAS_PROVISION_SETTINGS"])
+            with open(fixture.filename, "rb") as stream:
+                self.assertEqual(fixture.config, yaml.safe_load(stream))
+
     def test_use_minimal(self):
-        # With no arguments, ConfigFixture can arrange a minimal global
-        # configuration.
-        with ConfigFixture():
-            pass  # TODO
-            #self.assertIsInstance(config, dict)
+        # With no arguments, ConfigFixture arranges a minimal configuration.
+        fixture = ConfigFixture()
+        self.exercise_fixture(fixture)
 
     def test_use_with_config(self):
         # Given a configuration, ConfigFixture can arrange a minimal global
         # configuration with the additional options merged in.
         dummy_logfile = factory.make_name("logfile")
-        with ConfigFixture({"logfile": dummy_logfile}):
-            pass  # TODO
-            #self.assertIsInstance(config, dict)
-            #self.assertEqual(dummy_logfile, config["logfile"])
+        fixture = ConfigFixture({"logfile": dummy_logfile})
+        self.assertEqual(dummy_logfile, fixture.config["logfile"])
+        self.exercise_fixture(fixture)
 
 
 class TestConfig(TestCase):

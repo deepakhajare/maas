@@ -39,14 +39,14 @@ class ConfigFixture(Fixture):
     def setUp(self):
         super(ConfigFixture, self).setUp()
         # Create a real configuration file, and populate it.
-        config_dir = self.useFixture(TempDir()).path
-        config_filename = path.join(config_dir, "config.yaml")
-        with open(config_filename, "wb") as stream:
+        self.dir = self.useFixture(TempDir()).path
+        self.filename = path.join(self.dir, "config.yaml")
+        with open(self.filename, "wb") as stream:
             yaml.safe_dump(self.config, stream=stream)
         # Export this filename to the environment, so that subprocesses will
         # pick up this configuration. Define the new environment as an
         # instance variable so that users of this fixture can use this to
         # extend custom subprocess environments.
-        self.environ = {"MAAS_PROVISION_SETTINGS": config_filename}
+        self.environ = {"MAAS_PROVISION_SETTINGS": self.filename}
         for name, value in self.environ.items():
             self.useFixture(EnvironmentVariableFixture(name, value))
