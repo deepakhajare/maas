@@ -12,14 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "Config",
-    "get",
-    "get_config_filename",
-    "set_config_filename",
     ]
 
 from getpass import getuser
-from os import environ
-from threading import RLock
 
 from formencode import Schema
 from formencode.validators import (
@@ -114,53 +109,3 @@ class Config(Schema):
         for step in steps:
             target = target.fields[step]
         return target
-
-
-config = None
-config_filename = None
-config_lock = RLock()
-
-
-def set_config_filename(filename):
-    """Sets the configuration filename."""
-    global config_filename
-    with config_lock:
-        if config is not None:
-            raise ValueError("Config already loaded.")
-        elif config_filename is None:
-            config_filename = filename
-        elif config_filename == filename:
-            pass  # No change.
-        else:
-            raise ValueError("Already set")
-
-
-def get_config_filename():
-    global config_filename
-    with config_lock:
-        if config_filename is None:
-            return environ.get(
-                "MAAS_PROVISION_SETTINGS",
-                "/etc/maas/pserv.yaml")
-        else:
-            return config_filename
-
-
-def get():
-    """Load and return the MAAS provisioning configuration.
-
-    The file used is obtained from the `MAAS_PROVISION_SETTINGS` environment
-    variable, or `/etc/maas/pserv.yaml` if that is not defined.
-
-    Once the configuration has loaded successfully, it is cached. Subsequent
-    calls to this function will return the cached configuration.
-
-    This function is thread-safe.
-    """
-    global config
-    global config_filename
-    with config_lock:
-        if config is None:
-            config_filename = get_config_filename()
-            config = Config.load(config_filename)
-        return config

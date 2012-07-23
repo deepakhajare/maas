@@ -12,29 +12,18 @@ from __future__ import (
 
 __metaclass__ = type
 
-import argparse
+from os import environ
 
-from provisioningserver.config import (
-    get_config_filename,
-    set_config_filename,
-    )
 import provisioningserver.dhcp.writer
 import provisioningserver.pxe.install_bootloader
 import provisioningserver.pxe.install_image
 from provisioningserver.utils import ActionScript
 
 
-class SetConfigFileAction(argparse.Action):
-    """Set the configuration file for use in this process."""
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        set_config_filename(values)
-
-
 main = ActionScript(__doc__)
 main.parser.add_argument(
-    "-c", "--config-file", default=get_config_filename(),
-    metavar="FILENAME", action=SetConfigFileAction,
+    "-c", "--config-file", metavar="FILENAME",
+    default=environ.get("MAAS_PROVISION_SETTINGS", "/etc/maas/pserv.yaml"),
     help="Configuration file to load [%(default)s].")
 main.register(
     "generate-dhcp-config",
