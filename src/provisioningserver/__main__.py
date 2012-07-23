@@ -12,19 +12,13 @@ from __future__ import (
 
 __metaclass__ = type
 
-from os import environ
-
 import provisioningserver.dhcp.writer
 import provisioningserver.pxe.install_bootloader
 import provisioningserver.pxe.install_image
-from provisioningserver.utils import ActionScript
+from provisioningserver.utils import MainScript
 
 
-main = ActionScript(__doc__)
-main.parser.add_argument(
-    "-c", "--config-file", metavar="FILENAME",
-    default=environ.get("MAAS_PROVISION_SETTINGS", "/etc/maas/pserv.yaml"),
-    help="Configuration file to load [%(default)s].")
+main = MainScript(__doc__)
 main.register(
     "generate-dhcp-config",
     provisioningserver.dhcp.writer)
