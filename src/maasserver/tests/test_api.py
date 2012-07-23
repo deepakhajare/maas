@@ -1394,14 +1394,14 @@ class TestNodesAPI(APITestCase):
             [existing_id], extract_system_ids(parsed_result))
 
     def test_GET_list_with_macs_returns_matching_nodes(self):
-        # The "list" operation takes optional "mac_addresses" parameters.  Only
+        # The "list" operation takes optional "mac_address" parameters.  Only
         # nodes with matching MAC addresses will be returned.
         macs = [factory.make_mac_address() for counter in range(3)]
         matching_mac = macs[0].mac_address
         matching_system_id = macs[0].node.system_id
         response = self.client.get(self.get_uri('nodes/'), {
             'op': 'list',
-            'mac_addresses': [matching_mac],
+            'mac_address': [matching_mac],
         })
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(

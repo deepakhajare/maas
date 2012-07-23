@@ -679,16 +679,16 @@ class NodesHandler(BaseHandler):
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by criteria.
 
-        :param mac_addresses: An optional list of MAC addresses.  Only
+        :param mac_address: An optional list of MAC addresses.  Only
             nodes with matching MAC addresses will be returned.
-        :type mac_addresses: iterable
+        :type mac_address: iterable
         :param id: An optional list of system ids.  Only nodes with
             matching system ids will be returned.
         :type id: iterable
         """
         # Get filters from request.
         match_ids = get_optional_list(request.GET, 'id')
-        match_macs = get_optional_list(request.GET, 'mac_addresses')
+        match_macs = get_optional_list(request.GET, 'mac_address')
         # Fetch nodes and apply filters.
         nodes = Node.objects.get_nodes(
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
