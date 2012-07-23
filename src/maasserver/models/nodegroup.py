@@ -23,6 +23,7 @@ from django.db.models import (
     )
 from maasserver import DefaultMeta
 from maasserver.models.timestampedmodel import TimestampedModel
+from maasserver.utils.network import ip_range
 from piston.models import (
     KEY_SIZE,
     Token,
@@ -69,6 +70,13 @@ class NodeGroupManager(Manager):
         nodegroup.save()
         return nodegroup
 
+    def ensure_master(self):
+        """Obtain the master node group, creating it first if needed."""
+        try:
+            return self.get(name='master')
+        except NodeGroup.DoesNotExist:
+            return self.new('master', '127.0.0.1')
+
 
 class NodeGroup(TimestampedModel):
 
@@ -101,3 +109,7 @@ class NodeGroup(TimestampedModel):
         editable=True, unique=True, blank=True, null=True, default='')
     ip_range_high = IPAddressField(
         editable=True, unique=True, blank=True, null=True, default='')
+
+    def iterhosts(self):
+        """Generate Iterator over usable hosts in the nodegroup's subnet."""
+        return ip_range(self.ip_range_low, self.ip_range_high)
