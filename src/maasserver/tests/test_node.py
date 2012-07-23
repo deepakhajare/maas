@@ -42,8 +42,10 @@ from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
+from maastesting.fakemethod import FakeMethod
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
+from provisioningserver import tasks
 from testtools.matchers import FileContains
 
 
@@ -257,6 +259,13 @@ class NodeTest(TestCase):
             status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
         node.release()
         self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
+
+    def test_release_powers_off_node(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        self.patch(tasks, 'power_off', FakeMethod())
+        node.release()
+        self.assertEqual(1, tasks.power_off.call_count)
 
     def test_accept_enlistment_gets_node_out_of_declared_state(self):
         # If called on a node in Declared state, accept_enlistment()
