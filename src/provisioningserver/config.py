@@ -130,8 +130,10 @@ class Config(Schema):
         return cls.to_python(yaml.safe_load(stream))
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename=None):
         """Load a YAML configuration from `filename` and validate."""
+        if filename is None:
+            filename = cls.DEFAULT_FILENAME
         with open(filename, "rb") as stream:
             return cls.parse(stream)
 
@@ -139,11 +141,13 @@ class Config(Schema):
     _cache_lock = RLock()
 
     @classmethod
-    def load_from_cache(cls, filename):
+    def load_from_cache(cls, filename=None):
         """Load or return a previously loaded configuration.
 
         This is thread-safe, so is okay to use from Django, for example.
         """
+        if filename is None:
+            filename = cls.DEFAULT_FILENAME
         filename = abspath(filename)
         with cls._cache_lock:
             if filename not in cls._cache:
