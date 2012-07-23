@@ -258,6 +258,18 @@ class NodeTest(TestCase):
         node.release()
         self.assertEqual((NODE_STATUS.READY, None), (node.status, node.owner))
 
+    def test_release_powers_off_node(self):
+        # Test that releasing a node causes a 'power_off' celery job.
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user(),
+            power_type=POWER_TYPE.VIRSH)
+        # Prevent actual job script from running.
+        self.patch(PowerAction, 'run_shell', lambda *args, **kwargs: ('', ''))
+        node.release()
+        self.assertEqual(
+            (1, 'provisioningserver.tasks.power_off'),
+            (len(self.celery.tasks), self.celery.tasks[0]['task'].name))
+
     def test_accept_enlistment_gets_node_out_of_declared_state(self):
         # If called on a node in Declared state, accept_enlistment()
         # changes the node's status, and returns the node.
@@ -607,13 +619,22 @@ class NodeManagerTest(TestCase):
                 user, {'name': factory.getRandomString()}))
 
     def test_stop_nodes_stops_nodes(self):
+        # We don't actually want to fire off power events, but we'll go
+        # through the motions right up to the point where we'd normally
+        # run shell commands.
+        self.patch(PowerAction, 'run_shell', lambda *args, **kwargs: ('', ''))
         user = factory.make_user()
-        node = self.make_node(user)
+        node, mac = self.make_node_with_mac(
+                user, power_type=POWER_TYPE.VIRSH)
         output = Node.objects.stop_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
-        power_status = get_provisioning_api_proxy().power_status
-        self.assertEqual('stop', power_status[node.system_id])
+        self.assertEqual(
+            (1, 'provisioningserver.tasks.power_off'),
+            (
+                len(self.celery.tasks),
+                self.celery.tasks[0]['task'].name,
+            ))
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [
