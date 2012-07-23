@@ -14,9 +14,17 @@ __all__ = [
     "ConfigFixture",
     ]
 
-from fixtures import Fixture
+from os import path
+
+from fixtures import (
+    EnvironmentVariableFixture,
+    Fixture,
+    TempDir,
+    )
 from maastesting.factory import factory
-import provisioningserver.config
+from provisioningserver import config
+from testtools.monkey import patch
+import yaml
 
 
 class ConfigFixture(Fixture):
@@ -32,15 +40,18 @@ class ConfigFixture(Fixture):
 
     def setUp(self):
         super(ConfigFixture, self).setUp()
-        # Restore the cached config to its current state on exit.
-        self.addCleanup(
-            setattr, provisioningserver.config, "config",
-            provisioningserver.config.config)
-        self.addCleanup(
-            setattr, provisioningserver.config, "config_filename",
-            provisioningserver.config.config_filename)
-        # Set the cached config to something predefined.
-        provisioningserver.config.config = (
-            provisioningserver.config.Config.to_python(self.config))
-        provisioningserver.config.config_filename = (
-            provisioningserver.config.Config.to_python(self.config))
+        # Clear all cached configuration. Use patch to restore state.
+        self.addCleanup(patch(config, "config", None))
+        self.addCleanup(patch(config, "config_filename", None))
+        # Create a real configuration file, and populate it.
+        config_dir = self.useFixture(TempDir()).path
+        config_filename = path.join(config_dir, "config.yaml")
+        with open(config_filename, "wb") as stream:
+            yaml.safe_dump(self.config, stream=stream)
+        # Export this filename to the environment, so that subprocesses will
+        # pick up this configuration.
+        config_exporter = EnvironmentVariableFixture(
+            "MAAS_PROVISION_SETTINGS", config_filename)
+        self.useFixture(config_exporter)
+        # Set this as the configuration file in the current process.
+        config.set_config_filename(config_filename)
