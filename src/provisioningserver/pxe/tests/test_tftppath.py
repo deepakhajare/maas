@@ -89,7 +89,7 @@ class TestTFTPPath(TestCase):
         pxefile = factory.make_name('pxefile')
         self.assertEqual(
             os.path.join(self.tftproot, pxefile),
-            locate_tftp_path(pxefile))
+            locate_tftp_path(pxefile, tftproot=self.tftproot))
 
     def test_locate_tftp_path_overrides_default_tftproot(self):
         tftproot = '/%s' % factory.make_name('tftproot')
@@ -99,4 +99,5 @@ class TestTFTPPath(TestCase):
             locate_tftp_path(pxefile, tftproot=tftproot))
 
     def test_locate_tftp_path_returns_root_by_default(self):
-        self.assertEqual(self.tftproot, locate_tftp_path())
+        self.assertEqual(
+            self.tftproot, locate_tftp_path(tftproot=self.tftproot))
