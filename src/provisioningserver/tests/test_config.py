@@ -42,10 +42,10 @@ class TestConfigFixture(TestCase):
             self.assertThat(fixture.dir, DirExists())
             self.assertThat(fixture.filename, FileExists())
             self.assertEqual(
-                {"MAAS_PROVISION_SETTINGS": fixture.filename},
+                {"MAAS_PROVISIONING_SETTINGS": fixture.filename},
                 fixture.environ)
             self.assertEqual(
-                fixture.filename, os.environ["MAAS_PROVISION_SETTINGS"])
+                fixture.filename, os.environ["MAAS_PROVISIONING_SETTINGS"])
             with open(fixture.filename, "rb") as stream:
                 self.assertEqual(fixture.config, yaml.safe_load(stream))
 

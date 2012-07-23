@@ -47,6 +47,6 @@ class ConfigFixture(Fixture):
         # pick up this configuration. Define the new environment as an
         # instance variable so that users of this fixture can use this to
         # extend custom subprocess environments.
-        self.environ = {"MAAS_PROVISION_SETTINGS": self.filename}
+        self.environ = {"MAAS_PROVISIONING_SETTINGS": self.filename}
         for name, value in self.environ.items():
             self.useFixture(EnvironmentVariableFixture(name, value))

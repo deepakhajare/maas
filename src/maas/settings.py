@@ -309,8 +309,8 @@ PRESEED_TEMPLATE_LOCATIONS = (
 
 # Settings used for provisioning.
 # TODO: un-cargo-cult this from provisioningserver.utils.MainScript.
-PROVISION_SETTINGS = os.environ.get(
-    "MAAS_PROVISION_SETTINGS", "/etc/maas/pserv.yaml")
+PROVISIONING_SETTINGS = os.environ.get(
+    "MAAS_PROVISIONING_SETTINGS", "/etc/maas/pserv.yaml")
 
 
 # Allow the user to override settings in maas_local_settings.

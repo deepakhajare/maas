@@ -1040,7 +1040,7 @@ def pxeconfig(request):
     """
     provisioning_config = (
         provisioningserver.config.Config.load_from_cache(
-            settings.PROVISION_SETTINGS))
+            settings.PROVISIONING_SETTINGS))
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', None)
     mac = request.GET.get('mac', None)

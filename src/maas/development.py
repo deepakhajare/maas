@@ -98,7 +98,7 @@ DEV_ROOT_DIRECTORY = os.path.join(
 COMMISSIONING_SCRIPT = os.path.join(
     DEV_ROOT_DIRECTORY, 'etc/maas/commissioning-user-data')
 
-PROVISION_SETTINGS = abspath("etc/pserv.yaml")
+PROVISIONING_SETTINGS = abspath("etc/pserv.yaml")
 
 
 # Set up celery to use the demo settings.
