@@ -110,7 +110,7 @@ class TestImportPXEFiles(TestCase):
             # Substitute curl for wget; it accepts file:// URLs.
             'DOWNLOAD': 'curl -O --silent',
             'PATH': os.pathsep.join(path),
-            # TODO: Remove this; it's here to support the obsolete
+            # TODO: Remove TFTPROOT; it's here to support the obsolete
             # generate_enlistment_pxe command.
             'TFTPROOT': self.tftproot,
         }
