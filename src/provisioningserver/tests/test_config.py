@@ -126,6 +126,15 @@ class TestConfig(TestCase):
             os.pardir, os.pardir, "etc", "pserv.yaml")
         Config.load(filename)
 
+    def test_load_from_cache(self):
+        # A config loaded by Config.load_from_cache() is never reloaded.
+        filename = self.make_file(
+            name="config.yaml", contents='password: irrelevant')
+        config_before = Config.load_from_cache(filename)
+        os.unlink(filename)
+        config_after = Config.load_from_cache(filename)
+        self.assertIs(config_before, config_after)
+
     def test_oops_directory_without_reporter(self):
         # It is an error to omit the OOPS reporter if directory is specified.
         config = (

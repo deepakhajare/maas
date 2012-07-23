@@ -15,6 +15,8 @@ __all__ = [
     ]
 
 from getpass import getuser
+from os.path import abspath
+from threading import RLock
 
 from formencode import Schema
 from formencode.validators import (
@@ -102,6 +104,22 @@ class Config(Schema):
         """Load a YAML configuration from `filename` and validate."""
         with open(filename, "rb") as stream:
             return cls.parse(stream)
+
+    _cache = {}
+    _cache_lock = RLock()
+
+    @classmethod
+    def load_from_cache(cls, filename):
+        """Load or return a previously loaded configuration.
+
+        This is thread-safe, so is okay to use from Django, for example.
+        """
+        filename = abspath(filename)
+        with cls._cache_lock:
+            if filename not in cls._cache:
+                with open(filename, "rb") as stream:
+                    cls._cache[filename] = cls.parse(stream)
+            return cls._cache[filename]
 
     @classmethod
     def field(target, *steps):
