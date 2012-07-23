@@ -15,10 +15,12 @@ __all__ = [
     ]
 
 from getpass import getuser
+from os import environ
 from os.path import abspath
 from threading import RLock
 
 from formencode import Schema
+from formencode.declarative import DeclarativeMeta
 from formencode.validators import (
     Int,
     RequireIfPresent,
@@ -79,8 +81,36 @@ class ConfigTFTP(Schema):
         )
 
 
+class ConfigMeta(DeclarativeMeta):
+    """Metaclass for the root configuration schema."""
+
+    def _get_default_filename(cls):
+        # Get the configuration filename from the environment. Failing that,
+        # return a hard-coded default.
+        return environ.get(
+            "MAAS_PROVISIONING_SETTINGS",
+            "/etc/maas/pserv.yaml")
+
+    def _set_default_filename(cls, filename):
+        # Set the configuration filename in the environment.
+        environ["MAAS_PROVISIONING_SETTINGS"] = filename
+
+    def _delete_default_filename(cls):
+        # Remove any setting of the configuration filename from the
+        # environment.
+        environ.pop("MAAS_PROVISIONING_SETTINGS", None)
+
+    DEFAULT_FILENAME = property(
+        _get_default_filename, _set_default_filename,
+        _delete_default_filename, doc=(
+            "The default config file to load. Refers to "
+            "MAAS_PROVISIONING_SETTINGS in the environment."))
+
+
 class Config(Schema):
     """Configuration validator."""
+
+    __metaclass__ = ConfigMeta
 
     if_key_missing = None
 
