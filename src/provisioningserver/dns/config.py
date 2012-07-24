@@ -196,8 +196,10 @@ def shortened_reversed_ip(ip, byte_num):
     '3.0'
     """
     assert 0 <= byte_num <= 4, ("byte_num should be >=0 and <= 4.")
-    significant_octets = ip.split('.')[-byte_num:]
-    return '.'.join(reversed(significant_octets))
+    ip_octets = ip.split('.')
+    significant_octets = list(
+    reversed(ip_octets))[:byte_num]
+    return '.'.join(significant_octets)
 
 
 class DNSZoneConfig(DNSConfig):
