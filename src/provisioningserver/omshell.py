@@ -61,4 +61,24 @@ class Omshell:
             raise CalledProcessError(self.proc.returncode, "omshell", output)
 
     def remove(self, ip_address):
-        pass
+        stdin = (
+            "server %(server)s\n"
+            "key omapi_key %(key)s\n"
+            "connect\n"
+            "new host\n"
+            "set name = %(ip)s\n"
+            "open\n"
+            "remove\n")
+        stdin = stdin % dict(
+            server=self.server_address,
+            key=self.shared_key,
+            ip=ip_address)
+
+        output = self._run(stdin)
+
+        # If the omshell worked, the last line should reference a null
+        # object.
+        lines = output.splitlines()
+        last_line = lines[-1]
+        if last_line != "obj: <null>":
+            raise CalledProcessError(self.proc.returncode, "omshell", output)
