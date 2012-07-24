@@ -16,7 +16,6 @@ __all__ = [
     "Omshell",
     ]
 
-from StringIO import StringIO
 from subprocess import (
     CalledProcessError,
     PIPE,
@@ -53,8 +52,13 @@ class Omshell:
             mac=mac_address)
 
         output = self._run(stdin)
+        # If the call to omshell doesn't result in output containing the
+        # magic string 'hardware-type' then we can be reasonably sure
+        # that the 'create' command failed.  Unfortunately there's no
+        # other output like "successful" to check so this is the best we
+        # can do.
         if "hardware-type" not in output:
-            raise CalledProcessError(output)
+            raise CalledProcessError(self.proc.returncode, "omshell", output)
 
     def remove(self, ip_address):
         pass
