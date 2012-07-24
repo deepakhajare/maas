@@ -21,6 +21,7 @@ from subprocess import (
     PIPE,
     Popen,
     )
+from textwrap import dedent
 
 
 class Omshell:
@@ -36,20 +37,21 @@ class Omshell:
         return stdout
 
     def create(self, ip_address, mac_address):
-        stdin = (
-            "server %(server)s\n"
-            "key omapi_key %(key)s\n"
-            "connect\n"
-            "new host\n"
-            "set ip-address = %(ip)s\n"
-            "set hardware-address = %(mac)s\n"
-            "set name = %(ip)s\n"
-            "create\n")
+        stdin = dedent("""\
+            server %(server)s
+            key omapi_key %(key)s
+            connect
+            new host
+            set ip-address = %(ip_address)s
+            set hardware-address = %(mac_address)s
+            set name = %(ip_address)s
+            create
+            """)
         stdin = stdin % dict(
             server=self.server_address,
             key=self.shared_key,
-            ip=ip_address,
-            mac=mac_address)
+            ip_address=ip_address,
+            mac_address=mac_address)
 
         output = self._run(stdin)
         # If the call to omshell doesn't result in output containing the
@@ -61,24 +63,28 @@ class Omshell:
             raise CalledProcessError(self.proc.returncode, "omshell", output)
 
     def remove(self, ip_address):
-        stdin = (
-            "server %(server)s\n"
-            "key omapi_key %(key)s\n"
-            "connect\n"
-            "new host\n"
-            "set name = %(ip)s\n"
-            "open\n"
-            "remove\n")
+        stdin = dedent("""\
+            server %(server)s
+            key omapi_key %(key)s
+            connect
+            new host
+            set name = %(ip_address)s
+            open
+            remove
+            """)
         stdin = stdin % dict(
             server=self.server_address,
             key=self.shared_key,
-            ip=ip_address)
+            ip_address=ip_address)
 
         output = self._run(stdin)
 
         # If the omshell worked, the last line should reference a null
         # object.
         lines = output.splitlines()
-        last_line = lines[-1]
+        try:
+            last_line = lines[-1]
+        except IndexError:
+            last_line = ""
         if last_line != "obj: <null>":
             raise CalledProcessError(self.proc.returncode, "omshell", output)
