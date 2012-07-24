@@ -18,9 +18,7 @@ from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
 from provisioningserver.omshell import Omshell
-from testtools.matchers import (
-    MatchesStructure,
-    )
+from testtools.matchers import MatchesStructure
 
 
 class TestOmshell(TestCase):
@@ -47,7 +45,7 @@ class TestOmshell(TestCase):
         self.patch(shell.proc, 'communicate', recorder)
 
         shell.create(ip_address, mac_address)
-        
+
         expected_args = (
             "server %(server)s\n"
             "key omapi_key %(key)s\n"
@@ -100,7 +98,7 @@ class TestOmshell(TestCase):
         self.patch(shell.proc, 'communicate', recorder)
 
         shell.remove(ip_address)
-        
+
         expected_args = (
             "server %(server)s\n"
             "key omapi_key %(key)s\n"
