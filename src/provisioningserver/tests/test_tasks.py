@@ -152,12 +152,11 @@ class TestDNSTasks(TestCase):
     def test_write_dns_zone_config_writes_file(self):
         command = factory.getRandomString()
         zone_name = factory.getRandomString()
+        network = factory.getRandomNetwork()
+        ip = factory.getRandomIPInNetwork(network)
         zone = DNSZoneConfig(
-            zone_name, broadcast_ip='192.168.0.255',
-            ip_range_low='192.168.0.0', ip_range_high='192.168.0.254',
-            subnet_mask='255.255.255.0',
-            serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): '192.168.0.5'})
+            zone_name, network=network, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip})
         result = write_dns_zone_config.delay(
             zone=zone, callback=rndc_command.subtask(args=[command]))
 
@@ -215,12 +214,11 @@ class TestDNSTasks(TestCase):
         # write_full_dns_config writes the config file, writes
         # the zone files, and reloads the dns service.
         zone_name = factory.getRandomString()
+        network = factory.getRandomNetwork()
+        ip = factory.getRandomIPInNetwork(network)
         zones = [DNSZoneConfig(
-            zone_name, broadcast_ip='192.168.0.255',
-            ip_range_low='192.168.0.0', ip_range_high='192.168.0.254',
-            subnet_mask='255.255.255.0',
-            serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): '192.168.0.5'})]
+            zone_name, network=network, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip})]
         command = factory.getRandomString()
         result = write_full_dns_config.delay(
             zones=zones,

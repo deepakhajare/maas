@@ -23,11 +23,11 @@ from django.db.models import (
     )
 from maasserver import DefaultMeta
 from maasserver.models.timestampedmodel import TimestampedModel
+from netaddr import IPNetwork
 from piston.models import (
     KEY_SIZE,
     Token,
     )
-from provisioningserver.dns.utils import ip_range
 
 
 worker_user_name = 'maas-nodegroup-worker'
@@ -110,6 +110,7 @@ class NodeGroup(TimestampedModel):
     ip_range_high = IPAddressField(
         editable=True, unique=True, blank=True, null=True, default='')
 
-    def iterhosts(self):
-        """Generate Iterator over usable hosts in the nodegroup's subnet."""
-        return ip_range(self.ip_range_low, self.ip_range_high)
+    @property
+    def network(self):
+        """Return the IPNetwork for this nodegroup."""
+        return IPNetwork('%s/%s' % (self.ip_range_low, self.subnet_mask))

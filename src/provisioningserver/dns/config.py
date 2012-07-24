@@ -29,10 +29,7 @@ from subprocess import (
     )
 
 from celery.conf import conf
-from provisioningserver.dns.utils import (
-    generated_hostname,
-    ip_range,
-    )
+from provisioningserver.dns.utils import generated_hostname
 from provisioningserver.utils import (
     atomic_write,
     incremental_write,
@@ -199,10 +196,8 @@ def shortened_reversed_ip(ip, byte_num):
     '3.0'
     """
     assert 0 <= byte_num <= 4, ("byte_num should be >=0 and <= 4.")
-    ip_octets = ip.split('.')
-    significant_octets = list(
-        reversed(ip_octets))[:4 - byte_num]
-    return '.'.join(significant_octets)
+    significant_octets = ip.split('.')[-byte_num:]
+    return '.'.join(reversed(significant_octets))
 
 
 class DNSZoneConfig(DNSConfig):
@@ -211,27 +206,25 @@ class DNSZoneConfig(DNSConfig):
     template_file_name = 'zone.template'
 
     def __init__(self, zone_name, serial=None, mapping={},
-                 broadcast_ip=None, subnet_mask=None, ip_range_low=None,
-                 ip_range_high=None):
+                 network=None):
         self.zone_name = zone_name
-        self.mapping = mapping
-        self.subnet_mask = subnet_mask
-        self.broadcast_ip = broadcast_ip
-        self.ip_range_low = ip_range_low
-        self.ip_range_high = ip_range_high
         self.serial = serial
+        self.mapping = mapping
+        self.network = network
 
     @property
     def byte_num(self):
         """Number of significant octets for the IPs of this zone."""
-        return len(
-            [byte for byte in self.subnet_mask.split('.')
+        return 4 - len(
+            [byte for byte in str(self.network.netmask).split('.')
              if byte == '255'])
 
     @property
     def reverse_zone_name(self):
         """Return the name of the reverse zone."""
-        significant_bits = self.broadcast_ip.split('.')[:self.byte_num]
+        broadcast_ip = str(self.network.broadcast)
+
+        significant_bits = broadcast_ip.split('.')[:4 - self.byte_num]
         return '%s.in-addr.arpa' % '.'.join(reversed(significant_bits))
 
     def get_mapping(self):
@@ -248,8 +241,8 @@ class DNSZoneConfig(DNSConfig):
         and the IP addresses for all the possible IP addresses in zone.
         """
         return {
-            generated_hostname(ip): ip
-            for ip in ip_range(self.ip_range_low, self.ip_range_high)
+            generated_hostname(str(ip)): str(ip)
+            for ip in self.network.iter_hosts()
         }
 
     def get_generated_reverse_mapping(self):

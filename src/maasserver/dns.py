@@ -49,12 +49,8 @@ def get_zone(nodegroup, serial=None):
     if serial is None:
         serial = next_zone_serial()
     return DNSZoneConfig(
-        zone_name=nodegroup.name, serial=serial,
-        ip_range_high=nodegroup.ip_range_high,
-        ip_range_low=nodegroup.ip_range_low,
-        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
-        broadcast_ip=nodegroup.broadcast_ip,
-        subnet_mask=nodegroup.subnet_mask)
+        zone_name=nodegroup.name, serial=serial, network=nodegroup.network,
+        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
 
 
 def change_dns_zone(nodegroup):

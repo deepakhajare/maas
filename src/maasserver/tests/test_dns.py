@@ -26,6 +26,7 @@ from maasserver.testing.testcase import TestCase
 from maastesting.bindfixture import BINDServer
 from maastesting.celery import CeleryFixture
 from maastesting.tests.test_bindfixture import dig_call
+from netaddr import IPNetwork
 from provisioningserver.dns.config import conf
 from provisioningserver.dns.utils import generated_hostname
 from testresources import FixtureResource
@@ -77,10 +78,7 @@ class TestDNSConfigModifications(TestCase):
     def create_nodegroup_with_lease(self, lease_number=1, nodegroup=None):
         if nodegroup is None:
             nodegroup = factory.make_node_group(
-                ip_range_low='192.168.0.0',
-                ip_range_high='192.168.0.254',
-                broadcast_ip='192.168.0.255',
-                subnet_mask='255.255.255.0')
+                network=IPNetwork('192.168.0.1/24'))
         node = factory.make_node(
             nodegroup=nodegroup, set_hostname=True)
         mac = factory.make_mac_address(node=node)
