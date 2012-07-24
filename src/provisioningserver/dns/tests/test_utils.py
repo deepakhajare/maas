@@ -15,12 +15,14 @@ __all__ = []
 import socket
 import struct
 
-from maasserver.utils.network import (
+from maastesting.factory import factory
+from maastesting.testcase import TestCase
+from provisioningserver.dns.utils import (
     dotted_quad_to_int,
+    generated_hostname,
     int_to_dotted_quad,
     ip_range,
     )
-from maastesting.testcase import TestCase
 
 
 dottedquad_int = [
@@ -57,3 +59,13 @@ class TestUtilities(TestCase):
         self.assertEqual(
             ['192.168.0.1', '192.168.0.2', '192.168.0.3'],
             list(ip_range('192.168.0.1', '192.168.0.3')))
+
+    def test_generated_hostname_returns_hostname(self):
+        self.assertEqual(
+            '192-168-0-1', generated_hostname('192.168.0.1'))
+
+    def test_generated_hostname_returns_hostname_plus_domain(self):
+        domain = factory.getRandomString()
+        self.assertEqual(
+            '192-168-0-1.%s' % domain,
+            generated_hostname('192.168.0.1', domain))

@@ -153,8 +153,9 @@ class TestDNSTasks(TestCase):
         command = factory.getRandomString()
         zone_name = factory.getRandomString()
         zone = DNSZoneConfig(
-            zone_name, bcast='192.168.0.255',
-            mask='255.255.255.0',
+            zone_name, broadcast_ip='192.168.0.255',
+            ip_range_low='192.168.0.0', ip_range_high='192.168.0.254',
+            subnet_mask='255.255.255.0',
             serial=random.randint(1, 100),
             mapping={factory.getRandomString(): '192.168.0.5'})
         result = write_dns_zone_config.delay(
@@ -215,8 +216,9 @@ class TestDNSTasks(TestCase):
         # the zone files, and reloads the dns service.
         zone_name = factory.getRandomString()
         zones = [DNSZoneConfig(
-            zone_name, bcast='192.168.0.255',
-            mask='255.255.255.0',
+            zone_name, broadcast_ip='192.168.0.255',
+            ip_range_low='192.168.0.0', ip_range_high='192.168.0.254',
+            subnet_mask='255.255.255.0',
             serial=random.randint(1, 100),
             mapping={factory.getRandomString(): '192.168.0.5'})]
         command = factory.getRandomString()

@@ -23,11 +23,11 @@ from django.db.models import (
     )
 from maasserver import DefaultMeta
 from maasserver.models.timestampedmodel import TimestampedModel
-from maasserver.utils.network import ip_range
 from piston.models import (
     KEY_SIZE,
     Token,
     )
+from provisioningserver.dns.utils import ip_range
 
 
 worker_user_name = 'maas-nodegroup-worker'

@@ -11,14 +11,30 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'generated_hostname',
     'int_to_dotted_quad',
     'dotted_quad_to_int',
     'ip_range',
     ]
 
+from itertools import imap
 import socket
 import struct
-from itertools import imap
+
+
+def generated_hostname(ip, domain=None):
+    """Return the auto-generated hostname for the give IP.
+
+    >>> generated_hostname('192.168.0.1')
+    '192-168-0-1'
+    >>> generated_hostname('192.168.0.1', 'mydomain.com')
+    '192-168-0-1.mydomain.com'
+    """
+    hostname = ip.replace('.', '-')
+    if domain is not None:
+        return '%s.%s' % (hostname, domain)
+    else:
+        return hostname
 
 
 def int_to_dotted_quad(n):
