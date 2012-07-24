@@ -12,14 +12,17 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "Omshell",
+    ]
 
 
 class Omshell:
     """Wrap up the omshell utility in Python."""
 
     def __init__(self, server_address, shared_key):
-        pass
+        self.server_address=server_address
+        self.shared_key=shared_key
 
     def create(self, ip_address, mac_address):
         pass
