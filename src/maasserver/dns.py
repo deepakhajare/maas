@@ -111,15 +111,16 @@ def change_dns_zones(nodegroups):
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
     serial = next_zone_serial()
+    callback = None
     for nodegroup in nodegroups:
         zone = get_zone(nodegroup, serial)
-        reverse_zone_reload_subtask = tasks.rndc_command.subtask(
+        callback = tasks.rndc_command.subtask(
             args=[['reload', zone.reverse_zone_name]])
-        zone_reload_subtask = tasks.rndc_command.subtask(
+        callback = tasks.rndc_command.subtask(
             args=[['reload', zone.zone_name]],
-            callback=reverse_zone_reload_subtask)
-        tasks.write_dns_zone_config.delay(
-            zone=zone, callback=zone_reload_subtask)
+            callback=callback)
+    tasks.write_dns_zone_config.delay(
+            zone=zone, callback=callback)
 
 
 def add_zone(nodegroup):
