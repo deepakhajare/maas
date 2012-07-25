@@ -196,7 +196,7 @@ class TestDNSZoneConfig(TestCase):
             )
 
     def test_DNSZoneConfig_computes_dns_config_file_paths(self):
-        zone_name = factory.getRandomString()
+        zone_name = factory.make_name('zone')
         reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
         dns_zone_config = DNSZoneConfig(
             zone_name, broadcast_ip='192.168.0.255',
@@ -217,7 +217,7 @@ class TestDNSZoneConfig(TestCase):
     def test_DNSZoneConfig_reverse_data_slash_24(self):
         # DNSZoneConfig calculates the reverse data correctly for
         # a /24 network.
-        zone_name = factory.getRandomString()
+        zone_name = factory.make_name('zone')
         hostname = factory.getRandomString()
         ip = '192.168.0.5'
         network = IPNetwork('192.168.0.1/24')
