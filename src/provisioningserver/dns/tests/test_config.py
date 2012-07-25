@@ -39,6 +39,7 @@ from provisioningserver.dns.config import (
     TEMPLATES_PATH,
     )
 from provisioningserver.dns.utils import generated_hostname
+from provisioningserver.testing import network_infos
 import tempita
 from testtools.matchers import (
     Contains,
@@ -123,8 +124,8 @@ class TestDNSConfig(TestCase):
         network = factory.getRandomNetwork()
         ip = factory.getRandomIPInNetwork(network)
         zone = DNSZoneConfig(
-            zone_name, network=network,
-            mapping={factory.getRandomString(): ip})
+            zone_name, mapping={factory.getRandomString(): ip},
+            **network_infos(network))
         dnsconfig = DNSConfig(zones=[zone])
         dnsconfig.write_config()
         self.assertThat(
@@ -180,14 +181,17 @@ class TestDNSZoneConfig(TestCase):
         ip = factory.getRandomIPInNetwork(network)
         mapping = {hostname: ip}
         dns_zone_config = DNSZoneConfig(
-            zone_name, serial, mapping, network)
+            zone_name, serial, mapping, **network_infos(network))
         self.assertThat(
             dns_zone_config,
             MatchesStructure.byEquality(
                 zone_name=zone_name,
                 serial=serial,
                 mapping=mapping,
-                network=network,
+                subnet_mask=str(network.netmask),
+                broadcast_ip=str(network.broadcast),
+                ip_range_low=str(network.first),
+                ip_range_high=str(network.last),
                 )
             )
 
@@ -212,9 +216,9 @@ class TestDNSZoneConfig(TestCase):
         zone_name = factory.getRandomString()
         hostname = factory.getRandomString()
         ip = '192.168.0.5'
+        network = IPNetwork('192.168.0.1/24')
         dns_zone_config = DNSZoneConfig(
-            zone_name, network=IPNetwork('192.168.0.1/24'),
-            mapping={hostname: ip})
+            zone_name, mapping={hostname: ip}, **network_infos(network))
         self.assertEqual(
             (
                 1,
@@ -233,9 +237,9 @@ class TestDNSZoneConfig(TestCase):
         zone_name = factory.getRandomString()
         hostname = factory.getRandomString()
         ip = '192.168.0.10'
+        network = IPNetwork('192.168.0.1/22')
         dns_zone_config = DNSZoneConfig(
-            zone_name, network=IPNetwork('192.168.0.1/22'),
-            mapping={hostname: ip})
+            zone_name, mapping={hostname: ip}, **network_infos(network))
         self.assertEqual(
             (
                 2,
@@ -250,24 +254,30 @@ class TestDNSZoneConfig(TestCase):
 
     def test_DNSZoneConfig_get_generated_mapping(self):
         name = factory.getRandomString()
+        network = IPNetwork('192.12.0.1/30')
         dns_zone_config = DNSZoneConfig(
-            name, network=IPNetwork('192.12.0.1/30'))
+            name, **network_infos(network))
         self.assertEqual(
             {
+                generated_hostname('192.12.0.0'): '192.12.0.0',
                 generated_hostname('192.12.0.1'): '192.12.0.1',
                 generated_hostname('192.12.0.2'): '192.12.0.2',
+                generated_hostname('192.12.0.3'): '192.12.0.3',
              },
             dns_zone_config.get_generated_mapping(),
             )
 
     def test_DNSZoneConfig_get_generated_reverse_mapping(self):
         name = factory.getRandomString()
+        network = IPNetwork('192.12.0.1/30')
         dns_zone_config = DNSZoneConfig(
-            name, network=IPNetwork('192.12.0.1/30'))
+            name, **network_infos(network))
         self.assertEqual(
             {
+                '0': '%s.' % generated_hostname('192.12.0.0', name),
                 '1': '%s.' % generated_hostname('192.12.0.1', name),
                 '2': '%s.' % generated_hostname('192.12.0.2', name),
+                '3': '%s.' % generated_hostname('192.12.0.3', name),
              },
             dns_zone_config.get_generated_reverse_mapping(),
             )
@@ -281,7 +291,7 @@ class TestDNSZoneConfig(TestCase):
         ip = factory.getRandomIPInNetwork(network)
         dns_zone_config = DNSZoneConfig(
             zone_name, serial=random.randint(1, 100),
-            network=network, mapping={hostname: ip})
+            mapping={hostname: ip}, **network_infos(network))
         dns_zone_config.write_config()
         self.assertThat(
             os.path.join(target_dir, 'zone.%s' % zone_name),
@@ -299,8 +309,7 @@ class TestDNSZoneConfig(TestCase):
         zone_name = factory.getRandomString()
         network = IPNetwork('192.168.0.1/22')
         dns_zone_config = DNSZoneConfig(
-            zone_name, serial=random.randint(1, 100),
-            network=network)
+            zone_name, serial=random.randint(1, 100), **network_infos(network))
         dns_zone_config.write_reverse_config()
         self.assertThat(
             os.path.join(target_dir, 'zone.rev.%s' % zone_name),

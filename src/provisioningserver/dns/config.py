@@ -29,6 +29,7 @@ from subprocess import (
     )
 
 from celery.conf import conf
+from netaddr import IPRange
 from provisioningserver.dns.utils import generated_hostname
 from provisioningserver.utils import (
     atomic_write,
@@ -208,25 +209,27 @@ class DNSZoneConfig(DNSConfig):
     template_file_name = 'zone.template'
 
     def __init__(self, zone_name, serial=None, mapping={},
-                 network=None):
+                 subnet_mask=None, broadcast_ip=None, ip_range_low=None,
+                 ip_range_high=None):
         self.zone_name = zone_name
         self.serial = serial
         self.mapping = mapping
-        self.network = network
+        self.subnet_mask = subnet_mask
+        self.broadcast_ip = broadcast_ip
+        self.ip_range_low = ip_range_low
+        self.ip_range_high = ip_range_high
 
     @property
     def byte_num(self):
         """Number of significant octets for the IPs of this zone."""
         return 4 - len(
-            [byte for byte in str(self.network.netmask).split('.')
+            [byte for byte in self.subnet_mask.split('.')
              if byte == '255'])
 
     @property
     def reverse_zone_name(self):
         """Return the name of the reverse zone."""
-        broadcast_ip = str(self.network.broadcast)
-
-        significant_bits = broadcast_ip.split('.')[:4 - self.byte_num]
+        significant_bits = self.broadcast_ip.split('.')[:4 - self.byte_num]
         return '%s.in-addr.arpa' % '.'.join(reversed(significant_bits))
 
     def get_mapping(self):
@@ -244,7 +247,7 @@ class DNSZoneConfig(DNSConfig):
         """
         return {
             generated_hostname(str(ip)): str(ip)
-            for ip in self.network.iter_hosts()
+            for ip in IPRange(self.ip_range_low, self.ip_range_high)
         }
 
     def get_generated_reverse_mapping(self):

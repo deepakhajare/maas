@@ -17,7 +17,6 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
-from netaddr import IPNetwork
 from testtools.matchers import MatchesStructure
 
 
@@ -105,20 +104,3 @@ class TestNodeGroupManager(TestCase):
         master.worker_ip = ip
         master.save()
         self.assertEqual(ip, NodeGroup.objects.ensure_master().worker_ip)
-
-
-class TestNodeGroup(TestCase):
-
-    def test_network_returns_network(self):
-        nodegroup = NodeGroup(
-            name=factory.make_name('nodegroup'),
-            broadcast_ip='192.168.0.255',
-            subnet_mask='255.255.255.0',
-            ip_range_low='192.168.0.1',
-            ip_range_high='192.168.0.254',
-            )
-        network = nodegroup.network
-        self.assertIsInstance(network, IPNetwork)
-        self.assertEqual(
-            ('192.168.0.255', '255.255.255.0'),
-            (str(network.broadcast), str(network.netmask)))

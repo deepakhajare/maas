@@ -23,7 +23,6 @@ from django.db.models import (
     )
 from maasserver import DefaultMeta
 from maasserver.models.timestampedmodel import TimestampedModel
-from netaddr import IPNetwork
 from piston.models import (
     KEY_SIZE,
     Token,
@@ -109,8 +108,3 @@ class NodeGroup(TimestampedModel):
         editable=True, unique=True, blank=True, null=True, default='')
     ip_range_high = IPAddressField(
         editable=True, unique=True, blank=True, null=True, default='')
-
-    @property
-    def network(self):
-        """Return the IPNetwork for this nodegroup."""
-        return IPNetwork('%s/%s' % (self.ip_range_low, self.subnet_mask))
