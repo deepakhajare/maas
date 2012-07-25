@@ -14,6 +14,7 @@ __all__ = []
 
 import os
 import random
+from subprocess import CalledProcessError
 
 from maasserver.enum import ARCHITECTURE
 from maastesting.celery import CeleryFixture
@@ -91,13 +92,23 @@ class TestDHCPTasks(TestCase):
         ip = factory.getRandomIPAddress()
         server_address = factory.getRandomString()
         key = factory.getRandomString()
-        recorder = FakeMethod(result=(0,"hardware-type"))
+        recorder = FakeMethod(result=(0, "hardware-type"))
         self.patch(Omshell, '_run', recorder)
         add_new_dhcp_host_map.delay(ip, mac, server_address, key)
 
         self.assertThat(
             recorder.extract_args()[0][0],
             ContainsAll([ip, mac, server_address, key]))
+
+    def test_add_new_dhcp_host_map_failure(self):
+        mac = factory.getRandomMACAddress()
+        ip = factory.getRandomIPAddress()
+        server_address = factory.getRandomString()
+        key = factory.getRandomString()
+        self.patch(Omshell, '_run', FakeMethod(result=(0, "this_will_fail")))
+        self.assertRaises(
+            CalledProcessError, add_new_dhcp_host_map.delay,
+            ip, mac, server_address, key)
 
 
 class TestTFTPTasks(TestCase):
