@@ -104,9 +104,9 @@ def get_zone(nodegroup, serial=None):
 def change_dns_zones(nodegroups):
     """Update the zone configuration for the given list of Nodegroups.
 
-    :param nodegroup: The list of nodegroups (or the nodegroup) for which the
+    :param nodegroups: The list of nodegroups (or the nodegroup) for which the
         zone should be updated.
-    :type nodegroup: list (or :class:`NodeGroup`)
+    :type nodegroups: list (or :class:`NodeGroup`)
     """
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
