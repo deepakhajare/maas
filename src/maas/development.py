@@ -40,7 +40,7 @@ TEST_RUNNER = 'maastesting.runner.TestRunner'
 USE_REAL_PSERV = False
 
 # Don't connect to the DNS server in tests, this will be enabled on a case per
-# cqse basis.
+# case basis.
 DNS_CONNECT = False
 
 # Invalid strings should be visible.
