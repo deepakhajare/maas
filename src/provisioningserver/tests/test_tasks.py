@@ -32,9 +32,11 @@ from provisioningserver.dns.config import (
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
 from provisioningserver.tasks import (
+    add_new_dhcp_host_map,
     power_off,
     power_on,
     rndc_command,
+    Omshell,
     setup_rndc_configuration,
     write_dns_config,
     write_dns_zone_config,
@@ -76,6 +78,26 @@ class TestPowerTasks(TestCase):
         self.assertRaises(
             PowerActionFail, power_off.delay,
             POWER_TYPE.WAKE_ON_LAN, mac=arbitrary_mac)
+
+
+class TestDHCPTasks(TestCase):
+
+    resources = (
+        ("celery", FixtureResource(CeleryFixture())),
+        )
+
+    def test_add_new_dhcp_host_map(self):
+        mac = factory.getRandomMACAddress()
+        ip = factory.getRandomIPAddress()
+        server_address = factory.getRandomString()
+        key = factory.getRandomString()
+        recorder = FakeMethod(result=(0,"hardware-type"))
+        self.patch(Omshell, '_run', recorder)
+        add_new_dhcp_host_map.delay(ip, mac, server_address, key)
+
+        self.assertThat(
+            recorder.extract_args()[0][0],
+            ContainsAll([ip, mac, server_address, key]))
 
 
 class TestTFTPTasks(TestCase):
