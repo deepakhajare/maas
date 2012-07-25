@@ -19,10 +19,6 @@ __all__ = [
 import os
 
 from celeryconfig import PXE_TEMPLATES_DIR
-from provisioningserver.pxe.tftppath import (
-    compose_config_path,
-    locate_tftp_path,
-    )
 import tempita
 
 
@@ -48,12 +44,6 @@ class PXEConfig:
         aa:bb:cc:dd:ee:ff.  This is the default for MAC addresses coming
         from the database fields in MAAS, so it's not heavily checked here.
     :type mac: string
-    :param tftproot: Base directory to write PXE configurations to,
-        e.g.  /var/lib/tftpboot/ (which is also the default).  The config
-        file will go into a directory inside this tree that's determined by
-        the architecture that it's for:
-        `<tftproot>/maas/<arch>/<subarch>/pxelinux.cfg/`
-    :type tftproot: string
 
     :raises PXEConfigFail: if there's a problem with template parameters
         or the MAC address looks incorrectly formatted.
@@ -62,25 +52,16 @@ class PXEConfig:
 
     >>> pxeconfig = PXEConfig("armhf", "armadaxp", mac="00:a1:b2:c3:e4:d5")
 
-    and then write the file with:
+    and then produce a configuration file with:
 
-    >>> pxeconfig.write_config(
+    >>> pxeconfig.get_config(
     ...     menutitle="menutitle", kernelimage="/my/kernel",
             append="initrd=blah url=blah")
     """
 
-    def __init__(self, arch, subarch=None, mac=None, tftproot=None):
-        if subarch is None:
-            subarch = "generic"
+    def __init__(self, arch, subarch='generic', mac=None):
         self._validate_mac(mac)
         self.template = os.path.join(self.template_basedir, "maas.template")
-        if mac is not None:
-            filename = mac.replace(':', '-')
-        else:
-            filename = "default"
-        self.target_file = locate_tftp_path(
-            compose_config_path(arch, subarch, filename),
-            tftproot=tftproot)
 
     @property
     def template_basedir(self):
@@ -124,20 +105,3 @@ class PXEConfig:
         """
         template = self.get_template()
         return self.render_template(template, **kwargs)
-
-    def write_config(self, **kwargs):
-        """Write out this PXE config file.
-
-        :param menutitle: The PXE menu title shown.
-        :param kernelimage: The path to the kernel in the TFTP server
-        :param append: Kernel parameters to append.
-
-        Any required directories will be created but the caller must have
-        permission to make them and write the file.
-        """
-        rendered = self.get_config(**kwargs)
-        target_dir = os.path.dirname(self.target_file)
-        if not os.path.isdir(target_dir):
-            os.makedirs(target_dir)
-        with open(self.target_file, "w") as f:
-            f.write(rendered)
