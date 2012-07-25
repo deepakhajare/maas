@@ -29,22 +29,14 @@ user_name = 'maas-nodegroup-worker'
 worker_user = None
 
 
-def create_worker_user():
-    """Create and return the worker user."""
-    worker_user = User(
-        username=user_name, first_name="Node-group worker",
-        last_name="Special user", email="maas-nodegroup-worker@localhost",
-        is_staff=False, is_active=False, is_superuser=False)
-    worker_user.save()
-    return worker_user
-
-
 def get_worker_user():
     """Get the system user representing the node-group workers."""
     global worker_user
     if worker_user is None:
-        try:
-            worker_user = User.objects.get(username=user_name)
-        except User.DoesNotExist:
-            worker_user = create_worker_user()
+        worker_user, created = User.objects.get_or_create(
+            username=user_name, defaults=dict(
+                first_name="Node-group worker",
+                last_name="Special user",
+                email="maas-nodegroup-worker@localhost",
+                is_staff=False, is_active=False, is_superuser=False))
     return worker_user
