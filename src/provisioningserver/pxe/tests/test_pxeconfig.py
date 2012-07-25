@@ -43,14 +43,6 @@ class TestPXEConfig(TestCase):
             os.path.join(pxeconfig.template_basedir, 'maas.template'),
             PXEConfig("armhf", "armadaxp").template)
 
-    def test_init_rejects_dodgy_mac(self):
-        # !=5 colons is bad.
-        bad_mac = "aa:bb:cc:dd:ee"
-        exception = self.assertRaises(
-            PXEConfigFail, PXEConfig, "armhf", "armadaxp", bad_mac)
-        self.assertEqual(
-            exception.message, "Expecting exactly five ':' chars, found 4")
-
     def test_template_basedir_defaults_to_local_dir(self):
         self.configure_templates_dir()
         arch = factory.make_name('arch')

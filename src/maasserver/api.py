@@ -1088,9 +1088,9 @@ def pxeconfig(request):
     kernelimage = get_mandatory_param(request.GET, 'kernelimage')
     append = get_mandatory_param(request.GET, 'append')
     arch = get_mandatory_param(request.GET, 'arch')
-    subarch = request.GET.get('subarch', None)
+    subarch = request.GET.get('subarch', 'generic')
     mac = request.GET.get('mac', None)
-    config = PXEConfig(arch, subarch, mac)
+    config = PXEConfig(arch, subarch)
 
     # In addition to the "append" parameter, also add a URL for the
     # node's preseed to the kernel command line.

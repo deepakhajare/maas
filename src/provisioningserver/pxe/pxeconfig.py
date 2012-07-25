@@ -31,26 +31,19 @@ class PXEConfig:
 
     Encapsulation of PXE config templates and parameter substitution.
 
-    :param arch: The architecture of the context node.
+    :param arch: The architecture to write a configuration for, e.g. i386.
     :type arch: string
-    :param subarch: The sub-architecture of the context node. This is
-        optional because some architectures such as i386 don't have a
-        sub-architecture.  If not passed, a directory name of "generic"
-        is used in the subarch part of the path to the target file.
+    :param subarch: Sub-architecture.  Only needed for architectures that
+        have sub-architectures, such as ARM; other architectures use
+        a sub-architecture of "generic" (which is the default).
     :type subarch: string
-    :param mac: If specified will write out a mac-specific pxe file.
-        If not specified will write out a "default" file.
-        Note: Ensure the mac is passed in a colon-separated format like
-        aa:bb:cc:dd:ee:ff.  This is the default for MAC addresses coming
-        from the database fields in MAAS, so it's not heavily checked here.
-    :type mac: string
 
-    :raises PXEConfigFail: if there's a problem with template parameters
-        or the MAC address looks incorrectly formatted.
+    :raises PXEConfigFail: if there's a problem substituting the template
+        parameters.
 
     Use this class by instantiating with parameters that define its location:
 
-    >>> pxeconfig = PXEConfig("armhf", "armadaxp", mac="00:a1:b2:c3:e4:d5")
+    >>> pxeconfig = PXEConfig("armhf", "armadaxp")
 
     and then produce a configuration file with:
 
@@ -59,8 +52,7 @@ class PXEConfig:
             append="initrd=blah url=blah")
     """
 
-    def __init__(self, arch, subarch='generic', mac=None):
-        self._validate_mac(mac)
+    def __init__(self, arch, subarch='generic'):
         self.template = os.path.join(self.template_basedir, "maas.template")
 
     @property
@@ -73,18 +65,6 @@ class PXEConfig:
             return os.path.join(os.path.dirname(__file__), 'templates')
         else:
             return PXE_TEMPLATES_DIR
-
-    def _validate_mac(self, mac):
-        # A MAC address should be of the form aa:bb:cc:dd:ee:ff with
-        # precisely five colons in it.  We do a cursory check since most
-        # MACs will come from the DB which are already checked and
-        # formatted.
-        if mac is None:
-            return
-        colon_count = mac.count(":")
-        if colon_count != 5:
-            raise PXEConfigFail(
-                "Expecting exactly five ':' chars, found %s" % colon_count)
 
     def get_template(self):
         with open(self.template, "r") as f:
