@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from subprocess import CalledProcessError
+from textwrap import dedent
 
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
@@ -46,15 +47,16 @@ class TestOmshell(TestCase):
 
         shell.create(ip_address, mac_address)
 
-        expected_args = (
-            "server %(server)s\n"
-            "key omapi_key %(key)s\n"
-            "connect\n"
-            "new host\n"
-            "set ip-address = %(ip)s\n"
-            "set hardware-address = %(mac)s\n"
-            "set name = %(ip)s\n"
-            "create\n" % dict(
+        expected_args = (dedent("""\
+            server {server}
+            key omapi_key {key}
+            connect
+            new host
+            set ip-address = {ip}
+            set hardware-address = {mac}
+            set name = {ip}
+            create
+            """).format(
                 server=server_address,
                 key=shared_key,
                 ip=ip_address,
@@ -99,14 +101,15 @@ class TestOmshell(TestCase):
 
         shell.remove(ip_address)
 
-        expected_args = (
-            "server %(server)s\n"
-            "key omapi_key %(key)s\n"
-            "connect\n"
-            "new host\n"
-            "set name = %(ip)s\n"
-            "open\n"
-            "remove\n" % dict(
+        expected_args = (dedent("""\
+            server {server}
+            key omapi_key {key}
+            connect
+            new host
+            set name = {ip}
+            open
+            remove
+            """).format(
                 server=server_address,
                 key=shared_key,
                 ip=ip_address),)

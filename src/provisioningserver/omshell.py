@@ -56,20 +56,17 @@ class Omshell:
 
     def create(self, ip_address, mac_address):
         stdin = dedent("""\
-            server %(server)s
-            key omapi_key %(key)s
+            server {self.server_address}
+            key omapi_key {self.shared_key}
             connect
             new host
-            set ip-address = %(ip_address)s
-            set hardware-address = %(mac_address)s
-            set name = %(ip_address)s
+            set ip-address = {ip_address}
+            set hardware-address = {mac_address}
+            set name = {ip_address}
             create
             """)
-        stdin = stdin % dict(
-            server=self.server_address,
-            key=self.shared_key,
-            ip_address=ip_address,
-            mac_address=mac_address)
+        stdin = stdin.format(
+            self=self, ip_address=ip_address, mac_address=mac_address)
 
         returncode, output = self._run(stdin)
         # If the call to omshell doesn't result in output containing the
@@ -82,18 +79,16 @@ class Omshell:
 
     def remove(self, ip_address):
         stdin = dedent("""\
-            server %(server)s
-            key omapi_key %(key)s
+            server {self.server_address}
+            key omapi_key {self.shared_key}
             connect
             new host
-            set name = %(ip_address)s
+            set name = {ip_address}
             open
             remove
             """)
-        stdin = stdin % dict(
-            server=self.server_address,
-            key=self.shared_key,
-            ip_address=ip_address)
+        stdin = stdin.format(
+            self=self, ip_address=ip_address)
 
         returncode, output = self._run(stdin)
 
