@@ -47,7 +47,7 @@ LOGOUT_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
 
-# Should the DNS features be enabled?.  Note that the MAAS' DNS features can
+# Should the DNS features be enabled?  Note that the MAAS' DNS features can
 # be enabled/disabled by an admin using a config option.  Having this config
 # option is a debugging/testing feature to be able to quickly disconnect the
 # DNS machinery.
