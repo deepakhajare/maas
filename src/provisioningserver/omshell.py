@@ -30,11 +30,14 @@ class Omshell:
     def __init__(self, server_address, shared_key):
         self.server_address = server_address
         self.shared_key = shared_key
-        self.proc = Popen("omshell", stdin=PIPE, stdout=PIPE)
 
     def _run(self, stdin):
-        stdout, stderr = self.proc.communicate(stdin)
-        return stdout
+        command = ["omshell"]
+        proc = Popen(command, stdin=PIPE, stdout=PIPE)
+        stdout, stderr = proc.communicate(stdin)
+        if proc.poll() != 0:
+            raise CalledProcessError(proc.returncode, command, stdout)
+        return proc.returncode, stdout
 
     def create(self, ip_address, mac_address):
         stdin = dedent("""\
@@ -53,14 +56,14 @@ class Omshell:
             ip_address=ip_address,
             mac_address=mac_address)
 
-        output = self._run(stdin)
+        returncode, output = self._run(stdin)
         # If the call to omshell doesn't result in output containing the
         # magic string 'hardware-type' then we can be reasonably sure
         # that the 'create' command failed.  Unfortunately there's no
         # other output like "successful" to check so this is the best we
         # can do.
         if "hardware-type" not in output:
-            raise CalledProcessError(self.proc.returncode, "omshell", output)
+            raise CalledProcessError(returncode, "omshell", output)
 
     def remove(self, ip_address):
         stdin = dedent("""\
@@ -77,7 +80,7 @@ class Omshell:
             key=self.shared_key,
             ip_address=ip_address)
 
-        output = self._run(stdin)
+        returncode, output = self._run(stdin)
 
         # If the omshell worked, the last line should reference a null
         # object.
@@ -87,4 +90,4 @@ class Omshell:
         except IndexError:
             last_line = ""
         if last_line != "obj: <null>":
-            raise CalledProcessError(self.proc.returncode, "omshell", output)
+            raise CalledProcessError(returncode, "omshell", output)

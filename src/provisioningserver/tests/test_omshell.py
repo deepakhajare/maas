@@ -40,9 +40,9 @@ class TestOmshell(TestCase):
         shell = Omshell(server_address, shared_key)
 
         # Instead of calling a real omshell, we'll just record the
-        # parameters passed to 'check_call'.
-        recorder = FakeMethod(result=("hardware-type", None))
-        self.patch(shell.proc, 'communicate', recorder)
+        # parameters passed to Popen.
+        recorder = FakeMethod(result=(0, "hardware-type"))
+        self.patch(shell, '_run', recorder)
 
         shell.create(ip_address, mac_address)
 
@@ -79,8 +79,8 @@ class TestOmshell(TestCase):
 
         # Fake a call that results in a failure with random output.
         random_output = factory.getRandomString()
-        recorder = FakeMethod(result=(random_output, None))
-        self.patch(shell.proc, 'communicate', recorder)
+        recorder = FakeMethod(result=(0, random_output))
+        self.patch(shell, '_run', recorder)
 
         exc = self.assertRaises(
             CalledProcessError, shell.create, ip_address, mac_address)
@@ -93,9 +93,9 @@ class TestOmshell(TestCase):
         shell = Omshell(server_address, shared_key)
 
         # Instead of calling a real omshell, we'll just record the
-        # parameters passed to 'check_call'.
-        recorder = FakeMethod(result=("thing1\nthing2\nobj: <null>", None))
-        self.patch(shell.proc, 'communicate', recorder)
+        # parameters passed to Popen.
+        recorder = FakeMethod(result=(0, "thing1\nthing2\nobj: <null>"))
+        self.patch(shell, '_run', recorder)
 
         shell.remove(ip_address)
 
@@ -128,8 +128,8 @@ class TestOmshell(TestCase):
 
         # Fake a call that results in a failure with random output.
         random_output = factory.getRandomString()
-        recorder = FakeMethod(result=(random_output, None))
-        self.patch(shell.proc, 'communicate', recorder)
+        recorder = FakeMethod(result=(0, random_output))
+        self.patch(shell, '_run', recorder)
 
         exc = self.assertRaises(
             CalledProcessError, shell.remove, ip_address)
