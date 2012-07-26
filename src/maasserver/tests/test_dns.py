@@ -92,6 +92,18 @@ class TestDNSUtilities(TestCase):
             (ip, [(hostname, )]),
             (get_dns_server_address(), resolver.extract_args()))
 
+    def test_get_dns_server_address_resolves_hostname_localhost(self):
+        ip = factory.getRandomIPInNetwork(IPNetwork('127.0.0.1/8'))
+        resolver = FakeMethod(result=ip)
+        self.patch(socket, 'gethostbyname', resolver)
+        hostname = factory.getRandomString()
+        url = 'http://%s:%d/%s' % (
+            hostname, factory.getRandomPort(), factory.getRandomString())
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.assertEqual(
+            (ip, [(hostname, )]),
+            (get_dns_server_address(), resolver.extract_args()))
+
     def test_get_dns_server_address_raises_if_hostname_doesnt_resolve(self):
         resolver = FakeMethod(failure=socket.error)
         self.patch(socket, 'gethostbyname', resolver)
