@@ -88,7 +88,7 @@ class TestNodeGroupManager(TestCase):
                 'ip_range_high': None,
             }))
 
-    def test_writes_master_nodegroup_to_database(self):
+    def test_ensure_master_writes_master_nodegroup_to_database(self):
         master = NodeGroup.objects.ensure_master()
         self.assertEqual(
             master.id, NodeGroup.objects.get(name=master.name).id)
@@ -98,9 +98,26 @@ class TestNodeGroupManager(TestCase):
             NodeGroup.objects.ensure_master().id,
             NodeGroup.objects.ensure_master().id)
 
+    def test_ensure_master_does_not_return_other_nodegroup(self):
+        self.assertNotEqual(
+            NodeGroup.objects.new(
+                factory.make_name('nodegroup'), factory.getRandomIPAddress()),
+            NodeGroup.objects.ensure_master())
+
     def test_ensure_master_preserves_existing_attributes(self):
         master = NodeGroup.objects.ensure_master()
         ip = factory.getRandomIPAddress()
         master.worker_ip = ip
         master.save()
         self.assertEqual(ip, NodeGroup.objects.ensure_master().worker_ip)
+
+    def test_ensure_master_updates_groupless_nodes(self):
+        # This test becomes obsolete (and the failure impossible to test
+        # for) once Node.nodegroup is NOT NULL.
+        groupless_node = factory.make_node()
+        groupless_node.nodegroup = None
+        groupless_node.save()
+        groupful_node = factory.make_node(nodegroup=factory.make_node_group())
+        master = NodeGroup.objects.ensure_master()
+        self.assertEqual(master, reload_object(groupless_node).nodegroup)
+        self.assertNotEqual(master, reload_object(groupful_node).nodegroup)
