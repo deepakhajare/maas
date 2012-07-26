@@ -71,9 +71,10 @@ class TestTFTPBackend(TestCase):
             args = {
                 "arch": factory.make_name("arch"),
                 "subarch": factory.make_name("subarch"),
-                "name": factory.make_name("name"),
+                "mac": factory.getRandomMACAddress(),
                 }
-            config_path = compose_config_path(**args)
+            config_path = compose_config_path(
+                arch=args["arch"], subarch=args["subarch"], name=args["mac"])
             # Remove leading slash from config path; the TFTP server does not
             # include them in paths.
             config_path = config_path.lstrip("/")
@@ -95,7 +96,7 @@ class TestTFTPBackend(TestCase):
         # file path (arch, subarch, name) into the configured generator URL.
         arch = factory.make_name("arch").encode("ascii")
         subarch = factory.make_name("subarch").encode("ascii")
-        name = factory.make_name("name").encode("ascii")
+        mac = factory.getRandomMACAddress()
         kernelimage = factory.make_name("kernelimage").encode("ascii")
         menutitle = factory.make_name("menutitle").encode("ascii")
         append = factory.make_name("append").encode("ascii")
@@ -104,7 +105,7 @@ class TestTFTPBackend(TestCase):
              b"append": append})
         backend = TFTPBackend(self.make_dir(), backend_url)
         # params is an example of the parameters obtained from a request.
-        params = {"arch": arch, "subarch": subarch, "name": name}
+        params = {"arch": arch, "subarch": subarch, "mac": mac}
         generator_url = urlparse(backend.get_generator_url(params))
         self.assertEqual("example.com", generator_url.hostname)
         query = parse_qsl(generator_url.query)
@@ -114,7 +115,7 @@ class TestTFTPBackend(TestCase):
             ("arch", arch),
             ("subarch", subarch),
             ("menutitle", menutitle),
-            ("name", name),
+            ("mac", mac),
             ]
         self.assertItemsEqual(query_expected, query)
 
@@ -138,8 +139,8 @@ class TestTFTPBackend(TestCase):
         # a Deferred that will yield a BytesReader.
         arch = factory.make_name("arch").encode("ascii")
         subarch = factory.make_name("subarch").encode("ascii")
-        name = factory.make_name("name").encode("ascii")
-        config_path = compose_config_path(arch, subarch, name)
+        mac = factory.getRandomMACAddress()
+        config_path = compose_config_path(arch, subarch, mac)
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
 
         # Patch get_generator_url() to check params.
@@ -147,7 +148,7 @@ class TestTFTPBackend(TestCase):
 
         @partial(self.patch, backend, "get_generator_url")
         def get_generator_url(params):
-            expected_params = {"arch": arch, "subarch": subarch, "name": name}
+            expected_params = {"arch": arch, "subarch": subarch, "mac": mac}
             self.assertEqual(expected_params, params)
             return generator_url
 

@@ -57,7 +57,7 @@ class TFTPBackend(FilesystemSynchronousBackend):
 
     re_config_file = re.compile(
         r'^maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/'
-        r'pxelinux[.]cfg/(?P<name>[^/]+)$')
+        r'pxelinux[.]cfg/(?P<mac>[^/]+)$')
 
     def __init__(self, base_path, generator_url):
         """
