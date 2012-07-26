@@ -68,13 +68,14 @@ class DNSException(MAASException):
 
 
 def _warn_loopback(ip):
+    """Warn if the given IP address is in the loopback network."""
     if IPAddress(ip) in IPNetwork('127.0.0.1/8'):
         logging.getLogger('maas').warn(
-            "The DNS server address used will be '%s'.  That address is the "
-            "virtual loopback interface.  This might not be a problem if "
-            "you're not using MAAS' DNS features or if you don't rely on "
-            "this information.  Be sure to set the setting "
-            "DEFAULT_MAAS_URL." % ip)
+            "The DNS server address used will be '%s'.  That address is "
+            "in the loopback network.  This might not be a problem "
+            "if you're not using MAAS' DNS features or if "
+            "you don't rely on this information.  Be sure to set the "
+            "setting DEFAULT_MAAS_URL." % ip)
 
 
 def get_dns_server_address():
