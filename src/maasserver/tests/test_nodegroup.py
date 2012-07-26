@@ -17,7 +17,11 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    AllMatch,
+    Equals,
+    MatchesStructure,
+    )
 
 
 def make_dhcp_settings():
@@ -104,3 +108,28 @@ class TestNodeGroupManager(TestCase):
         master.worker_ip = ip
         master.save()
         self.assertEqual(ip, NodeGroup.objects.ensure_master().worker_ip)
+
+
+class TestNodeGroup(TestCase):
+
+    def test_is_dhcp_enabled_false_if_one_element_is_none(self):
+        required_fields = [
+            'subnet_mask', 'broadcast_ip', 'ip_range_low', 'ip_range_high']
+        nodegroups = []
+        for required_field in required_fields:
+            nodegroup = factory.make_node_group()
+            setattr(nodegroup, required_field, None)
+            nodegroup.save()
+            nodegroups.append(nodegroup)
+        self.assertThat(
+                [nodegroup.is_dhcp_enabled() for nodegroup in nodegroups],
+                AllMatch(Equals(False)))
+
+    def test_is_dhcp_enabled_true_if_all_the_elements_defined(self):
+        nodegroup = factory.make_node_group(
+            subnet_mask=factory.getRandomIPAddress(),
+            broadcast_ip=factory.getRandomIPAddress(),
+            ip_range_low=factory.getRandomIPAddress(),
+            ip_range_high=factory.getRandomIPAddress(),
+            )
+        self.assertTrue(nodegroup.is_dhcp_enabled())

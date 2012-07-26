@@ -145,18 +145,25 @@ def dns_post_delete_Node(sender, instance, **kwargs):
 def get_zone(nodegroup, serial=None):
     """Create a :class:`DNSZoneConfig` object from a nodegroup.
 
+    Return a :class:`DNSZoneConfig` if DHCP is enabled on the
+    nodegroup or None if it is not the case.
+
     This method also accepts a serial to reuse the same serial when
     we are creating DNSZoneConfig objects in bulk.
     """
-    if serial is None:
-        serial = next_zone_serial()
-    dns_ip = get_dns_server_address()
-    return DNSZoneConfig(
-        zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
-        subnet_mask=nodegroup.subnet_mask, broadcast_ip=nodegroup.broadcast_ip,
-        ip_range_low=nodegroup.ip_range_low,
-        ip_range_high=nodegroup.ip_range_high,
-        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
+    if nodegroup.is_dhcp_enabled():
+        if serial is None:
+            serial = next_zone_serial()
+        dns_ip = get_dns_server_address()
+        return DNSZoneConfig(
+            zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
+            subnet_mask=nodegroup.subnet_mask,
+            broadcast_ip=nodegroup.broadcast_ip,
+            ip_range_low=nodegroup.ip_range_low,
+            ip_range_high=nodegroup.ip_range_high,
+            mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
+    else:
+        return None
 
 
 def change_dns_zones(nodegroups):
@@ -171,13 +178,14 @@ def change_dns_zones(nodegroups):
     serial = next_zone_serial()
     for nodegroup in nodegroups:
         zone = get_zone(nodegroup, serial)
-        reverse_zone_reload_subtask = tasks.rndc_command.subtask(
-            args=[['reload', zone.reverse_zone_name]])
-        zone_reload_subtask = tasks.rndc_command.subtask(
-            args=[['reload', zone.zone_name]],
-            callback=reverse_zone_reload_subtask)
-        tasks.write_dns_zone_config.delay(
-            zone=zone, callback=zone_reload_subtask)
+        if zone is not None:
+            reverse_zone_reload_subtask = tasks.rndc_command.subtask(
+                args=[['reload', zone.reverse_zone_name]])
+            zone_reload_subtask = tasks.rndc_command.subtask(
+                args=[['reload', zone.zone_name]],
+                callback=reverse_zone_reload_subtask)
+            tasks.write_dns_zone_config.delay(
+                zone=zone, callback=zone_reload_subtask)
 
 
 def add_zone(nodegroup):
@@ -190,24 +198,31 @@ def add_zone(nodegroup):
     :param nodegroup: The nodegroup for which the zone should be added.
     :type nodegroup: :class:`NodeGroup`
     """
-    serial = next_zone_serial()
-    zones = [
-        get_zone(nodegroup, serial)
-        for nodegroup in NodeGroup.objects.all()]
-    reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
-    write_dns_config_subtask = tasks.write_dns_config.subtask(
-        zones=zones, callback=reconfig_subtask)
     zone = get_zone(nodegroup)
-    tasks.write_dns_zone_config.delay(
-        zone=zone, callback=write_dns_config_subtask)
+    if zone is not None:
+        serial = next_zone_serial()
+        zones = filter(
+            None,
+            [
+                get_zone(nodegroup, serial)
+                for nodegroup in NodeGroup.objects.all()
+            ])
+        reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
+        write_dns_config_subtask = tasks.write_dns_config.subtask(
+            zones=zones, callback=reconfig_subtask)
+        tasks.write_dns_zone_config.delay(
+            zone=zone, callback=write_dns_config_subtask)
 
 
 def write_full_dns_config():
     """Write the DNS configuration for all the nodegroups."""
     serial = next_zone_serial()
-    zones = [
-        get_zone(nodegroup, serial)
-        for nodegroup in NodeGroup.objects.all()]
+    zones = filter(
+        None,
+        [
+            get_zone(nodegroup, serial)
+            for nodegroup in NodeGroup.objects.all()
+        ])
     tasks.write_full_dns_config.delay(
         zones=zones,
         callback=tasks.rndc_command.subtask(args=[['reload']]))
