@@ -167,7 +167,7 @@ def setup_rndc_configuration(callback=None):
 @task
 def add_new_dhcp_host_map(ip_address, mac_address, server_address, shared_key):
     """Add a MAC to IP mapping in the DHCP server.
-    
+
     :param ip_address: Dotted quad string
     :param mac_address: Colon-separated hex string, e.g. aa:bb:cc:dd:ee:ff
     :param server_address: IP or hostname for the DHCP server
