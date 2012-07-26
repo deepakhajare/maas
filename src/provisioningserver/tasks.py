@@ -163,9 +163,10 @@ def setup_rndc_configuration(callback=None):
 # DHCP-related tasks
 # =====================================================================
 
+
 @task
 def add_new_dhcp_host_map(ip_address, mac_address, server_address, shared_key):
-    """Add a mac to IP mapping in the DHCP server.
+    """Add a MAC to IP mapping in the DHCP server.
     
     :param ip_address: Dotted quad string
     :param mac_address: Colon-separated hex string, e.g. aa:bb:cc:dd:ee:ff
@@ -176,6 +177,26 @@ def add_new_dhcp_host_map(ip_address, mac_address, server_address, shared_key):
     omshell = Omshell(server_address, shared_key)
     try:
         omshell.create(ip_address, mac_address)
+    except CalledProcessError:
+        # TODO signal to webapp that the job failed.
+
+        # Re-raise, so the job is marked as failed.  Only currently
+        # useful for tests.
+        raise
+
+
+@task
+def remove_dhcp_host_map(ip_address, server_address, shared_key):
+    """Remove an IP to MAC mapping in the DHCP server.
+
+    :param ip_address: Dotted quad string
+    :param server_address: IP or hostname for the DHCP server
+    :param shared_key: The HMAC-MD5 key that the DHCP server uses for access
+        control.
+    """
+    omshell = Omshell(server_address, shared_key)
+    try:
+        omshell.remove(ip_address)
     except CalledProcessError:
         # TODO signal to webapp that the job failed.
 

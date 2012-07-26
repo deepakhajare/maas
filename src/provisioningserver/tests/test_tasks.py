@@ -19,6 +19,7 @@ from subprocess import CalledProcessError
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
+from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 from netaddr import IPNetwork
 from provisioningserver import tasks
@@ -35,6 +36,7 @@ from provisioningserver.tasks import (
     add_new_dhcp_host_map,
     power_off,
     power_on,
+    remove_dhcp_host_map,
     rndc_command,
     Omshell,
     setup_rndc_configuration,
@@ -85,6 +87,9 @@ class TestDHCPTasks(TestCase):
         )
 
     def test_add_new_dhcp_host_map(self):
+        # We don't want to actually run omshell in the task, so we stub
+        # out the wrapper class's _run method and record what it would
+        # do.
         mac = factory.getRandomMACAddress()
         ip = factory.getRandomIPAddress()
         server_address = factory.getRandomString()
@@ -93,11 +98,15 @@ class TestDHCPTasks(TestCase):
         self.patch(Omshell, '_run', recorder)
         add_new_dhcp_host_map.delay(ip, mac, server_address, key)
 
+        # The extracted args are stdin.  We can just check that all the
+        # parameters that were passed are being used.
         self.assertThat(
             recorder.extract_args()[0][0],
             ContainsAll([ip, mac, server_address, key]))
 
     def test_add_new_dhcp_host_map_failure(self):
+        # Check that task failures are caught.  Nothing much happens in
+        # the Task code right now though.
         mac = factory.getRandomMACAddress()
         ip = factory.getRandomIPAddress()
         server_address = factory.getRandomString()
@@ -106,6 +115,34 @@ class TestDHCPTasks(TestCase):
         self.assertRaises(
             CalledProcessError, add_new_dhcp_host_map.delay,
             ip, mac, server_address, key)
+
+    def test_remove_dhcp_host_map(self):
+        # We don't want to actually run omshell in the task, so we stub
+        # out the wrapper class's _run method and record what it would
+        # do.
+        ip = factory.getRandomIPAddress()
+        server_address = factory.getRandomString()
+        key = factory.getRandomString()
+        recorder = FakeMethod(result=(0, "obj: <null>"))
+        self.patch(Omshell, '_run', recorder)
+        remove_dhcp_host_map.delay(ip, server_address, key)
+
+        # The extracted args are stdin.  We can just check that all the
+        # parameters that were passed are being used.
+        self.assertThat(
+            recorder.extract_args()[0][0],
+            ContainsAll([ip, server_address, key]))
+
+    def test_remove_dhcp_host_map_failure(self):
+        # Check that task failures are caught.  Nothing much happens in
+        # the Task code right now though.
+        ip = factory.getRandomIPAddress()
+        server_address = factory.getRandomString()
+        key = factory.getRandomString()
+        self.patch(Omshell, '_run', FakeMethod(result=(0, "this_will_fail")))
+        self.assertRaises(
+            CalledProcessError, remove_dhcp_host_map.delay,
+            ip, server_address, key)
 
 
 class TestDNSTasks(TestCase):
