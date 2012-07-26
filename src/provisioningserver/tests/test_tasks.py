@@ -16,12 +16,11 @@ import os
 import random
 from subprocess import CalledProcessError
 
-from maasserver.enum import ARCHITECTURE
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
-from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
+from netaddr import IPNetwork
 from provisioningserver import tasks
 from provisioningserver.dns.config import (
     conf,
@@ -42,13 +41,11 @@ from provisioningserver.tasks import (
     write_dns_config,
     write_dns_zone_config,
     write_full_dns_config,
-    write_tftp_config_for_node,
     )
+from provisioningserver.testing import network_infos
 from testresources import FixtureResource
 from testtools.matchers import (
-    AllMatch,
     Equals,
-    FileContains,
     FileExists,
     MatchesListwise,
     )
@@ -111,39 +108,6 @@ class TestDHCPTasks(TestCase):
             ip, mac, server_address, key)
 
 
-class TestTFTPTasks(TestCase):
-
-    resources = (
-        ("celery", FixtureResource(CeleryFixture())),
-        )
-
-    def test_write_tftp_config_for_node_writes_files(self):
-        arch = ARCHITECTURE.i386
-        mac = factory.getRandomMACAddress()
-        mac2 = factory.getRandomMACAddress()
-        tftproot = self.make_dir()
-        kernel = factory.getRandomString()
-        menutitle = factory.getRandomString()
-        append = factory.getRandomString()
-
-        result = write_tftp_config_for_node.delay(
-            arch, (mac, mac2), tftproot=tftproot, menutitle=menutitle,
-            kernelimage=kernel, append=append)
-
-        self.assertTrue(result.successful(), result)
-        expected_file1 = os.path.join(
-            tftproot, 'maas', arch, "generic", "pxelinux.cfg",
-            mac.replace(":", "-"))
-        expected_file2 = os.path.join(
-            tftproot, 'maas', arch, "generic", "pxelinux.cfg",
-            mac2.replace(":", "-"))
-        self.assertThat(
-            [expected_file1, expected_file2],
-            AllMatch(
-                FileContains(
-                    matcher=ContainsAll((kernel, menutitle, append)))))
-
-
 class TestDNSTasks(TestCase):
 
     resources = (
@@ -185,19 +149,20 @@ class TestDNSTasks(TestCase):
     def test_write_dns_zone_config_writes_file(self):
         command = factory.getRandomString()
         zone_name = factory.getRandomString()
+        network = IPNetwork('192.168.0.3/24')
+        ip = factory.getRandomIPInNetwork(network)
         zone = DNSZoneConfig(
-            zone_name, bcast='192.168.0.255',
-            mask='255.255.255.0',
-            serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): '192.168.0.5'})
+            zone_name, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip}, **network_infos(network))
         result = write_dns_zone_config.delay(
             zone=zone, callback=rndc_command.subtask(args=[command]))
 
+        reverse_file_name = 'zone.rev.0.168.192.in-addr.arpa'
         self.assertThat(
             (
                 result.successful(),
                 os.path.join(self.dns_conf_dir, 'zone.%s' % zone_name),
-                os.path.join(self.dns_conf_dir, 'zone.rev.%s' % zone_name),
+                os.path.join(self.dns_conf_dir, reverse_file_name),
                 self.rndc_recorder.calls,
             ),
             MatchesListwise(
@@ -247,26 +212,24 @@ class TestDNSTasks(TestCase):
         # write_full_dns_config writes the config file, writes
         # the zone files, and reloads the dns service.
         zone_name = factory.getRandomString()
+        network = IPNetwork('192.168.0.3/24')
+        ip = factory.getRandomIPInNetwork(network)
         zones = [DNSZoneConfig(
-            zone_name, bcast='192.168.0.255',
-            mask='255.255.255.0',
-            serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): '192.168.0.5'})]
+            zone_name, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip}, **network_infos(network))]
         command = factory.getRandomString()
         result = write_full_dns_config.delay(
             zones=zones,
             callback=rndc_command.subtask(args=[command]))
 
+        reverse_file_name = 'zone.rev.0.168.192.in-addr.arpa'
         self.assertThat(
             (
                 result.successful(),
                 self.rndc_recorder.calls,
-                os.path.join(
-                    self.dns_conf_dir, 'zone.%s' % zone_name),
-                os.path.join(
-                    self.dns_conf_dir, 'zone.rev.%s' % zone_name),
-                os.path.join(
-                    self.dns_conf_dir, MAAS_NAMED_CONF_NAME),
+                os.path.join(self.dns_conf_dir, 'zone.%s' % zone_name),
+                os.path.join(self.dns_conf_dir, reverse_file_name),
+                os.path.join(self.dns_conf_dir, MAAS_NAMED_CONF_NAME),
             ),
             MatchesListwise(
                 (

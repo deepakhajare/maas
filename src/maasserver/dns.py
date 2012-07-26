@@ -50,14 +50,16 @@ def get_zone(nodegroup, serial=None):
         serial = next_zone_serial()
     return DNSZoneConfig(
         zone_name=nodegroup.name, serial=serial,
-        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
-        bcast=nodegroup.broadcast_ip, mask=nodegroup.subnet_mask)
+        subnet_mask=nodegroup.subnet_mask, broadcast_ip=nodegroup.broadcast_ip,
+        ip_range_low=nodegroup.ip_range_low,
+        ip_range_high=nodegroup.ip_range_high,
+        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
 
 
 def change_dns_zone(nodegroup):
     """Update the zone configurtion for the given `nodegroup`.
 
-    :param nodegroup: The nodegroup for which the zone should be cupdated.
+    :param nodegroup: The nodegroup for which the zone should be updated.
     :type nodegroup: :class:`NodeGroup`
     """
     zone = get_zone(nodegroup)
