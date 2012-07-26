@@ -85,6 +85,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.core.urlresolvers import reverse
 from django.forms.models import model_to_dict
 from django.http import (
     HttpResponse,
@@ -317,6 +318,16 @@ def get_mandatory_param(data, key, validator=None):
             return validator.to_python(value)
         except Invalid, e:
             raise ValidationError("Invalid %s: %s" % (key, e.msg))
+    else:
+        return value
+
+
+def get_optional_list(data, key, default=None):
+    """Get the list from the provided data dict or return a default value.
+    """
+    value = data.getlist(key)
+    if value == []:
+        return default
     else:
         return value
 
@@ -667,21 +678,30 @@ class NodesHandler(BaseHandler):
 
     @api_exported('GET')
     def list(self, request):
-        """List Nodes visible to the user, optionally filtered by id."""
-        match_ids = request.GET.getlist('id')
-        if match_ids == []:
-            match_ids = None
+        """List Nodes visible to the user, optionally filtered by criteria.
+
+        :param mac_address: An optional list of MAC addresses.  Only
+            nodes with matching MAC addresses will be returned.
+        :type mac_address: iterable
+        :param id: An optional list of system ids.  Only nodes with
+            matching system ids will be returned.
+        :type id: iterable
+        """
+        # Get filters from request.
+        match_ids = get_optional_list(request.GET, 'id')
+        match_macs = get_optional_list(request.GET, 'mac_address')
+        # Fetch nodes and apply filters.
         nodes = Node.objects.get_nodes(
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
+        if match_macs is not None:
+            nodes = nodes.filter(macaddress__mac_address__in=match_macs)
         return nodes.order_by('id')
 
     @api_exported('GET')
     def list_allocated(self, request):
         """Fetch Nodes that were allocated to the User/oauth token."""
         token = get_oauth_token(request)
-        match_ids = request.GET.getlist('id')
-        if match_ids == []:
-            match_ids = None
+        match_ids = get_optional_list(request.GET, 'id')
         nodes = Node.objects.get_allocated_visible_nodes(token, match_ids)
         return nodes.order_by('id')
 
@@ -1026,6 +1046,33 @@ def api_doc(request):
         context_instance=RequestContext(request))
 
 
+def compose_enlistment_preseed_url():
+    """Compose enlistment preseed URL."""
+    # Always uses the latest version of the metadata API.
+    version = 'latest'
+    return "%s?op=get_enlist_preseed" % reverse(
+        'metadata-enlist-preseed', args=[version])
+
+
+def compose_preseed_url(node):
+    """Compose a metadata URL for `node`'s preseed data."""
+    # Always uses the latest version of the metadata API.
+    version = 'latest'
+    return "%s?op=get_preseed" % reverse(
+        'metadata-node-by-id', args=[version, node.system_id])
+
+
+def compose_preseed_kernel_opt(mac):
+    """Compose a kernel option for preseed URL for node that owns `mac`."""
+    macaddress_match = MACAddress.objects.filter(mac_address=mac)
+    if len(macaddress_match) == 0:
+        preseed_url = compose_enlistment_preseed_url()
+    else:
+        [macaddress] = macaddress_match
+        preseed_url = compose_preseed_url(macaddress.node)
+    return "auto url=%s" % preseed_url
+
+
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 
@@ -1037,18 +1084,22 @@ def pxeconfig(request):
     :param kernelimage: The path to the kernel in the TFTP server
     :param append: Kernel parameters to append.
     """
-    arch = get_mandatory_param(request.GET, 'arch')
-    subarch = request.GET.get('subarch', None)
-    mac = request.GET.get('mac', None)
-    config = PXEConfig(arch, subarch, mac)
-    # Rendering parameters.
     menutitle = get_mandatory_param(request.GET, 'menutitle')
     kernelimage = get_mandatory_param(request.GET, 'kernelimage')
     append = get_mandatory_param(request.GET, 'append')
+    arch = get_mandatory_param(request.GET, 'arch')
+    subarch = request.GET.get('subarch', 'generic')
+    mac = request.GET.get('mac', None)
+    config = PXEConfig(arch, subarch)
+
+    # In addition to the "append" parameter, also add a URL for the
+    # node's preseed to the kernel command line.
+    append = "%s %s" % (append, compose_preseed_kernel_opt(mac))
+
     try:
         return HttpResponse(
             config.get_config(
                 menutitle=menutitle, kernelimage=kernelimage, append=append),
             content_type="text/plain; charset=utf-8")
-    except PXEConfigFail, e:
+    except PXEConfigFail as e:
         raise ValidationError(e.message)

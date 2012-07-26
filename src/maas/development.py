@@ -21,6 +21,7 @@ from maas import (
     settings,
     )
 from metadataserver.address import guess_server_address
+import provisioningserver.config
 
 # We expect the following settings to be overridden. They are mentioned here
 # to silence lint warnings.
@@ -102,6 +103,8 @@ DEV_ROOT_DIRECTORY = os.path.join(
 COMMISSIONING_SCRIPT = os.path.join(
     DEV_ROOT_DIRECTORY, 'etc/maas/commissioning-user-data')
 
+# Override the default provisioning config filename.
+provisioningserver.config.Config.DEFAULT_FILENAME = abspath("etc/pserv.yaml")
 
 # Set up celery to use the demo settings.
 os.environ['CELERY_CONFIG_MODULE'] = 'democeleryconfig'

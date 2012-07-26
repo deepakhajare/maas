@@ -14,8 +14,9 @@ __all__ = [
     "ActionScript",
     "atomic_write",
     "deferred",
-    "ShellTemplate",
     "incremental_write",
+    "MainScript",
+    "ShellTemplate",
     "xmlrpc_export",
     ]
 
@@ -30,6 +31,7 @@ import sys
 import tempfile
 from time import time
 
+from provisioningserver.config import Config
 import tempita
 from twisted.internet.defer import maybeDeferred
 from zope.interface.interface import Method
@@ -239,3 +241,19 @@ class ActionScript:
             raise SystemExit(1)
         else:
             raise SystemExit(0)
+
+
+class MainScript(ActionScript):
+    """An `ActionScript` that always accepts a `--config-file` option.
+
+    The `--config-file` option defaults to the value of
+    `MAAS_PROVISIONING_SETTINGS` in the process's environment, otherwise
+    `/etc/maas/pserv.yaml`.
+    """
+
+    def __init__(self, description):
+        super(MainScript, self).__init__(description)
+        self.parser.add_argument(
+            "-c", "--config-file", metavar="FILENAME",
+            help="Configuration file to load [%(default)s].",
+            default=Config.DEFAULT_FILENAME)
