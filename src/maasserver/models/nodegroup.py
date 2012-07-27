@@ -127,6 +127,9 @@ class NodeGroup(TimestampedModel):
 
     def is_dhcp_enabled(self):
         """Is the DHCP for this nodegroup enabled?"""
-        return all(
-            [self.subnet_mask, self.broadcast_ip, self.ip_range_low,
-             self.ip_range_high])
+        return all([
+                self.subnet_mask,
+                self.broadcast_ip,
+                self.ip_range_low,
+                self.ip_range_high
+                ])

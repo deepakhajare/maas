@@ -143,19 +143,29 @@ def get_zone(nodegroup, serial=None):
     This method also accepts a serial to reuse the same serial when
     we are creating DNSZoneConfig objects in bulk.
     """
-    if nodegroup.is_dhcp_enabled():
-        if serial is None:
-            serial = next_zone_serial()
-        dns_ip = get_dns_server_address()
-        return DNSZoneConfig(
-            zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
-            subnet_mask=nodegroup.subnet_mask,
-            broadcast_ip=nodegroup.broadcast_ip,
-            ip_range_low=nodegroup.ip_range_low,
-            ip_range_high=nodegroup.ip_range_high,
-            mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
-    else:
+    if not nodegroup.is_dhcp_enabled():
         return None
+
+    if serial is None:
+        serial = next_zone_serial()
+    dns_ip = get_dns_server_address()
+    return DNSZoneConfig(
+        zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
+        subnet_mask=nodegroup.subnet_mask,
+        broadcast_ip=nodegroup.broadcast_ip,
+        ip_range_low=nodegroup.ip_range_low,
+        ip_range_high=nodegroup.ip_range_high,
+        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
+
+
+def get_zones(nodegroups, serial):
+    """Return a list of non-None :class:`DNSZoneConfig` from nodegroups."""
+    return filter(
+        None,
+        [
+            get_zone(nodegroup, serial)
+            for nodegroup in nodegroups
+        ])
 
 
 def change_dns_zones(nodegroups):
@@ -168,16 +178,15 @@ def change_dns_zones(nodegroups):
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
     serial = next_zone_serial()
-    for nodegroup in nodegroups:
-        zone = get_zone(nodegroup, serial)
-        if zone is not None:
-            reverse_zone_reload_subtask = tasks.rndc_command.subtask(
-                args=[['reload', zone.reverse_zone_name]])
-            zone_reload_subtask = tasks.rndc_command.subtask(
-                args=[['reload', zone.zone_name]],
-                callback=reverse_zone_reload_subtask)
-            tasks.write_dns_zone_config.delay(
-                zone=zone, callback=zone_reload_subtask)
+    zones = get_zones(nodegroups, serial)
+    for zone in zones:
+        reverse_zone_reload_subtask = tasks.rndc_command.subtask(
+            args=[['reload', zone.reverse_zone_name]])
+        zone_reload_subtask = tasks.rndc_command.subtask(
+            args=[['reload', zone.zone_name]],
+            callback=reverse_zone_reload_subtask)
+        tasks.write_dns_zone_config.delay(
+            zone=zone, callback=zone_reload_subtask)
 
 
 def add_zone(nodegroup):
@@ -191,30 +200,22 @@ def add_zone(nodegroup):
     :type nodegroup: :class:`NodeGroup`
     """
     zone = get_zone(nodegroup)
-    if zone is not None:
-        serial = next_zone_serial()
-        zones = filter(
-            None,
-            [
-                get_zone(nodegroup, serial)
-                for nodegroup in NodeGroup.objects.all()
-            ])
-        reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
-        write_dns_config_subtask = tasks.write_dns_config.subtask(
-            zones=zones, callback=reconfig_subtask)
-        tasks.write_dns_zone_config.delay(
-            zone=zone, callback=write_dns_config_subtask)
+    if zone is None:
+        return None
+    serial = next_zone_serial()
+    # Compute non-None zones.
+    zones = get_zones(NodeGroup.objects.all(), serial)
+    reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
+    write_dns_config_subtask = tasks.write_dns_config.subtask(
+        zones=zones, callback=reconfig_subtask)
+    tasks.write_dns_zone_config.delay(
+        zone=zone, callback=write_dns_config_subtask)
 
 
 def write_full_dns_config():
     """Write the DNS configuration for all the nodegroups."""
     serial = next_zone_serial()
-    zones = filter(
-        None,
-        [
-            get_zone(nodegroup, serial)
-            for nodegroup in NodeGroup.objects.all()
-        ])
+    zones = get_zones(NodeGroup.objects.all(), serial)
     tasks.write_full_dns_config.delay(
         zones=zones,
         callback=tasks.rndc_command.subtask(args=[['reload']]))

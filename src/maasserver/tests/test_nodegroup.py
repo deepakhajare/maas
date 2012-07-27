@@ -17,11 +17,7 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
-from testtools.matchers import (
-    AllMatch,
-    Equals,
-    MatchesStructure,
-    )
+from testtools.matchers import MatchesStructure
 
 
 def make_dhcp_settings():
@@ -80,6 +76,7 @@ class TestNodeGroupManager(TestCase):
         self.assertEqual(nodegroup.api_key, nodegroup.api_token.key)
 
     def test_ensure_master_creates_minimal_master_nodegroup(self):
+        NodeGroup.objects._delete_master()
         self.assertThat(
             NodeGroup.objects.ensure_master(),
             MatchesStructure.fromExample({
@@ -142,9 +139,9 @@ class TestNodeGroup(TestCase):
             setattr(nodegroup, required_field, None)
             nodegroup.save()
             nodegroups.append(nodegroup)
-        self.assertThat(
+        self.assertEquals(
                 [nodegroup.is_dhcp_enabled() for nodegroup in nodegroups],
-                AllMatch(Equals(False)))
+                [False] * len(nodegroups))
 
     def test_is_dhcp_enabled_true_if_all_the_elements_defined(self):
         nodegroup = factory.make_node_group(

@@ -218,7 +218,7 @@ class TestDNSConfigModifications(TestCase):
         add_zone(nodegroup)
         self.assertEqual(0, recorder.call_count)
 
-    def test_change_zone_changes_dns_zone(self):
+    def test_change_dns_zone_changes_dns_zone(self):
         nodegroup, _, _ = self.create_nodegroup_with_lease()
         write_full_dns_config()
         nodegroup, new_node, new_lease = (
@@ -227,7 +227,7 @@ class TestDNSConfigModifications(TestCase):
         change_dns_zones(nodegroup)
         self.assertDNSMatches(new_node.hostname, nodegroup.name, new_lease.ip)
 
-    def test_change_zone_changes_doesnt_write_config_if_dhcp_disabled(self):
+    def test_change_dns_zone_changes_doesnt_write_conf_if_dhcp_disabled(self):
         recorder = FakeMethod()
         self.patch(DNSZoneConfig, 'write_config', recorder)
         nodegroup = factory.make_node_group()
