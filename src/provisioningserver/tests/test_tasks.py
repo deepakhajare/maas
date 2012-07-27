@@ -86,6 +86,15 @@ class TestDHCPTasks(TestCase):
         ("celery", FixtureResource(CeleryFixture())),
         )
 
+    def assertRecordedStdin(self, recorder, *args):
+        # Helper to check that the function recorder "recorder" has all
+        # of the items mentioned in "args" which are extracted from
+        # stdin.  We can just check that all the parameters that were
+        # passed are being used.
+        self.assertThat(
+            recorder.extract_args()[0][0],
+            ContainsAll(args))
+
     def test_add_new_dhcp_host_map(self):
         # We don't want to actually run omshell in the task, so we stub
         # out the wrapper class's _run method and record what it would
@@ -98,11 +107,7 @@ class TestDHCPTasks(TestCase):
         self.patch(Omshell, '_run', recorder)
         add_new_dhcp_host_map.delay(ip, mac, server_address, key)
 
-        # The extracted args are stdin.  We can just check that all the
-        # parameters that were passed are being used.
-        self.assertThat(
-            recorder.extract_args()[0][0],
-            ContainsAll([ip, mac, server_address, key]))
+        self.assertRecordedStdin(recorder, ip, mac, server_address, key)
 
     def test_add_new_dhcp_host_map_failure(self):
         # Check that task failures are caught.  Nothing much happens in
@@ -127,11 +132,7 @@ class TestDHCPTasks(TestCase):
         self.patch(Omshell, '_run', recorder)
         remove_dhcp_host_map.delay(ip, server_address, key)
 
-        # The extracted args are stdin.  We can just check that all the
-        # parameters that were passed are being used.
-        self.assertThat(
-            recorder.extract_args()[0][0],
-            ContainsAll([ip, server_address, key]))
+        self.assertRecordedStdin(recorder, ip, server_address, key)
 
     def test_remove_dhcp_host_map_failure(self):
         # Check that task failures are caught.  Nothing much happens in
