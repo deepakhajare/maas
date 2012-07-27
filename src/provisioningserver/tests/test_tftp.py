@@ -28,7 +28,6 @@ from provisioningserver.tftp import (
     TFTPBackend,
     )
 from testtools.deferredruntest import AsynchronousDeferredRunTest
-from testtools.matchers import StartsWith
 from tftp.backend import IReader
 from twisted.internet.defer import (
     inlineCallbacks,
@@ -89,20 +88,25 @@ class TestTFTPBackendRegex(TestCase):
             self.assertIsNotNone(match, config_path)
             self.assertEqual(args, match.groupdict())
 
-    def test_re_config_file_does_not_care_about_leading_slash(self):
+    def test_re_config_file_with_leading_slash(self):
         # The regular expression for extracting components of the file path
-        # doesn't care if there's a leading forward slash or not; the TFTP
-        # server is easy on this point, so it makes sense to be also.
-        regex = TFTPBackend.re_config_file
+        # doesn't care if there's a leading forward slash; the TFTP server is
+        # easy on this point, so it makes sense to be also.
         config_path, args = self.get_example_path_and_components()
-        # First up, a leading slash.
-        self.assertThat(config_path, StartsWith("/"))
-        match = regex.match(config_path)
+        # Ensure there's a leading slash.
+        config_path = "/" + config_path.lstrip("/")
+        match = TFTPBackend.re_config_file.match(config_path)
         self.assertIsNotNone(match, config_path)
         self.assertEqual(args, match.groupdict())
-        # Next, without a leading slash.
+
+    def test_re_config_file_without_leading_slash(self):
+        # The regular expression for extracting components of the file path
+        # doesn't care if there's no leading forward slash; the TFTP server is
+        # easy on this point, so it makes sense to be also.
+        config_path, args = self.get_example_path_and_components()
+        # Ensure there's no leading slash.
         config_path = config_path.lstrip("/")
-        match = regex.match(config_path)
+        match = TFTPBackend.re_config_file.match(config_path)
         self.assertIsNotNone(match, config_path)
         self.assertEqual(args, match.groupdict())
 
