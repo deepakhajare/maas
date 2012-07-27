@@ -7,6 +7,7 @@
 ./bin
 ./build
 ./celerybeat-schedule
+./contrib/python-tx-tftp/twisted/plugins/dropin.cache
 ./db
 ./develop-eggs
 ./dist
