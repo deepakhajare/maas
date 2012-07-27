@@ -59,21 +59,24 @@ class TestBytesReader(TestCase):
         self.assertRaises(ValueError, reader.read, 1)
 
 
-class TestTFTPBackend(TestCase):
-    """Tests for `provisioningserver.tftp.TFTPBackend`."""
+class TestTFTPBackendRegex(TestCase):
+    """Tests for `provisioningserver.tftp.TFTPBackend.re_config_file`."""
 
-    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
+    @staticmethod
+    def get_example_path_components():
+        """Return plausible components from a match of `re_config_file`."""
+        return {
+            "arch": factory.make_name("arch"),
+            "subarch": factory.make_name("subarch"),
+            "mac": factory.getRandomMACAddress(),
+            }
 
     def test_re_config_file(self):
         # The regular expression for extracting components of the file path is
         # compatible with the PXE config path generator.
         regex = TFTPBackend.re_config_file
         for iteration in range(10):
-            args = {
-                "arch": factory.make_name("arch"),
-                "subarch": factory.make_name("subarch"),
-                "mac": factory.getRandomMACAddress(),
-                }
+            args = self.get_example_path_components()
             config_path = compose_config_path(
                 arch=args["arch"], subarch=args["subarch"], name=args["mac"])
             match = regex.match(config_path)
@@ -85,11 +88,7 @@ class TestTFTPBackend(TestCase):
         # doesn't care if there's a leading forward slash or not; the TFTP
         # server is easy on this point, so it makes sense to be also.
         regex = TFTPBackend.re_config_file
-        args = {
-            "arch": factory.make_name("arch"),
-            "subarch": factory.make_name("subarch"),
-            "mac": factory.getRandomMACAddress(),
-            }
+        args = self.get_example_path_components()
         config_path = compose_config_path(
             arch=args["arch"], subarch=args["subarch"], name=args["mac"])
         # First up, a leading slash.
@@ -102,6 +101,12 @@ class TestTFTPBackend(TestCase):
         match = regex.match(config_path)
         self.assertIsNotNone(match, config_path)
         self.assertEqual(args, match.groupdict())
+
+
+class TestTFTPBackend(TestCase):
+    """Tests for `provisioningserver.tftp.TFTPBackend`."""
+
+    run_tests_with = AsynchronousDeferredRunTest.make_factory(timeout=5)
 
     def test_init(self):
         temp_dir = self.make_dir()
