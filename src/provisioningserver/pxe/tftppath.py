@@ -37,9 +37,11 @@ def compose_config_path(arch, subarch, name):
     :return: Path for the corresponding PXE config file as exposed over
         TFTP.
     """
-    # Not using os.path.join: this is a TFTP path, not a native path.
-    # Yes, in practice for us they're the same.
-    return '/'.join(['/maas', arch, subarch, 'pxelinux.cfg', name])
+    # Not using os.path.join: this is a TFTP path, not a native path. Yes, in
+    # practice for us they're the same. The '01-' before the name is the ARP
+    # HTYPE (hardware type) that PXELINUX sends. Here we assume it's always
+    # Ethernet.
+    return '/'.join(['/maas', arch, subarch, 'pxelinux.cfg', '01-' + name])
 
 
 def compose_image_path(arch, subarch, release, purpose):

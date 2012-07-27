@@ -67,9 +67,11 @@ class TFTPBackend(FilesystemSynchronousBackend):
     re_mac_address = re.compile(
         "-".join(repeat(r'[0-9a-f]{2}', 6)))
 
+    # The "01-" before the MAC address is the ARP HTYPE field (hardware
+    # type). Here we assume it's always Ethernet.
     re_config_file = re.compile(
         r'^/?maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/pxelinux[.]cfg'
-        r'/(?P<mac>%s)$' % re_mac_address.pattern)
+        r'/01-(?P<mac>%s)$' % re_mac_address.pattern)
 
     def __init__(self, base_path, generator_url):
         """

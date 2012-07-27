@@ -42,7 +42,7 @@ class TestTFTPPath(TestCase):
         subarch = factory.make_name('subarch')
         name = factory.make_name('config')
         self.assertEqual(
-            '/maas/%s/%s/pxelinux.cfg/%s' % (arch, subarch, name),
+            '/maas/%s/%s/pxelinux.cfg/01-%s' % (arch, subarch, name),
             compose_config_path(arch, subarch, name))
 
     def test_compose_config_path_does_not_include_tftp_root(self):
