@@ -25,6 +25,7 @@ def compose_bootloader_path(arch, subarch):
     return '/'.join(['/maas', arch, subarch, 'pxelinux.0'])
 
 
+# TODO: move this; it is now only used for testing.
 def compose_config_path(arch, subarch, name):
     """Compose the TFTP path for a PXE configuration file.
 
