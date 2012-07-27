@@ -321,7 +321,7 @@ class TestDNSZoneConfig(TestCase):
                 matcher=ContainsAll(
                     [
                         'IN  NS  %s.' % dns_zone_config.zone_name,
-                        '%s. IN A %s' % (dns_zone_config.zone_name, dns_ip)
+                        '%s. IN A %s' % (dns_zone_config.zone_name, dns_ip),
                     ])))
 
     def test_DNSZoneConfig_writes_reverse_dns_zone_config(self):
@@ -339,7 +339,7 @@ class TestDNSZoneConfig(TestCase):
                 matcher=ContainsAll(
                     ['%s IN PTR %s' % (
                         '10.0',
-                        generated_hostname('192.168.0.10')
+                        generated_hostname('192.168.0.10'),
                         )
                     ]
                 )
