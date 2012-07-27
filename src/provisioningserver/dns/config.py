@@ -208,12 +208,15 @@ class DNSZoneConfig(DNSConfig):
 
     template_file_name = 'zone.template'
 
-    def __init__(self, zone_name, serial=None, mapping={}, dns_ip=None,
+    def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
                  subnet_mask=None, broadcast_ip=None, ip_range_low=None,
                  ip_range_high=None):
         self.zone_name = zone_name
         self.serial = serial
-        self.mapping = mapping
+        if mapping is None:
+            self.mapping = {}
+        else:
+            self.mapping = mapping
         self.dns_ip = dns_ip
         self.subnet_mask = subnet_mask
         self.broadcast_ip = broadcast_ip
