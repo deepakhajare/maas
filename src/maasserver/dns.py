@@ -41,7 +41,6 @@ from maasserver.sequence import (
     Sequence,
     )
 from netaddr import (
-    AddrFormatError,
     IPAddress,
     IPNetwork,
     )
@@ -67,7 +66,7 @@ class DNSException(MAASException):
     """An error occured when setting up MAAS' DNS server."""
 
 
-def _warn_loopback(ip):
+def warn_loopback(ip):
     """Warn if the given IP address is in the loopback network."""
     if IPAddress(ip) in IPNetwork('127.0.0.1/8'):
         logging.getLogger('maas').warn(
@@ -84,20 +83,13 @@ def get_dns_server_address():
     That address is derived from DEFAULT_MAAS_URL in order to get a sensible
     default and at the same time give a possibility to the user to change this.
     """
-    hostname_or_ip = urlparse(settings.DEFAULT_MAAS_URL).netloc.split(':')[0]
+    host = urlparse(settings.DEFAULT_MAAS_URL).netloc.split(':')[0]
 
-    # If 'hostname_or_ip' is a valid IP address, return it.
+    # Try to resolve the hostname, if `host` is alread an IP address, it
+    # will simpply be returned by `socket.gethostbyname`.
     try:
-        IPAddress(hostname_or_ip)
-        _warn_loopback(hostname_or_ip)
-        return hostname_or_ip
-    except AddrFormatError:
-        pass
-
-    # Try to resolve the hostname.
-    try:
-        ip = socket.gethostbyname(hostname_or_ip)
-        _warn_loopback(ip)
+        ip = socket.gethostbyname(host)
+        warn_loopback(ip)
         return ip
     except socket.error:
         pass

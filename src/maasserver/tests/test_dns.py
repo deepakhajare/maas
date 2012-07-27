@@ -66,18 +66,21 @@ class TestDNSUtilities(TestCase):
             ['%0.10d' % i for i in range(initial + 1, initial + 11)],
             [next_zone_serial() for i in range(initial, initial + 10)])
 
+    def patch_DEFAULT_MAAS_URL_with_random_values(self, hostname=None):
+        if hostname is None:
+            hostname = factory.getRandomString()
+        url = 'http://%s:%d/%s' % (
+            hostname, factory.getRandomPort(), factory.getRandomString())
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+
     def test_get_dns_server_address_returns_IP(self):
         ip = factory.getRandomIPAddress()
-        url = 'http://%s:%d/%s' % (
-            ip, factory.getRandomPort(), factory.getRandomString())
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.patch_DEFAULT_MAAS_URL_with_random_values(hostname=ip)
         self.assertEqual(ip, get_dns_server_address())
 
     def test_get_dns_server_address_returns_IP_if_IP_is_localhost(self):
         ip = factory.getRandomIPInNetwork(IPNetwork('127.0.0.1/8'))
-        url = 'http://%s:%d/%s' % (
-            ip, factory.getRandomPort(), factory.getRandomString())
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.patch_DEFAULT_MAAS_URL_with_random_values(hostname=ip)
         self.assertEqual(ip, get_dns_server_address())
 
     def test_get_dns_server_address_resolves_hostname(self):
@@ -85,21 +88,7 @@ class TestDNSUtilities(TestCase):
         resolver = FakeMethod(result=ip)
         self.patch(socket, 'gethostbyname', resolver)
         hostname = factory.getRandomString()
-        url = 'http://%s:%d/%s' % (
-            hostname, factory.getRandomPort(), factory.getRandomString())
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
-        self.assertEqual(
-            (ip, [(hostname, )]),
-            (get_dns_server_address(), resolver.extract_args()))
-
-    def test_get_dns_server_address_resolves_hostname_localhost(self):
-        ip = factory.getRandomIPInNetwork(IPNetwork('127.0.0.1/8'))
-        resolver = FakeMethod(result=ip)
-        self.patch(socket, 'gethostbyname', resolver)
-        hostname = factory.getRandomString()
-        url = 'http://%s:%d/%s' % (
-            hostname, factory.getRandomPort(), factory.getRandomString())
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.patch_DEFAULT_MAAS_URL_with_random_values(hostname=hostname)
         self.assertEqual(
             (ip, [(hostname, )]),
             (get_dns_server_address(), resolver.extract_args()))
@@ -107,10 +96,7 @@ class TestDNSUtilities(TestCase):
     def test_get_dns_server_address_raises_if_hostname_doesnt_resolve(self):
         resolver = FakeMethod(failure=socket.error)
         self.patch(socket, 'gethostbyname', resolver)
-        url = 'http://%s:%d/%s' % (
-            factory.getRandomString(), factory.getRandomPort(),
-            factory.getRandomString())
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.patch_DEFAULT_MAAS_URL_with_random_values()
         self.assertRaises(DNSException, get_dns_server_address)
 
 
