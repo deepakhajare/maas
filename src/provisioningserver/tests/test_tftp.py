@@ -63,22 +63,28 @@ class TestTFTPBackendRegex(TestCase):
     """Tests for `provisioningserver.tftp.TFTPBackend.re_config_file`."""
 
     @staticmethod
-    def get_example_path_components():
-        """Return plausible components from a match of `re_config_file`."""
-        return {
+    def get_example_path_and_components():
+        """Return a plausible path and its components.
+
+        The path is intended to match `re_config_file`, and the components are
+        the expected groups from a match.
+        """
+        components = {
             "arch": factory.make_name("arch"),
             "subarch": factory.make_name("subarch"),
             "mac": factory.getRandomMACAddress(),
             }
+        config_path = compose_config_path(
+            arch=components["arch"], subarch=components["subarch"],
+            name=components["mac"])
+        return config_path, components
 
     def test_re_config_file(self):
         # The regular expression for extracting components of the file path is
         # compatible with the PXE config path generator.
         regex = TFTPBackend.re_config_file
         for iteration in range(10):
-            args = self.get_example_path_components()
-            config_path = compose_config_path(
-                arch=args["arch"], subarch=args["subarch"], name=args["mac"])
+            config_path, args = self.get_example_path_and_components()
             match = regex.match(config_path)
             self.assertIsNotNone(match, config_path)
             self.assertEqual(args, match.groupdict())
@@ -88,9 +94,7 @@ class TestTFTPBackendRegex(TestCase):
         # doesn't care if there's a leading forward slash or not; the TFTP
         # server is easy on this point, so it makes sense to be also.
         regex = TFTPBackend.re_config_file
-        args = self.get_example_path_components()
-        config_path = compose_config_path(
-            arch=args["arch"], subarch=args["subarch"], name=args["mac"])
+        config_path, args = self.get_example_path_and_components()
         # First up, a leading slash.
         self.assertThat(config_path, StartsWith("/"))
         match = regex.match(config_path)
