@@ -15,6 +15,7 @@ __all__ = [
     ]
 
 from io import BytesIO
+from itertools import repeat
 import re
 from urllib import urlencode
 from urlparse import (
@@ -50,14 +51,25 @@ class TFTPBackend(FilesystemSynchronousBackend):
     """A partially dynamic read-only TFTP server.
 
     Requests for PXE configurations are forwarded to a configurable URL. See
-    `re_config_file`.
+    `re_config_file` and `re_mac_address`.
+
+    This must be very selective about which requests to forward, because
+    failures cause the boot process to halt. This is why the expression for
+    matching the MAC address is so narrowly defined; PXELINUX attempts to
+    fetch files at many similar paths, and this must respond to only one
+    pattern.
     """
 
     get_page = staticmethod(getPage)
 
+    # This is how PXELINUX represents a MAC address. See
+    # http://www.syslinux.org/wiki/index.php/PXELINUX.
+    re_mac_address = re.compile(
+        "-".join(repeat(r'[0-9a-f]{2}', 6)))
+
     re_config_file = re.compile(
-        r'^/?maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/'
-        r'pxelinux[.]cfg/(?P<mac>[^/]+)$')
+        r'^/?maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/pxelinux[.]cfg'
+        r'/(?P<mac>%s)$' % re_mac_address.pattern)
 
     def __init__(self, base_path, generator_url):
         """
