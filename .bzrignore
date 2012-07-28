@@ -7,13 +7,13 @@
 ./bin
 ./build
 ./celerybeat-schedule
-./contrib/python-tx-tftp/twisted/plugins/dropin.cache
 ./db
 ./develop-eggs
 ./dist
 ./docs/_autosummary
 ./docs/_build
 ./docs/api.rst
+dropin.cache
 ./eggs
 ./include
 ./lib
@@ -27,4 +27,3 @@
 ./src/maasserver/static/js/enums.js
 ./TAGS
 ./tags
-./twisted/plugins/dropin.cache
