@@ -16,8 +16,13 @@ import re
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
-from provisioningserver.pxe import pxeconfig
+import provisioningserver.pxe.config
+from provisioningserver.pxe.config import (
+    render_pxe_config,
+    PXEConfigFail,
+    )
 from testtools.matchers import (
+    Contains,
     MatchesRegex,
     StartsWith,
     )
@@ -26,7 +31,7 @@ from testtools.matchers import (
 class TestRenderPXEConfig(TestCase):
     """Tests for `provisioningserver.pxe.config.render_pxe_config`."""
 
-    def test_template(self):
+    def test_render(self):
         # Given the right configuration options, the PXE configuration is
         # correctly rendered.
         options = {
@@ -35,17 +40,19 @@ class TestRenderPXEConfig(TestCase):
             "initrd": factory.make_name("initrd"),
             "append": factory.make_name("append"),
             }
-        config = pxeconfig.template.substitute(options)
+        output = render_pxe_config(**options)
         # The template has rendered without error. PXELINUX configurations
         # typically start with a DEFAULT line.
-        self.assertThat(config, StartsWith("DEFAULT "))
+        self.assertThat(output, StartsWith("DEFAULT "))
+        for value in options.values():
+            self.assertThat(output, Contains(value))
 
     def test_missing_config_parameter(self):
         # If not enough arguments are supplied to fill in template
         # variables then a PXEConfigFail is raised.
-        exception = self.assertRaises(
-            pxeconfig.PXEConfigFail, pxeconfig.render_pxe_config, "i386")
+        exception = self.assertRaises(PXEConfigFail, render_pxe_config)
         self.assertThat(
             exception.message, MatchesRegex(
                 "name 'menu_title' is not defined at line \d+ column \d+ "
-                "in file %s" % re.escape(pxeconfig.template_filename)))
+                "in file %s" % re.escape(
+                    provisioningserver.pxe.config.template_filename)))

@@ -35,15 +35,8 @@ class PXEConfigFail(NameError):
     """Raised if there's a problem with a PXE config."""
 
 
-def render_pxe_config(arch, subarch="generic", **options):
+def render_pxe_config(**options):
     """Render a PXE configuration file as a unicode string.
-
-    :param arch: The architecture to write a configuration for, e.g. i386.
-    :type arch: string
-    :param subarch: Sub-architecture. Only needed for architectures that
-        have sub-architectures, such as ARM; other architectures use
-        a sub-architecture of "generic" (which is the default).
-    :type subarch: string
 
     The `options` keywords should comprise at least:
 
