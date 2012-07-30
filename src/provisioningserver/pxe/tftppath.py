@@ -64,17 +64,17 @@ def compose_image_path(arch, subarch, release, purpose):
     return '/'.join(['/maas', arch, subarch, release, purpose])
 
 
-def locate_tftp_path(tftp_path, tftproot):
-    """Return the local filesystem path corresponding to `tftp_path`.
+def locate_tftp_path(path, tftproot):
+    """Return the local filesystem path corresponding to `path`.
 
     The return value gives the filesystem path where you'd have to put
-    a file if you wanted it made available over TFTP as `tftp_path`.
+    a file if you wanted it made available over TFTP as `path`.
 
-    :param tftp_path: Path as used in the TFTP protocol which you want
+    :param path: Path as used in the TFTP protocol which you want
         the local filesystem equivalent for. Pass `None` to get the root
         of the TFTP hierarchy.
     :param tftproot: The TFTP root directory.
     """
-    if tftp_path is None:
+    if path is None:
         return tftproot
-    return os.path.join(tftproot, tftp_path.lstrip('/'))
+    return os.path.join(tftproot, path.lstrip('/'))
