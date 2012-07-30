@@ -16,7 +16,6 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'PXEConfigFail',
     'render_pxe_config',
     ]
 
@@ -31,25 +30,13 @@ template_filename = path.join(template_dir, "config.template")
 template = tempita.Template.from_filename(template_filename)
 
 
-class PXEConfigFail(NameError):
-    """Raised if there's a problem with a PXE config."""
-
-
-def render_pxe_config(**options):
+def render_pxe_config(title, kernel, initrd, append):
     """Render a PXE configuration file as a unicode string.
 
-    The `options` keywords should comprise at least:
-
-    :param menu_title: Title that the node should show on its boot menu.
+    :param title: Title that the node should show on its boot menu.
     :param kernel: TFTP path to the kernel image to boot.
     :param initrd: TFTP path to the initrd file to boot from.
-    :param append: Additional parameters to append to the kernel
-        command line.
-
-    :raises PXEConfigFail: if there's a problem substituting the template
-        parameters.
+    :param append: Additional kernel parameters.
     """
-    try:
-        return template.substitute(options)
-    except NameError as error:
-        raise PXEConfigFail(*error.args)
+    return template.substitute(
+        title=title, kernel=kernel, initrd=initrd, append=append)
