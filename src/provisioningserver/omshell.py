@@ -16,12 +16,51 @@ __all__ = [
     "Omshell",
     ]
 
+import os
+import shutil
 from subprocess import (
     CalledProcessError,
+    check_output,
     PIPE,
     Popen,
     )
+from tempfile import mkdtemp
 from textwrap import dedent
+
+
+def generate_omapi_key():
+    """Generate a HMAC-MD5 key by calling out to the dnssec-keygen tool.
+    
+    :return: The shared key suitable for OMAPI access.
+    :type: string
+    """
+    # dnssec-keygen writes out files to a specified directory, so we
+    # need to make a temp directory for that.
+
+    # mkdtemp() says it will return a directory that is readable,
+    # writable, and searchable only by the creating user ID.
+    try:
+        tmpdir = mkdtemp()
+        key_id = check_output(
+            ['dnssec-keygen', '-r', '/dev/urandom', '-a', 'HMAC-MD5',
+             '-b', '512', '-n', 'HOST', '-K', tmpdir, '-q', 'omapi_key'])
+
+        # Locate the file that was written and strip out the Key: field in
+        # it.
+        key_id = key_id.strip()  # Remove trailing newline.
+        key_file_name = os.path.join(tmpdir, key_id + '.private')
+        with open(key_file_name, 'rb') as f:
+            key_file = f.read()
+
+        for line in key_file.splitlines():
+            field, value = line.split(":")
+            if field == "Key":
+                return value.strip()
+
+        raise AssertionError(
+            "Key field not found in output from dnssec-keygen")
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 class Omshell:
