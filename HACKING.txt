@@ -35,6 +35,9 @@ needed for running and developing MAAS, run::
 Careful: this will "apt-get install" many packages on your system, under
 "sudo."  It may prompt you for your password.
 
+You may need to install python-django-piston as well, but installing it seems
+to cause import errors for "oauth" when running the test suite.
+
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
 
