@@ -23,6 +23,7 @@ from urlparse import (
     urlparse,
     )
 
+from provisioningserver.enum import ARP_HTYPE
 from provisioningserver.utils import deferred
 from tftp.backend import (
     FilesystemSynchronousBackend,
@@ -67,11 +68,11 @@ class TFTPBackend(FilesystemSynchronousBackend):
     re_mac_address = re.compile(
         "-".join(repeat(r'[0-9a-f]{2}', 6)))
 
-    # The "01-" before the MAC address is the ARP HTYPE field (hardware
-    # type). Here we assume it's always Ethernet.
+    # We assume that the ARP HTYPE (hardware type) that PXELINUX sends is
+    # alway Ethernet.
     re_config_file = re.compile(
         r'^/?maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/pxelinux[.]cfg'
-        r'/01-(?P<mac>%s)$' % re_mac_address.pattern)
+        r'/%02x-(?P<mac>%s)$' % (ARP_HTYPE.ETHERNET, re_mac_address.pattern))
 
     def __init__(self, base_path, generator_url):
         """
