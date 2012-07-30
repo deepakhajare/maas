@@ -1,9 +1,9 @@
 # encoding: utf-8
 
+# No unicode_literals.  Unicode strings here irk South.
 from __future__ import (
     absolute_import,
     print_function,
-    unicode_literals,
     )
 
 __metaclass__ = type
@@ -12,6 +12,7 @@ __all__ = ['Migration']
 import datetime
 
 from django.db import models
+from maasserver.models import NodeGroup
 from south.db import db
 from south.v2 import SchemaMigration
 
