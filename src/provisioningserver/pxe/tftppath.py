@@ -19,6 +19,8 @@ __all__ = [
 
 import os.path
 
+from provisioningserver.enum import ARP_HTYPE
+
 
 def compose_bootloader_path(arch, subarch):
     """Compose the TFTP path for a PXE pre-boot loader."""
@@ -42,7 +44,8 @@ def compose_config_path(arch, subarch, name):
     # practice for us they're the same. The '01-' before the name is the ARP
     # HTYPE (hardware type) that PXELINUX sends. Here we assume it's always
     # Ethernet.
-    return '/'.join(['/maas', arch, subarch, 'pxelinux.cfg', '01-' + name])
+    return "/maas/{arch}/{subarch}/pxelinux.cfg/{htype:02x}-{name}".format(
+        arch=arch, subarch=subarch, htype=ARP_HTYPE.ETHERNET, name=name)
 
 
 def compose_image_path(arch, subarch, release, purpose):
