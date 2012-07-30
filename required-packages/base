@@ -17,7 +17,6 @@ python-dbus
 python-dev
 python-django
 python-django-south
-python-django-south
 python-formencode
 python-netaddr
 python-oauth
@@ -28,7 +27,6 @@ python-oops-wsgi
 python-psycopg2
 python-pyinotify
 python-tempita
-python-twisted
 python-twisted
 python-txamqp
 python-yaml
