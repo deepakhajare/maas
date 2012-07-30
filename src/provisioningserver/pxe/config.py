@@ -26,8 +26,8 @@ from os import path
 import tempita
 
 
-template_dir = path.join(path.dirname(__file__), 'templates')
-template_filename = path.join(template_dir, "maas.template")
+template_dir = path.dirname(__file__)
+template_filename = path.join(template_dir, "config.template")
 template = tempita.Template.from_filename(template_filename)
 
 
