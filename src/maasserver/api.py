@@ -1076,7 +1076,7 @@ def pxeconfig(request):
     :param mac: MAC address to produce a boot configuration for.  This
         parameter is optional.  If it is not given, the configuration
         will be the "default" one which boots into an enlistment image.
-    :param menu_title: Title that the node should show in its PXE menu.
+    :param title: Title that the node should show in its PXE menu.
     :param kernel: TFTP path to the kernel image that is to be booted.
     :param initrd: TFTP path to the initrd that is to be booted.
     :param append: Additional parameters to append to the kernel command
@@ -1087,7 +1087,7 @@ def pxeconfig(request):
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.
     """
-    title = get_mandatory_param(request.GET, 'menu_title')
+    title = get_mandatory_param(request.GET, 'title')
     kernel = get_mandatory_param(request.GET, 'kernel')
     initrd = get_mandatory_param(request.GET, 'initrd')
     append = get_mandatory_param(request.GET, 'append')

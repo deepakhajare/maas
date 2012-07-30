@@ -29,7 +29,7 @@ class TestRenderPXEConfig(TestCase):
         # Given the right configuration options, the PXE configuration is
         # correctly rendered.
         options = {
-            "title": factory.make_name("menu_title"),
+            "title": factory.make_name("title"),
             "kernel": factory.make_name("kernel"),
             "initrd": factory.make_name("initrd"),
             "append": factory.make_name("append"),
