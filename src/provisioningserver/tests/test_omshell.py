@@ -169,7 +169,6 @@ class Test_generate_omapi_key(TestCase):
 
     def test_generate_omapi_key_raises_assertionerror_on_bad_output(self):
         def returns_junk(tmpdir):
-            import pdb; pdb.set_trace()
             factory.make_file(tmpdir, "bad.private")
             return "bad"
             
