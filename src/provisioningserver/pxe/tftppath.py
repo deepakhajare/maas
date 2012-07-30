@@ -75,7 +75,6 @@ def locate_tftp_path(tftp_path, tftproot):
         of the TFTP hierarchy.
     :param tftproot: The TFTP root directory.
     """
-    assert tftproot is not None, "tftproot must be defined."
     if tftp_path is None:
         return tftproot
     return os.path.join(tftproot, tftp_path.lstrip('/'))
