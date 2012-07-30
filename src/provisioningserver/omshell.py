@@ -60,7 +60,10 @@ def generate_omapi_key():
             key_file = f.read()
 
         for line in key_file.splitlines():
-            field, value = line.split(":")
+            try:
+                field, value = line.split(":")
+            except ValueError:
+                continue
             if field == "Key":
                 return value.strip()
 
