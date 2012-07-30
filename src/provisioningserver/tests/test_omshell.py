@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from fixtures import TempDir
 import os
 from subprocess import CalledProcessError
 import tempfile
@@ -157,10 +158,11 @@ class Test_generate_omapi_key(TestCase):
         self.assertThat(key, EndsWith("=="))
 
     def test_generate_omapi_key_leaves_no_temp_files(self):
-        existing_file_count = os.listdir(tempfile.gettempdir())
+        tmpdir = self.useFixture(TempDir()).path
+        # Make mkdtemp() in omshell nest all directories within tmpdir.
+        self.patch(tempfile, 'tempdir', tmpdir)
         generate_omapi_key()
-        new_file_count = os.listdir(tempfile.gettempdir())
-        self.assertEqual(existing_file_count, new_file_count)
+        self.assertEqual([], os.listdir(tmpdir))
 
     def test_generate_omapi_key_raises_assertionerror_on_no_output(self):
         self.patch(omshell, 'call_dnssec_keygen', FakeMethod())

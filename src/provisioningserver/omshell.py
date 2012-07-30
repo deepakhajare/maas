@@ -37,7 +37,7 @@ def call_dnssec_keygen(tmpdir):
 
 def generate_omapi_key():
     """Generate a HMAC-MD5 key by calling out to the dnssec-keygen tool.
-    
+
     :return: The shared key suitable for OMAPI access.
     :type: string
     """
@@ -46,8 +46,8 @@ def generate_omapi_key():
 
     # mkdtemp() says it will return a directory that is readable,
     # writable, and searchable only by the creating user ID.
+    tmpdir = mkdtemp(prefix="%s." % os.path.basename(__file__))
     try:
-        tmpdir = mkdtemp()
         key_id = call_dnssec_keygen(tmpdir)
 
         # Locate the file that was written and strip out the Key: field in
