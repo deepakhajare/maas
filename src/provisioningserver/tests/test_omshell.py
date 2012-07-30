@@ -12,7 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import os
 from subprocess import CalledProcessError
+import tempfile
 from textwrap import dedent
 
 from maastesting.factory import factory
@@ -148,4 +150,13 @@ class Test_generate_omapi_key(TestCase):
 
     def test_generate_omapi_key_returns_a_key(self):
         key = generate_omapi_key()
+        # Could test for != None here, but the keys seem to end in == so
+        # that's a better check that the script was actually run and
+        # produced output.
         self.assertThat(key, EndsWith("=="))
+
+    def test_generate_omapi_key_leaves_no_temp_files(self):
+        existing_file_count = os.listdir(tempfile.gettempdir())
+        generate_omapi_key()
+        new_file_count = os.listdir(tempfile.gettempdir())
+        self.assertEqual(existing_file_count, new_file_count)

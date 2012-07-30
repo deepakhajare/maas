@@ -13,6 +13,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "generate_omapi_key",
     "Omshell",
     ]
 
@@ -26,6 +27,12 @@ from subprocess import (
     )
 from tempfile import mkdtemp
 from textwrap import dedent
+
+
+def call_dnssec_keygen(tmpdir):
+    return check_output(
+        ['dnssec-keygen', '-r', '/dev/urandom', '-a', 'HMAC-MD5',
+         '-b', '512', '-n', 'HOST', '-K', tmpdir, '-q', 'omapi_key'])
 
 
 def generate_omapi_key():
