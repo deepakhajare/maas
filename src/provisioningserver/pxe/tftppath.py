@@ -41,9 +41,8 @@ def compose_config_path(arch, subarch, name):
         TFTP.
     """
     # Not using os.path.join: this is a TFTP path, not a native path. Yes, in
-    # practice for us they're the same. The '01-' before the name is the ARP
-    # HTYPE (hardware type) that PXELINUX sends. Here we assume it's always
-    # Ethernet.
+    # practice for us they're the same. We always assume that the ARP HTYPE
+    # (hardware type) that PXELINUX sends is Ethernet.
     return "/maas/{arch}/{subarch}/pxelinux.cfg/{htype:02x}-{name}".format(
         arch=arch, subarch=subarch, htype=ARP_HTYPE.ETHERNET, name=name)
 
