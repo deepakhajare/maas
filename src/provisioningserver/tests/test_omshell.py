@@ -18,8 +18,14 @@ from textwrap import dedent
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
-from provisioningserver.omshell import Omshell
-from testtools.matchers import MatchesStructure
+from provisioningserver.omshell import (
+    generate_omapi_key,
+    Omshell,
+    )
+from testtools.matchers import (
+    EndsWith,
+    MatchesStructure,
+    )
 
 
 class TestOmshell(TestCase):
@@ -135,3 +141,11 @@ class TestOmshell(TestCase):
         exc = self.assertRaises(
             CalledProcessError, shell.remove, ip_address)
         self.assertEqual(random_output, exc.output)
+
+
+class Test_generate_omapi_key(TestCase):
+    """Tests for omshell.generate_omapi_key"""
+
+    def test_generate_omapi_key_returns_a_key(self):
+        key = generate_omapi_key()
+        self.assertThat(key, EndsWith("=="))
