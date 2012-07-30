@@ -48,12 +48,12 @@ def generate_omapi_key():
     # writable, and searchable only by the creating user ID.
     try:
         tmpdir = mkdtemp()
-        key_id = check_output(
-            ['dnssec-keygen', '-r', '/dev/urandom', '-a', 'HMAC-MD5',
-             '-b', '512', '-n', 'HOST', '-K', tmpdir, '-q', 'omapi_key'])
+        key_id = call_dnssec_keygen(tmpdir)
 
         # Locate the file that was written and strip out the Key: field in
         # it.
+        if not key_id:
+            raise AssertionError("dnssec-keygen didn't generate anything")
         key_id = key_id.strip()  # Remove trailing newline.
         key_file_name = os.path.join(tmpdir, key_id + '.private')
         with open(key_file_name, 'rb') as f:
