@@ -17,7 +17,6 @@ from subprocess import CalledProcessError
 import tempfile
 from textwrap import dedent
 
-import fixtures
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
@@ -171,6 +170,6 @@ class Test_generate_omapi_key(TestCase):
         def returns_junk(tmpdir):
             factory.make_file(tmpdir, "bad.private")
             return "bad"
-            
+
         self.patch(omshell, 'call_dnssec_keygen', returns_junk)
         self.assertRaises(AssertionError, generate_omapi_key)
