@@ -27,7 +27,7 @@ import tempita
 
 template_dir = path.dirname(__file__)
 template_filename = path.join(template_dir, "config.template")
-template = tempita.Template.from_filename(template_filename)
+template = tempita.Template.from_filename(template_filename, encoding="UTF-8")
 
 
 def render_pxe_config(title, kernel, initrd, append):

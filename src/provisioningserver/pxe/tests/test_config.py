@@ -17,6 +17,7 @@ from maastesting.testcase import TestCase
 from provisioningserver.pxe.config import render_pxe_config
 from testtools.matchers import (
     Contains,
+    IsInstance,
     StartsWith,
     )
 
@@ -34,6 +35,8 @@ class TestRenderPXEConfig(TestCase):
             "append": factory.make_name("append"),
             }
         output = render_pxe_config(**options)
+        # The output is always a Unicode string.
+        self.assertThat(output, IsInstance(unicode))
         # The template has rendered without error. PXELINUX configurations
         # typically start with a DEFAULT line.
         self.assertThat(output, StartsWith("DEFAULT "))
