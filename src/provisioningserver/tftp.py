@@ -65,14 +65,31 @@ class TFTPBackend(FilesystemSynchronousBackend):
 
     # This is how PXELINUX represents a MAC address. See
     # http://www.syslinux.org/wiki/index.php/PXELINUX.
+    re_mac_address_octet = r'[0-9a-f]{2}'
     re_mac_address = re.compile(
-        "-".join(repeat(r'[0-9a-f]{2}', 6)))
+        "-".join(repeat(re_mac_address_octet, 6)))
 
     # We assume that the ARP HTYPE (hardware type) that PXELINUX sends is
     # alway Ethernet.
     re_config_file = re.compile(
-        r'^/?maas/(?P<arch>[^/]+)/(?P<subarch>[^/]+)/pxelinux[.]cfg'
-        r'/%02x-(?P<mac>%s)$' % (ARP_HTYPE.ETHERNET, re_mac_address.pattern))
+        r'''
+        ^/?
+        maas     # Static namespacing.
+        /
+        (?P<arch>[^/]+)     # Capture arch.
+        /
+        (?P<subarch>[^/]+)    # Capture subarch.
+        /
+        pxelinux[.]cfg    # PXELINUX expects this.
+        /
+        {htype:02x}    # ARP HTYPE.
+        -
+        (?P<mac>{re_mac_address.pattern})    # Capture MAC.
+        $
+        '''.format(
+            htype=ARP_HTYPE.ETHERNET,
+            re_mac_address=re_mac_address),
+        re.VERBOSE)
 
     def __init__(self, base_path, generator_url):
         """
