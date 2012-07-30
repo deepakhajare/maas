@@ -7,7 +7,6 @@ distro-info
 dnsutils
 isc-dhcp-common
 libpq-dev
-make
 postgresql-9.1
 python-amqplib
 python-avahi
