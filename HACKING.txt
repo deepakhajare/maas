@@ -38,6 +38,10 @@ Careful: this will "apt-get install" many packages on your system, under
 You may need to install python-django-piston as well, but installing it seems
 to cause import errors for "oauth" when running the test suite.
 
+And for convenience, you may also want bzr which we use for development::
+
+    $ sudo apt-get install bzr
+
 All other development dependencies are pulled automatically from `PyPI`_
 when buildout runs.
 
