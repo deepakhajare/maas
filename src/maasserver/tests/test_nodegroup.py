@@ -75,11 +75,6 @@ class TestNodeGroupManager(TestCase):
         self.assertEqual(get_worker_user(), nodegroup.api_token.user)
         self.assertEqual(nodegroup.api_key, nodegroup.api_token.key)
 
-    def test_master_nodegroup_is_initialized(self):
-        nodegroup = NodeGroup.objects.get_by_natural_key('master')
-        # Actually what really matters is that we get here without error.
-        self.assertIsNotNone(nodegroup)
-
     def test_ensure_master_creates_minimal_master_nodegroup(self):
         NodeGroup.objects._delete_master()
         self.assertThat(
