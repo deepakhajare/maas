@@ -134,7 +134,8 @@ class NodeGroup(TimestampedModel):
     def get_dhcp_key(self):
         """Return the dhcp key.
 
-        This method creates the dhcp key if it does not exist."""
+        This method creates the dhcp key if it does not exist.
+        """
         if self.dhcp_key is '':
             self.dhcp_key = generate_omapi_key()
             self.save()
