@@ -43,5 +43,5 @@ def render_pxe_config(title, arch, subarch, release, purpose, append):
     """
     image_dir = compose_image_path(arch, subarch, release, purpose)
     return template.substitute(
-        title=title, kernel="{}/kernel".format(image_dir),
-        initrd="{}/initrd.gz".format(image_dir), append=append)
+        title=title, kernel="%s/kernel" % image_dir,
+        initrd="%s/initrd.gz" % image_dir, append=append)
