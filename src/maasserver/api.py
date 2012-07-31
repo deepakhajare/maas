@@ -1075,9 +1075,14 @@ def compose_preseed_kernel_opt(node):
 
 def get_boot_purpose(node):
     """Return a suitable "purpose" for this boot, e.g. "install"."""
+    # XXX: allenap bug=1031406 2012-07-31: The boot purpose is still in
+    # flux. It may be that there will just be an "ephemeral" environment and
+    # an "install" environment, and the differing behaviour between, say,
+    # enlistment and commissioning - both of which will use the "ephemeral"
+    # environment - will be governed by varying the preseed or PXE
+    # configuration.
     if node is None:
-        # This node is enlisting, for which we use a commissioning
-        # image. TODO: Do we?
+        # This node is enlisting, for which we use a commissioning image.
         return "commissioning"
     elif node.status == NODE_STATUS.COMMISSIONING:
         # It is commissioning.
