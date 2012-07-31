@@ -70,9 +70,9 @@ def locate_tftp_path(path, tftproot):
     The return value gives the filesystem path where you'd have to put
     a file if you wanted it made available over TFTP as `path`.
 
-    :param path: Path as used in the TFTP protocol which you want
-        the local filesystem equivalent for. Pass `None` to get the root
-        of the TFTP hierarchy.
+    :param path: Path as used in the TFTP protocol for which you want the
+        local filesystem equivalent. Pass `None` to get the root of the TFTP
+        hierarchy.
     :param tftproot: The TFTP root directory.
     """
     if path is None:
