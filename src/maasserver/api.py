@@ -1122,9 +1122,13 @@ def pxeconfig(request):
     # node's preseed to the kernel command line.
     append = "%s %s" % (append, compose_preseed_kernel_opt(macaddress))
 
-    # TODO: don't hard-code release and purpose.
+    # Calculate the purpose of this boot.
+    purpose = get_boot_purpose(
+        None if macaddress is None else macaddress.node)
+
+    # TODO: don't hard-code release.
     return HttpResponse(
         render_pxe_config(
             title=title, arch=arch, subarch=subarch, release="precise",
-            purpose="install", append=append),
+            purpose=purpose, append=append),
         content_type="text/plain; charset=utf-8")

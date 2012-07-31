@@ -87,6 +87,7 @@ from provisioningserver.enum import (
     POWER_TYPE_CHOICES,
     )
 from testtools.matchers import (
+    Contains,
     Equals,
     MatchesListwise,
     StartsWith,
@@ -2379,6 +2380,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
             for name, value in parameters.items():
                 setattr(node, name, value)
             self.assertEqual(purpose, api.get_boot_purpose(node))
+
+    def test_pxe_config_uses_boot_purpose(self):
+        fake_boot_purpose = factory.make_name("purpose")
+        self.patch(api, "get_boot_purpose", lambda node: fake_boot_purpose)
+        response = self.client.get(reverse('pxeconfig'), self.get_params())
+        self.assertThat(response.content, Contains(fake_boot_purpose))
 
 
 class TestNodeGroupsAPI(APITestCase):
