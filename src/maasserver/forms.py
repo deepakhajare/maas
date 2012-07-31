@@ -265,6 +265,10 @@ class MultipleMACAddressField(forms.MultiValueField):
         return []
 
 
+def initialize_node_group(node):
+    """If `node` is not in a node group yet, enroll it in the master group."""
+
+
 class WithMACAddressesMixin:
     """A form mixin which dynamically adds a MultipleMACAddressField to the
     list of fields.  This mixin also overrides the 'save' method to persist
