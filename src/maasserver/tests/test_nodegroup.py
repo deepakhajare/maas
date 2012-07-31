@@ -163,3 +163,15 @@ class TestNodeGroup(TestCase):
             ip_range_high=factory.getRandomIPAddress(),
             )
         self.assertTrue(nodegroup.is_dhcp_enabled())
+
+    def test_get_dhcp_key_creates_key(self):
+        nodegroup = factory.make_node_group()
+        key = nodegroup.get_dhcp_key()
+        self.assertNotEqual('', key)
+        self.assertEqual(key, nodegroup.dhcp_key)
+
+    def test_dhcp_key_is_different_for_each_nodegroup(self):
+        nodegroup1 = factory.make_node_group()
+        nodegroup2 = factory.make_node_group()
+        self.assertNotEqual(
+            nodegroup1.get_dhcp_key(), nodegroup2.get_dhcp_key())

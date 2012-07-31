@@ -27,6 +27,7 @@ from piston.models import (
     KEY_SIZE,
     Token,
     )
+from provisioningserver.omshell import generate_omapi_key
 
 
 worker_user_name = 'maas-nodegroup-worker'
@@ -116,6 +117,9 @@ class NodeGroup(TimestampedModel):
     worker_ip = IPAddressField(null=False, editable=True, unique=True)
 
     # DHCP server settings.
+    dhcp_key = CharField(
+        null=False, blank=True, editable=False, max_length=255,
+        default='')
     subnet_mask = IPAddressField(
         editable=True, unique=False, blank=True, null=True, default='')
     broadcast_ip = IPAddressField(
@@ -126,6 +130,15 @@ class NodeGroup(TimestampedModel):
         editable=True, unique=True, blank=True, null=True, default='')
     ip_range_high = IPAddressField(
         editable=True, unique=True, blank=True, null=True, default='')
+
+    def get_dhcp_key(self):
+        """Return the dhcp key.
+
+        This method creates the dhcp key if it does not exist."""
+        if self.dhcp_key is '':
+            self.dhcp_key = generate_omapi_key()
+            self.save()
+        return self.dhcp_key
 
     def is_dhcp_enabled(self):
         """Is the DHCP for this nodegroup enabled?"""
