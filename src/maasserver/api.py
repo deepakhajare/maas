@@ -1061,15 +1061,15 @@ def compose_preseed_url(node):
         query={'op': 'get_preseed'})
 
 
-def compose_preseed_kernel_opt(macaddress):
-    """Compose a kernel option for preseed URL for given `macaddress`.
+def compose_preseed_kernel_opt(node):
+    """Compose a kernel option for preseed URL for given `node`.
 
-    :param mac_address: A `MACAddress`, or `None`.
+    :param mac_address: A `Node`, or `None`.
     """
-    if macaddress is None:
+    if node is None:
         preseed_url = compose_enlistment_preseed_url()
     else:
-        preseed_url = compose_preseed_url(macaddress.node)
+        preseed_url = compose_preseed_url(node)
     return "auto url=%s" % preseed_url
 
 
@@ -1112,19 +1112,20 @@ def pxeconfig(request):
     title = get_mandatory_param(request.GET, 'title')
     append = get_mandatory_param(request.GET, 'append')
 
-    # See if we have a record of this MAC address.
+    # See if we have a record of this MAC address, and thus node.
     try:
         macaddress = MACAddress.objects.get(mac_address=mac)
     except MACAddress.DoesNotExist:
-        macaddress = None
+        macaddress = node = None
+    else:
+        node = macaddress.node
 
     # In addition to the "append" parameter, also add a URL for the
     # node's preseed to the kernel command line.
-    append = "%s %s" % (append, compose_preseed_kernel_opt(macaddress))
+    append = "%s %s" % (append, compose_preseed_kernel_opt(node))
 
     # Calculate the purpose of this boot.
-    purpose = get_boot_purpose(
-        None if macaddress is None else macaddress.node)
+    purpose = get_boot_purpose(node)
 
     # TODO: don't hard-code release.
     return HttpResponse(

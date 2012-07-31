@@ -2334,10 +2334,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 api.compose_preseed_url(node), StartsWith(url))
 
     def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
-        mac = factory.make_mac_address()
+        node = factory.make_node()
         self.assertEqual(
-            "auto url=%s" % api.compose_preseed_url(mac.node),
-            api.compose_preseed_kernel_opt(mac))
+            "auto url=%s" % api.compose_preseed_url(node),
+            api.compose_preseed_kernel_opt(node))
 
     def test_compose_preseed_kernel_opt_returns_option_for_unknown_node(self):
         self.assertEqual(
