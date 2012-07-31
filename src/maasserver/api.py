@@ -1073,6 +1073,27 @@ def compose_preseed_kernel_opt(macaddress):
     return "auto url=%s" % preseed_url
 
 
+def get_boot_purpose(node):
+    """Return a suitable "purpose" for this boot, e.g. "install"."""
+    if node is None:
+        # This node is enlisting, for which we use a commissioning
+        # image. TODO: Do we?
+        return "commissioning"
+    elif node.status == NODE_STATUS.COMMISSIONING:
+        # It is commissioning.
+        return "commissioning"
+    elif node.status == NODE_STATUS.ALLOCATED:
+        # Install the node if netboot is enabled, otherwise boot locally.
+        if node.netboot:
+            return "install"
+        else:
+            return "local"  # TODO: Investigate.
+    else:
+        # Just poweroff? TODO: Investigate. Perhaps even send an IPMI signal
+        # to turn off power.
+        return "poweroff"
+
+
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 

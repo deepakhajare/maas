@@ -2355,6 +2355,31 @@ class TestPXEConfigAPI(AnonAPITestCase):
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertIn(api.compose_preseed_url(node), response.content)
 
+    def test_get_boot_purpose_unknown_node(self):
+        # A node that's not yet known to MAAS is assumed to be enlisting,
+        # which uses a "commissioning" image.
+        self.assertEqual("commissioning", api.get_boot_purpose(None))
+
+    def test_get_boot_purpose_known_node(self):
+        # The following table shows the expected boot "purpose" for each set
+        # of node parameters.
+        options = [
+            ("poweroff", {"status": NODE_STATUS.DECLARED}),
+            ("commissioning", {"status": NODE_STATUS.COMMISSIONING}),
+            ("poweroff", {"status": NODE_STATUS.FAILED_TESTS}),
+            ("poweroff", {"status": NODE_STATUS.MISSING}),
+            ("poweroff", {"status": NODE_STATUS.READY}),
+            ("poweroff", {"status": NODE_STATUS.RESERVED}),
+            ("install", {"status": NODE_STATUS.ALLOCATED, "netboot": True}),
+            ("local", {"status": NODE_STATUS.ALLOCATED, "netboot": False}),
+            ("poweroff", {"status": NODE_STATUS.RETIRED}),
+            ]
+        node = factory.make_node()
+        for purpose, parameters in options:
+            for name, value in parameters.items():
+                setattr(node, name, value)
+            self.assertEqual(purpose, api.get_boot_purpose(node))
+
 
 class TestNodeGroupsAPI(APITestCase):
 
