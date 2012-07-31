@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from django import forms
+from django.contrib.auth.models import User
 from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
@@ -33,6 +34,7 @@ from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
     HostnameFormField,
+    initialize_node_group,
     MACAddressForm,
     NewUserCreationForm,
     NodeActionForm,
@@ -45,6 +47,8 @@ from maasserver.forms import (
 from maasserver.models import (
     Config,
     MACAddress,
+    Node,
+    NodeGroup,
     )
 from maasserver.models.config import DEFAULT_CONFIG
 from maasserver.node_action import (
@@ -55,6 +59,22 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
 from testtools.testcase import ExpectedException
+
+
+class TestHelpers(TestCase):
+
+    def test_initialize_node_group_initializes_nodegroup_to_master(self):
+        node = Node(
+            NODE_STATUS.DECLARED,
+            architecture=factory.getRandomEnum(ARCHITECTURE))
+        initialize_node_group(node)
+        self.assertEqual(NodeGroup.objects.ensure_master(), node.nodegroup)
+
+    def test_initialize_node_group_leaves_nodegroup_reference_intact(self):
+        preselected_nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=preselected_nodegroup)
+        initialize_node_group(node)
+        self.assertEqual(preselected_nodegroup, node.nodegroup)
 
 
 class NodeWithMACAddressesFormTest(TestCase):
@@ -68,29 +88,35 @@ class NodeWithMACAddressesFormTest(TestCase):
                 query_dict[k] = v
         return query_dict
 
-    def test_NodeWithMACAddressesForm_valid(self):
+    def make_params(self, mac_addresses=None, architecture=None):
+        if mac_addresses is None:
+            mac_addresses = [factory.getRandomMACAddress()]
+        if architecture is None:
+            architecture = factory.getRandomEnum(ARCHITECTURE)
+        return self.get_QueryDict({
+            'mac_addresses': mac_addresses,
+            'architecture': architecture,
+        })
 
+    def test_NodeWithMACAddressesForm_valid(self):
+        architecture = factory.getRandomEnum(ARCHITECTURE)
         form = NodeWithMACAddressesForm(
-            self.get_QueryDict({
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
-                'architecture': ARCHITECTURE.i386,
-                }))
+            self.make_params(
+                mac_addresses=['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
+                architecture=architecture))
 
         self.assertTrue(form.is_valid())
         self.assertEqual(
             ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
             form.cleaned_data['mac_addresses'])
-        self.assertEqual(ARCHITECTURE.i386, form.cleaned_data['architecture'])
+        self.assertEqual(architecture, form.cleaned_data['architecture'])
 
     def test_NodeWithMACAddressesForm_simple_invalid(self):
         # If the form only has one (invalid) MAC address field to validate,
         # the error message in form.errors['mac_addresses'] is the
         # message from the field's validation error.
         form = NodeWithMACAddressesForm(
-            self.get_QueryDict({
-                'mac_addresses': ['invalid'],
-                'architecture': ARCHITECTURE.i386,
-                }))
+            self.make_params(mac_addresses=['invalid']))
 
         self.assertFalse(form.is_valid())
         self.assertEqual(['mac_addresses'], list(form.errors))
@@ -103,10 +129,7 @@ class NodeWithMACAddressesFormTest(TestCase):
         # if one or more fields are invalid, a single error message is
         # present in form.errors['mac_addresses'] after validation.
         form = NodeWithMACAddressesForm(
-            self.get_QueryDict({
-                'mac_addresses': ['invalid_1', 'invalid_2'],
-                'architecture': ARCHITECTURE.i386,
-                }))
+            self.make_params(mac_addresses=['invalid_1', 'invalid_2']))
 
         self.assertFalse(form.is_valid())
         self.assertEqual(['mac_addresses'], list(form.errors))
@@ -117,25 +140,25 @@ class NodeWithMACAddressesFormTest(TestCase):
     def test_NodeWithMACAddressesForm_empty(self):
         # Empty values in the list of MAC addresses are simply ignored.
         form = NodeWithMACAddressesForm(
-            self.get_QueryDict({
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff', ''],
-                'architecture': ARCHITECTURE.i386,
-                }))
+            self.make_params(
+                mac_addresses=[factory.getRandomMACAddress(), '']))
 
         self.assertTrue(form.is_valid())
 
     def test_NodeWithMACAddressesForm_save(self):
-        form = NodeWithMACAddressesForm(
-            self.get_QueryDict({
-                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
-                'architecture': ARCHITECTURE.i386,
-                }))
+        macs = ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f']
+        form = NodeWithMACAddressesForm(self.make_params(mac_addresses=macs))
         node = form.save()
 
         self.assertIsNotNone(node.id)  # The node is persisted.
         self.assertSequenceEqual(
-            ['aa:bb:cc:dd:ee:ff', '9a:bb:c3:33:e5:7f'],
+            macs,
             [mac.mac_address for mac in node.macaddress_set.all()])
+
+    def test_sets_nodegroup_to_master_by_default(self):
+        self.assertEqual(
+            NodeGroup.objects.ensure_master(),
+            NodeWithMACAddressesForm(self.make_params()).save().nodegroup)
 
 
 class TestOptionForm(ConfigForm):
@@ -462,6 +485,31 @@ class TestUniqueEmailForms(TestCase):
 
 class TestNewUserCreationForm(TestCase):
 
+    def test_saves_to_db_by_default(self):
+        password = factory.make_name('password')
+        params = {
+            'email': '%s@example.com' % factory.getRandomString(),
+            'username': factory.make_name('user'),
+            'password1': password,
+            'password2': password,
+        }
+        form = NewUserCreationForm(params)
+        form.save()
+        self.assertIsNotNone(User.objects.get(username=params['username']))
+
+    def test_does_not_save_to_db_if_commit_is_False(self):
+        password = factory.make_name('password')
+        params = {
+            'email': '%s@example.com' % factory.getRandomString(),
+            'username': factory.make_name('user'),
+            'password1': password,
+            'password2': password,
+        }
+        form = NewUserCreationForm(params)
+        form.save(commit=False)
+        self.assertItemsEqual(
+            [], User.objects.filter(username=params['username']))
+
     def test_fields_order(self):
         form = NewUserCreationForm()
 
@@ -480,6 +528,21 @@ class TestMACAddressForm(TestCase):
         form.save()
         self.assertTrue(
             MACAddress.objects.filter(node=node, mac_address=mac).exists())
+
+    def test_saves_to_db_by_default(self):
+        node = factory.make_node()
+        mac = factory.getRandomMACAddress()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        form.save()
+        self.assertEqual(
+            mac, MACAddress.objects.get(mac_address=mac).mac_address)
+
+    def test_does_not_save_to_db_if_commit_is_False(self):
+        node = factory.make_node()
+        mac = factory.getRandomMACAddress()
+        form = MACAddressForm(node=node, data={'mac_address': mac})
+        form.save(commit=False)
+        self.assertItemsEqual([], MACAddress.objects.filter(mac_address=mac))
 
     def test_MACAddressForm_displays_error_message_if_mac_already_used(self):
         mac = factory.getRandomMACAddress()

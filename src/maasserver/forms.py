@@ -59,6 +59,7 @@ from maasserver.models import (
     Config,
     MACAddress,
     Node,
+    NodeGroup,
     SSHKey,
     )
 from maasserver.node_action import compile_node_actions
@@ -210,7 +211,9 @@ class MACAddressForm(ModelForm):
     def save(self, *args, **kwargs):
         mac = super(MACAddressForm, self).save(commit=False)
         mac.node = self.node
-        return mac.save(*args, **kwargs)
+        if kwargs.get('commit', True):
+            mac.save(*args, **kwargs)
+        return mac
 
 
 class SSHKeyForm(ModelForm):
@@ -265,6 +268,12 @@ class MultipleMACAddressField(forms.MultiValueField):
         return []
 
 
+def initialize_node_group(node):
+    """If `node` is not in a node group yet, enroll it in the master group."""
+    if node.nodegroup is None:
+        node.nodegroup = NodeGroup.objects.ensure_master()
+
+
 class WithMACAddressesMixin:
     """A form mixin which dynamically adds a MultipleMACAddressField to the
     list of fields.  This mixin also overrides the 'save' method to persist
@@ -304,7 +313,16 @@ class WithMACAddressesMixin:
         return data
 
     def save(self):
-        node = super(WithMACAddressesMixin, self).save()
+        """Save the form's data to the database.
+
+        This implementation of `save` does not support the `commit` argument.
+        """
+        node = super(WithMACAddressesMixin, self).save(commit=False)
+        # We have to save this node in order to attach MACAddress
+        # records to it.  But its nodegroup must be initialized before
+        # we can do that.
+        initialize_node_group(node)
+        node.save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
         if self.cleaned_data['hostname'] == "":
@@ -355,7 +373,10 @@ class NodeActionForm(forms.Form):
             messages.add_message(self.request, messages.INFO, message)
 
     def save(self):
-        """An action was requested.  Perform it."""
+        """An action was requested.  Perform it.
+
+        This implementation of `save` does not support the `commit` argument.
+        """
         action_name = self.data.get(self.input_name)
         action = self.actions.get(action_name)
         if action is None or not action.is_permitted():
@@ -421,7 +442,8 @@ class NewUserCreationForm(UserCreationForm):
         new_email = self.cleaned_data.get('email', None)
         if new_email is not None:
             user.email = new_email
-        user.save()
+        if commit:
+            user.save()
         return user
 
     def clean_email(self):
@@ -476,6 +498,8 @@ class ConfigForm(Form):
 
     def save(self):
         """Save the content of the fields into the database.
+
+        This implementation of `save` does not support the `commit` argument.
 
         :return: Whether or not the content of the fields was valid and hence
             sucessfully saved into the detabase.
@@ -559,7 +583,10 @@ class AddArchiveForm(ConfigForm):
     archive_name = HostnameFormField(label="Archive name")
 
     def save(self):
-        """Save the archive name in the Config table."""
+        """Save the archive name in the Config table.
+
+        This implementation of `save` does not support the `commit` argument.
+        """
         archive_name = self.cleaned_data.get('archive_name')
         archives = Config.objects.get_config('update_from_choice')
         archives.append([archive_name, archive_name])

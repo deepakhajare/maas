@@ -54,6 +54,7 @@ from maasserver.models import (
     DHCPLease,
     MACAddress,
     Node,
+    NodeGroup,
     )
 from maasserver.models.user import (
     create_auth_token,
@@ -282,6 +283,20 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         self.assertItemsEqual(
             ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             [mac.mac_address for mac in diane.macaddress_set.all()])
+
+    def test_POST_new_initializes_nodegroup_to_master_by_default(self):
+        hostname = factory.make_name('host')
+        self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname,
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'mac_addresses': [factory.getRandomMACAddress()],
+            })
+        self.assertEqual(
+            NodeGroup.objects.ensure_master(),
+            Node.objects.get(hostname=hostname).nodegroup)
 
     def test_POST_with_no_hostname_auto_populates_hostname(self):
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
@@ -2245,7 +2260,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 'arch': "armhf",
                 'subarch': "armadaxp",
                 'mac': factory.make_mac_address().mac_address,
-                'menu_title': factory.make_name("Menu"),
+                'title': factory.make_name("Menu"),
                 'kernel': factory.make_name("/my/kernel"),
                 'initrd': factory.make_name("/my/initrd"),
                 'append': factory.make_name("append"),
@@ -2284,7 +2299,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             'arch': httplib.BAD_REQUEST,
             'subarch': httplib.OK,
             'mac': httplib.OK,
-            'menu_title': httplib.BAD_REQUEST,
+            'title': httplib.BAD_REQUEST,
             'kernel': httplib.BAD_REQUEST,
             'initrd': httplib.BAD_REQUEST,
             'append': httplib.BAD_REQUEST,
@@ -2301,12 +2316,25 @@ class TestPXEConfigAPI(AnonAPITestCase):
             (httplib.OK, get_enlist_preseed()),
             (response.status_code, response.content))
 
+    def test_compose_enlistment_preseed_url_returns_absolute_link(self):
+        url = 'http://%s' % factory.make_name('host')
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        self.assertThat(
+                api.compose_enlistment_preseed_url(), StartsWith(url))
+
     def test_compose_preseed_url_links_to_preseed_for_node(self):
         node = factory.make_node()
         response = self.client.get(api.compose_preseed_url(node))
         self.assertEqual(
             (httplib.OK, get_preseed(node)),
             (response.status_code, response.content))
+
+    def test_compose_preseed_url_returns_absolute_link(self):
+        url = 'http://%s' % factory.make_name('host')
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        node = factory.make_node()
+        self.assertThat(
+                api.compose_preseed_url(node), StartsWith(url))
 
     def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
         mac = factory.make_mac_address()

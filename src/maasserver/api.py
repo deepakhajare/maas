@@ -85,7 +85,6 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.core.urlresolvers import reverse
 from django.forms.models import model_to_dict
 from django.http import (
     HttpResponse,
@@ -124,6 +123,7 @@ from maasserver.models import (
     Node,
     NodeGroup,
     )
+from maasserver.utils import absolute_reverse
 from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
@@ -133,10 +133,7 @@ from piston.handler import (
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
-from provisioningserver.pxe.pxeconfig import (
-    PXEConfig,
-    PXEConfigFail,
-    )
+from provisioningserver.pxe.config import render_pxe_config
 
 
 dispatch_methods = {
@@ -1050,16 +1047,18 @@ def compose_enlistment_preseed_url():
     """Compose enlistment preseed URL."""
     # Always uses the latest version of the metadata API.
     version = 'latest'
-    return "%s?op=get_enlist_preseed" % reverse(
-        'metadata-enlist-preseed', args=[version])
+    return absolute_reverse(
+        'metadata-enlist-preseed', args=[version],
+        query={'op': 'get_enlist_preseed'})
 
 
 def compose_preseed_url(node):
     """Compose a metadata URL for `node`'s preseed data."""
     # Always uses the latest version of the metadata API.
     version = 'latest'
-    return "%s?op=get_preseed" % reverse(
-        'metadata-node-by-id', args=[version, node.system_id])
+    return absolute_reverse(
+        'metadata-node-by-id', args=[version, node.system_id],
+        query={'op': 'get_preseed'})
 
 
 def compose_preseed_kernel_opt(mac):
@@ -1076,35 +1075,38 @@ def compose_preseed_kernel_opt(mac):
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 
-    :param arch: Main machine architecture.
-    :param subarch: Sub-architecture, or "generic" if there is none.
     :param mac: MAC address to produce a boot configuration for.  This
         parameter is optional.  If it is not given, the configuration
         will be the "default" one which boots into an enlistment image.
-    :param menu_title: Title that the node should show in its PXE menu.
+    :param title: Title that the node should show in its PXE menu.
     :param kernel: TFTP path to the kernel image that is to be booted.
     :param initrd: TFTP path to the initrd that is to be booted.
     :param append: Additional parameters to append to the kernel command
         line.
+
+    In addition, the following parameters are expected, but are not used:
+
+    :param arch: Main machine architecture.
+    :param subarch: Sub-architecture, or "generic" if there is none.
     """
-    menu_title = get_mandatory_param(request.GET, 'menu_title')
+    title = get_mandatory_param(request.GET, 'title')
     kernel = get_mandatory_param(request.GET, 'kernel')
     initrd = get_mandatory_param(request.GET, 'initrd')
     append = get_mandatory_param(request.GET, 'append')
+    mac = request.GET.get('mac', None)
+
+    # The following two parameters - arch and subarch - typically must be
+    # supplied, but are unused right now.
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', 'generic')
-    mac = request.GET.get('mac', None)
-    config = PXEConfig(arch, subarch)
+    arch, subarch  # Suppress lint warnings.
 
     # In addition to the "append" parameter, also add a URL for the
     # node's preseed to the kernel command line.
     append = "%s %s" % (append, compose_preseed_kernel_opt(mac))
 
-    try:
-        return HttpResponse(
-            config.get_config(
-                menu_title=menu_title, kernel=kernel, initrd=initrd,
-                append=append),
-            content_type="text/plain; charset=utf-8")
-    except PXEConfigFail as e:
-        raise ValidationError(e.message)
+    return HttpResponse(
+        render_pxe_config(
+            title=title, kernel=kernel,
+            initrd=initrd, append=append),
+        content_type="text/plain; charset=utf-8")
