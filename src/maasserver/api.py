@@ -1061,13 +1061,14 @@ def compose_preseed_url(node):
         query={'op': 'get_preseed'})
 
 
-def compose_preseed_kernel_opt(mac):
-    """Compose a kernel option for preseed URL for node that owns `mac`."""
-    macaddress_match = MACAddress.objects.filter(mac_address=mac)
-    if len(macaddress_match) == 0:
+def compose_preseed_kernel_opt(macaddress):
+    """Compose a kernel option for preseed URL for given `macaddress`.
+
+    :param mac_address: A `MACAddress`, or `None`.
+    """
+    if macaddress is None:
         preseed_url = compose_enlistment_preseed_url()
     else:
-        [macaddress] = macaddress_match
         preseed_url = compose_preseed_url(macaddress.node)
     return "auto url=%s" % preseed_url
 
@@ -1090,9 +1091,15 @@ def pxeconfig(request):
     title = get_mandatory_param(request.GET, 'title')
     append = get_mandatory_param(request.GET, 'append')
 
+    # See if we have a record of this MAC address.
+    try:
+        macaddress = MACAddress.objects.get(mac_address=mac)
+    except MACAddress.DoesNotExist:
+        macaddress = None
+
     # In addition to the "append" parameter, also add a URL for the
     # node's preseed to the kernel command line.
-    append = "%s %s" % (append, compose_preseed_kernel_opt(mac))
+    append = "%s %s" % (append, compose_preseed_kernel_opt(macaddress))
 
     # TODO: don't hard-code release and purpose.
     return HttpResponse(

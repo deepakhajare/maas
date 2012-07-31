@@ -2336,12 +2336,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
         mac = factory.make_mac_address()
         self.assertEqual(
             "auto url=%s" % api.compose_preseed_url(mac.node),
-            api.compose_preseed_kernel_opt(mac.mac_address))
+            api.compose_preseed_kernel_opt(mac))
 
     def test_compose_preseed_kernel_opt_returns_option_for_unknown_node(self):
         self.assertEqual(
             "auto url=%s" % api.compose_enlistment_preseed_url(),
-            api.compose_preseed_kernel_opt(factory.getRandomMACAddress()))
+            api.compose_preseed_kernel_opt(None))
 
     def test_pxe_config_appends_enlistment_preseed_url_for_unknown_node(self):
         params = self.get_params()
