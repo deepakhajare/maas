@@ -74,11 +74,13 @@ class TFTPBackend(FilesystemSynchronousBackend):
     re_config_file = re.compile(
         r'''
         ^/?
-        maas     # Static namespacing.
-        /
-        (?P<arch>[^/]+)     # Capture arch.
-        /
-        (?P<subarch>[^/]+)    # Capture subarch.
+        (?P<bootpath>
+          maas     # Static namespacing.
+          /
+          (?P<arch>[^/]+)     # Capture arch.
+          /
+          (?P<subarch>[^/]+)    # Capture subarch.
+        )    # Capture boot directory.
         /
         pxelinux[.]cfg    # PXELINUX expects this.
         /

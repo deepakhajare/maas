@@ -73,6 +73,8 @@ class TestTFTPBackendRegex(TestCase):
             "subarch": factory.make_name("subarch"),
             "mac": factory.getRandomMACAddress(b"-"),
             }
+        # The bootpath component is a superset of arch and subarch.
+        components["bootpath"] = "maas/{arch}/{subarch}".format(**components)
         config_path = compose_config_path(
             arch=components["arch"], subarch=components["subarch"],
             name=components["mac"])
@@ -179,7 +181,10 @@ class TestTFTPBackend(TestCase):
 
         @partial(self.patch, backend, "get_generator_url")
         def get_generator_url(params):
-            expected_params = {"arch": arch, "subarch": subarch, "mac": mac}
+            expected_params = {
+                "arch": arch, "subarch": subarch, "mac": mac,
+                "bootpath": "maas/{arch}/{subarch}".format(**params),
+                }
             self.assertEqual(expected_params, params)
             return generator_url
 
