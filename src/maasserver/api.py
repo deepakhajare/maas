@@ -1078,35 +1078,25 @@ def pxeconfig(request):
     :param mac: MAC address to produce a boot configuration for.  This
         parameter is optional.  If it is not given, the configuration
         will be the "default" one which boots into an enlistment image.
-    :param title: Title that the node should show in its PXE menu.
-    :param kernel: TFTP path to the kernel image that is to be booted.
-    :param initrd: TFTP path to the initrd that is to be booted.
-    :param append: Additional parameters to append to the kernel command
-        line.
-
-    In addition, the following parameters are expected, but are not used:
-
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.
+    :param title: Title that the node should show in its PXE menu.
+    :param append: Additional parameters to append to the kernel command
+        line.
     """
-    title = get_mandatory_param(request.GET, 'title')
-    kernel = get_mandatory_param(request.GET, 'kernel')
-    initrd = get_mandatory_param(request.GET, 'initrd')
-    append = get_mandatory_param(request.GET, 'append')
     mac = request.GET.get('mac', None)
-
-    # The following two parameters - arch and subarch - typically must be
-    # supplied, but are unused right now.
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', 'generic')
-    arch, subarch  # Suppress lint warnings.
+    title = get_mandatory_param(request.GET, 'title')
+    append = get_mandatory_param(request.GET, 'append')
 
     # In addition to the "append" parameter, also add a URL for the
     # node's preseed to the kernel command line.
     append = "%s %s" % (append, compose_preseed_kernel_opt(mac))
 
+    # TODO: don't hard-code release and purpose.
     return HttpResponse(
         render_pxe_config(
-            title=title, kernel=kernel,
-            initrd=initrd, append=append),
+            title=title, arch=arch, subarch=subarch, release="precise",
+            purpose="install", append=append),
         content_type="text/plain; charset=utf-8")

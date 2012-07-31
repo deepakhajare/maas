@@ -2261,8 +2261,6 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 'subarch': "armadaxp",
                 'mac': factory.make_mac_address().mac_address,
                 'title': factory.make_name("Menu"),
-                'kernel': factory.make_name("/my/kernel"),
-                'initrd': factory.make_name("/my/initrd"),
                 'append': factory.make_name("append"),
             }
 
@@ -2300,8 +2298,6 @@ class TestPXEConfigAPI(AnonAPITestCase):
             'subarch': httplib.OK,
             'mac': httplib.OK,
             'title': httplib.BAD_REQUEST,
-            'kernel': httplib.BAD_REQUEST,
-            'initrd': httplib.BAD_REQUEST,
             'append': httplib.BAD_REQUEST,
             }
         observed = {
