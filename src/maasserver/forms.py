@@ -423,7 +423,8 @@ class NewUserCreationForm(UserCreationForm):
         new_email = self.cleaned_data.get('email', None)
         if new_email is not None:
             user.email = new_email
-        user.save()
+        if commit:
+            user.save()
         return user
 
     def clean_email(self):
