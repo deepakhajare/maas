@@ -210,7 +210,9 @@ class MACAddressForm(ModelForm):
     def save(self, *args, **kwargs):
         mac = super(MACAddressForm, self).save(commit=False)
         mac.node = self.node
-        return mac.save(*args, **kwargs)
+        if kwargs.get('commit', True):
+            mac.save(*args, **kwargs)
+        return mac
 
 
 class SSHKeyForm(ModelForm):
