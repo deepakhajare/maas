@@ -362,7 +362,7 @@ class NodeActionForm(forms.Form):
 
     def save(self):
         """An action was requested.  Perform it.
-        
+
         This implementation of `save` does not support the `commit` argument.
         """
         action_name = self.data.get(self.input_name)
