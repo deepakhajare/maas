@@ -18,6 +18,7 @@ from provisioningserver.pxe.config import render_pxe_config
 from testtools.matchers import (
     Contains,
     IsInstance,
+    MatchesAll,
     StartsWith,
     )
 
@@ -41,5 +42,5 @@ class TestRenderPXEConfig(TestCase):
         # typically start with a DEFAULT line.
         self.assertThat(output, StartsWith("DEFAULT "))
         # All of the values put in are included somewhere in the output.
-        for value in options.values():
-            self.assertThat(output, Contains(value))
+        expected = (Contains(value) for value in options.values())
+        self.assertThat(output, MatchesAll(*expected))
