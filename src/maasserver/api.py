@@ -1124,12 +1124,9 @@ def pxeconfig(request):
     # node's preseed to the kernel command line.
     append = "%s %s" % (append, compose_preseed_kernel_opt(node))
 
-    # Calculate the purpose of this boot.
-    purpose = get_boot_purpose(node)
-
     # TODO: don't hard-code release.
     return HttpResponse(
         render_pxe_config(
             title=title, arch=arch, subarch=subarch, release="precise",
-            purpose=purpose, append=append),
+            purpose=get_boot_purpose(node), append=append),
         content_type="text/plain; charset=utf-8")
