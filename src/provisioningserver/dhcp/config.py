@@ -53,13 +53,6 @@ template_content = dedent("""\
            option domain-name-servers {{dns_servers}};
            option routers {{router_ip}};
            range dynamic-bootp {{ip_range_low}} {{ip_range_high}};
-
-           pool {
-                   allow members of "uboot-highbank";
-           }
-           pool {
-                   allow members of "pxe";
-           }
     }
     key maasupdate {
         algorithm hmac-md5;
