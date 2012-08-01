@@ -2363,13 +2363,17 @@ class TestPXEConfigAPI(AnonAPITestCase):
         params = self.get_params()
         params['mac'] = factory.getRandomMACAddress()
         response = self.client.get(reverse('pxeconfig'), params)
-        self.assertIn(api.compose_enlistment_preseed_url(), response.content)
+        self.assertIn(
+            api.compose_enlistment_preseed_url(),
+            json.loads(response.content)["append"])
 
     def test_pxe_config_appends_preseed_url_for_known_node(self):
         params = self.get_params()
         node = MACAddress.objects.get(mac_address=params['mac']).node
         response = self.client.get(reverse('pxeconfig'), params)
-        self.assertIn(api.compose_preseed_url(node), response.content)
+        self.assertIn(
+            api.compose_preseed_url(node),
+            json.loads(response.content)["append"])
 
     def test_get_boot_purpose_unknown_node(self):
         # A node that's not yet known to MAAS is assumed to be enlisting,
@@ -2400,7 +2404,9 @@ class TestPXEConfigAPI(AnonAPITestCase):
         fake_boot_purpose = factory.make_name("purpose")
         self.patch(api, "get_boot_purpose", lambda node: fake_boot_purpose)
         response = self.client.get(reverse('pxeconfig'), self.get_params())
-        self.assertThat(response.content, Contains(fake_boot_purpose))
+        self.assertEqual(
+            fake_boot_purpose,
+            json.loads(response.content)["purpose"])
 
 
 class TestNodeGroupsAPI(APITestCase):
