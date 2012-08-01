@@ -187,7 +187,8 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler, and install the preseed files and snippets::
+Install Cobbler (via the maas-provision package), and install the preseed
+files and snippets::
 
     $ sudo apt-get install apache2 maas-provision
     $ sudo cp contrib/preseeds/* /var/lib/cobbler/kickstarts/
@@ -195,7 +196,7 @@ Install Cobbler, and install the preseed files and snippets::
 
 Set the iSCSI config to include the MAAS configs::
 
-   $ sudo cat contrib/tgt.conf >> /etc/tgt/targets.conf
+   $ sudo tee -a /etc/tgt/targets.conf < contrib/tgt.conf
 
 Now run ``maas-import-pxe-files`` to download current Ubuntu releases for
 installing nodes::
