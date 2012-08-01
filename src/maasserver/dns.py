@@ -27,6 +27,7 @@ from django.conf import settings
 from django.db.models.signals import (
     post_delete,
     post_save,
+    pre_save,
     )
 from django.dispatch import receiver
 from maasserver.exceptions import MAASException
@@ -144,12 +145,26 @@ def dns_post_delete_Node(sender, instance, **kwargs):
         change_dns_zones(instance.nodegroup)
 
 
-@receiver(post_save, sender=Node)
-def dns_post_save_Node(sender, instance, created, **kwargs):
-    """When a Node is changed, update the Node's zone file."""
-    # This should only happen when the node's hostname is changed
-    # but Django doesn't provide an easy way to do this yet.
+UPDATE_ZONE_FLAG_NAME = '_zone_needs_updating'
+
+
+@receiver(pre_save, sender=Node)
+def dns_pre_save_Node(sender, instance, **kwargs):
+    """When a Node's hostname is changed, flag that node."""
     if is_dns_enabled():
+        try:
+            old_node = Node.objects.get(pk=instance.pk)
+        except Node.DoesNotExist:
+            pass  # Node is new, no lease can exist yet.
+        else:
+            if old_node.hostname != instance.hostname:
+                setattr(instance, UPDATE_ZONE_FLAG_NAME, True)
+
+
+@receiver(post_save, sender=Node)
+def dns_post_save_Node(sender, instance, **kwargs):
+    """When a Node has been flagged, update the related zone."""
+    if hasattr(instance, UPDATE_ZONE_FLAG_NAME):
         change_dns_zones(instance.nodegroup)
 
 
