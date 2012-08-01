@@ -341,7 +341,7 @@ class TestDNSConfigModifications(TestCase):
         node.save()
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
-    def test_change_node_other_field_does_not_updates_zone(self):
+    def test_change_node_other_field_does_not_update_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
         nodegroup, node, lease = self.create_nodegroup_with_lease()
         recorder = FakeMethod()
