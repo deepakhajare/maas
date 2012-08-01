@@ -38,10 +38,12 @@ bootloader_architectures = [
 template_content = dedent("""\
     class "pxe" {
       match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
+      filename "{{bootloaders['i386', 'generic']}}";
     }
     class "uboot-highbank" {
       match if substring (option vendor-class-identifier, 0, 21) = \
         "U-boot.armv7.highbank";
+      filename "{{bootloaders['arm', 'highbank']}}";
     }
 
     subnet {{subnet}} netmask {{subnet_mask}} {
@@ -54,11 +56,9 @@ template_content = dedent("""\
 
            pool {
                    allow members of "uboot-highbank";
-                   filename "{{bootloaders['arm', 'highbank']}}";
            }
            pool {
                    allow members of "pxe";
-                   filename "{{bootloaders['i386', 'generic']}}";
            }
     }
     key maasupdate {
