@@ -64,7 +64,7 @@ template_content = dedent("""\
     key maasupdate {
         algorithm hmac-md5;
         secret "{{dhcp_key}}";
-    };
+    }
 """)
 
 template = tempita.Template(

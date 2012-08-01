@@ -15,6 +15,8 @@ __all__ = [
     'power_on',
     'rndc_command',
     'setup_rndc_configuration',
+    'restart_dhcp_server',
+    'write_dhcp_config',
     'write_dns_config',
     'write_dns_zone_config',
     'write_full_dns_config',
