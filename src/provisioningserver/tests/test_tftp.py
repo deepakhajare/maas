@@ -229,8 +229,7 @@ class TestTFTPBackend(TestCase):
         output = reader.read(10000)
         # The expected render-time parameters are a merge of previous
         # parameters. Note that the API parameters take precedence.
-        expected_render_params = {}
-        expected_render_params.update(fake_params)
+        expected_render_params = dict(fake_params)
         expected_render_params.update(fake_api_params)
         observed_render_params = json.loads(output)
         self.assertEqual(expected_render_params, observed_render_params)
