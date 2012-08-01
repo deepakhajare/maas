@@ -41,7 +41,7 @@ class NodeGroupManager(Manager):
 
     def new(self, name, worker_ip, subnet_mask=None, broadcast_ip=None,
             router_ip=None, ip_range_low=None, ip_range_high=None,
-            dhcp_key=None):
+            dhcp_key=''):
         """Create a :class:`NodeGroup` with the given parameters.
 
         This method will generate API credentials for the nodegroup's
@@ -118,8 +118,7 @@ class NodeGroup(TimestampedModel):
 
     # DHCP server settings.
     dhcp_key = CharField(
-        null=False, blank=True, editable=False, max_length=255,
-        default='')
+        blank=True, editable=False, max_length=255, default='')
     subnet_mask = IPAddressField(
         editable=True, unique=False, blank=True, null=True, default='')
     broadcast_ip = IPAddressField(
