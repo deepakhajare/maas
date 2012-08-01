@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from functools import partial
+import json
 from os import path
 from urllib import urlencode
 from urlparse import (
@@ -188,8 +189,29 @@ class TestTFTPBackend(TestCase):
             self.assertEqual(expected_params, params)
             return generator_url
 
-        backend.get_page = succeed  # Return the URL, via a Deferred.
-        reader = yield backend.get_reader(config_path.lstrip("/"))
+        # Fake configuration data, as returned from the API call.
+        fake_config_data = {
+            "arch": arch,
+            "subarch": subarch,
+            "append": factory.make_name("append"),
+            "purpose": factory.make_name("purpose"),
+            "release": factory.make_name("release"),
+            "title": factory.make_name("title"),
+            }
+        # Stub get_page to return the fake configuration data.
+        backend.get_page = lambda url: succeed(json.dumps(fake_config_data))
+        # Stub render_pxe_config to return the parameters.
+        backend.render_pxe_config = lambda **kwargs: json.dumps(kwargs)
+
+        reader = yield backend.get_reader(config_path)
         self.addCleanup(reader.finish)
         self.assertIsInstance(reader, BytesReader)
-        self.assertEqual(generator_url, reader.read(1000))
+        output = reader.read(10000)
+
+        expected_render_parameters = fake_config_data.copy()
+        expected_render_parameters.update(
+            mac=mac, bootpath="maas/%s/%s" % (arch, subarch))
+        observed_render_parameters = json.loads(output)
+        self.assertEqual(
+            expected_render_parameters,
+            observed_render_parameters)
