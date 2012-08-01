@@ -2269,8 +2269,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
         return ['subarch', 'mac']
 
     def test_pxe_config_returns_config(self):
-        response = self.client.get(reverse('pxeconfig'), self.get_params())
-
+        params_in = self.get_params()
+        response = self.client.get(reverse('pxeconfig'), params_in)
         self.assertThat(
             (
                 response.status_code,
@@ -2280,10 +2280,25 @@ class TestPXEConfigAPI(AnonAPITestCase):
             MatchesListwise(
                 (
                     Equals(httplib.OK),
-                    Equals("text/plain; charset=utf-8"),
-                    StartsWith('DEFAULT menu'),
+                    Equals("application/json"),
+                    StartsWith(b'{'),
                 )),
             response)
+        params_out = json.loads(response.content)
+        # Some parameters are unchanged.
+        params_unchanged = {"arch", "subarch", "title"}
+        self.assertEqual(
+            {name: params_in[name] for name in params_unchanged},
+            {name: params_out[name] for name in params_unchanged})
+        # The append parameter is... appended to.
+        self.assertThat(
+            params_out["append"], StartsWith(
+                "%(append)s auto url=http://" % params_in))
+        # Some parameters are added.
+        params_added = {"release", "purpose"}
+        self.assertEqual(set(params_out).difference(params_in), params_added)
+        # The release is always "precise".
+        self.assertEqual("precise", params_out["release"])
 
     def get_without_param(self, param):
         params = self.get_params()
