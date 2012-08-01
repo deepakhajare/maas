@@ -114,7 +114,7 @@ class TestNodeGroupManager(TestCase):
     def test_ensure_master_creates_dhcp_key(self):
         NodeGroup.objects._delete_master()
         master = NodeGroup.objects.ensure_master()
-        self.assertThat(master.dhcp_key, GreaterThan(20))
+        self.assertThat(len(master.dhcp_key), GreaterThan(20))
 
     def test_ensure_master_returns_same_nodegroup_every_time(self):
         NodeGroup.objects._delete_master()

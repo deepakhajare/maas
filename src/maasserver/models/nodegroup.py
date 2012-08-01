@@ -80,7 +80,8 @@ class NodeGroupManager(Manager):
             master = self.get(name='master')
         except NodeGroup.DoesNotExist:
             # The master did not exist yet; create it on demand.
-            master = self.new('master', '127.0.0.1', dhcp_key=generate_omapi_key())
+            master = self.new(
+                'master', '127.0.0.1', dhcp_key=generate_omapi_key())
 
             # If any legacy nodes were still not associated with a node
             # group, enroll them in the master node group.
