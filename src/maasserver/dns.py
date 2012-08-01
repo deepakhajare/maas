@@ -139,7 +139,16 @@ def dns_updated_DHCPLeaseManager(sender, **kwargs):
 
 @receiver(post_delete, sender=Node)
 def dns_post_delete_Node(sender, instance, **kwargs):
-    """Update the Node's zone file."""
+    """When a Node is deleted, update the Node's zone file."""
+    # This should only happen when the node's hostname is changed
+    # but Django doesn't provide an easy way to do this yet.
+    if is_dns_enabled():
+        change_dns_zones(instance.nodegroup)
+
+
+@receiver(post_save, sender=Node)
+def dns_post_save_Node(sender, instance, created, **kwargs):
+    """When a Node is changed, update the Node's zone file."""
     if is_dns_enabled():
         change_dns_zones(instance.nodegroup)
 
