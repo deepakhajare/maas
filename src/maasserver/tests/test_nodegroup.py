@@ -17,6 +17,7 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
+from provisioningserver.omshell import generate_omapi_key
 from testtools.matchers import MatchesStructure
 
 
@@ -74,6 +75,18 @@ class TestNodeGroupManager(TestCase):
         self.assertIsNotNone(nodegroup.api_key)
         self.assertEqual(get_worker_user(), nodegroup.api_token.user)
         self.assertEqual(nodegroup.api_key, nodegroup.api_token.key)
+
+    def test_new_creates_nodegroup_with_empty_dhcp_key(self):
+        nodegroup = NodeGroup.objects.new(
+            factory.make_name('nodegroup'), factory.getRandomIPAddress())
+        self.assertEqual('', nodegroup.dhcp_key)
+
+    def test_new_stores_dhcp_key_on_nodegroup(self):
+        key = generate_omapi_key()
+        nodegroup = NodeGroup.objects.new(
+            factory.make_name('nodegroup'), factory.getRandomIPAddress(),
+            dhcp_key=key)
+        self.assertEqual(key, nodegroup.dhcp_key)
 
     def test_ensure_master_creates_minimal_master_nodegroup(self):
         NodeGroup.objects._delete_master()
@@ -163,15 +176,3 @@ class TestNodeGroup(TestCase):
             ip_range_high=factory.getRandomIPAddress(),
             )
         self.assertTrue(nodegroup.is_dhcp_enabled())
-
-    def test_get_dhcp_key_creates_key(self):
-        nodegroup = factory.make_node_group()
-        key = nodegroup.get_dhcp_key()
-        self.assertNotEqual('', key)
-        self.assertEqual(key, nodegroup.dhcp_key)
-
-    def test_dhcp_key_is_different_for_each_nodegroup(self):
-        nodegroup1 = factory.make_node_group()
-        nodegroup2 = factory.make_node_group()
-        self.assertNotEqual(
-            nodegroup1.get_dhcp_key(), nodegroup2.get_dhcp_key())
