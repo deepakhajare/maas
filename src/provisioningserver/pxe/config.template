@@ -5,8 +5,8 @@ TIMEOUT 1
 ONTIMEOUT execute
 
 LABEL execute
-        KERNEL {{kernel}}
-        INITRD {{initrd}}
+        KERNEL {{kernel|relpath}}
+        INITRD {{initrd|relpath}}
         MENU LABEL Continue
         APPEND {{append}}
         IPAPPEND 2
