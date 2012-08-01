@@ -215,3 +215,45 @@ class TestTFTPBackend(TestCase):
         self.assertEqual(
             expected_render_parameters,
             observed_render_parameters)
+
+    @inlineCallbacks
+    def test_get_config_reader(self):
+        # get_config_reader() takes a dict() of parameters and returns an
+        # `IReader` of a PXE configuration, rendered by `render_pxe_config`.
+        backend = TFTPBackend(self.make_dir(), b"http://example.com/")
+        # Fake configuration parameters, as discovered from the file path.
+        fake_params = dict(
+            arch=factory.make_name("arch"),
+            subarch=factory.make_name("subarch"),
+            mac=factory.getRandomMACAddress(b"-"))
+        fake_params.update(
+            bootpath="maas/%(arch)s/%(subarch)s" % fake_params)
+        # Fake configuration parameters, as returned from the API call.
+        fake_api_params = dict(fake_params)
+        fake_api_params.update(
+            append=factory.make_name("append"),
+            purpose=factory.make_name("purpose"),
+            release=factory.make_name("release"),
+            title=factory.make_name("title"))
+        # Add a title to the first set of parameters. This will later help
+        # demonstrate that the API parameters take precedence over the file
+        # path parameters.
+        fake_params["title"] = factory.make_name("original-title")
+        # Stub get_page to return the fake API configuration parameters.
+        fake_api_params_json = json.dumps(fake_api_params)
+        backend.get_page = lambda url: succeed(fake_api_params_json)
+        # Stub render_pxe_config to return the render parameters.
+        backend.render_pxe_config = lambda **kwargs: json.dumps(kwargs)
+        # Get the rendered configuration, which will actually be a JSON dump
+        # of the render-time parameters.
+        reader = yield backend.get_config_reader(fake_api_params)
+        self.addCleanup(reader.finish)
+        self.assertIsInstance(reader, BytesReader)
+        output = reader.read(10000)
+        # The expected render-time parameters are a merge of previous
+        # parameters. Note that the API parameters take precedence.
+        expected_render_params = {}
+        expected_render_params.update(fake_params)
+        expected_render_params.update(fake_api_params)
+        observed_render_params = json.loads(output)
+        self.assertEqual(expected_render_params, observed_render_params)
