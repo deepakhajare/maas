@@ -38,6 +38,7 @@ from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
+from provisioningserver.utils import atomic_write
 
 # =====================================================================
 # Power-related tasks
@@ -216,8 +217,7 @@ def write_dhcp_config(callback=None, **kwargs):
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
     output = config.get_config(**kwargs).encode("ascii")
-    with open(DHCP_CONFIG_FILE, "wb") as out:
-        out.write(output)
+    atomic_write(output, DHCP_CONFIG_FILE)
     if callback is not None:
         callback.delay()
 
