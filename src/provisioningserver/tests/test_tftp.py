@@ -177,44 +177,21 @@ class TestTFTPBackend(TestCase):
         config_path = compose_config_path(arch, subarch, mac)
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
 
-        # Patch get_generator_url() to check params.
-        generator_url = factory.make_name("generator-url").encode("ascii")
-
-        @partial(self.patch, backend, "get_generator_url")
-        def get_generator_url(params):
-            expected_params = {
-                "arch": arch, "subarch": subarch, "mac": mac,
-                "bootpath": "maas/{arch}/{subarch}".format(**params),
-                }
-            self.assertEqual(expected_params, params)
-            return generator_url
-
-        # Fake configuration data, as returned from the API call.
-        fake_config_data = {
-            "arch": arch,
-            "subarch": subarch,
-            "append": factory.make_name("append"),
-            "purpose": factory.make_name("purpose"),
-            "release": factory.make_name("release"),
-            "title": factory.make_name("title"),
-            }
-        # Stub get_page to return the fake configuration data.
-        backend.get_page = lambda url: succeed(json.dumps(fake_config_data))
-        # Stub render_pxe_config to return the parameters.
-        backend.render_pxe_config = lambda **kwargs: json.dumps(kwargs)
+        @partial(self.patch, backend, "get_config_reader")
+        def get_config_reader(params):
+            params_json = json.dumps(params)
+            params_json_reader = BytesReader(params_json)
+            return succeed(params_json_reader)
 
         reader = yield backend.get_reader(config_path)
-        self.addCleanup(reader.finish)
-        self.assertIsInstance(reader, BytesReader)
         output = reader.read(10000)
-
-        expected_render_parameters = fake_config_data.copy()
-        expected_render_parameters.update(
-            mac=mac, bootpath="maas/%s/%s" % (arch, subarch))
-        observed_render_parameters = json.loads(output)
-        self.assertEqual(
-            expected_render_parameters,
-            observed_render_parameters)
+        # The expected parameters include bootpath; this is extracted from the
+        # file path by re_config_file.
+        expected_params = dict(
+            arch=arch, subarch=subarch, mac=mac,
+            bootpath="maas/%s/%s" % (arch, subarch))
+        observed_params = json.loads(output)
+        self.assertEqual(expected_params, observed_params)
 
     @inlineCallbacks
     def test_get_config_reader(self):
