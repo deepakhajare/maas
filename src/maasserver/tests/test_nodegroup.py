@@ -18,7 +18,10 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
 from provisioningserver.omshell import generate_omapi_key
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    GreaterThan,
+    MatchesStructure,
+    )
 
 
 def make_dhcp_settings():
@@ -107,6 +110,11 @@ class TestNodeGroupManager(TestCase):
         master = NodeGroup.objects.ensure_master()
         self.assertEqual(
             master.id, NodeGroup.objects.get(name=master.name).id)
+
+    def test_ensure_master_creates_dhcp_key(self):
+        NodeGroup.objects._delete_master()
+        master = NodeGroup.objects.ensure_master()
+        self.assertThat(master.dhcp_key, GreaterThan(20))
 
     def test_ensure_master_returns_same_nodegroup_every_time(self):
         NodeGroup.objects._delete_master()

@@ -27,6 +27,7 @@ from piston.models import (
     KEY_SIZE,
     Token,
     )
+from provisioningserver.omshell import generate_omapi_key
 
 
 worker_user_name = 'maas-nodegroup-worker'
@@ -79,7 +80,7 @@ class NodeGroupManager(Manager):
             master = self.get(name='master')
         except NodeGroup.DoesNotExist:
             # The master did not exist yet; create it on demand.
-            master = self.new('master', '127.0.0.1')
+            master = self.new('master', '127.0.0.1', dhcp_key=generate_omapi_key())
 
             # If any legacy nodes were still not associated with a node
             # group, enroll them in the master node group.
