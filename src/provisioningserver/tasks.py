@@ -20,9 +20,14 @@ __all__ = [
     'write_full_dns_config',
     ]
 
-from subprocess import CalledProcessError
+from subprocess import (
+    CalledProcessError,
+    check_call,
+    )
 
 from celery.task import task
+from celeryconfig import DHCP_CONFIG_FILE
+from provisioningserver.dhcp import config
 from provisioningserver.dns.config import (
     DNSConfig,
     execute_rndc_command,
@@ -33,7 +38,6 @@ from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
-
 
 # =====================================================================
 # Power-related tasks
@@ -107,8 +111,8 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
             zone.write_config()
             zone.write_reverse_config()
     # Write main config file.
-    config = DNSConfig(zones=zones)
-    config.write_config(**kwargs)
+    dns_config = DNSConfig(zones=zones)
+    dns_config.write_config(**kwargs)
     if callback is not None:
         callback.delay()
 
@@ -124,8 +128,8 @@ def write_dns_config(zones=(), callback=None, **kwargs):
     :type callback: callable
     :param **kwargs: Keyword args passed to DNSConfig.write_config()
     """
-    config = DNSConfig(zones=zones)
-    config.write_config(**kwargs)
+    dns_config = DNSConfig(zones=zones)
+    dns_config.write_config(**kwargs)
     if callback is not None:
         callback.delay()
 
@@ -203,3 +207,22 @@ def remove_dhcp_host_map(ip_address, server_address, shared_key):
         # Re-raise, so the job is marked as failed.  Only currently
         # useful for tests.
         raise
+
+
+@task
+def write_dhcp_config(callback=None, **kwargs):
+    """Write out the DHCP configuration file and restart the DHCP server.
+
+    :param **kwargs: Keyword args passed to dhcp.config.get_config()
+    """
+    output = config.get_config(**kwargs).encode("ascii")
+    with open(DHCP_CONFIG_FILE, "wb") as out:
+        out.write(output)
+    if callback is not None:
+        callback.delay()
+
+
+@task
+def restart_dhcp_server():
+    """Restart the DHCP server."""
+    check_call(['sudo', 'service', 'isc-dhcp-server', 'restart'])

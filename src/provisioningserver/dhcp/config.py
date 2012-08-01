@@ -47,10 +47,10 @@ template_content = dedent("""\
     subnet {{subnet}} netmask {{subnet_mask}} {
            next-server {{next_server}};
            option subnet-mask {{subnet_mask}};
-           option broadcast-address {{broadcast_address}};
+           option broadcast-address {{broadcast_ip}};
            option domain-name-servers {{dns_servers}};
-           option routers {{gateway}};
-           range dynamic-bootp {{low_range}} {{high_range}};
+           option routers {{router_ip}};
+           range dynamic-bootp {{ip_range_low}} {{ip_range_high}};
 
            pool {
                    allow members of "uboot-highbank";
@@ -61,6 +61,10 @@ template_content = dedent("""\
                    filename "{{bootloaders['i386', 'generic']}}";
            }
     }
+    key maasupdate {
+        algorithm hmac-md5;
+        secret "{{dhcp_key}}";
+    };
 """)
 
 template = tempita.Template(
