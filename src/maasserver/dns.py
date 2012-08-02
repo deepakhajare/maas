@@ -145,7 +145,7 @@ def dns_post_delete_Node(sender, instance, **kwargs):
         change_dns_zones(instance.nodegroup)
 
 
-UPDATE_ZONE_FLAG_NAME = '_zone_needs_updating'
+HOSTNAME_UPDATE_FLAG = '_hostname_updated'
 
 
 @receiver(pre_save, sender=Node)
@@ -158,13 +158,13 @@ def dns_pre_save_Node(sender, instance, **kwargs):
             pass  # Node is new, no lease can exist yet.
         else:
             if old_node.hostname != instance.hostname:
-                setattr(instance, UPDATE_ZONE_FLAG_NAME, True)
+                setattr(instance, HOSTNAME_UPDATE_FLAG, True)
 
 
 @receiver(post_save, sender=Node)
 def dns_post_save_Node(sender, instance, **kwargs):
     """When a Node has been flagged, update the related zone."""
-    if hasattr(instance, UPDATE_ZONE_FLAG_NAME):
+    if hasattr(instance, HOSTNAME_UPDATE_FLAG):
         change_dns_zones(instance.nodegroup)
 
 
