@@ -54,10 +54,12 @@ template_content = dedent("""\
            option routers {{router_ip}};
            range dynamic-bootp {{ip_range_low}} {{ip_range_high}};
     }
-    key maasupdate {
-        algorithm hmac-md5;
-        secret "{{dhcp_key}}";
-    }
+    omapi-port 7911;
+    key omapi_key {
+        algorithm HMAC-MD5;
+        secret "{{omapi_shared_key}}";
+    };
+    omapi-key omapi_key;
 """)
 
 template = tempita.Template(

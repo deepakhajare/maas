@@ -213,15 +213,14 @@ def remove_dhcp_host_map(ip_address, server_address, shared_key):
 
 
 @task
-def write_dhcp_config(callback=None, **kwargs):
+def write_dhcp_config(**kwargs):
     """Write out the DHCP configuration file and restart the DHCP server.
 
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
     output = config.get_config(**kwargs).encode("ascii")
     atomic_write(output, DHCP_CONFIG_FILE)
-    if callback is not None:
-        callback.delay()
+    restart_dhcp_server()
 
 
 @task
