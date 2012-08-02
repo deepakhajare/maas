@@ -51,7 +51,7 @@ def render_pxe_config(
     namespace = {
         "append": append,
         "initrd": "%s/initrd.gz" % image_dir,
-        "kernel": "%s/kernel" % image_dir,
+        "kernel": "%s/linux" % image_dir,
         "relpath": partial(posixpath.relpath, start=bootpath),
         }
     return template.substitute(namespace)
