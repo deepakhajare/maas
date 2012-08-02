@@ -61,10 +61,12 @@ template_content = dedent("""\
                    filename "{{bootloaders['i386', 'generic']}}";
            }
     }
-    key maasupdate {
-        algorithm hmac-md5;
-        secret "{{dhcp_key}}";
-    }
+    omapi-port 7911;
+    key omapi_key {
+        algorithm HMAC-MD5;
+        secret "{{omapi_shared_key}}";
+    };
+    omapi-key omapi_key;
 """)
 
 template = tempita.Template(

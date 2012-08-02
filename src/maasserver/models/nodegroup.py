@@ -28,10 +28,7 @@ from piston.models import (
     Token,
     )
 from provisioningserver.omshell import generate_omapi_key
-from provisioningserver.tasks import (
-    restart_dhcp_server,
-    write_dhcp_config,
-    )
+from provisioningserver.tasks import write_dhcp_config
 
 
 worker_user_name = 'maas-nodegroup-worker'
@@ -143,11 +140,10 @@ class NodeGroup(TimestampedModel):
         write_dhcp_config.delay(
             subnet=self.ip_range_low,
             next_server=self.worker_ip,
-            dhcp_key=self.dhcp_key, subnet_mask=self.subnet_mask,
+            omapi_shared_key=self.dhcp_key, subnet_mask=self.subnet_mask,
             broadcast_ip=self.broadcast_ip, router_ip=self.router_ip,
             dns_servers=get_dns_server_address(),
-            ip_range_low=self.ip_range_low, ip_range_high=self.ip_range_high,
-            callback=restart_dhcp_server.subtask())
+            ip_range_low=self.ip_range_low, ip_range_high=self.ip_range_high)
 
     def is_dhcp_enabled(self):
         """Is the DHCP for this nodegroup enabled?"""

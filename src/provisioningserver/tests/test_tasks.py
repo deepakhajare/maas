@@ -151,8 +151,10 @@ class TestDHCPTasks(TestCase):
     def test_write_dhcp_config_writes_config(self):
         conf_file = self.make_file(contents=factory.getRandomString())
         self.patch(tasks, 'DHCP_CONFIG_FILE', conf_file)
+        recorder = FakeMethod()
+        self.patch(tasks, 'check_call', recorder)
         param_names = [
-             'dhcp_key', 'subnet', 'subnet_mask', 'next_server',
+             'omapi_shared_key', 'subnet', 'subnet_mask', 'next_server',
              'broadcast_ip', 'dns_servers', 'router_ip', 'ip_range_low',
              'ip_range_high']
         params = {param: factory.getRandomString() for param in param_names}
@@ -165,6 +167,9 @@ class TestDHCPTasks(TestCase):
                         'class "pxe"',
                         "option subnet-mask",
                     ])))
+        self.assertEqual(
+            (1, (['sudo', 'service', 'isc-dhcp-server', 'restart'],)),
+            (recorder.call_count, recorder.extract_args()[0]))
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
