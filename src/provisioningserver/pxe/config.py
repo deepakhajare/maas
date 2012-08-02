@@ -48,6 +48,8 @@ def render_pxe_config(
         `TFTPBackend.get_config_reader`) won't cause this to break.
     """
     image_dir = compose_image_path(arch, subarch, release, purpose)
+    # The locations of the kernel image and the initrd are defined by
+    # update_install_files(), in scripts/maas-import-pxe-files.
     namespace = {
         "append": append,
         "initrd": "%s/initrd.gz" % image_dir,
