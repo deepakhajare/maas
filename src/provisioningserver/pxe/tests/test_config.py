@@ -56,9 +56,6 @@ class TestRenderPXEConfig(TestCase):
         self.assertThat(
             output, MatchesAll(
                 MatchesRegex(
-                    r'.*^MENU TITLE %s$' % re.escape(options["title"]),
-                    re.MULTILINE | re.DOTALL),
-                MatchesRegex(
                     r'.*^\s+KERNEL %s/kernel$' % re.escape(image_dir),
                     re.MULTILINE | re.DOTALL),
                 MatchesRegex(
@@ -68,7 +65,7 @@ class TestRenderPXEConfig(TestCase):
                     r'.*^\s+APPEND %s$' % re.escape(options["append"]),
                     re.MULTILINE | re.DOTALL)))
 
-    def test_render_with_extra_arguments(self):
+    def test_render_with_extra_arguments_does_not_affect_output(self):
         # render_pxe_config() allows any keyword arguments as a safety valve.
         options = {
             "title": factory.make_name("title"),

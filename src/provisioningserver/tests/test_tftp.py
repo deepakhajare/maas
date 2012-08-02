@@ -194,7 +194,7 @@ class TestTFTPBackend(TestCase):
         self.assertEqual(expected_params, observed_params)
 
     @inlineCallbacks
-    def test_get_config_reader(self):
+    def test_get_config_reader_returns_rendered_params(self):
         # get_config_reader() takes a dict() of parameters and returns an
         # `IReader` of a PXE configuration, rendered by `render_pxe_config`.
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
