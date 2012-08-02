@@ -1,32 +1,22 @@
 # encoding: utf-8
-
-# No unicode_literals.  Unicode strings here irk South.
-from __future__ import (
-    absolute_import,
-    print_function,
-    )
-
-__metaclass__ = type
-__all__ = ['Migration']
-
 import datetime
-
-from django.db import models
-from maasserver.models import NodeGroup
 from south.db import db
 from south.v2 import SchemaMigration
-
+from django.db import models
 
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Ensure that there is a master nodegroup.
-        NodeGroup.objects.ensure_master()
+        
+        # Adding field 'NodeGroup.dhcp_key'
+        db.add_column(u'maasserver_nodegroup', 'dhcp_key', self.gf('django.db.models.fields.CharField')(default=u'', max_length=255, blank=True), keep_default=False)
+
 
     def backwards(self, orm):
-        # Reversing this migration doesn't need to do anything: it's
-        # fine to have a master nodegroup when you don't need one.
-        pass
+        
+        # Deleting field 'NodeGroup.dhcp_key'
+        db.delete_column(u'maasserver_nodegroup', 'dhcp_key')
+
 
     models = {
         'auth.group': {
@@ -101,12 +91,12 @@ class Migration(SchemaMigration):
             'hostname': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'netboot': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': u"orm['maasserver.NodeGroup']", 'null': 'True', 'blank': 'True'}),
+            'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']"}),
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-07cd231a-cff4-11e1-bbd4-002608dc6120'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-d5265148-dbbf-11e1-9d7a-9c4e363b1c94'", 'unique': 'True', 'max_length': '41'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
@@ -116,6 +106,7 @@ class Migration(SchemaMigration):
             'api_token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'unique': 'True'}),
             'broadcast_ip': ('django.db.models.fields.IPAddressField', [], {'default': "u''", 'max_length': '15', 'null': 'True', 'blank': 'True'}),
             'created': ('django.db.models.fields.DateTimeField', [], {}),
+            'dhcp_key': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'ip_range_high': ('django.db.models.fields.IPAddressField', [], {'default': "u''", 'max_length': '15', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
             'ip_range_low': ('django.db.models.fields.IPAddressField', [], {'default': "u''", 'max_length': '15', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
@@ -157,7 +148,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1342518254L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1343815275L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
