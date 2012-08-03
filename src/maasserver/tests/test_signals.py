@@ -48,6 +48,18 @@ class ConnectToFieldChangeTest(TestModelTestCase):
         obj.save()
         self.assertEqual(2, callback.call_count)
 
+    def test_connect_to_field_change_calls_multiple_callbacks(self):
+        callback1 = FakeMethod()
+        connect_to_field_change(callback1, FieldChangeTestModel, 'name1')
+        callback2 = FakeMethod()
+        connect_to_field_change(callback2, FieldChangeTestModel, 'name1')
+        old_name1_value = factory.getRandomString()
+        obj = FieldChangeTestModel(name1=old_name1_value)
+        obj.save()
+        obj.name1 = factory.getRandomString()
+        obj.save()
+        self.assertEqual((1, 1), (callback1.call_count, callback2.call_count))
+
     def test_connect_to_field_change_ignores_changes_to_other_fields(self):
         obj = FieldChangeTestModel(name2=factory.getRandomString())
         obj.save()
