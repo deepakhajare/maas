@@ -21,9 +21,6 @@ from django.db.models.signals import (
     )
 
 
-missing = object()
-
-
 def connect_to_field_change(callback, model, field_name):
     """Call the provided callback when a field is modified on a model.
 
@@ -40,26 +37,27 @@ def connect_to_field_change(callback, model, field_name):
     and `old_value` is the old value of the field (different from the value of
     the field in `instance`).
     """
-    original_flag = '_field_original_value_%s' % field_name
     last_seen_flag = '_field_last_seen_value_%s' % field_name
+    delta_flag = '_field_delta_%s' % field_name
 
     # Record the original value of the field we're interested in.
     def post_init_callback(sender, instance, **kwargs):
         original_value = getattr(instance, field_name)
-        setattr(instance, original_flag, original_value)
+        setattr(instance, last_seen_flag, original_value)
     post_init.connect(post_init_callback, sender=model, weak=False)
 
-    # Record the current value of the field.
+    # Set 'delta_flag' with the new and the old value of the field.
     def pre_save_callback(sender, instance, **kwargs):
-        current_value = getattr(instance, field_name)
-        setattr(instance, last_seen_flag, current_value)
+        original_value = getattr(instance, last_seen_flag)
+        new_value = getattr(instance, field_name)
+        setattr(instance, delta_flag, (new_value, original_value))
     pre_save.connect(pre_save_callback, sender=model, weak=False)
 
     # Call the `callback` if the field has changed.
     def post_save_callback(sender, instance, created, **kwargs):
-        original_value = getattr(instance, original_flag, missing)
-        new_value = getattr(instance, last_seen_flag, missing)
+        (new_value, original_value) = getattr(instance, delta_flag)
         # Call the callback method is the field has changed.
         if original_value != new_value:
             callback(instance, original_value)
+        setattr(instance, last_seen_flag, new_value)
     post_save.connect(post_save_callback, sender=model, weak=False)
