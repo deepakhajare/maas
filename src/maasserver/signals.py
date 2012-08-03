@@ -61,6 +61,5 @@ def connect_to_field_change(callback, model, field_name):
         new_value = getattr(instance, last_seen_flag, missing)
         # Call the callback method is the field has changed.
         if original_value != new_value:
-            if original_value != new_value:
-                callback(instance, original_value)
+            callback(instance, original_value)
     post_save.connect(post_save_callback, sender=model, weak=False)
