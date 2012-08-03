@@ -139,6 +139,8 @@ class TestDNSConfigModifications(TestCase):
         self.bind = self.useFixture(BINDServer())
         self.patch(conf, 'DNS_CONFIG_DIR', self.bind.config.homedir)
 
+        # Use a random port for rndc.
+        self.patch(conf, 'DNS_RNDC_PORT', factory.getRandomPort())
         # This simulates what should happen when the package is
         # installed:
         # Create MAAS-specific DNS configuration files.
