@@ -325,15 +325,15 @@ fi
 if [ -z "$NO_COBBLER" ]
 then
 cobbler_add_update() {
-    # cobbler_add_update(distro_name, profile_name, 
+    # cobbler_add_update(distro_name, profile_name,
     #                    release, arch, kopts, kickstart,
     #                    kernel, initrd)
     local distro="$1" profile="$2" release="$3" arch="$4"
-    local kernel="$5" initrd="$6" kopts="$7" kickstart="$8" 
+    local kernel="$5" initrd="$6" kopts="$7" kickstart="$8"
     local op
-    
+
     cobbler_has distro "$distro" && op="edit" || op="add"
-    
+
     cobbler distro "$op" "--name=$distro" --breed=ubuntu \
         "--os-version=$release" "--arch=$arch" \
         "--kernel=$kernel" "--initrd=$initrd" ||
