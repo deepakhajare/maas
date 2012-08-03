@@ -283,7 +283,7 @@ declaration there so it says::
 
 Then as for TFTP above, create an authbind authorisation::
 
-    $ touch /etc/authbind/byport/53
+    $ sudo touch /etc/authbind/byport/53
     $ sudo chmod a+x /etc/authbind/byport/53
 
 and run as for TFTP.
