@@ -119,16 +119,16 @@ by_mac_patterns = patterns(
 enlist_metadata_patterns = patterns(
     '',
     url(
-        r'enlist/(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
+        r'^/*enlist/(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
         enlist_meta_data_handler,
         name='enlist-metadata-meta-data'),
     url(
-        r'enlist/(?P<version>[^/]+)/user-data$', enlist_user_data_handler,
+        r'^/*enlist/(?P<version>[^/]+)/user-data$', enlist_user_data_handler,
         name='enlist-metadata-user-data'),
     url(
-        r'enlist/(?P<version>[^/]+)[/]*$', enlist_version_index_handler,
+        r'^/*enlist/(?P<version>[^/]+)[/]*$', enlist_version_index_handler,
         name='enlist-version'),
-    url(r'enlist[/]*$', enlist_index_handler, name='enlist'),
+    url(r'^/*enlist[/]*$', enlist_index_handler, name='enlist'),
     )
 
 
