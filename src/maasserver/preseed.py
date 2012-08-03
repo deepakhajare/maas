@@ -43,6 +43,7 @@ def get_enlist_preseed():
     """
     return render_preseed(None, PRESEED_TYPE.ENLIST)
 
+
 def get_enlist_userdata():
     """Return the enlistment preseed.
 

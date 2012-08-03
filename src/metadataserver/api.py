@@ -361,12 +361,14 @@ class EnlistUserDataHandler(BaseHandler):
         check_version(version)
         return HttpResponse(get_enlist_userdata(), mimetype="text/plain")
 
+
 class EnlistVersionIndexHandler(BaseHandler):
     allowed_methods = ('GET',)
     fields = ('meta-data', 'user-data')
 
     def read(self, request, version):
         return make_list_response(sorted(self.fields))
+
 
 @api_operations
 class AnonMetaDataHandler(VersionIndexHandler):

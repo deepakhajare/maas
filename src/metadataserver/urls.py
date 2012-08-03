@@ -135,4 +135,6 @@ enlist_metadata_patterns = patterns(
 # URL patterns.  The anonymous patterns are listed first because they're
 # so recognizable: there's no chance of a regular metadata access being
 # mistaken for one of these based on URL pattern match.
-urlpatterns = enlist_metadata_patterns + by_id_patterns + by_mac_patterns + node_patterns
+urlpatterns = (
+    enlist_metadata_patterns + by_id_patterns + by_mac_patterns +
+    node_patterns)
