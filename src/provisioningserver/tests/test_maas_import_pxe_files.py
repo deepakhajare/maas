@@ -102,7 +102,17 @@ class TestImportPXEFiles(TestCase):
         here = os.path.dirname(__file__)
         root = os.path.join(here, os.pardir, os.pardir, os.pardir)
         script = os.path.join(root, "scripts", "maas-import-pxe-files")
-        path = [os.path.join(root, "bin")]
+
+        # Fake up a stub script that this script will attempt to call.
+        fake_ephemerals_script = self.make_file(
+            name='maas-import-ephemerals', contents="#!/bin/true")
+        os.chmod(fake_ephemerals_script, 0557)
+
+        path = [
+            os.path.join(root, "bin"),
+            os.path.dirname(fake_ephemerals_script),
+            os.path.join(root, "scripts"),
+            ]
         path.extend(os.environ.get("PATH", "").split(os.pathsep))
         env = {
             'ARCHIVE': 'file://%s' % archive_dir,
@@ -116,6 +126,7 @@ class TestImportPXEFiles(TestCase):
         if release is not None:
             env['RELEASES'] = release
             env['CURRENT_RELEASE'] = release
+
         with open(os.devnull, 'wb') as dev_null:
             check_call(script, env=env, stdout=dev_null)
 
