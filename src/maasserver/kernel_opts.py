@@ -59,10 +59,21 @@ def compose_suite_opt(release):
 def compose_hostname_opt(node):
     if node is None:
         # Not a known host; still needs enlisting.  Make up a name.
-        hostname = "maas-enlist"
+        hostname = 'maas-enlist'
     else:
         hostname = node.hostname
     return "hostname=%s" % hostname
+
+
+def compose_domain_opt(node):
+    # TODO: This is probably not enough!
+    domain = 'local.lan'
+    return "domain=%s" % domain
+
+
+def compose_locale_opt():
+    locale = 'en_US'
+    return "locale=%s" % locale
 
 
 def compose_kernel_command_line(node, arch, subarch, purpose):
@@ -74,10 +85,13 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     """
     # TODO: Stop hard-coding this.
     release = 'precise'
+
     options = [
         compose_initrd_opt(arch, subarch, release, purpose),
         compose_preseed_opt(node),
         compose_suite_opt(release),
         compose_hostname_opt(node),
+        compose_domain_opt(node),
+        compose_locale_opt(),
         ]
     return ' '.join(options)
