@@ -21,7 +21,6 @@ __all__ = [
 import collections
 import logging
 import socket
-from textwrap import dedent
 
 from django.conf import settings
 from django.db.models.signals import (
@@ -66,23 +65,20 @@ def is_dns_enabled():
 
 
 class DNSException(MAASException):
-    """An error occured when setting up MAAS' DNS server."""
-
-
-def concatenate_line(text):
-    """Return `text` concatenated into a single line of text."""
-    return dedent(text.rstrip('\n')).replace('\n', ' ').strip()
+    """An error occured when setting up MAAS's DNS server."""
 
 
 def warn_loopback(ip):
     """Warn if the given IP address is in the loopback network."""
     if IPAddress(ip) in IPNetwork('127.0.0.1/8'):
-        logging.getLogger('maas').warn(concatenate_line("""
-            The DNS server will use the address '%s',  which is inside the
-            loopback network.  This may not be a problem if you're not using
-            MAAS' DNS features or if you don't rely on this information.  Be
-            sure to configure the DEFAULT_MAAS_URL setting.
-            """ % ip))
+        logging.getLogger('maas').warn(
+            "The DNS server will use the address '%s',  which is inside the "
+            "loopback network.  This may not be a problem if you're not using "
+            "MAAS's DNS features or if you don't rely on this information.  "
+            "Be sure to configure the DEFAULT_MAAS_URL setting in MAAS's "
+            "settings.py (or demo.py/development.py if you are running a "
+            "development system)."
+            % ip)
 
 
 def get_dns_server_address():
@@ -94,12 +90,12 @@ def get_dns_server_address():
     try:
         ip = get_maas_facing_server_address()
     except socket.error as e:
-        raise DNSException(concatenate_line("""
-            Unable to find MAAS server IP address: %s.
-            MAAS' DNS server requires this IP address for the NS records
-            in its zone files.  Make sure that the DEFAULT_MAAS_URL setting
-            has the correct hostname.
-            """ % e.strerror))
+        raise DNSException(
+            "Unable to find MAAS server IP address: %s.  "
+            "MAAS's DNS server requires this IP address for the NS records "
+            "in its zone files.  Make sure that the DEFAULT_MAAS_URL setting "
+            "has the correct hostname."
+            % e.strerror)
 
     warn_loopback(ip)
     return ip

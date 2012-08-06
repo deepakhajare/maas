@@ -28,7 +28,7 @@ def get_maas_facing_server_host():
     :return: Hostname or IP address, exactly as configured in the
         DEFAULT_MAAS_URL setting.
     """
-    return urlparse(settings.DEFAULT_MAAS_URL).netloc.split(':')[0]
+    return urlparse(settings.DEFAULT_MAAS_URL).hostname
 
 
 def get_maas_facing_server_address():

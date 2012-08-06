@@ -77,7 +77,7 @@ class TestDNSUtilities(TestCase):
         ip = factory.getRandomIPAddress()
         resolver = FakeMethod(result=ip)
         self.patch(server_address, 'gethostbyname', resolver)
-        hostname = factory.getRandomString()
+        hostname = factory.getRandomString().lower()
         self.patch_DEFAULT_MAAS_URL_with_random_values(hostname=hostname)
         self.assertEqual(
             (ip, [(hostname, )]),

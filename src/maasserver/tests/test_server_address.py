@@ -24,7 +24,7 @@ from netaddr import IPNetwork
 class TestServerAddress(TestCase):
 
     def make_hostname(self):
-        return '%s.example.com' % factory.make_name('host')
+        return '%s.example.com' % factory.make_name('host').lower()
 
     def set_DEFAULT_MAAS_URL(self, hostname=None, with_port=False):
         """Patch DEFAULT_MAAS_URL to be a (partly) random URL."""
@@ -68,7 +68,7 @@ class TestServerAddress(TestCase):
         ip = factory.getRandomIPAddress()
         resolver = FakeMethod(result=ip)
         self.patch(server_address, 'gethostbyname', resolver)
-        hostname = factory.getRandomString()
+        hostname = factory.make_hostname()
         self.set_DEFAULT_MAAS_URL(hostname=hostname)
         self.assertEqual(
             (ip, [(hostname, )]),
