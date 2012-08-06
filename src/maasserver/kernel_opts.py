@@ -108,8 +108,7 @@ def get_ephemeral_name(release, arch):
     """Returns the name of the ephemeral image.
 
     That information is read from the config file named 'info' in the
-    ephemeral directory.
-    e.g:
+    ephemeral directory e.g:
     /var/lib/maas/ephemeral/precise/ephemeral/i386/20120424/info
     """
     root = os.path.join(settings.EPHEMERAL_ROOT, release, 'ephemeral', arch)
