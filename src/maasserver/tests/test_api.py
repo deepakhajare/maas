@@ -2346,6 +2346,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
         self.assertEqual(
             expected_response_to_missing_parameter, observed_response)
 
+    def test_compose_kernel_command_line_includes_preseed_url(self):
+        node = factory.make_node()
+        self.assertIn(
+            "auto url=%s" % api.compose_preseed_url(node),
+            api.compose_kernel_command_line(node))
+
     def test_compose_enlistment_preseed_url_links_to_enlistment_preseed(self):
         response = self.client.get(api.compose_enlistment_preseed_url())
         self.assertEqual(
