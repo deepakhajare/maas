@@ -2262,10 +2262,6 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 'arch': "armhf",
                 'subarch': "armadaxp",
                 'mac': factory.make_mac_address().mac_address,
-                'append': "%s=%s" % (
-                    factory.make_name("opt"),
-                    factory.make_name("value"),
-                    ),
             }
 
     def get_optional_params(self):
@@ -2317,22 +2313,16 @@ class TestPXEConfigAPI(AnonAPITestCase):
 
     def test_pxeconfig_adds_some_parameters(self):
         params_in = self.get_params()
-        optional_params = {'release', 'purpose'}
-        for param in optional_params:
+        added_params = {'append', 'release', 'purpose'}
+        for param in added_params:
             if param in params_in:
                 del params_in[param]
         params_out = self.get_pxeconfig(params_in)
         self.assertEqual(
-            set(params_out).difference(params_in), optional_params)
+            set(params_out).difference(params_in), added_params)
         # The release is always "precise".
         self.assertEqual('precise', params_out['release'])
-
-    def test_pxeconfig_appends_to_append_from_request(self):
-        params_in = self.get_params()
-        params_out = self.get_pxeconfig(params_in)
-        self.assertThat(
-            params_out['append'],
-            Contains("%(append)s auto url=http://" % params_in))
+        self.assertThat(params_out['append'], Contains("auto url=http://"))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
@@ -2348,7 +2338,6 @@ class TestPXEConfigAPI(AnonAPITestCase):
             'arch': httplib.BAD_REQUEST,
             'subarch': httplib.OK,
             'mac': httplib.OK,
-            'append': httplib.BAD_REQUEST,
             }
         observed_response = {
             param: self.get_without_param(param).status_code

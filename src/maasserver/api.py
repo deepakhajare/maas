@@ -1072,6 +1072,11 @@ def compose_preseed_kernel_opt(node):
     return "auto url=%s" % preseed_url
 
 
+def compose_kernel_command_line(node):
+    """Return kernel opts to go into the APPEND config line."""
+    return compose_preseed_kernel_opt(node)
+
+
 def get_boot_purpose(node):
     """Return a suitable "purpose" for this boot, e.g. "install"."""
     # XXX: allenap bug=1031406 2012-07-31: The boot purpose is still in
@@ -1106,13 +1111,10 @@ def pxeconfig(request):
         will be the "default" one which boots into an enlistment image.
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.
-    :param append: Additional parameters to append to the kernel command
-        line.
     """
     mac = request.GET.get('mac', None)
     arch = get_mandatory_param(request.GET, 'arch')
     subarch = request.GET.get('subarch', 'generic')
-    append = get_mandatory_param(request.GET, 'append')
 
     # See if we have a record of this MAC address, and thus node.
     try:
@@ -1122,9 +1124,7 @@ def pxeconfig(request):
     else:
         node = macaddress.node
 
-    # In addition to the "append" parameter, also add a URL for the
-    # node's preseed to the kernel command line.
-    append = "%s %s" % (append, compose_preseed_kernel_opt(node))
+    append = compose_kernel_command_line(node)
 
     # XXX: allenap 2012-07-31 bug=1013146: 'precise' is hardcoded here.
     release = "precise"
