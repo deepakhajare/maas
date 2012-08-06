@@ -115,6 +115,7 @@ from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
     )
+from maasserver.kernel_opts import compose_kernel_command_line
 from maasserver.models import (
     Config,
     DHCPLease,
@@ -123,7 +124,6 @@ from maasserver.models import (
     Node,
     NodeGroup,
     )
-from maasserver.utils import absolute_reverse
 from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
@@ -1042,41 +1042,6 @@ def api_doc(request):
         context_instance=RequestContext(request))
 
 
-def compose_enlistment_preseed_url():
-    """Compose enlistment preseed URL."""
-    # Always uses the latest version of the metadata API.
-    version = 'latest'
-    return absolute_reverse(
-        'metadata-enlist-preseed', args=[version],
-        query={'op': 'get_enlist_preseed'})
-
-
-def compose_preseed_url(node):
-    """Compose a metadata URL for `node`'s preseed data."""
-    # Always uses the latest version of the metadata API.
-    version = 'latest'
-    return absolute_reverse(
-        'metadata-node-by-id', args=[version, node.system_id],
-        query={'op': 'get_preseed'})
-
-
-def compose_preseed_kernel_opt(node):
-    """Compose a kernel option for preseed URL for given `node`.
-
-    :param mac_address: A `Node`, or `None`.
-    """
-    if node is None:
-        preseed_url = compose_enlistment_preseed_url()
-    else:
-        preseed_url = compose_preseed_url(node)
-    return "auto url=%s" % preseed_url
-
-
-def compose_kernel_command_line(node):
-    """Return kernel opts to go into the APPEND config line."""
-    return compose_preseed_kernel_opt(node)
-
-
 def get_boot_purpose(node):
     """Return a suitable "purpose" for this boot, e.g. "install"."""
     # XXX: allenap bug=1031406 2012-07-31: The boot purpose is still in
@@ -1124,7 +1089,8 @@ def pxeconfig(request):
     else:
         node = macaddress.node
 
-    append = compose_kernel_command_line(node)
+    purpose = get_boot_purpose(node)
+    append = compose_kernel_command_line(node, arch, subarch, purpose=purpose)
 
     # XXX: allenap 2012-07-31 bug=1013146: 'precise' is hardcoded here.
     release = "precise"

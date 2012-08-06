@@ -60,11 +60,6 @@ from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
     )
-from maasserver.preseed import (
-    get_enlist_preseed,
-    get_preseed,
-    )
-from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing import (
     reload_object,
     reload_objects,
@@ -88,7 +83,6 @@ from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
     )
-from provisioningserver.pxe.tftppath import compose_image_path
 from testtools.matchers import (
     Contains,
     Equals,
@@ -2347,109 +2341,6 @@ class TestPXEConfigAPI(AnonAPITestCase):
             }
         self.assertEqual(
             expected_response_to_missing_parameter, observed_response)
-
-    def test_compose_kernel_command_line_accepts_None_for_unknown_node(self):
-        self.assertIn('suite=precise', api.compose_kernel_command_line(None))
-
-    def test_compose_kernel_command_line_includes_preseed_url(self):
-        node = factory.make_node()
-        self.assertIn(
-            "auto url=%s" % api.compose_preseed_url(node),
-            api.compose_kernel_command_line(node))
-
-    def test_compose_kernel_command_line_includes_initrd(self):
-        node = factory.make_node()
-        initrd_path = compose_image_path(
-            node.architecture, 'generic', 'precise',
-            purpose=api.get_boot_purpose(node))
-        self.assertIn(
-            "initrd=%s" % initrd_path,
-            api.compose_kernel_command_line(node))
-
-    def test_compose_kernel_command_line_includes_suite(self):
-        # At the moment, the OS release we use is hard-coded to "precise."
-        node = factory.make_node()
-        suite = "precise"
-        self.assertIn(
-            "suite=%s" % suite,
-            api.compose_kernel_command_line(node))
-
-    def test_compose_kernel_command_line_includes_hostname_and_domain(self):
-        node = factory.make_node()
-        # Cobbler seems to hard-code domain to "local.lan"; we may want
-        # to change it, and update this test.
-        domain = "local.lan"
-        self.assertThat(
-            api.compose_kernel_command_line(node),
-            ContainsAll([
-                "hostname=%s" % node.hostname,
-                "domain=%s" % domain,
-                ]))
-
-    def test_compose_kernel_command_line_makes_up_hostname_for_new_node(self):
-        dummy_hostname = 'maas-enlist'
-        self.assertIn(
-            "hostname=%s" % dummy_hostname,
-            api.compose_kernel_command_line(None))
-
-    def test_compose_kernel_command_line_includes_locale(self):
-        node = factory.make_node()
-        locale = "en_US"
-        self.assertIn(
-            "locale=%s" % locale,
-            api.compose_kernel_command_line(node))
-
-    def test_compose_kernel_command_line_includes_log_settings(self):
-        node = factory.make_node()
-        log_host = get_maas_facing_server_address()
-        # Port 514 (UDP) is syslog.
-        log_port = "514"
-        text_priority = "critical"
-        self.assertThat(
-            api.compose_kernel_command_line(node),
-            ContainsAll([
-                "log_host=%s" % log_host,
-                "log_port=%s" % log_port,
-                "text priority=%s" % text_priority,
-                ]))
-        self.fail("TEST THIS")
-
-    def test_compose_enlistment_preseed_url_links_to_enlistment_preseed(self):
-        response = self.client.get(api.compose_enlistment_preseed_url())
-        self.assertEqual(
-            (httplib.OK, get_enlist_preseed()),
-            (response.status_code, response.content))
-
-    def test_compose_enlistment_preseed_url_returns_absolute_link(self):
-        url = 'http://%s' % factory.make_name('host')
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
-        self.assertThat(
-                api.compose_enlistment_preseed_url(), StartsWith(url))
-
-    def test_compose_preseed_url_links_to_preseed_for_node(self):
-        node = factory.make_node()
-        response = self.client.get(api.compose_preseed_url(node))
-        self.assertEqual(
-            (httplib.OK, get_preseed(node)),
-            (response.status_code, response.content))
-
-    def test_compose_preseed_url_returns_absolute_link(self):
-        url = 'http://%s' % factory.make_name('host')
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
-        node = factory.make_node()
-        self.assertThat(
-                api.compose_preseed_url(node), StartsWith(url))
-
-    def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
-        node = factory.make_node()
-        self.assertEqual(
-            "auto url=%s" % api.compose_preseed_url(node),
-            api.compose_preseed_kernel_opt(node))
-
-    def test_compose_preseed_kernel_opt_returns_option_for_unknown_node(self):
-        self.assertEqual(
-            "auto url=%s" % api.compose_enlistment_preseed_url(),
-            api.compose_preseed_kernel_opt(None))
 
     def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
         params = self.get_params()
