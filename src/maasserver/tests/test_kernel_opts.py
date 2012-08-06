@@ -22,7 +22,7 @@ from maasserver.kernel_opts import (
     compose_kernel_command_line,
     compose_preseed_opt,
     compose_preseed_url,
-    get_first_directory,
+    get_last_directory,
     )
 from maasserver.preseed import (
     get_enlist_preseed,
@@ -38,7 +38,7 @@ from testtools.matchers import StartsWith
 
 class TestUtilitiesKernelOpts(TestCase):
 
-    def test_get_first_directory(self):
+    def test_get_last_directory(self):
         root = self.make_dir()
         dir1 = os.path.join(root, '20120405')
         dir2 = os.path.join(root, '20120105')
@@ -46,7 +46,7 @@ class TestUtilitiesKernelOpts(TestCase):
         os.makedirs(dir1)
         os.makedirs(dir2)
         os.makedirs(dir3)
-        self.assertEqual(dir1, get_first_directory(root))
+        self.assertEqual(dir1, get_last_directory(root))
 
 
 class TestKernelOpts(TestCase):

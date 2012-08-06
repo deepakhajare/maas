@@ -90,8 +90,8 @@ def compose_logging_opts():
         ]
 
 
-def get_first_directory(root):
-    """Return the first directory from the directories in the given root.
+def get_last_directory(root):
+    """Return the last directory from the directories in the given root.
 
     This is used to get the most recent ephemeral import directory.
     The ephemeral directories are named after the release date: 20120424,
@@ -112,7 +112,7 @@ def get_ephemeral_name(release, arch):
     /var/lib/maas/ephemeral/precise/ephemeral/i386/20120424/info
     """
     root = os.path.join(settings.EPHEMERAL_ROOT, release, 'ephemeral', arch)
-    filename = os.path.join(get_first_directory(root), 'info')
+    filename = os.path.join(get_last_directory(root), 'info')
     name = parse_config(filename, separator="=")['name']
     return name
 
