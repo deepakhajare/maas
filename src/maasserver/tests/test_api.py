@@ -49,6 +49,7 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.exceptions import Unauthorized
+from maasserver.kernel_opts import compose_enlistment_preseed_url
 from maasserver.models import (
     Config,
     DHCPLease,
@@ -2347,7 +2348,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         params['mac'] = factory.getRandomMACAddress()
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertIn(
-            api.compose_enlistment_preseed_url(),
+            compose_enlistment_preseed_url(),
             json.loads(response.content)["append"])
 
     def test_pxeconfig_appends_preseed_url_for_known_node(self):
