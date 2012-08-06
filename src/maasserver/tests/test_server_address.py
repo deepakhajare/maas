@@ -23,13 +23,36 @@ from netaddr import IPNetwork
 
 class TestServerAddress(TestCase):
 
-    def set_DEFAULT_MAAS_URL(self, hostname=None):
+    def make_hostname(self):
+        return '%s.example.com' % factory.make_name('host')
+
+    def set_DEFAULT_MAAS_URL(self, hostname=None, with_port=False):
         """Patch DEFAULT_MAAS_URL to be a (partly) random URL."""
         if hostname is None:
-            hostname = factory.getRandomString()
-        url = 'http://%s:%d/%s' % (
-            hostname, factory.getRandomPort(), factory.getRandomString())
+            hostname = self.make_hostname()
+        if with_port:
+            location = "%s:%d" % (hostname, factory.getRandomPort())
+        else:
+            location = hostname
+        url = 'http://%s/%s' % (location, factory.make_name("path"))
         self.patch(settings, 'DEFAULT_MAAS_URL', url)
+
+    def test_get_maas_facing_server_host_returns_host_name(self):
+        hostname = self.make_hostname()
+        self.set_DEFAULT_MAAS_URL(hostname)
+        self.assertEqual(
+            hostname, server_address.get_maas_facing_server_host())
+
+    def test_get_maas_facing_server_host_returns_ip_if_ip_configured(self):
+        ip = factory.getRandomIPAddress()
+        self.set_DEFAULT_MAAS_URL(ip)
+        self.assertEqual(ip, server_address.get_maas_facing_server_host())
+
+    def test_get_maas_facing_server_host_strips_out_port(self):
+        hostname = self.make_hostname()
+        self.set_DEFAULT_MAAS_URL(hostname, with_port=True)
+        self.assertEqual(
+            hostname, server_address.get_maas_facing_server_host())
 
     def test_get_maas_facing_server_address_returns_IP(self):
         ip = factory.getRandomIPAddress()
