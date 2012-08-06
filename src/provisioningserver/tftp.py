@@ -53,27 +53,35 @@ class BytesReader:
 class TFTPBackend(FilesystemSynchronousBackend):
     """A partially dynamic read-only TFTP server.
 
-    Requests for PXE configurations are forwarded to a configurable URL. See
-    `re_config_file` and `re_mac_address`.
+    Static files such as kernels and initrds, as well as any non-MAAS files
+    that the system may already be set up to serve, are served up normally.
+    But PXE configurations are generated on the fly.
 
-    This must be very selective about which requests to forward, because
+    When a PXE configuration file is requested, the server asynchronously
+    requests the appropriate parameters from the API (at a configurable
+    "generator URL") and generates a config file based on those.
+
+    The regular expressions `re_config_file` and `re_mac_address` specify
+    which files the server generates on the fly.  Any other requests are
+    passed on to the filesystem.
+
+    Passing requests on to the API must be done very selectively, because
     failures cause the boot process to halt. This is why the expression for
-    matching the MAC address is so narrowly defined; PXELINUX attempts to
-    fetch files at many similar paths, and this must respond to only one
-    pattern.
+    matching the MAC address is so narrowly defined: PXELINUX attempts to
+    fetch files at many similar paths which must not be passed on.
     """
 
     get_page = staticmethod(getPage)
     render_pxe_config = staticmethod(render_pxe_config)
 
-    # This is how PXELINUX represents a MAC address. See
-    # http://www.syslinux.org/wiki/index.php/PXELINUX.
+    # PXELINUX represents a MAC address in IEEE 802 hyphen-separated
+    # format.  See http://www.syslinux.org/wiki/index.php/PXELINUX.
     re_mac_address_octet = r'[0-9a-f]{2}'
     re_mac_address = re.compile(
         "-".join(repeat(re_mac_address_octet, 6)))
 
     # We assume that the ARP HTYPE (hardware type) that PXELINUX sends is
-    # alway Ethernet.
+    # always Ethernet.
     re_config_file = re.compile(
         r'''
         ^/?
@@ -114,8 +122,7 @@ class TFTPBackend(FilesystemSynchronousBackend):
         :param params: A dict, or iterable suitable for updating a dict, of
             additional query parameters.
         """
-        # Query defaults.
-        query = {b"append": b""}
+        query = {}
         # Merge parameters from the generator URL.
         query.update(parse_qsl(self.generator_url.query))
         # Merge parameters obtained from the request.
