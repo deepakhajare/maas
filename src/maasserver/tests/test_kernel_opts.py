@@ -14,6 +14,7 @@ __all__ = []
 
 import httplib
 
+from django.conf import settings
 from maasserver import server_address
 from maasserver.api import get_boot_purpose
 from maasserver.kernel_opts import (
@@ -59,7 +60,7 @@ class TestKernelOpts(TestCase):
             "initrd=%s" % initrd_path,
             compose_kernel_command_line(
                 node, node.architecture, 'generic',
-                purpose=factory.make_name('purpose')))
+                purpose=get_boot_purpose(node)))
 
     def test_compose_kernel_command_line_includes_suite(self):
         # At the moment, the OS release we use is hard-coded to "precise."
@@ -106,8 +107,7 @@ class TestKernelOpts(TestCase):
     def test_compose_kernel_command_line_includes_log_settings(self):
         node = factory.make_node()
         log_host = factory.getRandomIPAddress()
-        self.patch(
-            server_address, 'DEFAULT_MAAS_URL', 'http://%s/' % server_address)
+        self.patch(settings, 'DEFAULT_MAAS_URL', 'http://%s/' % log_host)
         # Port 514 (UDP) is syslog.
         log_port = "514"
         text_priority = "critical"
@@ -129,7 +129,7 @@ class TestKernelOpts(TestCase):
 
     def test_compose_enlistment_preseed_url_returns_absolute_link(self):
         url = 'http://%s' % factory.make_name('host')
-        self.patch(server_address, 'DEFAULT_MAAS_URL', url)
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
         self.assertThat(
                 compose_enlistment_preseed_url(), StartsWith(url))
 
@@ -141,10 +141,10 @@ class TestKernelOpts(TestCase):
             (response.status_code, response.content))
 
     def test_compose_preseed_url_returns_absolute_link(self):
-        url = 'http://%s.example.com/' % factory.make_name('host')
-        self.patch(server_address, 'DEFAULT_MAAS_URL', url)
-        node = factory.make_node()
-        self.assertThat(compose_preseed_url(node), StartsWith(url))
+        server_ip = server_address.get_maas_facing_server_address()
+        self.assertThat(
+            compose_preseed_url(factory.make_node()),
+            StartsWith('http://%s' % server_ip))
 
     def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
         node = factory.make_node()

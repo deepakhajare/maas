@@ -14,12 +14,14 @@ __all__ = [
     'compose_kernel_command_line',
     ]
 
+from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import absolute_reverse
 from provisioningserver.pxe.tftppath import compose_image_path
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
-    return "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
+    path = "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
+    return "initrd=%s" % path
 
 
 def compose_enlistment_preseed_url():
@@ -76,6 +78,14 @@ def compose_locale_opt():
     return "locale=%s" % locale
 
 
+def compose_logging_opts():
+    return [
+        'log_host=%s' % get_maas_facing_server_address(),
+        'log_port=%s' % 514,
+        'text priority=%s' % 'critical',
+        ]
+
+
 def compose_kernel_command_line(node, arch, subarch, purpose):
     """Generate a line of kernel options for booting `node`.
 
@@ -94,4 +104,5 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
         compose_domain_opt(node),
         compose_locale_opt(),
         ]
+    options += compose_logging_opts()
     return ' '.join(options)
