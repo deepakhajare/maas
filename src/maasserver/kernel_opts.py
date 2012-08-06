@@ -14,9 +14,13 @@ __all__ = [
     'compose_kernel_command_line',
     ]
 
+import os
+
+from django.conf import settings
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import absolute_reverse
 from provisioningserver.pxe.tftppath import compose_image_path
+from provisioningserver.utils import parse_config
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
@@ -86,9 +90,32 @@ def compose_logging_opts():
         ]
 
 
+def get_first_directory(root):
+    """Return the first directory from the directories in the given root.
+
+    This is used to get the most recent ephemeral import directory.
+    The ephemeral directories are named after the release date: 20120424,
+    20120424, 20120301, etc. so fetching the first one (sorting by name)
+    returns the most recent one.
+    """
+    dirs = [
+        os.path.join(root, directory) for directory in os.listdir(root)]
+    dirs = filter(os.path.isdir, dirs)
+    return sorted(dirs)[0]
+
+
 def get_ephemeral_name(release, arch):
-    # TODO: do something real here.
-    return "maas-precise-12.04-i386-ephemeral-20120424"
+    """Returns the name of the ephemeral image.
+
+    That information is read from the config file named 'info' in the
+    ephemeral directory.
+    e.g:
+    /var/lib/maas/ephemeral/precise/ephemeral/i386/20120424/info
+    """
+    root = os.path.join(settings.EPHEMERAL_ROOT, release, 'ephemeral', arch)
+    filename = os.path.join(get_first_directory(root), 'info')
+    name = parse_config(filename, separator="=")['name']
+    return name
 
 
 def compose_purpose_opts(release, arch, purpose):

@@ -16,6 +16,7 @@ __all__ = [
     "deferred",
     "incremental_write",
     "MainScript",
+    "parse_config",
     "ShellTemplate",
     "xmlrpc_export",
     ]
@@ -134,6 +135,30 @@ def increment_age(filename, old_mtime=None, delta=1000):
         else:
             new_mtime = old_mtime
     os.utime(filename, (new_mtime, new_mtime))
+
+
+def parse_config(file_name, separator=":"):
+    """Returns a dictionary out of the provided config file.
+
+    The expected format of the file is:
+    key1:value1
+    key2:value2
+    ...
+
+    We couldn't use python's ConfigParse module here because it insists
+    on having sections.
+    """
+    with open(file_name, 'rb') as f:
+        data = f.read()
+
+    result = {}
+    for line in data.splitlines():
+        try:
+            field, value = line.split(separator)
+            result[field.strip()] = value.strip()
+        except ValueError:
+            continue
+    return result
 
 
 class Safe:

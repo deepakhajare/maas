@@ -32,6 +32,7 @@ from provisioningserver.utils import (
     increment_age,
     incremental_write,
     MainScript,
+    parse_config,
     Safe,
     ShellTemplate,
     )
@@ -103,6 +104,30 @@ class TestIncrementAge(TestCase):
         increment_age(self.filename, old_mtime=old_mtime)
         self.assertAlmostEqual(
             os.stat(self.filename).st_mtime, old_mtime, delta=0.01)
+
+
+class ParseConfigTest(TestCase):
+    """Testing for the method `parse_config`."""
+
+    def test_parse_config_parses_config_file(self):
+        contents = """
+        key1: value1
+        key2  :  value2
+        """
+        file_name = self.make_file(contents=contents)
+        self.assertEqual(
+            {'key1': 'value1', 'key2': 'value2'},
+            parse_config(file_name))
+
+    def test_parse_config_parse_alternate_separator(self):
+        contents = """
+        key1= value1
+        key2   =  value2
+        """
+        file_name = self.make_file(contents=contents)
+        self.assertEqual(
+            {'key1': 'value1', 'key2': 'value2'},
+            parse_config(file_name, separator='='))
 
 
 class TestShellTemplate(TestCase):
