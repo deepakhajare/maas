@@ -296,7 +296,7 @@ USE_REAL_PSERV = True
 # doing.
 COMMISSIONING_SCRIPT = '/etc/maas/commissioning-user-data'
 
-# The location of the ephemeral images/infos are stored.
+# The location of the ephemeral images/infos.
 EPHEMERAL_ROOT = "/var/lib/maas/ephemeral"
 
 # The duration, in minutes, after which we consider a commissioning node
