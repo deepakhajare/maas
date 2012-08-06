@@ -15,6 +15,11 @@ __all__ = [
     ]
 
 from maasserver.utils import absolute_reverse
+from provisioningserver.pxe.tftppath import compose_image_path
+
+
+def compose_initrd_opt(arch, subarch, release, purpose):
+    return "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
 
 
 def compose_enlistment_preseed_url():
@@ -47,6 +52,19 @@ def compose_preseed_opt(node):
     return "auto url=%s" % preseed_url
 
 
+def compose_suite_opt(release):
+    return "suite=%s" % release
+
+
+def compose_hostname_opt(node):
+    if node is None:
+        # Not a known host; still needs enlisting.  Make up a name.
+        hostname = "maas-enlist"
+    else:
+        hostname = node.hostname
+    return "hostname=%s" % hostname
+
+
 def compose_kernel_command_line(node, arch, subarch, purpose):
     """Generate a line of kernel options for booting `node`.
 
@@ -54,7 +72,12 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
 
     The node may be None, in which case it will boot into enlistment.
     """
+    # TODO: Stop hard-coding this.
+    release = 'precise'
     options = [
+        compose_initrd_opt(arch, subarch, release, purpose),
         compose_preseed_opt(node),
+        compose_suite_opt(release),
+        compose_hostname_opt(node),
         ]
     return ' '.join(options)
