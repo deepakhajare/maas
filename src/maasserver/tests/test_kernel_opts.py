@@ -38,7 +38,7 @@ from testtools.matchers import StartsWith
 
 class TestUtilitiesKernelOpts(TestCase):
 
-    def get_first_directory(self):
+    def test_get_first_directory(self):
         root = self.make_dir()
         dir1 = os.path.join(root, '20120405')
         dir2 = os.path.join(root, '20120105')

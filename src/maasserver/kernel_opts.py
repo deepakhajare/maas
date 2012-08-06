@@ -95,13 +95,13 @@ def get_first_directory(root):
 
     This is used to get the most recent ephemeral import directory.
     The ephemeral directories are named after the release date: 20120424,
-    20120424, 20120301, etc. so fetching the first one (sorting by name)
-    returns the most recent one.
+    20120424, 20120301, etc. so fetching the last one (sorting by name)
+    returns the most recent.
     """
     dirs = [
         os.path.join(root, directory) for directory in os.listdir(root)]
     dirs = filter(os.path.isdir, dirs)
-    return sorted(dirs)[0]
+    return sorted(dirs)[-1]
 
 
 def get_ephemeral_name(release, arch):
