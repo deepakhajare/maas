@@ -2315,7 +2315,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             {name: params_in[name] for name in copied_params},
             {name: params_out[name] for name in copied_params})
 
-    def test_pxeconfig_adds_optional_parameters_if_not_given(self):
+    def test_pxeconfig_adds_some_parameters(self):
         params_in = self.get_params()
         optional_params = {'release', 'purpose'}
         for param in optional_params:
