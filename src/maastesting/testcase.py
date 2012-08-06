@@ -91,13 +91,13 @@ class TestCase(WithScenarios, testtools.TestCase):
         testresources.tearDownResources(
             self, self.resources, testresources._get_result())
 
-    def make_dir(self, rootdir=None):
+    def make_dir(self):
         """Create a temporary directory.
 
         This is a convenience wrapper around a fixture incantation.  That's
         the only reason why it's on the test case and not in a factory.
         """
-        return self.useFixture(TempDir(rootdir=rootdir)).path
+        return self.useFixture(TempDir()).path
 
     def make_file(self, name=None, contents=None):
         """Create, and write to, a file.
