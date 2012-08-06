@@ -34,7 +34,10 @@ from django.core.urlresolvers import reverse
 from django.db.models.signals import post_save
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import api
+from maasserver import (
+    api,
+    kernel_opts,
+    )
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -77,6 +80,7 @@ from maasserver.testing.testcase import (
     )
 from maasserver.utils import map_enum
 from maastesting.djangotestcase import TransactionTestCase
+from maastesting.fakemethod import FakeMethod
 from maastesting.matchers import ContainsAll
 from metadataserver.models import (
     NodeKey,
@@ -2334,6 +2338,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
         # Some parameters are optional, others are mandatory. The
         # absence of a mandatory parameter always results in a BAD
         # REQUEST response.
+        # Silence `get_ephemeral_name`.
+        self.patch(
+            kernel_opts, 'get_ephemeral_name',
+            FakeMethod(result=factory.getRandomString()))
         expected_response_to_missing_parameter = {
             'arch': httplib.BAD_REQUEST,
             'subarch': httplib.OK,
@@ -2347,6 +2355,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
             expected_response_to_missing_parameter, observed_response)
 
     def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
+        # Silence `get_ephemeral_name`.
+        self.patch(
+            kernel_opts, 'get_ephemeral_name',
+            FakeMethod(result=factory.getRandomString()))
         params = self.get_params()
         params['mac'] = factory.getRandomMACAddress()
         response = self.client.get(reverse('pxeconfig'), params)
