@@ -68,7 +68,7 @@ class TestServerAddress(TestCase):
         ip = factory.getRandomIPAddress()
         resolver = FakeMethod(result=ip)
         self.patch(server_address, 'gethostbyname', resolver)
-        hostname = factory.make_hostname()
+        hostname = self.make_hostname()
         self.set_DEFAULT_MAAS_URL(hostname=hostname)
         self.assertEqual(
             (ip, [(hostname, )]),
