@@ -146,7 +146,8 @@ class TestKernelOpts(TestCase):
                 factory.make_name('subarch'),
                 purpose=factory.make_name('purpose')))
 
-    def setup_ephemeral(self, name, arch):
+    def create_ephemeral_info(self, name, arch):
+        """Create a pseudo-real ephemeral info file."""
         release = 'precise'
         epheneral_info = """
             release=precise
@@ -170,7 +171,7 @@ class TestKernelOpts(TestCase):
         # options for a "commissioning" node.
         ephemeral_name = factory.make_name("ephemeral")
         arch = factory.make_name('arch')
-        self.setup_ephemeral(ephemeral_name, arch)
+        self.create_ephemeral_info(ephemeral_name, arch)
         node = factory.make_node()
         target_name_prefix = "iqn.2004-05.com.ubuntu:maas"
         self.assertThat(
