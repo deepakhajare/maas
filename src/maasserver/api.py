@@ -1096,8 +1096,8 @@ def pxeconfig(request):
     release = "precise"
 
     params = dict(
-        arch=arch, subarch=subarch, release=release,
-        purpose=get_boot_purpose(node), append=append)
+        arch=arch, subarch=subarch, release=release, purpose=purpose,
+        append=append)
 
     return HttpResponse(
         json.dumps(params), content_type="application/json")

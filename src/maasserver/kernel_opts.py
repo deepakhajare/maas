@@ -93,7 +93,7 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
 
     The node may be None, in which case it will boot into enlistment.
     """
-    # TODO: Stop hard-coding this.
+    # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
     release = 'precise'
 
     options = [
