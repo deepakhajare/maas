@@ -214,6 +214,7 @@ def get_preseed_context(node, release="precise"):
     context = {
         'release': release,
         'server_host': server_host,
+        'server_url': settings.DEFAULT_MAAS_URL,
         }
     if node is not None:
         # Create the url and the url-data (POST parameters) used to turn off
