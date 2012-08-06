@@ -81,7 +81,7 @@ def compose_locale_opt():
 def compose_logging_opts():
     return [
         'log_host=%s' % get_maas_facing_server_address(),
-        'log_port=%s' % 514,
+        'log_port=%d' % 514,
         'text priority=%s' % 'critical',
         ]
 

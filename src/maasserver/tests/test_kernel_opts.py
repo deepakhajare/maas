@@ -15,7 +15,6 @@ __all__ = []
 import httplib
 
 from django.conf import settings
-from maasserver import server_address
 from maasserver.api import get_boot_purpose
 from maasserver.kernel_opts import (
     compose_enlistment_preseed_url,
@@ -141,10 +140,9 @@ class TestKernelOpts(TestCase):
             (response.status_code, response.content))
 
     def test_compose_preseed_url_returns_absolute_link(self):
-        server_ip = server_address.get_maas_facing_server_address()
         self.assertThat(
             compose_preseed_url(factory.make_node()),
-            StartsWith('http://%s' % server_ip))
+            StartsWith('http://'))
 
     def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
         node = factory.make_node()
