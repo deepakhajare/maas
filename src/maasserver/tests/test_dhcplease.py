@@ -171,6 +171,7 @@ class TestDHCPLeaseManager(TestCase):
     def test_add_missing_leases_ignores_removed_leases(self):
         nodegroup = factory.make_node_group()
         old_lease = factory.make_dhcp_lease(nodegroup)
+        ignore_unused(old_lease)
         new_lease = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
