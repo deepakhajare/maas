@@ -108,7 +108,7 @@ ISCSI_TARGET_NAME_PREFIX = "iqn.2004-05.com.ubuntu:maas"
 
 
 def get_ephemeral_name(release, arch):
-    """Returns the name of the ephemeral image.
+    """Returns the name of the most recent ephemeral image.
 
     That information is read from the config file named 'info' in the
     ephemeral directory e.g:
