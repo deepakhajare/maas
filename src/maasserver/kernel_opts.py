@@ -20,7 +20,7 @@ from django.conf import settings
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import absolute_reverse
 from provisioningserver.pxe.tftppath import compose_image_path
-from provisioningserver.utils import parse_config
+from provisioningserver.utils import parse_key_value_file
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
@@ -116,7 +116,7 @@ def get_ephemeral_name(release, arch):
     """
     root = os.path.join(settings.EPHEMERAL_ROOT, release, 'ephemeral', arch)
     filename = os.path.join(get_last_directory(root), 'info')
-    name = parse_config(filename, separator="=")['name']
+    name = parse_key_value_file(filename, separator="=")['name']
     return name
 
 

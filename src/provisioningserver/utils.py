@@ -16,7 +16,7 @@ __all__ = [
     "deferred",
     "incremental_write",
     "MainScript",
-    "parse_config",
+    "parse_key_value_file",
     "ShellTemplate",
     "xmlrpc_export",
     ]
@@ -137,28 +137,28 @@ def increment_age(filename, old_mtime=None, delta=1000):
     os.utime(filename, (new_mtime, new_mtime))
 
 
-def parse_config(file_name, separator=":"):
-    """Returns a dictionary out of the provided config file.
+def split_lines(input, separator):
+    """Split each item from `input` into a key/value pair."""
+    return (line.split(separator, 1) for line in input if line.strip() != '')
 
-    The expected format of the file is:
-    key1:value1
-    key2:value2
-    ...
 
-    We couldn't use python's ConfigParse module here because it insists
-    on having sections.
+def strip_pairs(input):
+    """Strip whitespace of each key/value pair in input."""
+    return ((key.strip(), value.strip()) for (key, value) in input)
+
+
+def parse_key_value_file(file_name, separator=":"):
+    """Parse a text file into a dict of key/value pairs.
+
+    Use this for simple key:value or key=value files. There are no
+    sections, as required for python's ConfigParse. Whitespace and empty
+    lines are ignored.
+
+    :param file_name: Name of file to parse.
+    :param separator: The text that separates each key from its value.
     """
-    with open(file_name, 'rb') as f:
-        data = f.read()
-
-    result = {}
-    for line in data.splitlines():
-        try:
-            field, value = line.split(separator)
-            result[field.strip()] = value.strip()
-        except ValueError:
-            continue
-    return result
+    with open(file_name, 'rb') as input:
+        return dict(strip_pairs(split_lines(input, separator)))
 
 
 class Safe:

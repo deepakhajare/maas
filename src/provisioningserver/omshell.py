@@ -28,7 +28,7 @@ from subprocess import (
 from tempfile import mkdtemp
 from textwrap import dedent
 
-from provisioningserver.utils import parse_config
+from provisioningserver.utils import parse_key_value_file
 
 
 def call_dnssec_keygen(tmpdir):
@@ -58,12 +58,16 @@ def generate_omapi_key():
             raise AssertionError("dnssec-keygen didn't generate anything")
         key_id = key_id.strip()  # Remove trailing newline.
         key_file_name = os.path.join(tmpdir, key_id + '.private')
-        config = parse_config(key_file_name)
-        if 'Key' in config:
-            return config['Key']
-        else:
+        parsing_error = False
+        try:
+            config = parse_key_value_file(key_file_name)
+        except ValueError:
+            parsing_error = True
+        if parsing_error or 'Key' not in config:
             raise AssertionError(
                 "Key field not found in output from dnssec-keygen")
+        else:
+            return config['Key']
     finally:
         shutil.rmtree(tmpdir)
 

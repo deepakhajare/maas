@@ -32,7 +32,7 @@ from provisioningserver.utils import (
     increment_age,
     incremental_write,
     MainScript,
-    parse_config,
+    parse_key_value_file,
     Safe,
     ShellTemplate,
     )
@@ -107,27 +107,44 @@ class TestIncrementAge(TestCase):
 
 
 class ParseConfigTest(TestCase):
-    """Testing for the method `parse_config`."""
+    """Testing for the method `parse_key_value_file`."""
 
-    def test_parse_config_parses_config_file(self):
+    def test_parse_key_value_file_parses_config_file(self):
         contents = """
-        key1: value1
-        key2  :  value2
-        """
+            key1: value1
+            key2  :  value2
+            """
         file_name = self.make_file(contents=contents)
         self.assertEqual(
             {'key1': 'value1', 'key2': 'value2'},
-            parse_config(file_name))
+            parse_key_value_file(file_name))
 
-    def test_parse_config_parse_alternate_separator(self):
+    def test_parse_key_value_copes_with_empty_lines(self):
         contents = """
-        key1= value1
-        key2   =  value2
-        """
+            key1: value1
+
+            """
+        file_name = self.make_file(contents=contents)
+        self.assertEqual(
+            {'key1': 'value1'}, parse_key_value_file(file_name))
+
+    def test_parse_key_value_file_parse_alternate_separator(self):
+        contents = """
+            key1= value1
+            key2   =  value2
+            """
         file_name = self.make_file(contents=contents)
         self.assertEqual(
             {'key1': 'value1', 'key2': 'value2'},
-            parse_config(file_name, separator='='))
+            parse_key_value_file(file_name, separator='='))
+
+    def test_parse_key_value_additional_eparator(self):
+        contents = """
+            key1: value1:value11
+            """
+        file_name = self.make_file(contents=contents)
+        self.assertEqual(
+            {'key1': 'value1:value11'}, parse_key_value_file(file_name))
 
 
 class TestShellTemplate(TestCase):
