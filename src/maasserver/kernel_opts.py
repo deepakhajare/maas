@@ -108,7 +108,7 @@ ISCSI_TARGET_NAME_PREFIX = "iqn.2004-05.com.ubuntu:maas"
 
 
 def get_ephemeral_name(release, arch):
-    """Returns the name of the most recent ephemeral image.
+    """Return the name of the most recent ephemeral image.
 
     That information is read from the config file named 'info' in the
     ephemeral directory e.g:
@@ -121,6 +121,7 @@ def get_ephemeral_name(release, arch):
 
 
 def compose_purpose_opts(release, arch, purpose):
+    """Return the list of the purpose-specific kernel options."""
     if purpose == "commissioning":
         return [
             "iscsi_target_name=%s:%s" % (
