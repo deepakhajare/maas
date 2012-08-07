@@ -41,7 +41,7 @@ class NoRabbit(MAASException):
 
 
 class EphemeralImagesDirectoryNotFound(MAASException):
-    """The directory for the ephemeral image cannot be found."""
+    """The ephemeral images directory cannot be found."""
 
 
 class MAASAPIException(Exception):
