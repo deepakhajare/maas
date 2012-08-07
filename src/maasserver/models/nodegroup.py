@@ -31,9 +31,6 @@ from provisioningserver.omshell import generate_omapi_key
 from provisioningserver.tasks import write_dhcp_config
 
 
-worker_user_name = 'maas-nodegroup-worker'
-
-
 class NodeGroupManager(Manager):
     """Manager for the NodeGroup class.
 
