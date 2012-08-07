@@ -104,6 +104,9 @@ def get_last_directory(root):
     return sorted(dirs)[-1]
 
 
+ISCSI_TARGET_NAME_PREFIX = "iqn.2004-05.com.ubuntu:maas"
+
+
 def get_ephemeral_name(release, arch):
     """Returns the name of the ephemeral image.
 
@@ -119,10 +122,9 @@ def get_ephemeral_name(release, arch):
 
 def compose_purpose_opts(release, arch, purpose):
     if purpose == "commissioning":
-        target_name_prefix = "iqn.2004-05.com.ubuntu:maas"
         return [
             "iscsi_target_name=%s:%s" % (
-                target_name_prefix, get_ephemeral_name(release, arch)),
+                ISCSI_TARGET_NAME_PREFIX, get_ephemeral_name(release, arch)),
             "ip=dhcp",
             "ro root=LABEL=cloudimg-rootfs",
             "iscsi_target_ip=%s" % get_maas_facing_server_address(),

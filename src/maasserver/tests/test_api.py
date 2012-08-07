@@ -2338,7 +2338,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
         # Some parameters are optional, others are mandatory. The
         # absence of a mandatory parameter always results in a BAD
         # REQUEST response.
-        # Silence `get_ephemeral_name`.
+        # Silence `get_ephemeral_name` to avoid having to fetch the
+        # ephemeral name from the filesystem.
         self.patch(
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))
@@ -2355,7 +2356,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
             expected_response_to_missing_parameter, observed_response)
 
     def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
-        # Silence `get_ephemeral_name`.
+        # Silence `get_ephemeral_name` to avoid having to fetch the
+        # ephemeral name from the filesystem.
         self.patch(
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))

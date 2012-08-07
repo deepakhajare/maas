@@ -23,6 +23,7 @@ from maasserver.kernel_opts import (
     compose_preseed_opt,
     compose_preseed_url,
     get_last_directory,
+    ISCSI_TARGET_NAME_PREFIX,
     )
 from maasserver.preseed import (
     get_enlist_preseed,
@@ -173,7 +174,6 @@ class TestKernelOpts(TestCase):
         arch = factory.make_name('arch')
         self.create_ephemeral_info(ephemeral_name, arch)
         node = factory.make_node()
-        target_name_prefix = "iqn.2004-05.com.ubuntu:maas"
         self.assertThat(
             compose_kernel_command_line(
                 node, arch,
@@ -181,7 +181,7 @@ class TestKernelOpts(TestCase):
                 purpose="commissioning"),
             ContainsAll([
                 "iscsi_target_name=%s:%s" % (
-                    target_name_prefix, ephemeral_name),
+                    ISCSI_TARGET_NAME_PREFIX, ephemeral_name),
                 "iscsi_target_port=3260",
                 "iscsi_target_ip=%s" % get_maas_facing_server_address(),
                 ]))
