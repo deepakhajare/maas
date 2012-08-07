@@ -17,7 +17,7 @@ import os
 
 from django.conf import settings
 from maasserver.api import get_boot_purpose
-from maasserver.exceptions import EphemeralImagesException
+from maasserver.exceptions import EphemeralImagesDirectoryNotFound
 from maasserver.kernel_opts import (
     compose_enlistment_preseed_url,
     compose_kernel_command_line,
@@ -192,7 +192,7 @@ class TestKernelOpts(TestCase):
             settings, 'EPHEMERAL_ROOT', factory.make_name('missing-dir'))
         node = factory.make_node()
         self.assertRaises(
-            EphemeralImagesException,
+            EphemeralImagesDirectoryNotFound,
             compose_kernel_command_line, node, factory.make_name('arch'),
             factory.make_name('subarch'), purpose="commissioning")
 
