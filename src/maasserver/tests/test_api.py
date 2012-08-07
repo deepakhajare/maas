@@ -2334,15 +2334,18 @@ class TestPXEConfigAPI(AnonAPITestCase):
         del params[param]
         return self.client.get(reverse('pxeconfig'), params)
 
-    def test_pxeconfig_handles_missing_parameters_appropriately(self):
-        # Some parameters are optional, others are mandatory. The
-        # absence of a mandatory parameter always results in a BAD
-        # REQUEST response.
+    def silence_get_ephemeral_name(self):
         # Silence `get_ephemeral_name` to avoid having to fetch the
         # ephemeral name from the filesystem.
         self.patch(
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))
+
+    def test_pxeconfig_handles_missing_parameters_appropriately(self):
+        # Some parameters are optional, others are mandatory. The
+        # absence of a mandatory parameter always results in a BAD
+        # REQUEST response.
+        self.silence_get_ephemeral_name()
         expected_response_to_missing_parameter = {
             'arch': httplib.BAD_REQUEST,
             'subarch': httplib.OK,
@@ -2356,11 +2359,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             expected_response_to_missing_parameter, observed_response)
 
     def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
-        # Silence `get_ephemeral_name` to avoid having to fetch the
-        # ephemeral name from the filesystem.
-        self.patch(
-            kernel_opts, 'get_ephemeral_name',
-            FakeMethod(result=factory.getRandomString()))
+        self.silence_get_ephemeral_name()
         params = self.get_params()
         params['mac'] = factory.getRandomMACAddress()
         response = self.client.get(reverse('pxeconfig'), params)
