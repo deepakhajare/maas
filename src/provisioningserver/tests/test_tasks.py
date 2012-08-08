@@ -23,6 +23,7 @@ from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 from netaddr import IPNetwork
 from provisioningserver import tasks
+from provisioningserver.dhcp import leases
 from provisioningserver.dns.config import (
     conf,
     DNSZoneConfig,
@@ -37,6 +38,7 @@ from provisioningserver.tasks import (
     Omshell,
     power_off,
     power_on,
+    refresh,
     remove_dhcp_host_map,
     restart_dhcp_server,
     rndc_command,
@@ -58,6 +60,50 @@ from testtools.matchers import (
 # An arbitrary MAC address.  Not using a properly random one here since
 # we might accidentally affect real machines on the network.
 arbitrary_mac = "AA:BB:CC:DD:EE:FF"
+
+
+class TestRefresh(TestCase):
+    """Tests for the `refresh` task."""
+
+    resources = (
+        ("celery", FixtureResource(CeleryFixture())),
+        )
+
+    def test_does_not_require_arguments(self):
+        refresh()
+        # Nothing is refreshed, but there is no error either.
+        pass
+
+    def test_calls_refresh_function(self):
+        value = factory.make_name('new-value')
+        refresh_function = FakeMethod()
+        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
+        refresh(my_item=value)
+        self.assertEqual([(value, )], refresh_function.extract_args())
+
+    def test_refreshes_even_if_None(self):
+        refresh_function = FakeMethod()
+        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
+        refresh(my_item=None)
+        self.assertEqual([(None, )], refresh_function.extract_args())
+
+    def test_does_not_refresh_if_omitted(self):
+        refresh_function = FakeMethod()
+        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
+        refresh()
+        self.assertEqual([], refresh_function.extract_args())
+
+    def test_breaks_on_unknown_item(self):
+        self.assertRaises(AssertionError, refresh, not_an_item=None)
+
+    def test_updates_omapi_shared_key(self):
+        self.patch(leases, 'recorded_omapi_shared_key', None)
+        key = factory.make_name('omapi-shared-key')
+        refresh(omapi_shared_key=key)
+        self.assertEqual(key, leases.recorded_omapi_shared_key)
+
+    def test_is_a_task(self):
+        self.assertTrue(refresh.delay().successful())
 
 
 class TestPowerTasks(TestCase):
