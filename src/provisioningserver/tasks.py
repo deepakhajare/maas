@@ -175,7 +175,7 @@ def setup_rndc_configuration(callback=None):
 def add_new_dhcp_host_map(mappings, server_address, shared_key):
     """Add address mappings to the DHCP server.
 
-    :param mappings: A dict of new IP addresses, and the MAC addreses they
+    :param mappings: A dict of new IP addresses, and the MAC addresses they
         translate to.
     :param server_address: IP or hostname for the DHCP server
     :param shared_key: The HMAC-MD5 key that the DHCP server uses for access
