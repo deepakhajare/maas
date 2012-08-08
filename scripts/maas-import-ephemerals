@@ -248,13 +248,14 @@ EOF
         rmtar="$tarball"
     fi
 
-    # extract
+    # Extract the tarball.
     exdir="$wd/.xx"
     mkdir -p "$exdir" &&
         debug 1 "extracting tarball" &&
         tar -Sxzf - -C  "$exdir" < "$tarball" ||
         { error "failed to extract tarball from $furl"; return 1; }
 
+    # Look for our files in the extracted tarball.
     local x="" img="" kernel="" initrd=""
     for x in "$exdir/"*.img; do
         [ -f "$x" ] && img="$x" && break
@@ -268,6 +269,7 @@ EOF
         [ -f "$x" ] && initrd="$x" && break
     done
 
+    # Rename/move extrated tarballs to the target dir.
     [ -n "$img" ] || { error "failed to find image in $furl"; return 1; }
     mv "$img" "$wd/disk.img" ||
         { error "failed to move extracted image to $wd/disk.img"; return 1; }
