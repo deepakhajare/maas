@@ -43,14 +43,14 @@ from provisioningserver.power.poweraction import (
     )
 from provisioningserver.utils import atomic_write
 
-# For each item passed to refresh(), a refresh function to give it to.
+# For each item passed to refresh_secrets, a refresh function to give it to.
 refresh_functions = {
     'omapi_shared_key': record_omapi_shared_key,
 }
 
 
 @task
-def refresh(**kwargs):
+def refresh_secrets(**kwargs):
     """Update the worker's knowledge of various secrets it needs.
 
     The worker shares some secrets with the MAAS server, such as its
@@ -64,9 +64,11 @@ def refresh(**kwargs):
     not have yet, waiting instead for the next chance to catch up.
 
     To make sure that the worker does not have to wait too long, the server
-    can send periodic `refresh` messages with the required information.
-    Tasks can also call `refresh` to record information they receive from
-    the server.
+    can send periodic `refresh_secrets` messages with the required
+    information.
+
+    Tasks can also call `refresh_secrets` to record information they receive
+    from the server.
 
     All refreshed items are passed as keyword arguments, to avoid confusion
     and allow for easy reordering.  All refreshed items are optional.  An
@@ -226,7 +228,7 @@ def add_new_dhcp_host_map(mappings, server_address, shared_key):
         control.
     """
     omshell = Omshell(server_address, shared_key)
-    refresh(omapi_shared_key=shared_key)
+    refresh_secrets(omapi_shared_key=shared_key)
     try:
         for ip_address, mac_address in mappings.items():
             omshell.create(ip_address, mac_address)
@@ -248,7 +250,7 @@ def remove_dhcp_host_map(ip_address, server_address, shared_key):
         control.
     """
     omshell = Omshell(server_address, shared_key)
-    refresh(omapi_shared_key=shared_key)
+    refresh_secrets(omapi_shared_key=shared_key)
     try:
         omshell.remove(ip_address)
     except CalledProcessError:

@@ -38,7 +38,7 @@ from provisioningserver.tasks import (
     Omshell,
     power_off,
     power_on,
-    refresh,
+    refresh_secrets,
     remove_dhcp_host_map,
     restart_dhcp_server,
     rndc_command,
@@ -62,15 +62,15 @@ from testtools.matchers import (
 arbitrary_mac = "AA:BB:CC:DD:EE:FF"
 
 
-class TestRefresh(TestCase):
-    """Tests for the `refresh` task."""
+class TestRefreshSecrets(TestCase):
+    """Tests for the `refresh_secrets` task."""
 
     resources = (
         ("celery", FixtureResource(CeleryFixture())),
         )
 
     def test_does_not_require_arguments(self):
-        refresh()
+        refresh_secrets()
         # Nothing is refreshed, but there is no error either.
         pass
 
@@ -78,32 +78,32 @@ class TestRefresh(TestCase):
         value = factory.make_name('new-value')
         refresh_function = FakeMethod()
         self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh(my_item=value)
+        refresh_secrets(my_item=value)
         self.assertEqual([(value, )], refresh_function.extract_args())
 
     def test_refreshes_even_if_None(self):
         refresh_function = FakeMethod()
         self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh(my_item=None)
+        refresh_secrets(my_item=None)
         self.assertEqual([(None, )], refresh_function.extract_args())
 
     def test_does_not_refresh_if_omitted(self):
         refresh_function = FakeMethod()
         self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh()
+        refresh_secrets()
         self.assertEqual([], refresh_function.extract_args())
 
     def test_breaks_on_unknown_item(self):
-        self.assertRaises(AssertionError, refresh, not_an_item=None)
+        self.assertRaises(AssertionError, refresh_secrets, not_an_item=None)
 
     def test_updates_omapi_shared_key(self):
         self.patch(leases, 'recorded_omapi_shared_key', None)
         key = factory.make_name('omapi-shared-key')
-        refresh(omapi_shared_key=key)
+        refresh_secrets(omapi_shared_key=key)
         self.assertEqual(key, leases.recorded_omapi_shared_key)
 
-    def test_is_a_task(self):
-        self.assertTrue(refresh.delay().successful())
+    def test_works_as_a_task(self):
+        self.assertTrue(refresh_secrets.delay().successful())
 
 
 class TestPowerTasks(TestCase):
