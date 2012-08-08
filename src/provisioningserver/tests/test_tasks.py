@@ -282,14 +282,13 @@ class TestDNSTasks(TestCase):
                 )))
 
     def test_rndc_command_can_be_retried(self):
-        # Create a method which will simulate a few failures when called
-        # repeatedly, then succeed when called again.
+        # The rndc_command task can be retried.
+        # Simulate a temporary failure.
         number_of_failures = RNDC_COMMAND_MAX_RETRY / 2
         simulate_failures = factory.make_failure_simulator(
             CalledProcessError(
                 factory.make_name('exception'), random.randint(100, 200)),
             number_of_failures)
-
         self.patch(tasks, 'execute_rndc_command', simulate_failures)
         command = factory.getRandomString()
         result = rndc_command.delay(command, retry=True)
