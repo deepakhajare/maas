@@ -90,7 +90,7 @@ def power_off(power_type, **kwargs):
 # How many times should a rndc task be retried?
 RNDC_COMMAND_MAX_RETRY = 10
 
-# How long to wait between rndc tasks retry (in seconds)?
+# How long to wait between rndc tasks retries (in seconds)?
 RNDC_COMMAND_RETRY_DELAY = 2
 
 
