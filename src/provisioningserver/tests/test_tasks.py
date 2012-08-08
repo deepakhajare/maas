@@ -292,7 +292,6 @@ class TestDNSTasks(TestCase):
         self.patch(tasks, 'execute_rndc_command', simulate_failures)
         command = factory.getRandomString()
         result = rndc_command.delay(command, retry=True)
-
         self.assertTrue(result.successful())
 
     def test_write_full_dns_config_sets_up_config(self):
