@@ -21,10 +21,6 @@ from maastesting.testcase import TestCase
 class TestStartUp(TestCase):
     """Testing for the method `start_up`."""
 
-    def setUp(self):
-        super(TestStartUp, self).setUp()
-        NodeGroup.objects._delete_master()
-
     def test_start_up_calls_setup_maas_avahi_service(self):
         recorder = FakeMethod()
         self.patch(start_up, 'setup_maas_avahi_service', recorder)
