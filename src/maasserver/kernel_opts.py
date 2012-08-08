@@ -122,7 +122,7 @@ def get_ephemeral_name(release, arch):
         raise EphemeralImagesDirectoryNotFound(
             "The directory containing the ephemeral images/info is missing "
             "(%r).  Make sure to run the script "
-            "'maas-import-ephemerals'." % root)
+            "'maas-import-pxe-files'." % root)
     name = parse_key_value_file(filename, separator="=")['name']
     return name
 
