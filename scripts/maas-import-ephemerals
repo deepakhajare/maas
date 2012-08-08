@@ -269,7 +269,7 @@ EOF
         [ -f "$x" ] && initrd="$x" && break
     done
 
-    # Rename/move extrated tarballs to the target dir.
+    # Rename/move files extracted from tarballs to the target dir.
     [ -n "$img" ] || { error "failed to find image in $furl"; return 1; }
     mv "$img" "$wd/disk.img" ||
         { error "failed to move extracted image to $wd/disk.img"; return 1; }
