@@ -40,6 +40,7 @@ from provisioningserver.tasks import (
     remove_dhcp_host_map,
     restart_dhcp_server,
     rndc_command,
+    RNDC_COMMAND_MAX_RETRY,
     setup_rndc_configuration,
     write_dhcp_config,
     write_dns_config,
@@ -279,6 +280,21 @@ class TestDNSTasks(TestCase):
                     Equals(True),
                     Equals([((command,), {})]),
                 )))
+
+    def test_rndc_command_can_be_retried(self):
+        # Create a method which will simulate a few failures when called
+        # repeatedly, then succeed when called again.
+        number_of_failures = RNDC_COMMAND_MAX_RETRY / 2
+        simulate_failures = factory.make_failure_simulator(
+            CalledProcessError(
+                factory.make_name('exception'), random.randint(100, 200)),
+            number_of_failures)
+
+        self.patch(tasks, 'execute_rndc_command', simulate_failures)
+        command = factory.getRandomString()
+        result = rndc_command.delay(command, retry=True)
+
+        self.assertTrue(result.successful())
 
     def test_write_full_dns_config_sets_up_config(self):
         # write_full_dns_config writes the config file, writes

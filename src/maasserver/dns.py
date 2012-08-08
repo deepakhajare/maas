@@ -23,25 +23,17 @@ import logging
 import socket
 
 from django.conf import settings
-from django.db.models.signals import (
-    post_delete,
-    post_save,
-    )
-from django.dispatch import receiver
 from maasserver.exceptions import MAASException
 from maasserver.models import (
     Config,
     DHCPLease,
-    Node,
     NodeGroup,
     )
-from maasserver.models.dhcplease import post_updates
 from maasserver.sequence import (
     INT_MAX,
     Sequence,
     )
 from maasserver.server_address import get_maas_facing_server_address
-from maasserver.signals import connect_to_field_change
 from netaddr import (
     IPAddress,
     IPNetwork,
@@ -99,49 +91,6 @@ def get_dns_server_address():
 
     warn_loopback(ip)
     return ip
-
-
-def dns_config_changed(sender, config, created, **kwargs):
-    """Signal callback called when the DNS config changed."""
-    write_full_dns_config(active=config.value)
-
-
-Config.objects.config_changed_connect('enable_dns', dns_config_changed)
-
-
-@receiver(post_save, sender=NodeGroup)
-def dns_post_save_NodeGroup(sender, instance, created, **kwargs):
-    """Create or update DNS zones related to the new nodegroup."""
-    if created:
-        add_zone(instance)
-    else:
-        write_full_dns_config()
-
-
-@receiver(post_delete, sender=NodeGroup)
-def dns_post_delete_NodeGroup(sender, instance, **kwargs):
-    """Delete DNS zones related to the nodegroup."""
-    write_full_dns_config()
-
-
-@receiver(post_updates, sender=DHCPLease.objects)
-def dns_updated_DHCPLeaseManager(sender, **kwargs):
-    """Update all the zone files."""
-    change_dns_zones(NodeGroup.objects.all())
-
-
-@receiver(post_delete, sender=Node)
-def dns_post_delete_Node(sender, instance, **kwargs):
-    """When a Node is deleted, update the Node's zone file."""
-    change_dns_zones(instance.nodegroup)
-
-
-def dns_post_edit_hostname_Node(instance, old_field):
-    """When a Node has been flagged, update the related zone."""
-    change_dns_zones(instance.nodegroup)
-
-
-connect_to_field_change(dns_post_edit_hostname_Node, Node, 'hostname')
 
 
 def get_zone(nodegroup, serial=None):
@@ -226,7 +175,7 @@ def add_zone(nodegroup):
         zone=zone, callback=write_dns_config_subtask)
 
 
-def write_full_dns_config(active=True):
+def write_full_dns_config(active=True, reload_retry=False):
     """Write the DNS configuration.
 
     If active is True, write the DNS config for all the nodegroups.
@@ -241,4 +190,5 @@ def write_full_dns_config(active=True):
         zones = []
     tasks.write_full_dns_config.delay(
         zones=zones,
-        callback=tasks.rndc_command.subtask(args=[['reload']]))
+        callback=tasks.rndc_command.subtask(
+            args=[['reload'], reload_retry]))

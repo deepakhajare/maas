@@ -18,6 +18,7 @@ import datetime
 from functools import partial
 import httplib
 from itertools import (
+    chain,
     imap,
     islice,
     repeat,
@@ -92,6 +93,28 @@ class Factory:
         end = time.mktime(datetime.datetime(year + 1, 1, 1).timetuple())
         stamp = random.randrange(start, end)
         return datetime.datetime.fromtimestamp(stamp)
+
+    def make_failure_simulator(self, exception, number_of_failures):
+        """Return a method raising an exception a fixed number of times.
+
+        When called repeatedly, the returned method will raise the given
+        exception a fixed number of times, and after that, if called
+        again, will always succeed and return None.
+
+        This is used to simulate a temporary failure.
+        """
+
+        def failure_controller(number):
+            """Return True `number` times, then always False."""
+            return chain(repeat(True, number), repeat(False))
+
+        failure_control = failure_controller(number_of_failures)
+
+        def simulate_failures(*args, **kwargs):
+            if failure_control.next():
+                raise exception
+
+        return simulate_failures
 
     def make_file(self, location, name=None, contents=None):
         """Create a file, and write data to it.
