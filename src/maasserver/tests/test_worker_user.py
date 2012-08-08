@@ -12,9 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import connection
 from maasserver.models import UserProfile
 from maasserver.models.user import SYSTEM_USERS
 from maasserver.testing.testcase import TestCase
@@ -42,8 +40,4 @@ class TestNodeGroupUser(TestCase):
 
     def test_get_worker_user_caches_user(self):
         get_worker_user()
-        # Enable debug mode to be able to count the queries.
-        self.patch(settings, 'DEBUG', True)
-        self.patch(connection, 'queries', [])
-        get_worker_user()
-        self.assertEqual(0, len(connection.queries))
+        self.assertNumQueries(0, get_worker_user)
