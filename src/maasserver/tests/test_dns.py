@@ -194,6 +194,7 @@ class TestDNSConfigModifications(TestCase):
 
     def test_add_zone_loads_dns_zone(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.add_zone(nodegroup)
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
@@ -203,11 +204,13 @@ class TestDNSConfigModifications(TestCase):
         nodegroup = factory.make_node_group()
         nodegroup.subnet_mask = None
         nodegroup.save()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.add_zone(nodegroup)
         self.assertEqual(0, recorder.call_count)
 
     def test_change_dns_zone_changes_dns_zone(self):
         nodegroup, _, _ = self.create_nodegroup_with_lease()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config()
         nodegroup, new_node, new_lease = (
             self.create_nodegroup_with_lease(
@@ -234,6 +237,7 @@ class TestDNSConfigModifications(TestCase):
         nodegroup = factory.make_node_group()
         nodegroup.subnet_mask = None
         nodegroup.save()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.change_dns_zones(nodegroup)
         self.assertEqual(0, recorder.call_count)
 
@@ -243,16 +247,19 @@ class TestDNSConfigModifications(TestCase):
         nodegroup = factory.make_node_group()
         nodegroup.subnet_mask = None
         nodegroup.save()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config()
         self.assertEqual(0, recorder.call_count)
 
     def test_write_full_dns_loads_full_dns_config(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config()
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
     def test_write_full_dns_can_write_inactive_config(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config(active=False)
         self.assertEqual([''], self.dig_resolve(generated_hostname(lease.ip)))
 
@@ -260,6 +267,7 @@ class TestDNSConfigModifications(TestCase):
         ip = factory.getRandomIPAddress()
         self.patch(settings, 'DEFAULT_MAAS_URL', 'http://%s/' % ip)
         nodegroup, node, lease = self.create_nodegroup_with_lease()
+        self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config()
         # Get the NS record for the zone 'nodegroup.name'.
         ns_record = dig_call(

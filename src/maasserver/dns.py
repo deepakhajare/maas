@@ -103,8 +103,7 @@ def get_dns_server_address():
 
 def dns_config_changed(sender, config, created, **kwargs):
     """Signal callback called when the DNS config changed."""
-    if is_dns_enabled():
-        write_full_dns_config(active=config.value)
+    write_full_dns_config(active=config.value)
 
 
 Config.objects.config_changed_connect('enable_dns', dns_config_changed)
@@ -113,38 +112,33 @@ Config.objects.config_changed_connect('enable_dns', dns_config_changed)
 @receiver(post_save, sender=NodeGroup)
 def dns_post_save_NodeGroup(sender, instance, created, **kwargs):
     """Create or update DNS zones related to the new nodegroup."""
-    if is_dns_enabled():
-        if created:
-            add_zone(instance)
-        else:
-            write_full_dns_config()
+    if created:
+        add_zone(instance)
+    else:
+        write_full_dns_config()
 
 
 @receiver(post_delete, sender=NodeGroup)
 def dns_post_delete_NodeGroup(sender, instance, **kwargs):
     """Delete DNS zones related to the nodegroup."""
-    if is_dns_enabled():
-        write_full_dns_config()
+    write_full_dns_config()
 
 
 @receiver(post_updates, sender=DHCPLease.objects)
 def dns_updated_DHCPLeaseManager(sender, **kwargs):
     """Update all the zone files."""
-    if is_dns_enabled():
-        change_dns_zones(NodeGroup.objects.all())
+    change_dns_zones(NodeGroup.objects.all())
 
 
 @receiver(post_delete, sender=Node)
 def dns_post_delete_Node(sender, instance, **kwargs):
     """When a Node is deleted, update the Node's zone file."""
-    if is_dns_enabled():
-        change_dns_zones(instance.nodegroup)
+    change_dns_zones(instance.nodegroup)
 
 
 def dns_post_edit_hostname_Node(instance, old_field):
     """When a Node has been flagged, update the related zone."""
-    if is_dns_enabled():
-        change_dns_zones(instance.nodegroup)
+    change_dns_zones(instance.nodegroup)
 
 
 connect_to_field_change(dns_post_edit_hostname_Node, Node, 'hostname')
@@ -191,6 +185,8 @@ def change_dns_zones(nodegroups):
         zone should be updated.
     :type nodegroups: list (or :class:`NodeGroup`)
     """
+    if not is_dns_enabled():
+        return
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
     serial = next_zone_serial()
@@ -215,6 +211,8 @@ def add_zone(nodegroup):
     :param nodegroup: The nodegroup for which the zone should be added.
     :type nodegroup: :class:`NodeGroup`
     """
+    if not is_dns_enabled():
+        return
     zone = get_zone(nodegroup)
     if zone is None:
         return None
@@ -234,6 +232,8 @@ def write_full_dns_config(active=True):
     If active is True, write the DNS config for all the nodegroups.
     If active is False, write an empty DNS config (with no zones).
     """
+    if not is_dns_enabled():
+        return
     if active:
         serial = next_zone_serial()
         zones = get_zones(NodeGroup.objects.all(), serial)
