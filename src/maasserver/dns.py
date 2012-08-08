@@ -178,8 +178,13 @@ def add_zone(nodegroup):
 def write_full_dns_config(active=True, reload_retry=False):
     """Write the DNS configuration.
 
-    If active is True, write the DNS config for all the nodegroups.
-    If active is False, write an empty DNS config (with no zones).
+    :param active: If True, write the DNS config for all the nodegroups.
+        Otherwise write an empty DNS config (with no zones).  Defaults
+        to `True`.
+    :type active: bool
+    :param reload_retry: Should the reload rndc command be retried in case
+        of failure?  Defaults to `False`.
+    :type reload_retry: bool
     """
     if not is_dns_enabled():
         return

@@ -17,6 +17,7 @@ from itertools import islice
 import random
 import socket
 
+from celery.task import task
 from django.conf import settings
 from django.core.management import call_command
 from maasserver import (
@@ -38,6 +39,7 @@ from netaddr import (
     IPNetwork,
     IPRange,
     )
+from provisioningserver import tasks
 from provisioningserver.dns.config import (
     conf,
     DNSZoneConfig,
@@ -262,6 +264,19 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config(active=False)
         self.assertEqual([''], self.dig_resolve(generated_hostname(lease.ip)))
+
+    def test_write_full_dns_passes_reload_retry_parameter(self):
+        self.patch(settings, 'DNS_CONNECT', True)
+        recorder = FakeMethod()
+
+        @task
+        def recorder_task(*args, **kwargs):
+            return recorder(*args, **kwargs)
+        self.patch(tasks, 'rndc_command', recorder_task)
+        dns.write_full_dns_config(reload_retry=True)
+        self.assertEqual(
+            (1, (['reload'], True)),
+            (recorder.call_count, recorder.extract_args()[0]))
 
     def test_dns_config_has_NS_record(self):
         ip = factory.getRandomIPAddress()
