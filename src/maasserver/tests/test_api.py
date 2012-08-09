@@ -922,7 +922,7 @@ class TestNodeAPI(APITestCase):
             status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
         node.set_netboot(on=False)
         self.client.post(self.get_node_uri(node), {'op': 'release'})
-        self.assertTrue(node.netboot)
+        self.assertTrue(reload_object(node).netboot)
 
     def test_POST_release_removes_token_and_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
