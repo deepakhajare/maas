@@ -50,4 +50,4 @@ class TestAuth(TestCase):
     def test_get_recorded_nodegroup_name_vs_record_nodegroup_name(self):
         nodegroup_name = factory.make_name('nodegroup')
         auth.record_nodegroup_name(nodegroup_name)
-        self.assertEqual(nodegroup_name, auth.get_recorded_nodegroup_name)
+        self.assertEqual(nodegroup_name, auth.get_recorded_nodegroup_name())

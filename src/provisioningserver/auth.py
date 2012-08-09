@@ -12,7 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'get_recorded_api_credentials',
+    'get_recorded_nodegroup_name',
     'record_api_credentials',
+    'record_nodegroup_name',
     ]
 
 # API credentials as last sent by the server.  The worker uses these
@@ -44,3 +46,14 @@ def get_recorded_api_credentials():
         return None
     else:
         return tuple(credentials_string.split(':'))
+
+
+def record_nodegroup_name(nodegroup_name):
+    """Record the name of the nodegroup we manage, as sent by the server."""
+
+
+def get_recorded_nodegroup_name():
+    """Return the name of this worker's nodegroup, as sent by the server.
+
+    If the server has not sent the name yet, returns None.
+    """
