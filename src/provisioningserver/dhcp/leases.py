@@ -41,15 +41,18 @@ from celeryconfig import DHCP_LEASES_FILE
 from provisioningserver.dhcp.leases_parser import parse_leases
 
 # Modification time on last-processed leases file.
+# Shared between celery threads.
 recorded_leases_time = None
 
 # Leases as last parsed.
+# Shared between celery threads.
 recorded_leases = None
 
 # Shared key for use with omshell.  We don't store this key
 # persistently, but when the server sends it, we keep a copy in memory
 # so that celerybeat jobs (which do not originate with the server and
 # therefore don't receive this argument) can make use of it.
+# Shared between celery threads.
 recorded_omapi_shared_key = None
 
 
@@ -78,10 +81,16 @@ def parse_leases_file():
 
 def check_lease_changes():
     """Has the DHCP leases file changed in any significant way?"""
-    if get_leases_timestamp() == recorded_leases_time:
+    # These variables are shared between threads.  A bit of
+    # inconsistency due to concurrent updates is not a problem, but read
+    # them both at once here to reduce the scope for trouble.
+    previous_leases = recorded_leases
+    previous_leases_time = recorded_leases_time
+
+    if get_leases_timestamp() == previous_leases_time:
         return None
     timestamp, leases = parse_leases_file()
-    if leases == recorded_leases:
+    if leases == previous_leases:
         return None
     else:
         return timestamp, leases
@@ -107,12 +116,15 @@ def identify_new_leases(current_leases):
     :param current_leases: A dict mapping IP addresses to the respective
         MAC addresses that own them.
     """
-    if recorded_leases is None:
+    # The recorded_leases reference is shared between threads.  Read it
+    # just once to reduce the impact of concurrent changes.
+    previous_leases = recorded_leases
+    if previous_leases is None:
         return current_leases
     else:
         return {
             ip: current_leases[ip]
-            for ip in set(current_leases).difference(recorded_leases)}
+            for ip in set(current_leases).difference(previous_leases)}
 
 
 def register_new_leases(current_leases):
@@ -124,6 +136,8 @@ def register_new_leases(current_leases):
     # Avoid circular imports.
     from provisioningserver.tasks import add_new_dhcp_host_map
 
+    # The recorded_omapi_shared_key is shared between threads, so read
+    # it just once, atomically.
     omapi_key = recorded_omapi_shared_key
     if omapi_key is not None:
         new_leases = identify_new_leases(current_leases)
