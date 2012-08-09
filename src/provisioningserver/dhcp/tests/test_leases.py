@@ -18,6 +18,7 @@ from datetime import (
     )
 from textwrap import dedent
 
+from apiclient.maas_client import MAASDispatcher
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
@@ -34,6 +35,7 @@ from provisioningserver.dhcp.leases import (
     record_lease_state,
     record_omapi_shared_key,
     register_new_leases,
+    send_leases,
     update_leases,
     upload_leases,
     )
@@ -315,3 +317,15 @@ class TestUpdateLeases(TestCase):
         }
         register_new_leases(new_leases)
         self.assertEqual([], Omshell.create.calls)
+
+    def test_send_leases_posts_to_API(self):
+        self.patch(Omshell, 'create', FakeMethod())
+        dispatcher = FakeMethod()
+        self.patch(MAASDispatcher, 'dispatch_query', dispatcher)
+        leases = {
+            factory.getRandomIPAddress(): factory.getRandomMACAddress(),
+        }
+        send_leases(leases)
+        self.assertEqual(
+            [{'op': 'update_leases', 'method': 'POST'}],
+            dispatcher.extract_kwargs())
