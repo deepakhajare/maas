@@ -187,6 +187,7 @@ class TestUpdateLeases(TestCase):
         new_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
+        process_leases(datetime.utcnow(), new_leases)
         self.fake_leases_file(new_leases)
         process_leases(datetime.utcnow(), new_leases)
         self.assertIsNone(check_lease_changes())

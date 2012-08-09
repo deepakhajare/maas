@@ -102,7 +102,7 @@ def record_lease_state(last_change, leases):
 
 
 def identify_new_leases(current_leases):
-    """Return a dict of those leases that weren't previousl recorded.
+    """Return a dict of those leases that weren't previously recorded.
 
     :param current_leases: A dict mapping IP addresses to the respective
         MAC addresses that own them.
