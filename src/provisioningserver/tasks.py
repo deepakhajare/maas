@@ -53,7 +53,7 @@ from provisioningserver.utils import atomic_write
 refresh_functions = {
     'api_credentials': record_api_credentials,
     'omapi_shared_key': leases.record_omapi_shared_key,
-    'record_nodegroup_name': record_nodegroup_name,
+    'nodegroup_name': record_nodegroup_name,
 }
 
 

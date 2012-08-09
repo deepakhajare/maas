@@ -23,6 +23,11 @@ __all__ = [
 recorded_api_credentials = None
 
 
+# The name of the nodegroup that this worker manages.
+# Shared between threads.
+recorded_nodegroup_name = None
+
+
 def record_api_credentials(api_credentials):
     """Update the recorded API credentials.
 
@@ -50,6 +55,8 @@ def get_recorded_api_credentials():
 
 def record_nodegroup_name(nodegroup_name):
     """Record the name of the nodegroup we manage, as sent by the server."""
+    global recorded_nodegroup_name
+    recorded_nodegroup_name = nodegroup_name
 
 
 def get_recorded_nodegroup_name():
@@ -57,3 +64,4 @@ def get_recorded_nodegroup_name():
 
     If the server has not sent the name yet, returns None.
     """
+    return recorded_nodegroup_name
