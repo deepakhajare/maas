@@ -38,6 +38,7 @@ from os import (
     )
 
 from celeryconfig import DHCP_LEASES_FILE
+from provisioningserver.auth import get_recorded_api_credentials
 from provisioningserver.dhcp.leases_parser import parse_leases
 
 # Modification time on last-processed leases file.
@@ -146,6 +147,12 @@ def register_new_leases(current_leases):
 
 def send_leases(leases):
     """Send lease updates to the server API."""
+    api_credentials = get_recorded_api_credentials()
+    if api_credentials is None:
+        # The MAAS server hasn't sent us any credentials for accessing
+        # its API yet.  Leave it for another time.
+        return None
+# TODO: Meat & potatoes.
 
 
 def process_leases(timestamp, leases):
