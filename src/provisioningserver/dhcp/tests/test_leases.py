@@ -182,12 +182,10 @@ class TestUpdateLeases(TestCase):
     def test_process_leases_records_update(self):
         record_lease_state(None, None)
         self.patch(leases_module, 'recorded_omapi_shared_key', None)
-        self.fake_leases_file({})
         self.patch(leases_module, 'send_leases', FakeMethod())
         new_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
-        process_leases(datetime.utcnow(), new_leases)
         self.fake_leases_file(new_leases)
         process_leases(datetime.utcnow(), new_leases)
         self.assertIsNone(check_lease_changes())
