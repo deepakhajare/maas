@@ -26,6 +26,7 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
+from provisioningserver.auth import record_api_credentials
 from provisioningserver.dhcp import leases as leases_module
 from provisioningserver.dhcp.leases import (
     check_lease_changes,
@@ -165,21 +166,21 @@ class TestUpdateLeases(TestCase):
 
     def test_update_leases_processes_leases_if_changed(self):
         record_lease_state(None, None)
-        send_leases = FakeMethod()
-        self.patch(leases_module, 'send_leases', send_leases)
+        fake_send_leases = FakeMethod()
+        self.patch(leases_module, 'send_leases', fake_send_leases)
         leases = self.make_lease()
         self.fake_leases_file(leases)
         self.patch(Omshell, 'create', FakeMethod())
         update_leases()
-        self.assertSequenceEqual([(leases, )], send_leases.extract_args())
+        self.assertSequenceEqual([(leases, )], fake_send_leases.extract_args())
 
     def test_update_leases_does_nothing_without_lease_changes(self):
-        send_leases = FakeMethod()
-        self.patch(leases_module, 'send_leases', send_leases)
+        fake_send_leases = FakeMethod()
+        self.patch(leases_module, 'send_leases', fake_send_leases)
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
         record_lease_state(get_write_time(leases_file), leases.copy())
-        self.assertSequenceEqual([], send_leases.calls)
+        self.assertSequenceEqual([], fake_send_leases.calls)
 
     def test_process_leases_records_update(self):
         record_lease_state(None, None)
@@ -234,13 +235,13 @@ class TestUpdateLeases(TestCase):
         self.assertEqual([(ip, mac)], Omshell.create.extract_args())
 
     def test_upload_leases_processes_leases_unconditionally(self):
-        send_leases = FakeMethod()
+        fake_send_leases = FakeMethod()
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
         record_lease_state(get_write_time(leases_file), leases.copy())
-        self.patch(leases_module, 'send_leases', send_leases)
+        self.patch(leases_module, 'send_leases', fake_send_leases)
         upload_leases()
-        self.assertSequenceEqual([(leases, )], send_leases.extract_args())
+        self.assertSequenceEqual([(leases, )], fake_send_leases.extract_args())
 
     def test_parse_leases_file_parses_leases(self):
         params = {
@@ -320,6 +321,8 @@ class TestUpdateLeases(TestCase):
 
     def test_send_leases_posts_to_API(self):
         self.patch(Omshell, 'create', FakeMethod())
+        record_api_credentials(
+            ':'.join(factory.getRandomString() for counter in range(3)))
         dispatcher = FakeMethod()
         self.patch(MAASDispatcher, 'dispatch_query', dispatcher)
         leases = {
@@ -329,3 +332,13 @@ class TestUpdateLeases(TestCase):
         self.assertEqual(
             [{'op': 'update_leases', 'method': 'POST'}],
             dispatcher.extract_kwargs())
+
+    def test_send_leases_does_nothing_without_credentials(self):
+        record_api_credentials(None)
+        dispatcher = FakeMethod()
+        self.patch(MAASDispatcher, 'dispatch_query', dispatcher)
+        leases = {
+            factory.getRandomIPAddress(): factory.getRandomMACAddress(),
+        }
+        send_leases(leases)
+        self.assertEqual([], dispatcher.calls)
