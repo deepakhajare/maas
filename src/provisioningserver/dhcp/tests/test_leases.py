@@ -26,10 +26,7 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
-from provisioningserver.auth import (
-    record_api_credentials,
-    record_nodegroup_name,
-    )
+from provisioningserver import auth
 from provisioningserver.dhcp import leases as leases_module
 from provisioningserver.dhcp.leases import (
     check_lease_changes,
@@ -50,9 +47,22 @@ from testtools.testcase import ExpectedException
 class TestHelpers(TestCase):
 
     def test_record_omapi_shared_key_records_shared_key(self):
+        self.patch(leases_module, 'recorded_omapi_shared_key', None)
         key = factory.getRandomString()
         record_omapi_shared_key(key)
         self.assertEqual(key, leases_module.recorded_omapi_shared_key)
+
+    def test_record_lease_state_records_time_and_leases(self):
+        time = datetime.utcnow()
+        leases = {factory.getRandomIPAddress(): factory.getRandomMACAddress()}
+        self.patch(leases_module, 'recorded_leases_time', None)
+        self.patch(leases_module, 'recorded_leases', None)
+        record_lease_state(time, leases)
+        self.assertEqual(
+            (time, leases), (
+                leases_module.recorded_leases_time,
+                leases_module.recorded_leases,
+                ))
 
 
 class StopExecuting(BaseException):
@@ -110,8 +120,59 @@ class TestUpdateLeases(TestCase):
         self.redirect_parser(leases_file)
         return leases_file
 
+    def set_omapi_key(self, key=None):
+        """Set a recorded omapi key for the duration of this test."""
+        if key is None:
+            key = factory.getRandomString()
+        self.patch(leases_module, 'recorded_omapi_shared_key', key)
+
+    def clear_omapi_key(self):
+        """Clear the recorded omapi key for the duration of this test."""
+        self.patch(leases_module, 'omapi_shared_key', None)
+
+    def set_nodegroup_name(self):
+        """Set the recorded nodegroup name for the duration of this test."""
+        name = factory.make_name('nodegroup')
+        self.patch(auth, 'recorded_nodegroup_name', name)
+        return name
+
+    def set_api_credentials(self):
+        """Set recorded API credentials for the duration of this test."""
+        creds_string = ':'.join(
+            factory.getRandomString() for counter in range(3))
+        self.patch(auth, 'recorded_api_credentials', creds_string)
+
+    def clear_api_credentials(self):
+        """Clear recorded API credentials for the duration of this test."""
+        self.patch(auth, 'recorded_api_credentials', None)
+
+    def clear_nodegroup_name(self):
+        """Set the recorded nodegroup name for the duration of this test."""
+        self.patch(auth, 'recorded_nodegroup_name', None)
+
+    def set_lease_state(self, time=None, leases=None):
+        """Set the recorded state of DHCP leases.
+
+        This is similar to record_lease_state, except it will patch() the
+        state so that it gets reset at the end of the test.  Using this will
+        prevent recorded lease state from leaking into other tests.
+        """
+        self.patch(leases_module, 'recorded_leases_time', time)
+        self.patch(leases_module, 'recorded_leases', leases)
+
+    def test_record_lease_state_sets_leases_and_timestamp(self):
+        time = datetime.utcnow()
+        leases = {factory.getRandomIPAddress(): factory.getRandomMACAddress()}
+        self.set_lease_state()
+        record_lease_state(time, leases)
+        self.assertEqual(
+            (time, leases), (
+                leases_module.recorded_leases_time,
+                leases_module.recorded_leases,
+                ))
+
     def test_check_lease_changes_returns_tuple_if_no_state_cached(self):
-        record_lease_state(None, None)
+        self.set_lease_state()
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
         self.assertEqual(
@@ -121,7 +182,7 @@ class TestUpdateLeases(TestCase):
     def test_check_lease_changes_returns_tuple_if_lease_changed(self):
         ip = factory.getRandomIPAddress()
         leases = {ip: factory.getRandomMACAddress()}
-        record_lease_state(
+        self.set_lease_state(
             datetime.utcnow() - timedelta(seconds=10), leases.copy())
         leases[ip] = factory.getRandomMACAddress()
         leases_file = self.fake_leases_file(leases)
@@ -133,13 +194,13 @@ class TestUpdateLeases(TestCase):
         parser = FakeMethod()
         leases_file = self.fake_leases_file()
         self.patch(leases_module, 'parse_leases_file', parser)
-        record_lease_state(get_write_time(leases_file), {})
+        self.set_lease_state(get_write_time(leases_file), {})
         update_leases()
         self.assertSequenceEqual([], parser.calls)
 
     def test_check_lease_changes_returns_tuple_if_lease_added(self):
         leases = self.make_lease()
-        record_lease_state(
+        self.set_lease_state(
             datetime.utcnow() - timedelta(seconds=10), leases.copy())
         leases[factory.getRandomIPAddress()] = factory.getRandomMACAddress()
         leases_file = self.fake_leases_file(leases)
@@ -148,7 +209,7 @@ class TestUpdateLeases(TestCase):
             check_lease_changes())
 
     def test_check_lease_changes_returns_tuple_if_leases_dropped(self):
-        record_lease_state(
+        self.set_lease_state(
             datetime.utcnow() - timedelta(seconds=10), self.make_lease())
         leases_file = self.fake_leases_file({})
         self.assertEqual(
@@ -158,36 +219,37 @@ class TestUpdateLeases(TestCase):
     def test_check_lease_changes_returns_None_if_no_change(self):
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        record_lease_state(get_write_time(leases_file), leases.copy())
+        self.set_lease_state(get_write_time(leases_file), leases.copy())
         self.assertIsNone(check_lease_changes())
 
     def test_check_lease_changes_ignores_irrelevant_changes(self):
         leases = self.make_lease()
         self.fake_leases_file(leases, age=10)
-        record_lease_state(datetime.utcnow(), leases.copy())
+        self.set_lease_state(datetime.utcnow(), leases.copy())
         self.assertIsNone(check_lease_changes())
 
     def test_update_leases_processes_leases_if_changed(self):
-        record_lease_state(None, None)
-        fake_send_leases = FakeMethod()
-        self.patch(leases_module, 'send_leases', fake_send_leases)
+        self.set_lease_state()
+        self.patch(leases_module, 'send_leases', FakeMethod())
         leases = self.make_lease()
         self.fake_leases_file(leases)
         self.patch(Omshell, 'create', FakeMethod())
         update_leases()
-        self.assertSequenceEqual([(leases, )], fake_send_leases.extract_args())
+        self.assertEqual(
+            [(leases, )],
+            leases_module.send_leases.extract_args())
 
     def test_update_leases_does_nothing_without_lease_changes(self):
         fake_send_leases = FakeMethod()
         self.patch(leases_module, 'send_leases', fake_send_leases)
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        record_lease_state(get_write_time(leases_file), leases.copy())
-        self.assertSequenceEqual([], fake_send_leases.calls)
+        self.set_lease_state(get_write_time(leases_file), leases.copy())
+        self.assertEqual([], leases_module.send_leases.calls)
 
     def test_process_leases_records_update(self):
-        record_lease_state(None, None)
-        self.patch(leases_module, 'recorded_omapi_shared_key', None)
+        self.set_lease_state()
+        self.clear_omapi_key()
         self.patch(leases_module, 'send_leases', FakeMethod())
         new_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
@@ -197,7 +259,7 @@ class TestUpdateLeases(TestCase):
         self.assertIsNone(check_lease_changes())
 
     def test_process_leases_records_state_before_sending(self):
-        record_lease_state(None, None)
+        self.set_lease_state()
         self.patch(Omshell, 'create', FakeMethod())
         self.fake_leases_file({})
         self.patch(
@@ -213,7 +275,8 @@ class TestUpdateLeases(TestCase):
         self.assertIsNone(check_lease_changes())
 
     def test_process_leases_registers_new_leases(self):
-        record_lease_state(None, None)
+        self.set_lease_state()
+        self.set_omapi_key()
         self.patch(Omshell, 'create', FakeMethod())
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
@@ -225,7 +288,8 @@ class TestUpdateLeases(TestCase):
         class OmshellFailure(Exception):
             pass
 
-        record_lease_state(None, None)
+        self.set_lease_state()
+        self.set_omapi_key()
         self.patch(Omshell, 'create', FakeMethod(failure=OmshellFailure()))
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
@@ -238,13 +302,14 @@ class TestUpdateLeases(TestCase):
         self.assertEqual([(ip, mac)], Omshell.create.extract_args())
 
     def test_upload_leases_processes_leases_unconditionally(self):
-        fake_send_leases = FakeMethod()
         leases = self.make_lease()
         leases_file = self.fake_leases_file(leases)
-        record_lease_state(get_write_time(leases_file), leases.copy())
-        self.patch(leases_module, 'send_leases', fake_send_leases)
+        self.set_lease_state(get_write_time(leases_file), leases.copy())
+        self.patch(leases_module, 'send_leases', FakeMethod())
         upload_leases()
-        self.assertSequenceEqual([(leases, )], fake_send_leases.extract_args())
+        self.assertEqual(
+            [(leases, )],
+            leases_module.send_leases.extract_args())
 
     def test_parse_leases_file_parses_leases(self):
         params = {
@@ -294,8 +359,8 @@ class TestUpdateLeases(TestCase):
 
     def test_register_new_leases_registers_new_leases(self):
         self.patch(Omshell, 'create', FakeMethod())
-        self.patch(leases_module, 'recorded_leases', None)
-        self.patch(leases_module, 'recorded_omapi_shared_key', 'omapi-key')
+        self.set_lease_state()
+        self.set_omapi_key()
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
         register_new_leases({ip: mac})
@@ -304,18 +369,31 @@ class TestUpdateLeases(TestCase):
 
     def test_register_new_leases_ignores_known_leases(self):
         self.patch(Omshell, 'create', FakeMethod())
-        self.patch(leases_module, 'recorded_omapi_shared_key', 'omapi-key')
+        self.set_omapi_key()
+        self.set_nodegroup_name()
         old_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
-        self.patch(leases_module, 'recorded_leases', old_leases)
+        self.set_lease_state(None, old_leases)
         register_new_leases(old_leases)
         self.assertEqual([], Omshell.create.calls)
 
     def test_register_new_leases_does_nothing_without_omapi_key(self):
         self.patch(Omshell, 'create', FakeMethod())
-        self.patch(leases_module, 'recorded_leases', None)
-        self.patch(leases_module, 'recorded_omapi_shared_key', None)
+        self.set_lease_state()
+        self.clear_omapi_key()
+        self.set_nodegroup_name()
+        new_leases = {
+            factory.getRandomIPAddress(): factory.getRandomMACAddress(),
+        }
+        register_new_leases(new_leases)
+        self.assertEqual([], Omshell.create.calls)
+
+    def test_register_new_leases_does_nothing_without_nodegroup_name(self):
+        self.patch(Omshell, 'create', FakeMethod())
+        self.set_lease_state()
+        self.clear_omapi_key()
+        self.clear_nodegroup_name()
         new_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
@@ -324,10 +402,8 @@ class TestUpdateLeases(TestCase):
 
     def test_send_leases_posts_to_API(self):
         self.patch(Omshell, 'create', FakeMethod())
-        record_api_credentials(
-            ':'.join(factory.getRandomString() for counter in range(3)))
-        nodegroup_name = factory.make_name('nodegroup')
-        record_nodegroup_name(nodegroup_name)
+        self.set_api_credentials()
+        nodegroup_name = self.set_nodegroup_name()
         self.patch(MAASClient, 'post', FakeMethod())
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
@@ -340,7 +416,7 @@ class TestUpdateLeases(TestCase):
             MAASClient.post.calls)
 
     def test_send_leases_does_nothing_without_credentials(self):
-        record_api_credentials(None)
+        self.clear_api_credentials()
         self.patch(MAASClient, 'post', FakeMethod())
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
