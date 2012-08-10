@@ -431,7 +431,7 @@ class NodeTest(TestCase):
     def test_nodegroup_cannot_be_null(self):
         node = factory.make_node()
         node.nodegroup = None
-        self.assertRaises(AssertionError, node.save)
+        self.assertRaises(ValidationError, node.save)
 
 
 class NodeTransitionsTests(TestCase):

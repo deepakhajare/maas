@@ -24,16 +24,14 @@ class Migration(SchemaMigration):
         # Disallowing nulls in new Node.nodegroup values.
         db.alter_column(
             'maasserver_node', 'nodegroup_id',
-            models.ForeignKey(NodeGroup, editable=False, null=True, blank=False))
+            models.ForeignKey(
+                NodeGroup, editable=True, null=True, blank=False))
 
     def backwards(self, orm):
-
-        # Allowing nulls in Node.nodegroup.
         db.alter_column(
             'maasserver_node', 'nodegroup_id',
             models.ForeignKey(
-                NodeGroup, default=None, blank=True, null=True,
-                editable=False))
+                NodeGroup, editable=True, null=True, blank=True))
 
     models = {
         'auth.group': {
