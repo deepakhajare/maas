@@ -333,8 +333,10 @@ class TestUpdateLeases(TestCase):
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
         send_leases(leases)
-        self.assertEqual(
-            [('nodegroups/%s/' % nodegroup_name, 'update_leases'), leases],
+        self.assertEqual([(
+                ('nodegroups/%s/' % nodegroup_name, 'update_leases'),
+                {'leases': leases},
+                )],
             MAASClient.post.calls)
 
     def test_send_leases_does_nothing_without_credentials(self):
