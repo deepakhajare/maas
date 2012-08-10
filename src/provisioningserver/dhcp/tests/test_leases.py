@@ -18,7 +18,7 @@ from datetime import (
     )
 from textwrap import dedent
 
-from apiclient.maas_client import MAASDispatcher
+from apiclient.maas_client import MAASClient
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
@@ -26,7 +26,10 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
-from provisioningserver.auth import record_api_credentials
+from provisioningserver.auth import (
+    record_api_credentials,
+    record_nodegroup_name,
+    )
 from provisioningserver.dhcp import leases as leases_module
 from provisioningserver.dhcp.leases import (
     check_lease_changes,
@@ -323,22 +326,22 @@ class TestUpdateLeases(TestCase):
         self.patch(Omshell, 'create', FakeMethod())
         record_api_credentials(
             ':'.join(factory.getRandomString() for counter in range(3)))
-        dispatcher = FakeMethod()
-        self.patch(MAASDispatcher, 'dispatch_query', dispatcher)
+        nodegroup_name = factory.make_name('nodegroup')
+        record_nodegroup_name(nodegroup_name)
+        self.patch(MAASClient, 'post', FakeMethod())
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
         send_leases(leases)
         self.assertEqual(
-            [{'op': 'update_leases', 'method': 'POST'}],
-            dispatcher.extract_kwargs())
+            [('nodegroups/%s/' % nodegroup_name, 'update_leases'), leases],
+            MAASClient.post.calls)
 
     def test_send_leases_does_nothing_without_credentials(self):
         record_api_credentials(None)
-        dispatcher = FakeMethod()
-        self.patch(MAASDispatcher, 'dispatch_query', dispatcher)
+        self.patch(MAASClient, 'post', FakeMethod())
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
         send_leases(leases)
-        self.assertEqual([], dispatcher.calls)
+        self.assertEqual([], MAASClient.post.calls)
