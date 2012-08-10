@@ -82,18 +82,6 @@ class TestFactory(TestCase):
     def test_make_file_creates_file(self):
         self.assertThat(factory.make_file(self.make_dir()), FileExists())
 
-    def test_make_failure_simulator_returns_failure_simulator(self):
-        nb_failures = randint(2, 5)
-        simulator = factory.make_failure_simulator(ValueError(), nb_failures)
-        # First we get `nb_failures` failures.
-        for index in range(nb_failures):
-            self.assertRaises(
-                ValueError, simulator, factory.make_name('random-arg'))
-        # Then only successes.
-        nb_successes = randint(2, 5)
-        self.assertEqual(
-            [None] * nb_successes, map(simulator, range(nb_successes)))
-
     def test_make_file_writes_contents(self):
         contents = factory.getRandomString().encode('ascii')
         self.assertThat(

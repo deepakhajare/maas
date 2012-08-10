@@ -275,8 +275,7 @@ class TestDNSConfigModifications(TestCase):
         self.patch(tasks, 'rndc_command', recorder_task)
         dns.write_full_dns_config(reload_retry=True)
         self.assertEqual(
-            (1, (['reload'], True)),
-            (recorder.call_count, recorder.extract_args()[0]))
+            ([(['reload'], True)]), recorder.extract_args())
 
     def test_dns_config_has_NS_record(self):
         ip = factory.getRandomIPAddress()
