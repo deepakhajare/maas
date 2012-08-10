@@ -21,10 +21,10 @@ class Migration(SchemaMigration):
 
     def forwards(self, orm):
 
-        # Adding NOT NULL constraint on Node.nodegroup.
+        # Disallowing nulls in new Node.nodegroup values.
         db.alter_column(
             'maasserver_node', 'nodegroup_id',
-            models.ForeignKey(NodeGroup, editable=False))
+            models.ForeignKey(NodeGroup, editable=False, null=True, blank=False))
 
     def backwards(self, orm):
 
@@ -108,7 +108,7 @@ class Migration(SchemaMigration):
             'hostname': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'netboot': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']"}),
+            'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']", 'null': 'True'}),
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),

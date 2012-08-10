@@ -383,7 +383,14 @@ class Node(CleanSave, TimestampedModel):
 
     netboot = BooleanField(default=True)
 
-    nodegroup = ForeignKey('maasserver.NodeGroup', editable=False)
+    # This field can't be null, but we can't enforce that in the
+    # database schema: we make sure that no existing nodes have a null
+    # here, but a NOT NULL constraint would have to be applied at an
+    # earlier stage.
+    # To get around this, we allow nulls in the database ("null=True")
+    # but reject them in validation ("blank=False").
+    nodegroup = ForeignKey(
+        'maasserver.NodeGroup', editable=False, null=True, blank=False)
 
     objects = NodeManager()
 
