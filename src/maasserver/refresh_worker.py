@@ -14,6 +14,13 @@ __all__ = [
     'refresh_worker',
     ]
 
+from provisioningserver.tasks import refresh_secrets
+
 
 def refresh_worker(nodegroup):
     """Send worker for `nodegroup` a refresh message with credentials etc."""
+    # TODO: Route this to the right worker, once we have multiple.
+    knowledge = {
+        'nodegroup_name': nodegroup.name,
+    }
+    refresh_secrets.delay(**knowledge)
