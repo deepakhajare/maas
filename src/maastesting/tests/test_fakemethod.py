@@ -85,7 +85,7 @@ class TestMultiFakeMethod(TestCase):
             [[('input 1',)], [('input 2',)]],
             [methods[0].extract_args(), methods[1].extract_args()])
 
-    def test_raises_if_called_too_much(self):
+    def test_raises_if_called_one_time_too_many(self):
         method = MultiFakeMethod([FakeMethod()])
         method()
         self.assertRaises(ValueError, method)

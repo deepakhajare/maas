@@ -87,14 +87,14 @@ class MultiFakeMethod:
 
     def __init__(self, methods):
         self.methods = methods
-        self.count = -1
+        self._call_count = -1
 
     def __call__(self, *args, **kwargs):
-        self.count = self.count + 1
-        if self.count < len(self.methods):
-            return self.methods[self.count](*args, **kwargs)
+        self._call_count = self._call_count + 1
+        if self._call_count < len(self.methods):
+            return self.methods[self._call_count](*args, **kwargs)
         else:
             raise ValueError(
                 "No more method to call.  This MultiFakeMethod has been "
                 "called %d times and it only contains %d method(s)." % (
-                    self.count + 1, len(self.methods)))
+                    self._call_count + 1, len(self.methods)))
