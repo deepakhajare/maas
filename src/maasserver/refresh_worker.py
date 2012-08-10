@@ -23,4 +23,6 @@ def refresh_worker(nodegroup):
     knowledge = {
         'nodegroup_name': nodegroup.name,
     }
+    if nodegroup.dhcp_key is not None and len(nodegroup.dhcp_key) > 0:
+        knowledge['omapi_shared_key'] = nodegroup.dhcp_key
     refresh_secrets.delay(**knowledge)

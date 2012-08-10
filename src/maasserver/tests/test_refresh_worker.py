@@ -49,7 +49,7 @@ class TestRefreshWorker(TestCase):
             ])
         self.assertEqual(
             [(creds_string, )],
-            refresh_functions['nodegroup_name'].extract_args())
+            refresh_functions['api_credentials'].extract_args())
 
     def test_refreshes_omapi_shared_key(self):
         refresh_functions = self.patch_refresh_functions()
@@ -58,6 +58,14 @@ class TestRefreshWorker(TestCase):
         refresh_worker(nodegroup)
         self.assertEqual(
             [(dhcp_key, )],
+            refresh_functions['omapi_shared_key'].extract_args())
+
+    def test_omits_omapi_shared_key_if_not_set(self):
+        refresh_functions = self.patch_refresh_functions()
+        nodegroup = factory.make_node_group()
+        refresh_worker(nodegroup)
+        self.assertEqual(
+            [],
             refresh_functions['omapi_shared_key'].extract_args())
 
     def test_refreshes_nodegroup_name(self):
