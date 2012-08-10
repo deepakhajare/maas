@@ -152,6 +152,7 @@ def register_new_leases(current_leases):
     if omapi_key is not None:
         new_leases = identify_new_leases(current_leases)
         add_new_dhcp_host_map(new_leases, 'localhost', omapi_key)
+    # TODO: Else log that we're not doing this, and why.
 
 
 def send_leases(leases):
@@ -161,6 +162,7 @@ def send_leases(leases):
     if None in (api_credentials, nodegroup_name):
         # The MAAS server hasn't sent us enough information for us to do
         # this yet.  Leave it for another time.
+        # TODO: Log that we're not doing this, and why.
         return
 
     api_path = 'nodegroups/%s/' % nodegroup_name
