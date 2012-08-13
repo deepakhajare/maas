@@ -50,6 +50,8 @@ def render_pxe_config(
         parameters generated in another component (for example, see
         `TFTPBackend.get_config_reader`) won't cause this to break.
     """
+    # Templates are loaded each time here so that they can be changed on
+    # the fly without restarting the provisioning server.
     if purpose == "local":
         if arch in ("i386", "amd64"):
             template = tempita.Template.from_filename(
