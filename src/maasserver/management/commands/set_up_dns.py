@@ -47,5 +47,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         no_clobber = options.get('no_clobber')
         setup_rndc()
-        config = DNSConfig(no_clobber=no_clobber)
-        config.write_config(zone_names=(), reverse_zone_names=())
+        config = DNSConfig()
+        config.write_config(
+            overwrite=not no_clobber, zone_names=(), reverse_zone_names=())

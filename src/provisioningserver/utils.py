@@ -72,9 +72,8 @@ def xmlrpc_export(iface):
     return decorate
 
 
-def atomic_write(content, filename):
-    """Write the given `content` into the file `filename` in an atomic
-    fashion.
+def atomic_write(content, filename, overwrite=True):
+    """Write `content` into the file `filename` in an atomic fashion.
     """
     # Write the file to a temporary place (next to the target destination,
     # to ensure that it is on the same filesystem).
@@ -84,9 +83,17 @@ def atomic_write(content, filename):
         prefix=".%s." % os.path.basename(filename))
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
-    # Rename the temporary file to `filename`, that operation is atomic on
-    # POSIX systems.
-    os.rename(temp_file, filename)
+    # Do not overwrite the file is overwrite=True and the file already
+    # exists.  There is a small race condition window here as the file
+    # can appear after it's existence is checked and before the rename
+    # is performed.
+    if not overwrite and os.path.isfile(filename):
+        os.remove(temp_file)
+        return
+    else:
+        # Rename the temporary file to `filename`, that operation is atomic on
+        # POSIX systems.
+        os.rename(temp_file, filename)
 
 
 def incremental_write(content, filename):

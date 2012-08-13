@@ -117,8 +117,8 @@ class TestDNSConfig(TestCase):
             DNSConfigFail, dnsconfig.render_template, template)
         self.assertIn("'test' is not defined", exception.message)
 
-    def test_write_config_skips_writing_if_no_clobber_option(self):
-        # If DNSConfig is created with no_clobber=True, it won't
+    def test_write_config_skips_writing_if_overwrite_false(self):
+        # If DNSConfig is created with overwrite=False, it won't
         # overwrite an existing config file.
         target_dir = self.make_dir()
         self.patch(DNSConfig, 'target_dir', target_dir)
@@ -126,19 +126,19 @@ class TestDNSConfig(TestCase):
         factory.make_file(
             location=target_dir, name=MAAS_NAMED_CONF_NAME,
             contents=random_content)
-        dnsconfig = DNSConfig(no_clobber=True)
-        dnsconfig.write_config()
+        dnsconfig = DNSConfig()
+        dnsconfig.write_config(overwrite=False)
         self.assertThat(
             os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
             FileContains(random_content))
 
     def test_write_config_writes_config_if_no_existing_file(self):
-        # If DNSConfig is created with no_clobber=True, the config file
+        # If DNSConfig is created with overwrite=False, the config file
         # will be written if no config file exists.
         target_dir = self.make_dir()
         self.patch(DNSConfig, 'target_dir', target_dir)
-        dnsconfig = DNSConfig(no_clobber=True)
-        dnsconfig.write_config()
+        dnsconfig = DNSConfig()
+        dnsconfig.write_config(overwrite=False)
         self.assertThat(
             os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
             FileContains(

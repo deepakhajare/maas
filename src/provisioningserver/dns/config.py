@@ -148,12 +148,12 @@ class DNSConfigBase:
         parameters used when rendering the template."""
         return {}
 
-    def write_config(self, **kwargs):
+    def write_config(self, overwrite=True, **kwargs):
         """Write out this DNS config file."""
         template = self.get_template()
         kwargs.update(self.get_context())
         rendered = self.render_template(template, **kwargs)
-        atomic_write(rendered, self.target_path)
+        atomic_write(rendered, self.target_path, overwrite=overwrite)
 
 
 class DNSConfig(DNSConfigBase):
@@ -165,9 +165,9 @@ class DNSConfig(DNSConfigBase):
     template_file_name = 'named.conf.template'
     target_file_name = MAAS_NAMED_CONF_NAME
 
-    def __init__(self, zones=(), no_clobber=False):
+    def __init__(self, zones=()):
         self.zones = zones
-        self.no_clobber = no_clobber
+        return super(DNSConfig, self).__init__()
 
     @property
     def template_path(self):
@@ -187,15 +187,6 @@ class DNSConfig(DNSConfigBase):
 
     def get_include_snippet(self):
         return '\ninclude "%s";\n' % self.target_path
-
-    def write_config(self, **kwargs):
-        """Write out this DNS config file."""
-        # Do not overwrite the config file if no_clobber is True and the
-        # target config file already exists.
-        if self.no_clobber and os.path.isfile(self.target_path):
-            return
-        else:
-            return super(DNSConfig, self).write_config(**kwargs)
 
 
 def shortened_reversed_ip(ip, byte_num):
