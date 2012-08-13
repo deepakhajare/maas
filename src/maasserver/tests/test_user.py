@@ -15,6 +15,7 @@ __all__ = []
 from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
+    get_creds_tuple,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -63,3 +64,9 @@ class AuthTokensTest(TestCase):
         token.is_approved = False
         token.save()
         self.assertNotIn(token, get_auth_tokens(user))
+
+    def test_get_creds_tuple_returns_creds(self):
+        token = create_auth_token(factory.make_user())
+        self.assertEqual(
+            (token.consumer.key, token.key, token.secret),
+            get_creds_tuple(token))
