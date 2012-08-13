@@ -85,7 +85,7 @@ def atomic_write(content, filename, overwrite=True):
         f.write(content)
     # Do not overwrite the file is overwrite=True and the file already
     # exists.  There is a small race condition window here as the file
-    # can appear after it's existence is checked and before the rename
+    # can appear after its existence is checked and before the rename
     # is performed.
     if not overwrite and os.path.isfile(filename):
         os.remove(temp_file)
