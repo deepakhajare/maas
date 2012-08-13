@@ -97,7 +97,7 @@ class TestRenderPXEConfig(TestCase):
             "append": factory.make_name("append"),
             }
         output = render_pxe_config(**options)
-        self.assertIn("LOCALBOOT -1", output)
+        self.assertIn("LOCALBOOT 0", output)
 
     def test_render_pxe_config_with_local_purpose_i386_arch(self):
         # Intel i386 is a special case and needs to use the chain.c32
