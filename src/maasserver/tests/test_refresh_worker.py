@@ -12,10 +12,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from maasserver.models.user import get_creds_tuple
 from maasserver.refresh_worker import refresh_worker
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maasserver.user import get_creds_tuple
 from maastesting.fakemethod import FakeMethod
 from provisioningserver import tasks
 
