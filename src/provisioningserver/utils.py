@@ -89,7 +89,6 @@ def atomic_write(content, filename, overwrite=True):
     # is performed.
     if not overwrite and os.path.isfile(filename):
         os.remove(temp_file)
-        return
     else:
         # Rename the temporary file to `filename`, that operation is atomic on
         # POSIX systems.
