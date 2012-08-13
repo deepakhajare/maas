@@ -12,6 +12,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from apiclient.creds import (
+    convert_string_to_tuple,
+    convert_tuple_to_string,
+    )
 from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
@@ -70,3 +74,9 @@ class AuthTokensTest(TestCase):
         self.assertEqual(
             (token.consumer.key, token.key, token.secret),
             get_creds_tuple(token))
+
+    def test_get_creds_tuple_integrates_with_api_client(self):
+        creds_tuple = get_creds_tuple(create_auth_token(factory.make_user()))
+        self.assertEqual(
+            creds_tuple,
+            convert_string_to_tuple(convert_tuple_to_string(creds_tuple)))
