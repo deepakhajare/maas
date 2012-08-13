@@ -75,6 +75,8 @@ update_pre_boot_loader() {
         # TODO: Pass sub-architecture once we support those.
         maas-provision install-pxe-bootloader \
             --arch=$arch --loader='pxelinux.0'
+        maas-provision install-pxe-bootloader \
+            --arch=$arch --loader='/usr/lib/syslinux/chain.c32'
     fi
 }
 
