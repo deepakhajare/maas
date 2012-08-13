@@ -21,6 +21,7 @@ __all__ = [
     'Command',
     ]
 
+from optparse import make_option
 
 from django.core.management.base import BaseCommand
 from provisioningserver.dns.config import (
@@ -30,12 +31,21 @@ from provisioningserver.dns.config import (
 
 
 class Command(BaseCommand):
+    option_list = BaseCommand.option_list + (
+        make_option(
+            '--no-clobber', dest='no_clobber', action='store_true',
+            default=False,
+            help=(
+                "Don't overwrite the configuration file if it already "
+                "exists.")),
+            )
     help = (
         "Set up MAAS DNS configuration: a blank configuration and "
         "all the RNDC configuration options allowing MAAS to reload "
         "BIND once zones configuration files will be written.")
 
     def handle(self, *args, **options):
+        no_clobber = options.get('no_clobber')
         setup_rndc()
-        config = DNSConfig()
+        config = DNSConfig(no_clobber=no_clobber)
         config.write_config(zone_names=(), reverse_zone_names=())
