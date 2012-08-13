@@ -17,8 +17,8 @@ __all__ = [
 
 
 def convert_tuple_to_string(creds_tuple):
-    pass
+    """Represent a MAAS API credentials tuple as a colon-separated string."""
 
 
 def convert_string_to_tuple(creds_string):
-    pass
+    """Recreate a MAAS API credentials tuple from a colon-separated string."""
