@@ -18,21 +18,37 @@ __all__ = [
     'record_nodegroup_name',
     ]
 
+
+from multiprocessing import Array
+
 # API credentials as last sent by the server.  The worker uses these
 # credentials to access the MAAS API.
-# Shared between threads.
+# Shared between threads/processes.
 recorded_api_credentials = None
+
+
+# The name of the nodegroup that this worker manages.
+# Shared between threads/processes.
+recorded_nodegroup_name = None
+
+
+def init_shared_globals():
+    """Initialize the process-safe globals from this module."""
+    global recorded_api_credentials
+    # credentials=<consumer_key>:<key>:<secret>
+    recorded_api_credentials = Array('c', 3 * 255 + 2)
+
+    global recorded_nodegroup_name
+    recorded_nodegroup_name = Array('c', 255)
+
+
+init_shared_globals()
 
 
 def locate_maas_api():
     """Return the base URL for the MAAS API."""
 # TODO: Configure this somehow.  What you see here is a placeholder.
     return "http://localhost/MAAS/"
-
-
-# The name of the nodegroup that this worker manages.
-# Shared between threads.
-recorded_nodegroup_name = None
 
 
 def record_api_credentials(api_credentials):
@@ -43,7 +59,7 @@ def record_api_credentials(api_credentials):
         separated by colons.
     """
     global recorded_api_credentials
-    recorded_api_credentials = api_credentials
+    recorded_api_credentials.value = api_credentials
 
 
 def get_recorded_api_credentials():
@@ -54,16 +70,16 @@ def get_recorded_api_credentials():
         :class:`MAASOauth`.  Otherwise, None.
     """
     credentials_string = recorded_api_credentials
-    if credentials_string is None:
+    if credentials_string.value == '':
         return None
     else:
-        return tuple(credentials_string.split(':'))
+        return tuple(credentials_string.value.split(':'))
 
 
 def record_nodegroup_name(nodegroup_name):
     """Record the name of the nodegroup we manage, as sent by the server."""
     global recorded_nodegroup_name
-    recorded_nodegroup_name = nodegroup_name
+    recorded_nodegroup_name.value = nodegroup_name
 
 
 def get_recorded_nodegroup_name():
@@ -71,4 +87,7 @@ def get_recorded_nodegroup_name():
 
     If the server has not sent the name yet, returns None.
     """
-    return recorded_nodegroup_name
+    if recorded_nodegroup_name.value == '':
+        return None
+    else:
+        return recorded_nodegroup_name.value

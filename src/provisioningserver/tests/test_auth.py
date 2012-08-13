@@ -12,9 +12,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from multiprocessing.sharedctypes import SynchronizedString
+
 from maastesting.factory import factory
-from maastesting.testcase import TestCase
 from provisioningserver import auth
+from provisioningserver.testing.testcase import TestCase
 
 
 def make_credentials():
@@ -33,24 +35,37 @@ def represent_credentials(credentials):
 
 class TestAuth(TestCase):
 
-    def test_record_api_credentials_records_credentials_string(self):
+    def test_init_globals_initializes_recorded_api_credentials(self):
         self.patch(auth, 'recorded_api_credentials', None)
+        auth.init_shared_globals()
+        self.assertIsInstance(
+            auth.recorded_api_credentials, SynchronizedString)
+        self.assertEqual('', auth.recorded_api_credentials.value)
+
+    def test_init_globals_initializes_recorded_nodegroup_name(self):
+        self.patch(auth, 'recorded_nodegroup_name', None)
+        auth.init_shared_globals()
+        self.assertIsInstance(
+            auth.recorded_nodegroup_name, SynchronizedString)
+        self.assertEqual('', auth.recorded_nodegroup_name.value)
+
+    def test_record_api_credentials_records_credentials_string(self):
         creds_string = represent_credentials(make_credentials())
         auth.record_api_credentials(creds_string)
-        self.assertEqual(creds_string, auth.recorded_api_credentials)
+        self.assertEqual(creds_string, auth.recorded_api_credentials.value)
 
     def test_get_recorded_api_credentials_returns_credentials_as_tuple(self):
-        self.patch(auth, 'recorded_api_credentials', None)
         creds = make_credentials()
         auth.record_api_credentials(represent_credentials(creds))
         self.assertEqual(creds, auth.get_recorded_api_credentials())
 
     def test_get_recorded_api_credentials_returns_None_without_creds(self):
-        self.patch(auth, 'recorded_api_credentials', None)
         self.assertIsNone(auth.get_recorded_api_credentials())
 
+    def test_get_recorded_nodegroup_name_returns_None_initially(self):
+        self.assertIsNone(auth.get_recorded_nodegroup_name())
+
     def test_get_recorded_nodegroup_name_vs_record_nodegroup_name(self):
-        self.patch(auth, 'recorded_nodegroup_name', None)
         nodegroup_name = factory.make_name('nodegroup')
         auth.record_nodegroup_name(nodegroup_name)
         self.assertEqual(nodegroup_name, auth.get_recorded_nodegroup_name())

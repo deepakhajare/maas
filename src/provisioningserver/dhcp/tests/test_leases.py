@@ -21,7 +21,6 @@ from textwrap import dedent
 from apiclient.maas_client import MAASClient
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
-from maastesting.testcase import TestCase
 from maastesting.utils import (
     age_file,
     get_write_time,
@@ -41,6 +40,7 @@ from provisioningserver.dhcp.leases import (
     upload_leases,
     )
 from provisioningserver.omshell import Omshell
+from provisioningserver.testing.testcase import TestCase
 from testtools.testcase import ExpectedException
 
 
@@ -133,22 +133,14 @@ class TestUpdateLeases(TestCase):
     def set_nodegroup_name(self):
         """Set the recorded nodegroup name for the duration of this test."""
         name = factory.make_name('nodegroup')
-        self.patch(auth, 'recorded_nodegroup_name', name)
+        auth.record_nodegroup_name(name)
         return name
 
     def set_api_credentials(self):
         """Set recorded API credentials for the duration of this test."""
         creds_string = ':'.join(
             factory.getRandomString() for counter in range(3))
-        self.patch(auth, 'recorded_api_credentials', creds_string)
-
-    def clear_api_credentials(self):
-        """Clear recorded API credentials for the duration of this test."""
-        self.patch(auth, 'recorded_api_credentials', None)
-
-    def clear_nodegroup_name(self):
-        """Set the recorded nodegroup name for the duration of this test."""
-        self.patch(auth, 'recorded_nodegroup_name', None)
+        auth.record_api_credentials(creds_string)
 
     def set_lease_state(self, time=None, leases=None):
         """Set the recorded state of DHCP leases.
@@ -393,7 +385,6 @@ class TestUpdateLeases(TestCase):
         self.patch(Omshell, 'create', FakeMethod())
         self.set_lease_state()
         self.clear_omapi_key()
-        self.clear_nodegroup_name()
         new_leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),
         }
@@ -416,7 +407,6 @@ class TestUpdateLeases(TestCase):
             MAASClient.post.calls)
 
     def test_send_leases_does_nothing_without_credentials(self):
-        self.clear_api_credentials()
         self.patch(MAASClient, 'post', FakeMethod())
         leases = {
             factory.getRandomIPAddress(): factory.getRandomMACAddress(),

@@ -22,6 +22,7 @@ from maasserver.testing import reset_fake_provisioning_api_proxy
 from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 import maastesting.djangotestcase
+from provisioningserver.auth import init_shared_globals
 
 
 class TestCase(maastesting.djangotestcase.DjangoTestCase):
@@ -31,6 +32,7 @@ class TestCase(maastesting.djangotestcase.DjangoTestCase):
         self.addCleanup(cache.clear)
         self.addCleanup(reset_fake_provisioning_api_proxy)
         self.celery = self.useFixture(CeleryFixture())
+        self.addCleanup(init_shared_globals)
 
 
 class TestModelTestCase(TestCase,

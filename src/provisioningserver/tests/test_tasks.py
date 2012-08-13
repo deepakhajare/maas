@@ -23,7 +23,6 @@ from maastesting.fakemethod import (
     MultiFakeMethod,
     )
 from maastesting.matchers import ContainsAll
-from maastesting.testcase import TestCase
 from netaddr import IPNetwork
 from provisioningserver import (
     auth,
@@ -56,6 +55,7 @@ from provisioningserver.tasks import (
     write_full_dns_config,
     )
 from provisioningserver.testing import network_infos
+from provisioningserver.testing.testcase import TestCase
 from testresources import FixtureResource
 from testtools.matchers import (
     Equals,
@@ -112,13 +112,11 @@ class TestRefreshSecrets(TestCase):
             factory.make_name('token'),
             factory.make_name('secret'),
             )
-        self.patch(auth, 'recorded_api_credentials', None)
         refresh_secrets(api_credentials=':'.join(credentials))
         self.assertEqual(credentials, auth.get_recorded_api_credentials())
 
     def test_updates_nodegroup_name(self):
         nodegroup_name = factory.make_name('nodegroup')
-        self.patch(auth, 'recorded_nodegroup_name', None)
         refresh_secrets(nodegroup_name=nodegroup_name)
         self.assertEqual(nodegroup_name, auth.get_recorded_nodegroup_name())
 
