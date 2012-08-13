@@ -93,3 +93,8 @@ def get_creds_tuple(token):
     Returns a tuple of (consumer key, resource token, resource secret).
     The consumer secret is hard-wired to the empty string.
     """
+    return (
+        token.consumer.key,
+        token.key,
+        token.secret,
+        )
