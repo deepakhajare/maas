@@ -44,7 +44,7 @@ def make_destination(tftproot, arch, subarch):
     directory = os.path.dirname(path)
     if not os.path.isdir(directory):
         os.makedirs(directory)
-    return path
+    return directory
 
 
 def are_identical_files(old, new):
@@ -106,5 +106,6 @@ def run(args):
     """
     config = Config.load(args.config_file)
     tftproot = config["tftp"]["root"]
-    destination = make_destination(tftproot, args.arch, args.subarch)
+    destination_path = make_destination(tftproot, args.arch, args.subarch)
+    destination = os.path.join(destination_path, os.path.basename(args.loader))
     install_bootloader(args.loader, destination)
