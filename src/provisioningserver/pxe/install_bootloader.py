@@ -103,11 +103,8 @@ def run(args):
     """Install a PXE pre-boot loader into the TFTP directory structure.
 
     This won't overwrite an existing loader if its contents are unchanged.
-    However the new loader you give it will be deleted regardless.
     """
     config = Config.load(args.config_file)
     tftproot = config["tftp"]["root"]
     destination = make_destination(tftproot, args.arch, args.subarch)
     install_bootloader(args.loader, destination)
-    if os.path.exists(args.loader):
-        os.remove(args.loader)
