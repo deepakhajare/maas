@@ -877,14 +877,13 @@ def verify_worker_login(request, nodegroup):
     raises :class:`PermissionDenied`.
     """
     try:
-        if extract_oauth_key(request) == nodegroup.api_key:
-            return None
-    except Unauthorized:
-        # Don't bother returning this as Unauthorized; that error is
-        # basically an interactive invitation to log in.  In this case
-        # there's just no point.
-        pass
-    raise PermissionDenied("Only allowed for the %s worker." % nodegroup.name)
+        key = extract_oauth_key(request)
+    except Unauthorized as e:
+        raise PermissionDenied(unicode(e))
+
+    if key != nodegroup.api_key:
+        raise PermissionDenied(
+            "Only allowed for the %s worker." % nodegroup.name)
 
 
 @api_operations

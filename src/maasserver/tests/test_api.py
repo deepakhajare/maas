@@ -2439,6 +2439,12 @@ def explain_unexpected_response(expected_status, response):
         )
 
 
+def make_worker_client(nodegroup):
+    """Create a test client logged in as if it were `nodegroup`."""
+    return OAuthAuthenticatedClient(
+        get_worker_user(), token=nodegroup.api_token)
+
+
 class TestNodeGroupAPI(APITestCase):
 
     def test_reverse_points_to_nodegroup(self):
@@ -2462,7 +2468,8 @@ class TestNodeGroupAPI(APITestCase):
     def test_update_leases_processes_empty_leases_dict(self):
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
-        response = self.client.post(
+        client = make_worker_client(nodegroup)
+        response = client.post(
             reverse('nodegroup', args=[nodegroup.name]),
             {
                 'op': 'update_leases',
@@ -2478,7 +2485,8 @@ class TestNodeGroupAPI(APITestCase):
         nodegroup = factory.make_node_group()
         ip = factory.getRandomIPAddress()
         mac = factory.getRandomMACAddress()
-        response = self.client.post(
+        client = make_worker_client(nodegroup)
+        response = client.post(
             reverse('nodegroup', args=[nodegroup.name]),
             {
                 'op': 'update_leases',
@@ -2503,11 +2511,6 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         user.save()
         self.client.login(username=user.username, password=password)
 
-    def make_worker_client(self, nodegroup):
-        """Create a test client logged in as if it were `nodegroup`."""
-        return OAuthAuthenticatedClient(
-            get_worker_user(), token=nodegroup.api_token)
-
     def test_nodegroup_requires_authentication(self):
         nodegroup = factory.make_node_group()
         response = self.client.get(reverse('nodegroup', args=[nodegroup.name]))
@@ -2515,7 +2518,7 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_update_leases_works_for_nodegroup_worker(self):
         nodegroup = factory.make_node_group()
-        client = self.make_worker_client(nodegroup)
+        client = make_worker_client(nodegroup)
         response = client.post(
             reverse('nodegroup', args=[nodegroup.name]),
             {'op': 'update_leases', 'leases': json.dumps({})})
@@ -2536,8 +2539,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
     def test_update_leases_does_not_let_worker_update_other_nodegroup(self):
         requesting_nodegroup = factory.make_node_group()
         about_nodegroup = factory.make_node_group()
-        self.make_worker_client(requesting_nodegroup)
-        response = self.client.post(
+        client = make_worker_client(requesting_nodegroup)
+        response = client.post(
             reverse('nodegroup', args=[about_nodegroup.name]),
             {'op': 'update_leases', 'leases': json.dumps({})})
         self.assertEqual(
