@@ -27,16 +27,16 @@ from provisioningserver.pxe.tftppath import (
 
 
 def make_destination(tftproot, arch, subarch):
-    """Locate a loader's destination.  Create containing directory if needed.
+    """Locate a loader's destination, creating the directory if needed.
 
     :param tftproot: The root directory served up by the TFTP server,
         e.g. /var/lib/tftpboot/.
     :param arch: Main architecture to locate the destination for.
     :param subarch: Sub-architecture of the main architecture.
-    :return: Full path describing the filename that the installed loader
+    :return: Full path describing the directory that the installed loader
         should end up having.  For example, the loader for i386 (with
         sub-architecture "generic") should install at
-        /maas/i386/generic/pxelinux.0.
+        /maas/i386/generic/
     """
     path = locate_tftp_path(
         compose_bootloader_path(arch, subarch),
