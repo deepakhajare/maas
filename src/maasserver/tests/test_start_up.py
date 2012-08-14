@@ -32,8 +32,7 @@ class TestStartUp(TestCase):
 
     def setUp(self):
         super(TestStartUp, self).setUp()
-        self.TEST_LOCK_FILE_NAME = self.make_file()
-        self.patch(start_up, 'LOCK_FILE_NAME', self.TEST_LOCK_FILE_NAME)
+        self.patch(start_up, 'LOCK_FILE_NAME', self.make_file())
 
     def test_start_up_calls_setup_maas_avahi_service(self):
         recorder = FakeMethod()
@@ -58,16 +57,17 @@ class TestStartUp(TestCase):
     def test_start_up_runs_in_exclusion(self):
         called = Value('b', False)
 
-        def temp_start_up():
-            def call(called):
-                called.value = True
-                lock = FileLock(start_up.LOCK_FILE_NAME)
-                self.assertRaises(LockTimeout, lock.acquire, timeout=0.1)
-            proc = Process(target=call, args=(called, ))
-            proc.start()
-            proc.join()
+        def check_lock():
+            called.value = True
+            lock = FileLock(start_up.LOCK_FILE_NAME)
+            self.assertRaises(LockTimeout, lock.acquire, timeout=0.1)
 
-        self.patch(start_up, 'inner_start_up', temp_start_up)
+        def check_lock_in_subprocess():
+             proc = Process(target=check_lock)
+             proc.start()
+             proc.join()
+
+        self.patch(start_up, 'inner_start_up', check_lock_in_subprocess)
         start_up.start_up()
         self.assertTrue(called.value)
 
@@ -77,7 +77,7 @@ class TestStartUp(TestCase):
         # Use a timeout more suitable for automated testing.
         self.patch(start_up, 'LOCK_TIMEOUT', 0.1)
         # Manually create a lock.
-        self.make_file(FileLock(self.TEST_LOCK_FILE_NAME).lock_file)
+        self.make_file(FileLock(start_up.LOCK_FILE_NAME).lock_file)
 
         self.assertRaises(LockTimeout, start_up.start_up)
         self.assertEqual(0, recorder.call_count)

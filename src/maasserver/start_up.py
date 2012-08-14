@@ -15,19 +15,13 @@ __all__ = [
     ]
 
 
-from lockfile import (
-    FileLock,
-    LockFailed,
-    LockTimeout,
-    NotMyLock,
-    )
+from lockfile import FileLock
 from maasserver.dns import write_full_dns_config
 from maasserver.maasavahi import setup_maas_avahi_service
 from maasserver.models import NodeGroup
 
-
 # Lock file used to prevent concurrent runs of the start_up() method.
-LOCK_FILE_NAME = '/var/lock/maas.start-up'
+LOCK_FILE_NAME = '/run/lock/' + __name__
 
 
 # Timeout used to grab the filed-based lock used by the start_up() method.
@@ -50,15 +44,11 @@ def start_up():
     internally are not ran concurrently.
     """
     lock = FileLock(LOCK_FILE_NAME)
+    lock.acquire(timeout=LOCK_TIMEOUT)
     try:
-        lock.acquire(timeout=LOCK_TIMEOUT)
-    except (LockTimeout, NotMyLock, LockFailed):
-        raise
-    else:
-        try:
-            inner_start_up()
-        finally:
-            lock.release()
+        inner_start_up()
+    finally:
+        lock.release()
 
 
 def inner_start_up():
