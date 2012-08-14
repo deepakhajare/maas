@@ -853,9 +853,12 @@ class FilesHandler(BaseHandler):
 
 @api_operations
 class NodeGroupsHandler(BaseHandler):
-    """Node-groups API.  Lists the registered node groups."""
+    """Node-groups API.  Lists the registered node groups.
 
-    allowed_methods = ('GET', )
+    BE VERY CAREFUL in this view: it is accessible anonymously, even for POST.
+    """
+
+    allowed_methods = ('GET', 'POST')
 
     def read(self, request):
         """Index of node groups."""
