@@ -867,6 +867,26 @@ class NodeGroupsHandler(BaseHandler):
         return ('nodegroups_handler', [])
 
 
+def verify_worker_login(request, nodegroup):
+    """Verify that `request` was issued by the worker for `nodegroup`.
+
+    This is checked by comparing the OAuth key used for signing the request
+    to the node group's API key.
+
+    If things check out, returns the :class:`NodeGroup`.  Otherwise,
+    raises :class:`PermissionDenied`.
+    """
+    try:
+        if extract_oauth_key(request) == nodegroup.api_key:
+            return None
+    except Unauthorized:
+        # Don't bother returning this as Unauthorized; that error is
+        # basically an interactive invitation to log in.  In this case
+        # there's just no point.
+        pass
+    raise PermissionDenied("Only allowed for the %s worker." % nodegroup.name)
+
+
 @api_operations
 class NodeGroupHandler(BaseHandler):
     """Node-group API."""
@@ -890,6 +910,7 @@ class NodeGroupHandler(BaseHandler):
     def update_leases(self, request, name):
         leases = get_mandatory_param(request.data, 'leases')
         nodegroup = get_object_or_404(NodeGroup, name=name)
+        verify_worker_login(request, nodegroup)
         DHCPLease.objects.update_leases(nodegroup, json.loads(leases))
         return HttpResponse("Leases updated.", status=httplib.OK)
 
