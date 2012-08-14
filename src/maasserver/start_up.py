@@ -30,7 +30,7 @@ from maasserver.models import NodeGroup
 LOCK_FILE_NAME = '/var/lock/maas.start-up'
 
 
-# Timeout used to grab the filed-based lock when start_up() is called.
+# Timeout used to grab the filed-based lock used by the start_up() method.
 LOCK_TIMEOUT = 60
 
 
