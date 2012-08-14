@@ -16,6 +16,7 @@ import os
 import random
 from subprocess import CalledProcessError
 
+from apiclient.creds import convert_tuple_to_string
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import (
@@ -24,7 +25,10 @@ from maastesting.fakemethod import (
     )
 from maastesting.matchers import ContainsAll
 from netaddr import IPNetwork
-from provisioningserver import tasks
+from provisioningserver import (
+    auth,
+    tasks,
+    )
 from provisioningserver.cache import cache
 from provisioningserver.dns.config import (
     conf,
@@ -90,9 +94,9 @@ class TestRefreshSecrets(TestCase):
             factory.make_name('token'),
             factory.make_name('secret'),
             )
-        api_credentials = ':'.join(credentials)
-        refresh_secrets(api_credentials=api_credentials)
-        self.assertEqual(api_credentials, cache.get('api_credentials'))
+        refresh_secrets(
+            api_credentials=convert_tuple_to_string(credentials))
+        self.assertEqual(credentials, auth.get_recorded_api_credentials())
 
     def test_updates_nodegroup_name(self):
         nodegroup_name = factory.make_name('nodegroup')

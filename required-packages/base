@@ -17,6 +17,7 @@ python-dev
 python-django
 python-django-south
 python-formencode
+python-lockfile
 python-netaddr
 python-oauth
 python-oops
@@ -30,4 +31,5 @@ python-twisted
 python-txamqp
 python-yaml
 rabbitmq-server
+syslinux
 tgt

@@ -29,8 +29,14 @@ from subprocess import (
 
 from celery.task import task
 from celeryconfig import DHCP_CONFIG_FILE
-from provisioningserver.cache import cache
-from provisioningserver.dhcp import config
+from provisioningserver.auth import (
+    record_api_credentials,
+    record_nodegroup_name,
+    )
+from provisioningserver.dhcp import (
+    config,
+    leases,
+    )
 from provisioningserver.dns.config import (
     DNSConfig,
     execute_rndc_command,
@@ -44,11 +50,11 @@ from provisioningserver.power.poweraction import (
 from provisioningserver.utils import atomic_write
 
 # For each item passed to refresh_secrets, a refresh function to give it to.
-refresh_keys = [
-    'api_credentials',
-    'omapi_shared_key',
-    'nodegroup_name',
-]
+refresh_functions = {
+    'api_credentials': record_api_credentials,
+    'omapi_shared_key': leases.record_omapi_shared_key,
+    'nodegroup_name': record_nodegroup_name,
+}
 
 
 @task
@@ -91,8 +97,8 @@ def refresh_secrets(**kwargs):
         manages.
     """
     for key, value in kwargs.items():
-        assert key in refresh_keys, "Unknown refresh item: %s" % key
-        cache.set(key, value)
+        assert key in refresh_functions, "Unknown refresh item: %s" % key
+        refresh_functions[key](value)
 
 
 # =====================================================================
