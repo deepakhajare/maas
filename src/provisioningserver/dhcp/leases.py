@@ -43,7 +43,11 @@ from apiclient.maas_client import (
     MAASOAuth,
     )
 from celeryconfig import DHCP_LEASES_FILE
-from provisioningserver.auth import locate_maas_api
+from provisioningserver.auth import (
+    get_recorded_api_credentials,
+    get_recorded_nodegroup_name,
+    locate_maas_api,
+    )
 from provisioningserver.cache import cache
 from provisioningserver.dhcp.leases_parser import parse_leases
 from provisioningserver.logging import task_logger
@@ -151,8 +155,8 @@ def register_new_leases(current_leases):
 
 def send_leases(leases):
     """Send lease updates to the server API."""
-    api_credentials = cache.get('api_credentials')
-    nodegroup_name = cache.get('nodegroup_name')
+    api_credentials = get_recorded_api_credentials()
+    nodegroup_name = get_recorded_nodegroup_name()
     if None in (api_credentials, nodegroup_name):
         # The MAAS server hasn't sent us enough information for us to do
         # this yet.  Leave it for another time.
@@ -167,9 +171,7 @@ def send_leases(leases):
         return
 
     api_path = 'nodegroups/%s/' % nodegroup_name
-    # TODO use utility method to split up credentials
-    recorded_api_credentials = api_credentials.split(':')
-    oauth = MAASOAuth(*recorded_api_credentials)
+    oauth = MAASOAuth(*api_credentials)
     MAASClient(oauth, MAASDispatcher(), locate_maas_api()).post(
         api_path, 'update_leases', leases=leases)
 
