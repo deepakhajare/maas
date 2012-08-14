@@ -96,8 +96,10 @@ def atomic_write(content, filename, overwrite=True):
                 os.rename(temp_file, filename)
                 file_moved = True
         finally:
+            # Cleanup the temp file if needed.
             if not file_moved:
                 os.remove(temp_file)
+            # Release the lock.
             lock.release()
     else:
         # Rename the temporary file to `filename`, that operation is atomic on
