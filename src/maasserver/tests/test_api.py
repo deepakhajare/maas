@@ -2433,7 +2433,8 @@ class TestNodeGroupsAPI(APITestCase):
         recorder = FakeMethod()
         self.patch(refresh_worker.refresh_secrets, 'delay', recorder)
         nodegroup = factory.make_node_group()
-        response = self.client.post(reverse('nodegroups'), {'op': 'refresh'})
+        response = self.client.post(
+            reverse('nodegroups'), {'op': 'refresh_workers'})
         self.assertEqual(httplib.OK, response.status_code)
         self.assertIn(
             nodegroup.name, [
@@ -2444,7 +2445,8 @@ class TestNodeGroupsAPI(APITestCase):
         # The response from "refresh" contains only an innocuous
         # confirmation.  Anyone can call this method, so it mustn't
         # reveal anything sensitive.
-        response = self.client.post(reverse('nodegroups'), {'op': 'refresh'})
+        response = self.client.post(
+            reverse('nodegroups'), {'op': 'refresh_workers'})
         self.assertEqual(
             (httplib.OK, "Sending worker refresh."),
             (response.status_code, response.content))
