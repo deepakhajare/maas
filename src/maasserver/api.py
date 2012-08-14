@@ -866,6 +866,10 @@ class NodeGroupsHandler(BaseHandler):
     def resource_uri(cls):
         return ('nodegroups_handler', [])
 
+    @api_exported('POST')
+    def refresh_workers(self, request):
+        pass
+
 
 @api_operations
 class NodeGroupHandler(BaseHandler):

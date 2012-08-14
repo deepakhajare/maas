@@ -37,6 +37,7 @@ from fixtures import Fixture
 from maasserver import (
     api,
     kernel_opts,
+    refresh_worker,
     )
 from maasserver.api import (
     extract_constraints,
@@ -67,7 +68,6 @@ from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
     )
-from maasserver import refresh_worker
 from maasserver.testing import (
     reload_object,
     reload_objects,
@@ -2433,7 +2433,7 @@ class TestNodeGroupsAPI(APITestCase):
         recorder = FakeMethod()
         self.patch(refresh_worker.refresh_secrets, 'delay', recorder)
         nodegroup = factory.make_node_group()
-        self.client.get(reverse('nodegroups'), {'op': 'refresh'})
+        self.client.post(reverse('nodegroups'), {'op': 'refresh'})
         self.assertIn(
             nodegroup.name, [
                 kwargs['nodegroup_name']
