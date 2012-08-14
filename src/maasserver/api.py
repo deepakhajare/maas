@@ -868,7 +868,15 @@ class NodeGroupsHandler(BaseHandler):
 
     @api_exported('POST')
     def refresh_workers(self, request):
-        pass
+        """Request an update of all node groups' configurations.
+
+        This sends each node-group worker an update of its API credentials,
+        OMAPI key, node-group name, and so on.
+
+        Anyone can request this (for example, a bootstrapping worker that
+        does not know its node-group name or API credentials yet) but the
+        information will be sent only to the known workers.
+        """
 
 
 @api_operations
