@@ -2417,7 +2417,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             json.loads(response.content)["purpose"])
 
 
-class TestNodeGroupsAPI(APITestCase):
+class TestNodeGroupsAPI(AnonAPITestCase):
 
     def test_reverse_points_to_nodegroups_api(self):
         self.assertEqual(self.get_uri('nodegroups/'), reverse('nodegroups'))
