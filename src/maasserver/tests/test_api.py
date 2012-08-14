@@ -79,6 +79,7 @@ from maasserver.testing.testcase import (
     TestCase,
     )
 from maasserver.utils import map_enum
+from maasserver.worker_user import get_worker_user
 from maastesting.djangotestcase import TransactionTestCase
 from maastesting.fakemethod import FakeMethod
 from maastesting.matchers import ContainsAll
@@ -2458,36 +2459,6 @@ class TestNodeGroupAPI(APITestCase):
             self.get_uri('nodegroups/%s/' % factory.make_name('nodegroup')))
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
-    def test_update_leases_works_for_nodegroup_worker(self):
-        nodegroup = factory.make_node_group()
-        self.fail("TODO: Log in as worker.")
-        response = self.client.post(
-            reverse('nodegroup', args=[nodegroup.name]),
-            {'op': 'update_leases', 'leases': json.dumps({})})
-        self.assertEqual(
-            httplib.OK, response.status_code,
-            explain_unexpected_response(httplib.OK, response))
-
-    def test_update_leases_does_not_work_for_normal_user(self):
-        nodegroup = factory.make_node_group()
-        response = self.client.post(
-            reverse('nodegroup', args=[nodegroup.name]),
-            {'op': 'update_leases', 'leases': json.dumps({})})
-        self.assertEqual(
-            httplib.FORBIDDEN, response.status_code,
-            explain_unexpected_response(httplib.FORBIDDEN, response))
-
-    def test_update_leases_does_not_let_worker_update_other_nodegroup(self):
-        requesting_nodegroup = factory.make_node_group()
-        about_nodegroup = factory.make_node_group()
-        response = self.client.post(
-            reverse('nodegroup', args=[about_nodegroup.name]),
-            {'op': 'update_leases', 'leases': json.dumps({})})
-        self.fail("TODO: Log in as requesting_nodegroup.")
-        self.assertEqual(
-            httplib.FORBIDDEN, response.status_code,
-            explain_unexpected_response(httplib.FORBIDDEN, response))
-
     def test_update_leases_processes_empty_leases_dict(self):
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
@@ -2521,9 +2492,54 @@ class TestNodeGroupAPI(APITestCase):
             for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
 
 
-class TestAnonNodeGroupsAPI(AnonAPITestCase):
+class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
+    """Authorization tests for nodegroup API."""
+
+    def log_in_as_normal_user(self):
+        """Log `self.client` in as a normal user."""
+        user = factory.make_user()
+        password = factory.getRandomString()
+        user.set_password(password)
+        user.save()
+        self.client.login(username=user.username, password=password)
+
+    def make_worker_client(self, nodegroup):
+        """Create a test client logged in as if it were `nodegroup`."""
+        return OAuthAuthenticatedClient(
+            get_worker_user(), token=nodegroup.api_token)
 
     def test_nodegroup_requires_authentication(self):
         nodegroup = factory.make_node_group()
         response = self.client.get(reverse('nodegroup', args=[nodegroup.name]))
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
+    def test_update_leases_works_for_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        client = self.make_worker_client(nodegroup)
+        response = client.post(
+            reverse('nodegroup', args=[nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+
+    def test_update_leases_does_not_work_for_normal_user(self):
+        nodegroup = factory.make_node_group()
+        self.log_in_as_normal_user()
+        response = self.client.post(
+            reverse('nodegroup', args=[nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_update_leases_does_not_let_worker_update_other_nodegroup(self):
+        requesting_nodegroup = factory.make_node_group()
+        about_nodegroup = factory.make_node_group()
+        self.make_worker_client(requesting_nodegroup)
+        response = self.client.post(
+            reverse('nodegroup', args=[about_nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
