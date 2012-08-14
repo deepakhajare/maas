@@ -32,6 +32,7 @@ import sys
 import tempfile
 from time import time
 
+from lockfile import FileLock
 from provisioningserver.config import Config
 import tempita
 from twisted.internet.defer import maybeDeferred
@@ -83,22 +84,25 @@ def atomic_write(content, filename, overwrite=True):
         prefix=".%s." % os.path.basename(filename))
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
-    dest_fd = None
-    try:
-        # Try to get an exclusive lock on this file.
-        dest_fd = os.open(filename, os.O_CREAT | os.O_EXCL)
-    except OSError:
-        # Do not overwrite the file is overwrite=True and the file already
-        # exists.
-        if not overwrite:
-            os.remove(temp_file)
-            return
-    # Rename the temporary file to `filename`, that operation is atomic on
-    # POSIX systems.
-    os.rename(temp_file, filename)
-    # Cleanup the file descriptor if it exists.
-    if dest_fd is not None:
-        os.close(dest_fd)
+    # If not overwrite: use filelock to gain an exclusive access to the
+    # destination file.
+    if not overwrite:
+        lock = FileLock(filename)
+        # Acquire an exclusive lock on this file.
+        lock.acquire()
+        file_moved = False
+        try:
+            if not os.path.isfile(filename):
+                os.rename(temp_file, filename)
+                file_moved = True
+        finally:
+            if not file_moved:
+                os.remove(temp_file)
+            lock.release()
+    else:
+        # Rename the temporary file to `filename`, that operation is atomic on
+        # POSIX systems.
+        os.rename(temp_file, filename)
 
 
 def incremental_write(content, filename):
