@@ -41,6 +41,6 @@ def convert_string_to_tuple(creds_string):
     if len(creds_tuple) != 3:
         raise ValueError(
             "Malformed credentials string.  Expected 3 colon-separated items, "
-            "got '%s'"
+            "got %r."
             % creds_string)
     return creds_tuple
