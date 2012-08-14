@@ -26,9 +26,11 @@ from maasserver.maasavahi import setup_maas_avahi_service
 from maasserver.models import NodeGroup
 
 
+# Lock file used to prevent concurrent runs of the start_up() method.
 LOCK_FILE_NAME = '/var/lock/maas.start-up'
 
 
+# Timeout used to grab the filed-based lock when start_up() is called.
 LOCK_TIMEOUT = 60
 
 
