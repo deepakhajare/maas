@@ -83,16 +83,22 @@ def atomic_write(content, filename, overwrite=True):
         prefix=".%s." % os.path.basename(filename))
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
-    # Do not overwrite the file is overwrite=True and the file already
-    # exists.  There is a small race condition window here as the file
-    # can appear after its existence is checked and before the rename
-    # is performed.
-    if not overwrite and os.path.isfile(filename):
-        os.remove(temp_file)
-    else:
-        # Rename the temporary file to `filename`, that operation is atomic on
-        # POSIX systems.
-        os.rename(temp_file, filename)
+    dest_fd = None
+    try:
+        # Try to get an exclusive lock on this file.
+        dest_fd = os.open(filename, os.O_CREAT | os.O_EXCL)
+    except OSError:
+        # Do not overwrite the file is overwrite=True and the file already
+        # exists.
+        if not overwrite:
+            os.remove(temp_file)
+            return
+    # Rename the temporary file to `filename`, that operation is atomic on
+    # POSIX systems.
+    os.rename(temp_file, filename)
+    # Cleanup the file descriptor if it exists.
+    if dest_fd is not None:
+        os.close(dest_fd)
 
 
 def incremental_write(content, filename):

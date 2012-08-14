@@ -45,6 +45,7 @@ from testtools.matchers import (
     Contains,
     EndsWith,
     FileContains,
+    FileExists,
     MatchesStructure,
     StartsWith,
     )
@@ -141,8 +142,7 @@ class TestDNSConfig(TestCase):
         dnsconfig.write_config(overwrite=False)
         self.assertThat(
             os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
-            FileContains(
-                matcher=Contains("Zone declarations.")))
+            FileExists())
 
     def test_write_config_writes_config(self):
         target_dir = self.make_dir()
