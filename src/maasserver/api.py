@@ -883,6 +883,7 @@ class NodeGroupsHandler(BaseHandler):
         """
         for nodegroup in NodeGroup.objects.all():
             refresh_worker(nodegroup)
+        return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
 
 @api_operations
