@@ -24,11 +24,8 @@ from maastesting.fakemethod import (
     )
 from maastesting.matchers import ContainsAll
 from netaddr import IPNetwork
-from provisioningserver import (
-    auth,
-    tasks,
-    )
-from provisioningserver.dhcp import leases
+from provisioningserver import tasks
+from provisioningserver.cache import cache
 from provisioningserver.dns.config import (
     conf,
     DNSZoneConfig,
@@ -81,25 +78,6 @@ class TestRefreshSecrets(TestCase):
         # Nothing is refreshed, but there is no error either.
         pass
 
-    def test_calls_refresh_function(self):
-        value = factory.make_name('new-value')
-        refresh_function = FakeMethod()
-        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh_secrets(my_item=value)
-        self.assertEqual([(value, )], refresh_function.extract_args())
-
-    def test_refreshes_even_if_None(self):
-        refresh_function = FakeMethod()
-        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh_secrets(my_item=None)
-        self.assertEqual([(None, )], refresh_function.extract_args())
-
-    def test_does_not_refresh_if_omitted(self):
-        refresh_function = FakeMethod()
-        self.patch(tasks, 'refresh_functions', {'my_item': refresh_function})
-        refresh_secrets()
-        self.assertEqual([], refresh_function.extract_args())
-
     def test_breaks_on_unknown_item(self):
         self.assertRaises(AssertionError, refresh_secrets, not_an_item=None)
 
@@ -112,19 +90,19 @@ class TestRefreshSecrets(TestCase):
             factory.make_name('token'),
             factory.make_name('secret'),
             )
-        refresh_secrets(api_credentials=':'.join(credentials))
-        self.assertEqual(credentials, auth.get_recorded_api_credentials())
+        api_credentials = ':'.join(credentials)
+        refresh_secrets(api_credentials=api_credentials)
+        self.assertEqual(api_credentials, cache.get('api_credentials'))
 
     def test_updates_nodegroup_name(self):
         nodegroup_name = factory.make_name('nodegroup')
         refresh_secrets(nodegroup_name=nodegroup_name)
-        self.assertEqual(nodegroup_name, auth.get_recorded_nodegroup_name())
+        self.assertEqual(nodegroup_name, cache.get('nodegroup_name'))
 
     def test_updates_omapi_shared_key(self):
-        self.patch(leases, 'recorded_omapi_shared_key', None)
         key = factory.make_name('omapi-shared-key')
         refresh_secrets(omapi_shared_key=key)
-        self.assertEqual(key, leases.recorded_omapi_shared_key)
+        self.assertEqual(key, cache.get('omapi_shared_key'))
 
 
 class TestPowerTasks(TestCase):
@@ -195,7 +173,7 @@ class TestDHCPTasks(TestCase):
         key = factory.getRandomString()
         self.patch(Omshell, '_run', FakeMethod())
         add_new_dhcp_host_map({}, factory.make_name('server'), key)
-        self.assertEqual(key, leases.recorded_omapi_shared_key)
+        self.assertEqual(key, cache.get('omapi_shared_key'))
 
     def test_remove_dhcp_host_map(self):
         # We don't want to actually run omshell in the task, so we stub
@@ -226,7 +204,7 @@ class TestDHCPTasks(TestCase):
         self.patch(Omshell, '_run', FakeMethod((0, "obj: <null>")))
         remove_dhcp_host_map(
             factory.getRandomIPAddress(), factory.make_name('server'), key)
-        self.assertEqual(key, leases.recorded_omapi_shared_key)
+        self.assertEqual(key, cache.get('omapi_shared_key'))
 
     def test_write_dhcp_config_writes_config(self):
         conf_file = self.make_file(contents=factory.getRandomString())

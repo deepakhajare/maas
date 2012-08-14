@@ -17,22 +17,22 @@ __all__ = [
     'TestModelTestCase',
     ]
 
-from django.core.cache import cache
+from django.core.cache import cache as django_cache
 from maasserver.testing import reset_fake_provisioning_api_proxy
 from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 import maastesting.djangotestcase
-from provisioningserver.auth import init_shared_globals
+from provisioningserver.cache import cache as pserv_cache
 
 
 class TestCase(maastesting.djangotestcase.DjangoTestCase):
 
     def setUp(self):
         super(TestCase, self).setUp()
-        self.addCleanup(cache.clear)
+        self.addCleanup(django_cache.clear)
+        self.addCleanup(pserv_cache.clear)
         self.addCleanup(reset_fake_provisioning_api_proxy)
         self.celery = self.useFixture(CeleryFixture())
-        self.addCleanup(init_shared_globals)
 
 
 class TestModelTestCase(TestCase,

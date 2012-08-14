@@ -14,12 +14,12 @@ __all__ = [
     'TestCase',
     ]
 
-from provisioningserver.auth import init_shared_globals
 from maastesting import testcase
+from provisioningserver.cache import cache as pserv_cache
 
 
 class TestCase(testcase.TestCase):
 
     def setUp(self):
         super(TestCase, self).setUp()
-        self.addCleanup(init_shared_globals)
+        self.addCleanup(pserv_cache.clear)
