@@ -67,6 +67,7 @@ from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
     )
+from maasserver import refresh_worker
 from maasserver.testing import (
     reload_object,
     reload_objects,
@@ -2427,6 +2428,16 @@ class TestNodeGroupsAPI(APITestCase):
         response = self.client.get(reverse('nodegroups'))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertIn(nodegroup.name, json.loads(response.content))
+
+    def test_refresh_calls_refresh_worker(self):
+        recorder = FakeMethod()
+        self.patch(refresh_worker.refresh_secrets, 'delay', recorder)
+        nodegroup = factory.make_node_group()
+        self.client.get(reverse('nodegroups'), {'op': 'refresh'})
+        self.assertIn(
+            nodegroup.name, [
+                kwargs['nodegroup_name']
+                for kwargs in recorder.extract_kwargs()])
 
 
 class TestNodeGroupAPI(APITestCase):
