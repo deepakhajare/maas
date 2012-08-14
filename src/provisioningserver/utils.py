@@ -73,9 +73,8 @@ def xmlrpc_export(iface):
     return decorate
 
 
-def atomic_write(content, filename, overwrite=True):
-    """Write `content` into the file `filename` in an atomic fashion.
-    """
+def _write_temp_file(content, filename):
+    """Write the given `content` in a temporary file next to `filename`."""
     # Write the file to a temporary place (next to the target destination,
     # to ensure that it is on the same filesystem).
     directory = os.path.dirname(filename)
@@ -84,26 +83,28 @@ def atomic_write(content, filename, overwrite=True):
         prefix=".%s." % os.path.basename(filename))
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
+    return temp_file
+
+
+def atomic_write(content, filename, overwrite=True):
+    """Write `content` into the file `filename` in an atomic fashion."""
     # If not overwrite: use filelock to gain an exclusive access to the
     # destination file.
     if not overwrite:
         lock = FileLock(filename)
         # Acquire an exclusive lock on this file.
         lock.acquire()
-        file_moved = False
         try:
             if not os.path.isfile(filename):
+                temp_file = _write_temp_file(content, filename)
                 os.rename(temp_file, filename)
-                file_moved = True
         finally:
-            # Cleanup the temp file if needed.
-            if not file_moved:
-                os.remove(temp_file)
             # Release the lock.
             lock.release()
     else:
         # Rename the temporary file to `filename`, that operation is atomic on
         # POSIX systems.
+        temp_file = _write_temp_file(content, filename)
         os.rename(temp_file, filename)
 
 
