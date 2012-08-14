@@ -139,7 +139,7 @@ bucket:
    chmod 755 /usr/local/bin/maas-set-ip
 
    my_release=$(lsb_release -c)
-   cat >> /etc/maas/import_isos <<END
+   cat >> /etc/maas/import_pxe_files <<END
    RELEASES="${my_release}"
    ARCHES="i386 amd64"
    END

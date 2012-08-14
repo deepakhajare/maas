@@ -417,8 +417,9 @@ def name_arch_in_cobbler_style(architecture):
 
 def check_profiles():
     """Check that Cobbler has profiles defined for all the profiles used by
-    MAAS.  If a profile is missing, display a persistent error with an invite
-    to run the maas-import-isos script.
+    MAAS.
+
+    This should no longer be relevant, since Cobbler is being removed.
     """
     all_profiles = get_all_profile_names()
     papi = get_provisioning_api_proxy()
