@@ -21,16 +21,16 @@ from provisioningserver.testing.testcase import TestCase
 
 class TestCache(TestCase):
 
-    def test_cache_initializes_backend(self):
+    def test_cache_has_initialized_backend(self):
         self.assertIsInstance(cache.cache_backend, DictProxy)
 
-    def test_cache_stores_key_value(self):
+    def test_cache_stores_value(self):
         key = factory.getRandomString()
         value = factory.getRandomString()
         cache.set(key, value)
         self.assertEqual(value, cache.get(key))
 
-    def test_cache_clear(self):
+    def test_cache_clears_cache(self):
         cache.set(factory.getRandomString(), factory.getRandomString())
         cache.clear()
         self.assertEqual(0, len(cache.cache_backend))
