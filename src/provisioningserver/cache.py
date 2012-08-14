@@ -18,13 +18,11 @@ __all__ = [
 from multiprocessing import Manager
 
 
-_manager = Manager()
-
-
 class Cache(object):
+    """A process-safe dict-like cache."""
 
-    def __init__(self):
-        self.clear()
+    def __init__(self, cache_backend):
+        self.cache_backend = cache_backend
 
     def set(self, key, value):
         self.cache_backend[key] = value
@@ -33,8 +31,11 @@ class Cache(object):
         return self.cache_backend.get(key, None)
 
     def clear(self):
-        self.cache_backend = _manager.dict()
+        self.cache_backend.clear()
 
 
-# Initialize the process-safe cache object from this module.
-cache = Cache()
+_manager = Manager()
+
+
+# Initialize the process-safe singleton cache.
+cache = Cache(_manager.dict())
