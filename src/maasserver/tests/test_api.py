@@ -2429,6 +2429,15 @@ class TestNodeGroupsAPI(APITestCase):
         self.assertIn(nodegroup.name, json.loads(response.content))
 
 
+def explain_unexpected_response(expected_status, response):
+    """Return human-readable failure message: unexpected http response."""
+    return "Unexpected http status (expected %s): %s - %s" % (
+        expected_status,
+        response.status_code,
+        response.content,
+        )
+
+
 class TestNodeGroupAPI(APITestCase):
 
     def test_reverse_points_to_nodegroup(self):
@@ -2448,6 +2457,36 @@ class TestNodeGroupAPI(APITestCase):
         response = self.client.get(
             self.get_uri('nodegroups/%s/' % factory.make_name('nodegroup')))
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_update_leases_works_for_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        self.fail("TODO: Log in as worker.")
+        response = self.client.post(
+            reverse('nodegroup', args=[nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+
+    def test_update_leases_does_not_work_for_normal_user(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.post(
+            reverse('nodegroup', args=[nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_update_leases_does_not_let_worker_update_other_nodegroup(self):
+        requesting_nodegroup = factory.make_node_group()
+        about_nodegroup = factory.make_node_group()
+        response = self.client.post(
+            reverse('nodegroup', args=[about_nodegroup.name]),
+            {'op': 'update_leases', 'leases': json.dumps({})})
+        self.fail("TODO: Log in as requesting_nodegroup.")
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
 
     def test_update_leases_processes_empty_leases_dict(self):
         nodegroup = factory.make_node_group()
