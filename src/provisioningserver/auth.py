@@ -21,10 +21,6 @@ __all__ = [
 from apiclient.creds import convert_string_to_tuple
 from provisioningserver.cache import cache
 
-# API credentials as last sent by the server.  The worker uses these
-# credentials to access the MAAS API.
-# Shared between threads.
-recorded_api_credentials = None
 
 # Cache key for the API credentials as last sent by the server.
 API_CREDENTIALS_KEY_CACHE_NAME = 'api_credentials'
