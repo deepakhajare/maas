@@ -68,7 +68,7 @@ Usage() {
 Usage: ${0##*/} [ options ] <<ARGUMENTS>>
 
    Import ephemeral (enlistment/commissioning) images into maas.
-   Settings are read from /etc/maas/maas_import_ephemerals
+   Settings are read from $CONFIG.
 EOF
 }
 
