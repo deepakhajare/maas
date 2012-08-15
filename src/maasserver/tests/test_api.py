@@ -2505,10 +2505,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def log_in_as_normal_user(self):
         """Log `self.client` in as a normal user."""
-        user = factory.make_user()
         password = factory.getRandomString()
-        user.set_password(password)
-        user.save()
+        user = factory.make_user(password=password)
         self.client.login(username=user.username, password=password)
 
     def test_nodegroup_requires_authentication(self):
