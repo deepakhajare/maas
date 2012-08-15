@@ -882,7 +882,7 @@ def get_nodegroup_for_worker(request, nodegroup_name):
 
     if key != nodegroup.api_key:
         raise PermissionDenied(
-            "Only allowed for the %s worker." % nodegroup.name)
+            "Only allowed for the %r worker." % nodegroup.name)
 
     return nodegroup
 
