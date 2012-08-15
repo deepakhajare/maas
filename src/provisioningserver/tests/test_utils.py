@@ -117,7 +117,10 @@ class TestGetMTime(TestCase):
         existing_file = self.make_file()
         mtime = os.stat(existing_file).st_mtime - randint(0, 100)
         os.utime(existing_file, (mtime, mtime))
-        self.assertEqual(mtime, get_mtime(existing_file))
+        # Some very very small errors seem to be possible.  That's just
+        # the way of floating-point numbers, although it'd be nice to
+        # know exactly where these came from.
+        self.assertAlmostEqual(mtime, get_mtime(existing_file), delta=0.00001)
 
     def test_get_mtime_passes_on_other_error(self):
         forbidden_file = self.make_file()
