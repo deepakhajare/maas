@@ -2,7 +2,7 @@
 # compatibility.
 if [ -f /etc/maas/import_isos ]
 then
-    cat <<EOF
+    cat >&2 <<EOF
 
 Including obsolete /etc/maas/import_isos in configuration.  This file has been
 superseded by import_pxe_files.  Please see if it can be removed.
