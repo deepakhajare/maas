@@ -32,6 +32,7 @@ __all__ = [
 
 from django import forms
 from maasserver.config_forms import DictCharField
+from maasserver.fields import MACAddressFormField
 from provisioningserver.enum import POWER_TYPE
 
 
@@ -43,7 +44,7 @@ POWER_TYPE_PARAMETERS = {
             [
                 (
                     'mac_address',
-                    forms.CharField(label="MAC Address", required=False)),
+                    MACAddressFormField(label="MAC Address", required=False)),
             ],
             required=False,
             skip_check=True),
