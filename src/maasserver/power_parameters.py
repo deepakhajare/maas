@@ -42,8 +42,8 @@ POWER_TYPE_PARAMETERS = {
         DictCharField(
             [
                 (
-                    'power_address',
-                    forms.CharField(label="Address", required=False)),
+                    'mac_address',
+                    forms.CharField(label="MAC Address", required=False)),
             ],
             required=False,
             skip_check=True),

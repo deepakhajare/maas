@@ -599,7 +599,7 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'op': 'new',
                 'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
                 'power_type': POWER_TYPE.WAKE_ON_LAN,
-                'power_parameters_power_address': new_power_address,
+                'power_parameters_mac_address': new_power_address,
                 'mac_addresses': ['AA:BB:CC:DD:EE:FF'],
                 })
 
@@ -607,7 +607,7 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
             system_id=json.loads(response.content)['system_id'])
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            {'power_address': new_power_address},
+            {'mac_address': new_power_address},
             reload_object(node).power_parameters)
 
     def test_POST_updates_power_parameters_rejects_unknown_param(self):
@@ -1130,11 +1130,11 @@ class TestNodeAPI(APITestCase):
         new_power_address = factory.getRandomString()
         response = self.client.put(
             self.get_node_uri(node),
-            {'power_parameters_power_address': new_power_address})
+            {'power_parameters_mac_address': new_power_address})
 
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            {'power_address': new_power_address},
+            {'mac_address': new_power_address},
             reload_object(node).power_parameters)
 
     def test_PUT_updates_power_parameters_rejects_unknown_param(self):
@@ -1250,11 +1250,11 @@ class TestNodeAPI(APITestCase):
             power_parameters=factory.getRandomString())
         response = self.client.put(
             self.get_node_uri(node),
-            {'power_parameters_power_address': ''})
+            {'power_parameters_mac_address': ''})
 
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            {'power_address': ''},
+            {'mac_address': ''},
             reload_object(node).power_parameters)
 
     def test_DELETE_deletes_node(self):
