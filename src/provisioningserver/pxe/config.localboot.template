@@ -1,8 +1,5 @@
-DEFAULT execute
-TIMEOUT 0
-PROMPT 0
+DEFAULT local
 
-
-LABEL execute
-        SAY Booting local disk ...
-        LOCALBOOT 0
+LABEL local
+  SAY Booting local disk ...
+  LOCALBOOT 0
