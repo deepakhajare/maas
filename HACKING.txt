@@ -184,7 +184,7 @@ means you can *either* install ``squid-deb-proxy``::
 
     $ sudo apt-get install squid-deb-proxy
 
-*or* you can edit ``contrib/snippets/maas_proxy`` to remove the proxy
+*or* you can edit ``contrib/snippets_v2/generic`` to remove the proxy
 definition.
 
 Set the iSCSI config to include the MAAS configs::
