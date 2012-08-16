@@ -13,9 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from provisioningserver.amqpclient import AMQFactory
-from provisioningserver.cobblerclient import CobblerSession
 from provisioningserver.config import Config
-from provisioningserver.remote import ProvisioningAPI_XMLRPC
 from provisioningserver.services import (
     LogService,
     OOPSService,
@@ -34,10 +32,7 @@ from twisted.application.service import (
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.cred.credentials import IUsernamePassword
 from twisted.cred.error import UnauthorizedLogin
-from twisted.cred.portal import (
-    IRealm,
-    Portal,
-    )
+from twisted.cred.portal import IRealm
 from twisted.internet.defer import (
     inlineCallbacks,
     returnValue,
@@ -46,10 +41,6 @@ from twisted.plugin import IPlugin
 from twisted.python import (
     log,
     usage,
-    )
-from twisted.web.guard import (
-    BasicCredentialFactory,
-    HTTPAuthSessionWrapper,
     )
 from twisted.web.resource import (
     IResource,
@@ -125,23 +116,6 @@ class ProvisioningServiceMaker(object):
         oops_reporter = oops_config["reporter"]
         return OOPSService(log_service, oops_dir, oops_reporter)
 
-    def _makeCobblerSession(self, cobbler_config):
-        """Create a :class:`CobblerSession`."""
-        return CobblerSession(
-            cobbler_config["url"], cobbler_config["username"],
-            cobbler_config["password"])
-
-    def _makeProvisioningAPI(self, cobbler_session, config):
-        """Construct an :class:`IResource` for the Provisioning API."""
-        papi_xmlrpc = ProvisioningAPI_XMLRPC(cobbler_session)
-        papi_realm = ProvisioningRealm(papi_xmlrpc)
-        papi_checker = SingleUsernamePasswordChecker(
-            config["username"], config["password"])
-        papi_portal = Portal(papi_realm, [papi_checker])
-        papi_creds = BasicCredentialFactory(b"MAAS Provisioning API")
-        papi_root = HTTPAuthSessionWrapper(papi_portal, [papi_creds])
-        return papi_root
-
     def _makeSiteService(self, papi_xmlrpc, config):
         """Create the site service."""
         site_root = Resource()
@@ -198,14 +172,6 @@ class ProvisioningServiceMaker(object):
         if broker_config["password"] != b"test":
             client_service = self._makeBroker(broker_config)
             client_service.setServiceParent(services)
-
-        cobbler_config = config["cobbler"]
-        cobbler_session = self._makeCobblerSession(cobbler_config)
-
-        papi_root = self._makeProvisioningAPI(cobbler_session, config)
-
-        site_service = self._makeSiteService(papi_root, config)
-        site_service.setServiceParent(services)
 
         tftp_service = self._makeTFTPService(config["tftp"])
         tftp_service.setServiceParent(services)

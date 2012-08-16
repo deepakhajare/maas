@@ -18,7 +18,6 @@ __all__ = [
     ]
 
 from django.core.cache import cache as django_cache
-from maasserver.testing import reset_fake_provisioning_api_proxy
 from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 import maastesting.djangotestcase
@@ -31,7 +30,6 @@ class TestCase(maastesting.djangotestcase.DjangoTestCase):
         super(TestCase, self).setUp()
         self.addCleanup(django_cache.clear)
         self.addCleanup(pserv_cache.clear)
-        self.addCleanup(reset_fake_provisioning_api_proxy)
         self.celery = self.useFixture(CeleryFixture())
 
 
