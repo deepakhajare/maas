@@ -11,15 +11,15 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'TestCase',
+    'PservTestCase',
     ]
 
 from maastesting import testcase
 from provisioningserver.cache import cache as pserv_cache
 
 
-class TestCase(testcase.TestCase):
+class PservTestCase(testcase.TestCase):
 
     def setUp(self):
-        super(TestCase, self).setUp()
+        super(PservTestCase, self).setUp()
         self.addCleanup(pserv_cache.clear)

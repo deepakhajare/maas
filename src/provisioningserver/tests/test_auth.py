@@ -14,9 +14,9 @@ __all__ = []
 
 from apiclient.creds import convert_tuple_to_string
 from maastesting.factory import factory
-from maastesting.testcase import TestCase
 from provisioningserver import auth
 from provisioningserver.cache import cache
+from provisioningserver.testing.testcase import PservTestCase
 
 
 def make_credentials():
@@ -28,7 +28,7 @@ def make_credentials():
         )
 
 
-class TestAuth(TestCase):
+class TestAuth(PservTestCase):
 
     def test_record_api_credentials_records_credentials_string(self):
         creds_string = convert_tuple_to_string(make_credentials())

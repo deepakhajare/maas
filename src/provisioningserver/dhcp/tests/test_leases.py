@@ -43,11 +43,11 @@ from provisioningserver.dhcp.leases import (
     upload_leases,
     )
 from provisioningserver.omshell import Omshell
-from provisioningserver.testing.testcase import TestCase
+from provisioningserver.testing.testcase import PservTestCase
 from testtools.testcase import ExpectedException
 
 
-class TestHelpers(TestCase):
+class TestHelpers(PservTestCase):
 
     def test_record_omapi_shared_key_records_shared_key(self):
         key = factory.getRandomString()
@@ -74,7 +74,7 @@ class StopExecuting(BaseException):
     """
 
 
-class TestUpdateLeases(TestCase):
+class TestUpdateLeases(PservTestCase):
 
     def make_lease(self):
         """Create a leases dict with one, arbitrary lease in it."""

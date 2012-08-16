@@ -16,10 +16,10 @@ from multiprocessing.managers import DictProxy
 
 from maastesting.factory import factory
 from provisioningserver.cache import cache
-from provisioningserver.testing.testcase import TestCase
+from provisioningserver.testing.testcase import PservTestCase
 
 
-class TestCache(TestCase):
+class TestCache(PservTestCase):
 
     def test_cache_has_initialized_backend(self):
         self.assertIsInstance(cache.cache_backend, DictProxy)

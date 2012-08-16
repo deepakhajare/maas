@@ -56,7 +56,7 @@ from provisioningserver.tasks import (
     write_full_dns_config,
     )
 from provisioningserver.testing import network_infos
-from provisioningserver.testing.testcase import TestCase
+from provisioningserver.testing.testcase import PservTestCase
 from testresources import FixtureResource
 from testtools.matchers import (
     Equals,
@@ -70,7 +70,7 @@ from testtools.matchers import (
 arbitrary_mac = "AA:BB:CC:DD:EE:FF"
 
 
-class TestRefreshSecrets(TestCase):
+class TestRefreshSecrets(PservTestCase):
     """Tests for the `refresh_secrets` task."""
 
     resources = (
@@ -109,7 +109,7 @@ class TestRefreshSecrets(TestCase):
         self.assertEqual(key, cache.get('omapi_shared_key'))
 
 
-class TestPowerTasks(TestCase):
+class TestPowerTasks(PservTestCase):
 
     resources = (
         ("celery", FixtureResource(CeleryFixture())),
@@ -132,7 +132,7 @@ class TestPowerTasks(TestCase):
             POWER_TYPE.WAKE_ON_LAN, mac=arbitrary_mac)
 
 
-class TestDHCPTasks(TestCase):
+class TestDHCPTasks(PservTestCase):
 
     resources = (
         ("celery", FixtureResource(CeleryFixture())),
@@ -242,7 +242,7 @@ class TestDHCPTasks(TestCase):
             (recorder.call_count, recorder.extract_args()[0]))
 
 
-class TestDNSTasks(TestCase):
+class TestDNSTasks(PservTestCase):
 
     resources = (
         ("celery", FixtureResource(CeleryFixture())),
