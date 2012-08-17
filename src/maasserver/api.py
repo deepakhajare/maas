@@ -100,6 +100,7 @@ from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
 from maasserver.enum import (
+    ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
     )
@@ -1116,17 +1117,17 @@ def pxeconfig(request):
     :param arch: Main machine architecture.
     :param subarch: Sub-architecture, or "generic" if there is none.
     """
-    mac = request.GET.get('mac', None)
-    arch = get_mandatory_param(request.GET, 'arch')
-    subarch = request.GET.get('subarch', 'generic')
+    mac = get_mandatory_param(request.GET, 'mac')
 
     # See if we have a record of this MAC address, and thus node.
     try:
         macaddress = MACAddress.objects.get(mac_address=mac)
     except MACAddress.DoesNotExist:
         macaddress = node = None
+        arch, subarch = ARCHITECTURE.i386, "generic"
     else:
         node = macaddress.node
+        arch, subarch = node.architecture, "generic"
 
     purpose = get_boot_purpose(node)
     append = compose_kernel_command_line(node, arch, subarch, purpose=purpose)

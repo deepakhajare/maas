@@ -47,6 +47,7 @@ from maasserver.api import (
     get_overrided_query_dict,
     )
 from maasserver.enum import (
+    ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
@@ -2271,14 +2272,10 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
 class TestPXEConfigAPI(AnonAPITestCase):
 
     def get_params(self):
-        return {
-                'arch': "armhf",
-                'subarch': "armadaxp",
-                'mac': factory.make_mac_address().mac_address,
-            }
+        return {'mac': factory.make_mac_address().mac_address}
 
     def get_optional_params(self):
-        return ['subarch', 'mac']
+        return ['mac']
 
     def get_pxeconfig(self, params=None):
         """Make a request to `pxeconfig`, and return its response dict."""
@@ -2316,17 +2313,14 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 'purpose',
                 ]))
 
-    def test_pxeconfig_copies_some_parameters_from_request(self):
-        params_in = self.get_params()
-        params_out = self.get_pxeconfig(params_in)
-        copied_params = ['arch', 'subarch']
-        self.assertEqual(
-            {name: params_in[name] for name in copied_params},
-            {name: params_out[name] for name in copied_params})
+    def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
+        params_out = self.get_pxeconfig()
+        self.assertEqual(ARCHITECTURE.i386, params_out["arch"])
+        self.assertEqual("generic", params_out["subarch"])
 
     def test_pxeconfig_adds_some_parameters(self):
         params_in = self.get_params()
-        added_params = {'append', 'release', 'purpose'}
+        added_params = {'arch', 'subarch', 'append', 'release', 'purpose'}
         for param in added_params:
             if param in params_in:
                 del params_in[param]
@@ -2350,22 +2344,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))
 
-    def test_pxeconfig_handles_missing_parameters_appropriately(self):
-        # Some parameters are optional, others are mandatory. The
-        # absence of a mandatory parameter always results in a BAD
-        # REQUEST response.
+    def test_pxeconfig_requires_mac_address(self):
+        # The `mac` parameter is mandatory.
         self.silence_get_ephemeral_name()
-        expected_response_to_missing_parameter = {
-            'arch': httplib.BAD_REQUEST,
-            'subarch': httplib.OK,
-            'mac': httplib.OK,
-            }
-        observed_response = {
-            param: self.get_without_param(param).status_code
-            for param in self.get_params()
-            }
         self.assertEqual(
-            expected_response_to_missing_parameter, observed_response)
+            httplib.BAD_REQUEST,
+            self.get_without_param("mac").status_code)
 
     def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
         self.silence_get_ephemeral_name()
