@@ -53,20 +53,20 @@ from provisioningserver.dhcp.leases_parser import parse_leases
 from provisioningserver.logging import task_logger
 
 # Cache key for the modification time on last-processed leases file.
-LEASES_TIME_KEY_CACHE_NAME = 'leases_time'
+LEASES_TIME_CACHE_KEY = 'leases_time'
 
 
 # Cache key for the leases as last parsed.
-LEASES_KEY_CACHE_NAME = 'recorded_leases'
+LEASES_CACHE_KEY = 'recorded_leases'
 
 
 # Cache key for the shared key for use with omshell.
-OMAPI_SHARED_KEY_CACHE_NAME = 'omapi_shared_key'
+OMAPI_SHARED_CACHE_KEY = 'omapi_shared_key'
 
 
 def record_omapi_shared_key(shared_key):
     """Record the OMAPI shared key as received from the server."""
-    cache.set(OMAPI_SHARED_KEY_CACHE_NAME, shared_key)
+    cache.set(OMAPI_SHARED_CACHE_KEY, shared_key)
 
 
 def get_leases_timestamp():
@@ -91,8 +91,8 @@ def check_lease_changes():
     # These variables are shared between threads.  A bit of
     # inconsistency due to concurrent updates is not a problem, but read
     # them both at once here to reduce the scope for trouble.
-    previous_leases = cache.get(LEASES_KEY_CACHE_NAME)
-    previous_leases_time = cache.get(LEASES_TIME_KEY_CACHE_NAME)
+    previous_leases = cache.get(LEASES_CACHE_KEY)
+    previous_leases_time = cache.get(LEASES_TIME_CACHE_KEY)
 
     if get_leases_timestamp() == previous_leases_time:
         return None
@@ -111,8 +111,8 @@ def record_lease_state(last_change, leases):
     :param leases: A dict mapping each leased IP address to the MAC address
         that it has been assigned to.
     """
-    cache.set(LEASES_TIME_KEY_CACHE_NAME, last_change)
-    cache.set(LEASES_KEY_CACHE_NAME, leases)
+    cache.set(LEASES_TIME_CACHE_KEY, last_change)
+    cache.set(LEASES_CACHE_KEY, leases)
 
 
 def identify_new_leases(current_leases):
@@ -123,7 +123,7 @@ def identify_new_leases(current_leases):
     """
     # The recorded leases is shared between threads.  Read it
     # just once to reduce the impact of concurrent changes.
-    previous_leases = cache.get(LEASES_KEY_CACHE_NAME)
+    previous_leases = cache.get(LEASES_CACHE_KEY)
     if previous_leases is None:
         return current_leases
     else:
@@ -143,7 +143,7 @@ def register_new_leases(current_leases):
 
     # The recorded_omapi_shared_key is shared between threads, so read
     # it just once, atomically.
-    omapi_key = cache.get(OMAPI_SHARED_KEY_CACHE_NAME)
+    omapi_key = cache.get(OMAPI_SHARED_CACHE_KEY)
     if omapi_key is None:
         task_logger.info(
             "Not registering new leases: "
