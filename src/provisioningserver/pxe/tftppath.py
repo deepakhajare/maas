@@ -28,6 +28,7 @@ def compose_bootloader_path(arch, subarch):
 
 
 # TODO: move this; it is now only used for testing.
+# TODO: deprecate the arch and subarch parameters as unused.
 def compose_config_path(arch, subarch, name):
     """Compose the TFTP path for a PXE configuration file.
 
@@ -43,8 +44,8 @@ def compose_config_path(arch, subarch, name):
     # Not using os.path.join: this is a TFTP path, not a native path. Yes, in
     # practice for us they're the same. We always assume that the ARP HTYPE
     # (hardware type) that PXELINUX sends is Ethernet.
-    return "maas/{arch}/{subarch}/pxelinux.cfg/{htype:02x}-{name}".format(
-        arch=arch, subarch=subarch, htype=ARP_HTYPE.ETHERNET, name=name)
+    return "maas/pxelinux.cfg/{htype:02x}-{name}".format(
+        htype=ARP_HTYPE.ETHERNET, name=name)
 
 
 def compose_image_path(arch, subarch, release, purpose):
