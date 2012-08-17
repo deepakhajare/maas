@@ -60,13 +60,18 @@ LEASES_TIME_CACHE_KEY = 'leases_time'
 LEASES_CACHE_KEY = 'recorded_leases'
 
 
-# Cache key for the shared key for use with omshell.
-OMAPI_SHARED_CACHE_KEY = 'omapi_shared_key'
+# Cache key for the key we use to authenticate to omshell.
+OMAPI_KEY_CACHE_KEY = 'omapi_key'
 
 
-def record_omapi_shared_key(shared_key):
-    """Record the OMAPI shared key as received from the server."""
-    cache.set(OMAPI_SHARED_CACHE_KEY, shared_key)
+def record_omapi_key(omapi_key):
+    """Record the OMAPI key as received from the server."""
+    cache.set(OMAPI_KEY_CACHE_KEY, omapi_key)
+
+
+def get_recorded_omapi_key():
+    """Return the current OMAPI key as received from the server."""
+    return cache.get(OMAPI_KEY_CACHE_KEY)
 
 
 def get_leases_timestamp():
@@ -141,9 +146,9 @@ def register_new_leases(current_leases):
     # Avoid circular imports.
     from provisioningserver.tasks import add_new_dhcp_host_map
 
-    # The recorded_omapi_shared_key is shared between threads, so read
-    # it just once, atomically.
-    omapi_key = cache.get(OMAPI_SHARED_CACHE_KEY)
+    # The recorded_omapi_key is shared between threads, so read it just
+    # once, atomically.
+    omapi_key = cache.get(OMAPI_KEY_CACHE_KEY)
     if omapi_key is None:
         task_logger.info(
             "Not registering new leases: "

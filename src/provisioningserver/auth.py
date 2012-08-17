@@ -25,7 +25,7 @@ from provisioningserver.cache import cache
 API_CREDENTIALS_CACHE_KEY = 'api_credentials'
 
 # Cache key for the name of the nodegroup that this worker manages.
-RECORDED_NODEGROUP_NAME_CACHE_KEY = 'nodegroup_name'
+NODEGROUP_NAME_CACHE_KEY = 'nodegroup_name'
 
 
 def locate_maas_api():
@@ -60,7 +60,7 @@ def get_recorded_api_credentials():
 
 def record_nodegroup_name(nodegroup_name):
     """Record the name of the nodegroup we manage, as sent by the server."""
-    cache.set(RECORDED_NODEGROUP_NAME_CACHE_KEY, nodegroup_name)
+    cache.set(NODEGROUP_NAME_CACHE_KEY, nodegroup_name)
 
 
 def get_recorded_nodegroup_name():
@@ -68,4 +68,4 @@ def get_recorded_nodegroup_name():
 
     If the server has not sent the name yet, returns None.
     """
-    return cache.get(RECORDED_NODEGROUP_NAME_CACHE_KEY)
+    return cache.get(NODEGROUP_NAME_CACHE_KEY)

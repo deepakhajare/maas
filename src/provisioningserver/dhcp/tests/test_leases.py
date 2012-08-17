@@ -25,6 +25,7 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
+from provisioningserver.auth import NODEGROUP_NAME_CACHE_KEY
 from provisioningserver.cache import cache
 from provisioningserver.dhcp import leases as leases_module
 from provisioningserver.dhcp.leases import (
@@ -32,11 +33,11 @@ from provisioningserver.dhcp.leases import (
     identify_new_leases,
     LEASES_CACHE_KEY,
     LEASES_TIME_CACHE_KEY,
-    OMAPI_SHARED_CACHE_KEY,
+    OMAPI_KEY_CACHE_KEY,
     parse_leases_file,
     process_leases,
     record_lease_state,
-    record_omapi_shared_key,
+    record_omapi_key,
     register_new_leases,
     send_leases,
     update_leases,
@@ -49,10 +50,10 @@ from testtools.testcase import ExpectedException
 
 class TestHelpers(PservTestCase):
 
-    def test_record_omapi_shared_key_records_shared_key(self):
+    def test_record_omapi_key_records_key(self):
         key = factory.getRandomString()
-        record_omapi_shared_key(key)
-        self.assertEqual(key, cache.get(OMAPI_SHARED_CACHE_KEY))
+        record_omapi_key(key)
+        self.assertEqual(key, cache.get(OMAPI_KEY_CACHE_KEY))
 
     def test_record_lease_state_records_time_and_leases(self):
         time = datetime.utcnow()
@@ -122,12 +123,12 @@ class TestUpdateLeases(PservTestCase):
         """Set a recorded omapi key for the duration of this test."""
         if key is None:
             key = factory.getRandomString()
-        cache.set(OMAPI_SHARED_CACHE_KEY, key)
+        cache.set(OMAPI_KEY_CACHE_KEY, key)
 
     def set_nodegroup_name(self):
         """Set the recorded nodegroup name for the duration of this test."""
         name = factory.make_name('nodegroup')
-        cache.set('nodegroup_name', name)
+        cache.set(NODEGROUP_NAME_CACHE_KEY, name)
         return name
 
     def set_api_credentials(self):
