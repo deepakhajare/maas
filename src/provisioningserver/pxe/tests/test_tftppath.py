@@ -69,17 +69,11 @@ class TestTFTPPath(TestCase):
             Not(StartsWith(self.tftproot)))
 
     def test_compose_bootloader_path_follows_maas_pxe_directory_layout(self):
-        arch = factory.make_name('arch')
-        subarch = factory.make_name('subarch')
-        self.assertEqual(
-            'maas/%s/%s/pxelinux.0' % (arch, subarch),
-            compose_bootloader_path(arch, subarch))
+        self.assertEqual('maas/pxelinux.0', compose_bootloader_path())
 
     def test_compose_bootloader_path_does_not_include_tftp_root(self):
-        arch = factory.make_name('arch')
-        subarch = factory.make_name('subarch')
         self.assertThat(
-            compose_bootloader_path(arch, subarch),
+            compose_bootloader_path(),
             Not(StartsWith(self.tftproot)))
 
     def test_locate_tftp_path_prefixes_tftp_root(self):

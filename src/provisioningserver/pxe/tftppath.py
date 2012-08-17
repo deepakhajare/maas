@@ -22,9 +22,14 @@ import os.path
 from provisioningserver.enum import ARP_HTYPE
 
 
-def compose_bootloader_path(arch, subarch):
-    """Compose the TFTP path for a PXE pre-boot loader."""
-    return '/'.join(['maas', arch, subarch, 'pxelinux.0'])
+def compose_bootloader_path():
+    """Compose the TFTP path for a PXE pre-boot loader.
+
+    All Intel-like architectures will use `pxelinux.0`. Other architectures
+    simulate PXELINUX and don't actually load `pxelinux.0`, but use its path
+    to figure out where configuration files are located.
+    """
+    return "maas/pxelinux.0"
 
 
 # TODO: move this; it is now only used for testing.
