@@ -160,7 +160,7 @@ def register_new_leases(current_leases):
 
 def list_missing_items(knowledge):
     """Report items from dict `knowledge` that are still `None`."""
-    return [name for name, value in knowledge.items() if value is None]
+    return sorted(name for name, value in knowledge.items() if value is None)
 
 
 def send_leases(leases):
