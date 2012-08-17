@@ -55,6 +55,11 @@ def compose_download_dir(archive, arch, release):
         'images', 'netboot', 'ubuntu-installer', arch)
 
 
+def compose_tftp_bootloader_path(tftproot, bootloader="pxelinux.0"):
+    """Compose path for MAAS TFTP bootloader."""
+    return os.path.join(tftproot, 'maas', bootloader)
+
+
 def compose_tftp_path(tftproot, arch, *path):
     """Compose path for MAAS TFTP files for given architecture.
 
@@ -129,7 +134,7 @@ class TestImportPXEFiles(TestCase):
         release = 'precise'
         archive = self.make_downloads(arch=arch, release=release)
         self.call_script(archive, self.tftproot, arch=arch, release=release)
-        tftp_path = compose_tftp_path(self.tftproot, arch, 'pxelinux.0')
+        tftp_path = compose_tftp_bootloader_path(self.tftproot)
         download_path = compose_download_dir(archive, arch, release)
         expected_contents = read_file(download_path, 'pxelinux.0')
         self.assertThat(tftp_path, FileContains(expected_contents))
@@ -141,13 +146,13 @@ class TestImportPXEFiles(TestCase):
         download_path = compose_download_dir(archive, arch, release)
         os.remove(os.path.join(download_path, 'pxelinux.0'))
         self.call_script(archive, self.tftproot, arch=arch, release=release)
-        tftp_path = compose_tftp_path(self.tftproot, arch, 'pxelinux.0')
+        tftp_path = compose_tftp_bootloader_path(self.tftproot)
         self.assertThat(tftp_path, Not(FileExists()))
 
     def test_updates_pre_boot_loader(self):
         arch = factory.make_name('arch')
         release = 'precise'
-        tftp_path = compose_tftp_path(self.tftproot, arch, 'pxelinux.0')
+        tftp_path = compose_tftp_bootloader_path(self.tftproot)
         os.makedirs(os.path.dirname(tftp_path))
         with open(tftp_path, 'w') as existing_file:
             existing_file.write(factory.getRandomString())
