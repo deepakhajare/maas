@@ -21,6 +21,7 @@ from maastesting.utils import (
     age_file,
     get_write_time,
     )
+from provisioningserver.pxe import tftppath
 from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import (
     FileContains,
@@ -55,19 +56,24 @@ def compose_download_dir(archive, arch, release):
         'images', 'netboot', 'ubuntu-installer', arch)
 
 
-def compose_tftp_bootloader_path(tftproot, bootloader="pxelinux.0"):
+def compose_tftp_bootloader_path(tftproot):
     """Compose path for MAAS TFTP bootloader."""
-    return os.path.join(tftproot, 'maas', bootloader)
+    return tftppath.locate_tftp_path(
+        tftppath.compose_bootloader_path(), tftproot)
 
 
-def compose_tftp_path(tftproot, arch, *path):
+def compose_tftp_path(tftproot, arch, release, purpose, *path):
     """Compose path for MAAS TFTP files for given architecture.
 
     After the TFTP root directory and the architecture, just append any path
     components you want to drill deeper, e.g. the release name to get to the
     files for a specific release.
     """
-    return os.path.join(tftproot, 'maas', arch, 'generic', *path)
+    return os.path.join(
+        tftppath.locate_tftp_path(
+            tftppath.compose_image_path(arch, "generic", release, purpose),
+            tftproot),
+        *path)
 
 
 class TestImportPXEFiles(TestCase):
