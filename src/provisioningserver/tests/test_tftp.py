@@ -73,8 +73,7 @@ class TestTFTPBackendRegex(TestCase):
             "bootpath": b"maas",  # Static.
             "mac": factory.getRandomMACAddress(b"-"),
             }
-        config_path = compose_config_path(
-            arch=None, subarch=None, name=components["mac"])
+        config_path = compose_config_path(components["mac"])
         return config_path, components
 
     def test_re_config_file(self):
@@ -164,10 +163,8 @@ class TestTFTPBackend(TestCase):
     def test_get_reader_config_file(self):
         # For paths matching re_config_file, TFTPBackend.get_reader() returns
         # a Deferred that will yield a BytesReader.
-        arch = factory.make_name("arch").encode("ascii")
-        subarch = factory.make_name("subarch").encode("ascii")
         mac = factory.getRandomMACAddress(b"-")
-        config_path = compose_config_path(arch, subarch, mac)
+        config_path = compose_config_path(mac)
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
 
         @partial(self.patch, backend, "get_config_reader")

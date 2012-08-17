@@ -39,19 +39,15 @@ class TestTFTPPath(TestCase):
         self.useFixture(ConfigFixture(self.config))
 
     def test_compose_config_path_follows_maas_pxe_directory_layout(self):
-        arch = factory.make_name('arch')
-        subarch = factory.make_name('subarch')
         name = factory.make_name('config')
         self.assertEqual(
             'maas/pxelinux.cfg/%02x-%s' % (ARP_HTYPE.ETHERNET, name),
-            compose_config_path(arch, subarch, name))
+            compose_config_path(name))
 
     def test_compose_config_path_does_not_include_tftp_root(self):
-        arch = factory.make_name('arch')
-        subarch = factory.make_name('subarch')
         name = factory.make_name('config')
         self.assertThat(
-            compose_config_path(arch, subarch, name),
+            compose_config_path(name),
             Not(StartsWith(self.tftproot)))
 
     def test_compose_image_path_follows_maas_pxe_directory_layout(self):
