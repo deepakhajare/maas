@@ -40,7 +40,7 @@ class TestScript(TestCase):
         )
 
     def test_script_executable(self):
-        script = ["scripts/write_dhcp_config"]
+        script = ["bin/maas-provision", "generate-dhcp-config"]
         script.extend(self.test_args)
         cmd = Popen(
             script, stdout=PIPE, env=dict(PYTHONPATH=":".join(sys.path)))
