@@ -253,6 +253,8 @@ def setup_rndc_configuration(callback=None):
 def add_new_dhcp_host_map(mappings, server_address, shared_key):
     """Add address mappings to the DHCP server.
 
+    Do not invoke this when DHCP is set to be managed manually.
+
     :param mappings: A dict of new IP addresses, and the MAC addresses they
         translate to.
     :param server_address: IP or hostname for the DHCP server
@@ -275,6 +277,8 @@ def add_new_dhcp_host_map(mappings, server_address, shared_key):
 @task
 def remove_dhcp_host_map(ip_address, server_address, omapi_key):
     """Remove an IP to MAC mapping in the DHCP server.
+
+    Do not invoke this when DHCP is set to be managed manually.
 
     :param ip_address: Dotted quad string
     :param server_address: IP or hostname for the DHCP server
