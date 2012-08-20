@@ -277,9 +277,9 @@ There is a tool to generate a configuration that will work with MAAS::
     $ maas-provision generate-dhcp-config [options]
 
 Run ``maas-provision generate-dhcp-config -h`` to see the options.  You will
-need to provide various IP details such as the low and high range to assign to
-clients.  You can use the generated output to configure your system's ISC DHCP
-server, by putting the configuration in the ``/etc/dhcp/dhcpd.conf`` file.
+need to provide various IP details such as the range of IP addresses to assign
+to clients.  You can use the generated output to configure your system's ISC
+DHCP server, by putting the configuration in the ``/etc/dhcp/dhcpd.conf`` file.
 
 Now restart dhcpd::
 
