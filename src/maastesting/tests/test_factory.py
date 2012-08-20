@@ -28,7 +28,6 @@ from testtools.matchers import (
     FileContains,
     FileExists,
     MatchesAll,
-    MatchesRegex,
     Not,
     StartsWith,
     )
@@ -82,9 +81,12 @@ class TestFactory(TestCase):
 
     def test_make_random_leases_maps_ips_to_macs(self):
         [(ip, mac)] = factory.make_random_leases().items()
-        self.assertThat(ip, MatchesRegex('[0-9]{1,3}(?:\\.[0-9]{1,3}){3}'))
-        self.assertThat(
-            mac, MatchesRegex('[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}'))
+        self.assertEqual(
+            4, len(ip.split('.')),
+            "IP address does not look like an IP address: '%s'" % ip)
+        self.assertEqual(
+            6, len(mac.split(':')),
+            "MAC address does not look like a MAC address: '%s'" % mac)
 
     def test_make_random_leases_randomizes_ips(self):
         self.assertNotEqual(
