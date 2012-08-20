@@ -20,7 +20,10 @@ from maasserver.worker_user import get_worker_user
 from maastesting.fakemethod import FakeMethod
 from maastesting.matchers import ContainsAll
 from provisioningserver import tasks
-from provisioningserver.omshell import generate_omapi_key
+from provisioningserver.omshell import (
+    generate_omapi_key,
+    Omshell,
+    )
 from testtools.matchers import (
     FileContains,
     GreaterThan,
@@ -196,3 +199,28 @@ class TestNodeGroup(TestCase):
         nodegroup = factory.make_node_group()
         nodegroup.set_up_dhcp()
         self.assertEqual(1, recorder.call_count)
+
+    def test_add_dhcp_host_maps_calls_task(self):
+        self.patch(Omshell, 'create', FakeMethod())
+        nodegroup = factory.make_node_group()
+        leases = factory.make_random_leases()
+        nodegroup.add_dhcp_host_maps(leases)
+        self.assertEqual(
+            [(leases.keys()[0], leases.values()[0])],
+            Omshell.create.extract_args())
+
+    def test_add_dhcp_host_maps_adds_leases_if_managing_dhcp(self):
+        self.patch(tasks.add_new_dhcp_host_map, 'delay', FakeMethod())
+        nodegroup = factory.make_node_group()
+        leases = factory.make_random_leases()
+        nodegroup.add_dhcp_host_maps(leases)
+        self.assertEqual(
+            [(leases, '127.0.0.1', nodegroup.dhcp_key)],
+            tasks.add_new_dhcp_host_map.delay.extract_args())
+
+    def test_add_dhcp_host_maps_does_nothing_if_not_managing_dhcp(self):
+        self.patch(tasks.add_new_dhcp_host_map, 'delay', FakeMethod())
+        nodegroup = factory.make_node_group()
+        self.patch(nodegroup, 'is_dhcp_enabled', FakeMethod(result=False))
+        nodegroup.add_dhcp_host_maps(factory.make_random_leases())
+        self.assertEqual([], tasks.add_new_dhcp_host_map.delay.calls)

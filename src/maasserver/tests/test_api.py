@@ -2523,7 +2523,7 @@ class TestNodeGroupAPI(APITestCase):
             lease.ip
             for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
 
-    def test_update_leases_adds_new_leases_on_worker_if_managing_dhcp(self):
+    def test_update_leases_adds_new_leases_on_worker(self):
         nodegroup = factory.make_node_group()
         client = make_worker_client(nodegroup)
         self.patch(add_new_dhcp_host_map, 'delay', FakeMethod())
@@ -2540,24 +2540,6 @@ class TestNodeGroupAPI(APITestCase):
             (response.status_code, response.content))
         [task_call] = add_new_dhcp_host_map.delay.extract_args()
         self.assertEqual(new_leases, task_call[0])
-
-    def test_update_leases_does_not_add_new_leases_if_not_managing_dhcp(self):
-        nodegroup = factory.make_node_group()
-        disable_dhcp_management(nodegroup)
-        client = make_worker_client(nodegroup)
-        new_leases = factory.make_random_leases()
-        self.patch(add_new_dhcp_host_map, 'delay', FakeMethod())
-        response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
-            {
-                'op': 'update_leases',
-                'leases': json.dumps(new_leases),
-                'new_leases': json.dumps(new_leases.keys()),
-            })
-        self.assertEqual(
-            (httplib.OK, "Leases updated."),
-            (response.status_code, response.content))
-        self.assertEqual([], add_new_dhcp_host_map.delay.calls)
 
     def test_update_leases_does_not_add_old_leases(self):
         nodegroup = factory.make_node_group()
