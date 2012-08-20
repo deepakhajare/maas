@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'power_off',
     'power_on',
+    'refresh_secrets',
     'rndc_command',
     'setup_rndc_configuration',
     'restart_dhcp_server',
@@ -34,10 +35,7 @@ from provisioningserver.auth import (
     record_maas_url,
     record_nodegroup_name,
     )
-from provisioningserver.dhcp import (
-    config,
-    leases,
-    )
+from provisioningserver.dhcp import config
 from provisioningserver.dns.config import (
     DNSConfig,
     execute_rndc_command,
@@ -54,7 +52,6 @@ from provisioningserver.utils import atomic_write
 refresh_functions = {
     'api_credentials': record_api_credentials,
     'maas_url': record_maas_url,
-    'omapi_key': leases.record_omapi_key,
     'nodegroup_name': record_nodegroup_name,
 }
 
@@ -93,8 +90,6 @@ def refresh_secrets(**kwargs):
     :param api_credentials: A colon separated string containing this
         worker's credentials for accessing the MAAS API: consumer key,
         resource token, resource secret.
-    :param omapi_key: Shared key for working with the worker's
-        DHCP server.
     :param nodegroup_name: The name of the node group that this worker
         manages.
     """
@@ -262,7 +257,6 @@ def add_new_dhcp_host_map(mappings, server_address, shared_key):
         control.
     """
     omshell = Omshell(server_address, shared_key)
-    refresh_secrets(omapi_key=shared_key)
     try:
         for ip_address, mac_address in mappings.items():
             omshell.create(ip_address, mac_address)
@@ -286,7 +280,6 @@ def remove_dhcp_host_map(ip_address, server_address, omapi_key):
         control.
     """
     omshell = Omshell(server_address, omapi_key)
-    refresh_secrets(omapi_key=omapi_key)
     try:
         omshell.remove(ip_address)
     except CalledProcessError:

@@ -38,8 +38,5 @@ def refresh_worker(nodegroup):
         'nodegroup_name': nodegroup.name,
     }
 
-    if nodegroup.dhcp_key is not None and len(nodegroup.dhcp_key) > 0:
-        items['omapi_key'] = nodegroup.dhcp_key
-
     # TODO: Route this to the right worker, once we have multiple.
     refresh_secrets.delay(**items)
