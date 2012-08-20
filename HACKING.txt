@@ -282,6 +282,10 @@ assign to client requests.  You can use the generated output to configure
 your system's ISC DHCP server, by putting the configuration in the
 ``/etc/dhcp/dhcpd.conf`` file.
 
+Now restart dhcpd::
+
+    $ sudo /etc/init.d/isc-dhcp-server restart
+
 
 Development services
 ====================
