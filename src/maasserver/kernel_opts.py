@@ -16,8 +16,11 @@ __all__ = [
 
 import os
 
+from maasserver.preseed import (
+    compose_enlistment_preseed_url,
+    compose_preseed_url,
+    )
 from maasserver.server_address import get_maas_facing_server_address
-from maasserver.utils import absolute_reverse
 from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.utils import parse_key_value_file
@@ -30,24 +33,6 @@ class EphemeralImagesDirectoryNotFound(Exception):
 def compose_initrd_opt(arch, subarch, release, purpose):
     path = "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
     return "initrd=%s" % path
-
-
-def compose_enlistment_preseed_url():
-    """Compose enlistment preseed URL."""
-    # Always uses the latest version of the metadata API.
-    version = 'latest'
-    return absolute_reverse(
-        'metadata-enlist-preseed', args=[version],
-        query={'op': 'get_enlist_preseed'})
-
-
-def compose_preseed_url(node):
-    """Compose a metadata URL for `node`'s preseed data."""
-    # Always uses the latest version of the metadata API.
-    version = 'latest'
-    return absolute_reverse(
-        'metadata-node-by-id', args=[version, node.system_id],
-        query={'op': 'get_preseed'})
 
 
 def compose_preseed_opt(node):

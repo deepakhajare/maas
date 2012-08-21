@@ -12,23 +12,20 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import httplib
 import os
 
 from django.conf import settings
 from maasserver.api import get_boot_purpose
 from maasserver.kernel_opts import (
-    compose_enlistment_preseed_url,
     compose_kernel_command_line,
     compose_preseed_opt,
-    compose_preseed_url,
     EphemeralImagesDirectoryNotFound,
     get_last_directory,
     ISCSI_TARGET_NAME_PREFIX,
     )
 from maasserver.preseed import (
-    get_enlist_preseed,
-    get_preseed,
+    compose_enlistment_preseed_url,
+    compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing.factory import factory
@@ -36,7 +33,6 @@ from maasserver.testing.testcase import TestCase
 from maastesting.matchers import ContainsAll
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
-from testtools.matchers import StartsWith
 
 
 class TestUtilitiesKernelOpts(TestCase):
@@ -198,30 +194,6 @@ class TestKernelOpts(TestCase):
             EphemeralImagesDirectoryNotFound,
             compose_kernel_command_line, node, factory.make_name('arch'),
             factory.make_name('subarch'), purpose="commissioning")
-
-    def test_compose_enlistment_preseed_url_links_to_enlistment_preseed(self):
-        response = self.client.get(compose_enlistment_preseed_url())
-        self.assertEqual(
-            (httplib.OK, get_enlist_preseed()),
-            (response.status_code, response.content))
-
-    def test_compose_enlistment_preseed_url_returns_absolute_link(self):
-        url = 'http://%s' % factory.make_name('host')
-        self.patch(settings, 'DEFAULT_MAAS_URL', url)
-        self.assertThat(
-                compose_enlistment_preseed_url(), StartsWith(url))
-
-    def test_compose_preseed_url_links_to_preseed_for_node(self):
-        node = factory.make_node()
-        response = self.client.get(compose_preseed_url(node))
-        self.assertEqual(
-            (httplib.OK, get_preseed(node)),
-            (response.status_code, response.content))
-
-    def test_compose_preseed_url_returns_absolute_link(self):
-        self.assertThat(
-            compose_preseed_url(factory.make_node()),
-            StartsWith('http://'))
 
     def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
         node = factory.make_node()
