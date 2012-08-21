@@ -152,7 +152,8 @@ class NodeGroup(TimestampedModel):
 
     def add_dhcp_host_maps(self, new_leases):
         if self.is_dhcp_enabled() and len(new_leases) > 0:
-            # The DHCP server is currently always local to the worker
-            # system, so use 127.0.0.1.
+            # XXX JeroenVermeulen 2012-08-21, bug=1039362: the DHCP
+            # server is currently always local to the worker system, so
+            # use 127.0.0.1 as the DHCP server address.
             add_new_dhcp_host_map.delay(
                 new_leases, '127.0.0.1', self.dhcp_key)
