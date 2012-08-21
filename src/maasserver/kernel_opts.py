@@ -16,10 +16,10 @@ __all__ = [
 
 import os
 
-from django.conf import settings
 from maasserver.exceptions import EphemeralImagesDirectoryNotFound
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import absolute_reverse
+from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.utils import parse_key_value_file
 
@@ -115,7 +115,10 @@ def get_ephemeral_name(release, arch):
     ephemeral directory e.g:
     /var/lib/maas/ephemeral/precise/ephemeral/i386/20120424/info
     """
-    root = os.path.join(settings.EPHEMERAL_ROOT, release, 'ephemeral', arch)
+    config = Config.load_from_cache()
+    root = os.path.join(
+        config["boot"]["ephemeral"]["directory"],
+        release, 'ephemeral', arch)
     try:
         filename = os.path.join(get_last_directory(root), 'info')
     except OSError:

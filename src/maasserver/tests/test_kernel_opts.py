@@ -35,6 +35,7 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.matchers import ContainsAll
 from provisioningserver.pxe.tftppath import compose_image_path
+from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import StartsWith
 
 
@@ -160,7 +161,8 @@ class TestKernelOpts(TestCase):
             name=%s
             """ % name
         ephemeral_root = self.make_dir()
-        self.patch(settings, 'EPHEMERAL_ROOT', ephemeral_root)
+        config = {"boot": {"ephemeral": {"directory": ephemeral_root}}}
+        self.useFixture(ConfigFixture(config))
         ephemeral_dir = os.path.join(
             ephemeral_root, release, 'ephemeral', arch,
             factory.make_name('release'))
@@ -188,8 +190,9 @@ class TestKernelOpts(TestCase):
                 ]))
 
     def test_compose_kernel_command_line_reports_error_about_missing_dir(self):
-        self.patch(
-            settings, 'EPHEMERAL_ROOT', factory.make_name('missing-dir'))
+        missing_dir = factory.make_name('missing-dir')
+        config = {"boot": {"ephemeral": {"directory": missing_dir}}}
+        self.useFixture(ConfigFixture(config))
         node = factory.make_node()
         self.assertRaises(
             EphemeralImagesDirectoryNotFound,
