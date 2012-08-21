@@ -13,28 +13,32 @@ __metaclass__ = type
 __all__ = [
     'get_recorded_api_credentials',
     'get_recorded_nodegroup_name',
-    'locate_maas_api',
+    'get_recorded_maas_url',
     'record_api_credentials',
     'record_nodegroup_name',
     ]
 
 from apiclient.creds import convert_string_to_tuple
+from provisioningserver.cache import cache
 
-# API credentials as last sent by the server.  The worker uses these
-# credentials to access the MAAS API.
-# Shared between threads.
-recorded_api_credentials = None
+# Cache key for URL to the central MAAS server.
+MAAS_URL_CACHE_KEY = 'maas_url'
+
+# Cache key for the API credentials as last sent by the server.
+API_CREDENTIALS_CACHE_KEY = 'api_credentials'
+
+# Cache key for the name of the nodegroup that this worker manages.
+NODEGROUP_NAME_CACHE_KEY = 'nodegroup_name'
 
 
-def locate_maas_api():
-    """Return the base URL for the MAAS API."""
-# TODO: Configure this somehow.  What you see here is a placeholder.
-    return "http://localhost/MAAS/"
+def record_maas_url(maas_url):
+    """Record the MAAS server URL as sent by the server."""
+    cache.set(MAAS_URL_CACHE_KEY, maas_url)
 
 
-# The name of the nodegroup that this worker manages.
-# Shared between threads.
-recorded_nodegroup_name = None
+def get_recorded_maas_url():
+    """Return the base URL for the MAAS server."""
+    return cache.get(MAAS_URL_CACHE_KEY)
 
 
 def record_api_credentials(api_credentials):
@@ -44,8 +48,7 @@ def record_api_credentials(api_credentials):
         a single string: consumer key, resource token, and resource seret
         separated by colons.
     """
-    global recorded_api_credentials
-    recorded_api_credentials = api_credentials
+    cache.set(API_CREDENTIALS_CACHE_KEY, api_credentials)
 
 
 def get_recorded_api_credentials():
@@ -55,7 +58,7 @@ def get_recorded_api_credentials():
         (consumer_key, resource_token, resource_secret) as expected by
         :class:`MAASOauth`.  Otherwise, None.
     """
-    credentials_string = recorded_api_credentials
+    credentials_string = cache.get(API_CREDENTIALS_CACHE_KEY)
     if credentials_string is None:
         return None
     else:
@@ -64,8 +67,7 @@ def get_recorded_api_credentials():
 
 def record_nodegroup_name(nodegroup_name):
     """Record the name of the nodegroup we manage, as sent by the server."""
-    global recorded_nodegroup_name
-    recorded_nodegroup_name = nodegroup_name
+    cache.set(NODEGROUP_NAME_CACHE_KEY, nodegroup_name)
 
 
 def get_recorded_nodegroup_name():
@@ -73,4 +75,4 @@ def get_recorded_nodegroup_name():
 
     If the server has not sent the name yet, returns None.
     """
-    return recorded_nodegroup_name
+    return cache.get(NODEGROUP_NAME_CACHE_KEY)

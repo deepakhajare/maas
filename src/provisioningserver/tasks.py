@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'power_off',
     'power_on',
+    'refresh_secrets',
     'rndc_command',
     'setup_rndc_configuration',
     'restart_dhcp_server',
@@ -31,12 +32,10 @@ from celery.task import task
 from celeryconfig import DHCP_CONFIG_FILE
 from provisioningserver.auth import (
     record_api_credentials,
+    record_maas_url,
     record_nodegroup_name,
     )
-from provisioningserver.dhcp import (
-    config,
-    leases,
-    )
+from provisioningserver.dhcp import config
 from provisioningserver.dns.config import (
     DNSConfig,
     execute_rndc_command,
@@ -52,7 +51,7 @@ from provisioningserver.utils import atomic_write
 # For each item passed to refresh_secrets, a refresh function to give it to.
 refresh_functions = {
     'api_credentials': record_api_credentials,
-    'omapi_shared_key': leases.record_omapi_shared_key,
+    'maas_url': record_maas_url,
     'nodegroup_name': record_nodegroup_name,
 }
 
@@ -91,8 +90,6 @@ def refresh_secrets(**kwargs):
     :param api_credentials: A colon separated string containing this
         worker's credentials for accessing the MAAS API: consumer key,
         resource token, resource secret.
-    :param omapi_shared_key: Shared key for working with the worker's
-        DHCP server.
     :param nodegroup_name: The name of the node group that this worker
         manages.
     """
@@ -251,6 +248,8 @@ def setup_rndc_configuration(callback=None):
 def add_new_dhcp_host_map(mappings, server_address, shared_key):
     """Add address mappings to the DHCP server.
 
+    Do not invoke this when DHCP is set to be managed manually.
+
     :param mappings: A dict of new IP addresses, and the MAC addresses they
         translate to.
     :param server_address: IP or hostname for the DHCP server
@@ -258,7 +257,6 @@ def add_new_dhcp_host_map(mappings, server_address, shared_key):
         control.
     """
     omshell = Omshell(server_address, shared_key)
-    refresh_secrets(omapi_shared_key=shared_key)
     try:
         for ip_address, mac_address in mappings.items():
             omshell.create(ip_address, mac_address)
@@ -271,16 +269,17 @@ def add_new_dhcp_host_map(mappings, server_address, shared_key):
 
 
 @task
-def remove_dhcp_host_map(ip_address, server_address, shared_key):
+def remove_dhcp_host_map(ip_address, server_address, omapi_key):
     """Remove an IP to MAC mapping in the DHCP server.
+
+    Do not invoke this when DHCP is set to be managed manually.
 
     :param ip_address: Dotted quad string
     :param server_address: IP or hostname for the DHCP server
-    :param shared_key: The HMAC-MD5 key that the DHCP server uses for access
+    :param omapi_key: The HMAC-MD5 key that the DHCP server uses for access
         control.
     """
-    omshell = Omshell(server_address, shared_key)
-    refresh_secrets(omapi_shared_key=shared_key)
+    omshell = Omshell(server_address, omapi_key)
     try:
         omshell.remove(ip_address)
     except CalledProcessError:
