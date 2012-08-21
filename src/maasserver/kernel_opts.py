@@ -16,12 +16,15 @@ __all__ = [
 
 import os
 
-from maasserver.exceptions import EphemeralImagesDirectoryNotFound
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import absolute_reverse
 from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.utils import parse_key_value_file
+
+
+class EphemeralImagesDirectoryNotFound(Exception):
+    """The ephemeral images directory cannot be found."""
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):

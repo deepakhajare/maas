@@ -17,12 +17,12 @@ import os
 
 from django.conf import settings
 from maasserver.api import get_boot_purpose
-from maasserver.exceptions import EphemeralImagesDirectoryNotFound
 from maasserver.kernel_opts import (
     compose_enlistment_preseed_url,
     compose_kernel_command_line,
     compose_preseed_opt,
     compose_preseed_url,
+    EphemeralImagesDirectoryNotFound,
     get_last_directory,
     ISCSI_TARGET_NAME_PREFIX,
     )
