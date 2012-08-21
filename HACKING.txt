@@ -348,12 +348,12 @@ Apparently Django needs a lot of debugging ;)
 Adding new dependencies
 =======================
 
-Since MAAS is distributed mainly as Ubuntu package, all runtime dependencies
-should be packaged and we should develop with the packaged version if
-possible. You'll need to add the dependency to the
-``allowed-eggs-from-site-packages`` option in the ``buildout.cfg`` file. You
-also need to add it to setup.py (And don't forget to add the version to
-``versions.cfg`` as we run with ``allowed-picked-version`` set to false.)
+Since MAAS is distributed mainly as an Ubuntu package, all runtime
+dependencies should be packaged, and we should develop with the
+packaged version if possible. All dependencies, from a package or not,
+need to be added to ``setup.py`` and ``buildout.cfg``, and the version
+specified in ``versions.cfg`` (``allowed-picked-version`` is disabled,
+hence ``buildout`` must be given precise version information).
 
 If it is a development-only dependency (i.e. only needed for the test suite, or
 for developers' convenience), simply running ``buildout`` like this will make
