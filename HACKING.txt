@@ -26,38 +26,49 @@ usually use the ``lowercase_with_underscores`` form.
 Prerequisites
 =============
 
-MAAS depends on Postgres 9.1, RabbitMQ, Apache 2, python-dev, avahi-daemon,
-daemontools, pyinotify, and many other packages.  To install everything that's
+You can grab MAAS's code manually from Launchpad but Bazaar_ makes it
+easy to fetch the last version of the code. First of all, install
+Bazaar::
+
+    $ sudo apt-get install bzr
+
+.. _Bazaar: http://bazaar.canonical.com/
+
+Then go into the directory where you want the code to reside and run::
+
+    $ bzr branch lp:maas maas && cd maas
+
+MAAS depends on Postgres 9.1, RabbitMQ, Apache 2, Avahi, daemontools,
+pyinotify, and many other packages.  To install everything that's
 needed for running and developing MAAS, run::
 
     $ make install-dependencies
 
-Careful: this will "apt-get install" many packages on your system, under
-"sudo."  It may prompt you for your password.
+Careful: this will ``apt-get install`` many packages on your system,
+via ``sudo``. It may prompt you for your password.
 
-You may need to install python-django-piston as well, but installing it seems
-to cause import errors for "oauth" when running the test suite.
+This will install ``bind9``. As a result you will have an extra daemon
+running. If you are a developer and don't intend to run BIND locally,
+you can disable the daemon by inserting ``exit 1`` at the top of
+``/etc/default/bind9``. The package still needs to be installed for
+tests though.
 
-And for convenience, you may also want bzr which we use for development::
+You may also need to install ``python-django-piston``, but installing
+it seems to cause import errors for ``oauth`` when running the test
+suite.
 
-    $ sudo apt-get install bzr
-
-All other development dependencies are pulled automatically from `PyPI`_
-when buildout runs.
+All other development dependencies are pulled automatically from
+`PyPI`_ when ``buildout`` runs. See `First time using buildout?`_ and
+`Running tests`_.
 
 .. _PyPI:
   http://pypi.python.org/
-
-After installing bind9, you will have an extra daemon running.  If you are a
-developer and don't intend to run BIND locally, you can disable the daemon
-by inserting ``exit 1`` at the top of ``/etc/default/bind9``.  The package
-still needs to be installed for tests though.
 
 
 First time using buildout?
 ==========================
 
-Buildout is used to develop MAAS. Buildout, if configured so, can
+Buildout_ is used to develop MAAS. Buildout, if configured so, can
 cache downloaded files and built eggs. If you've not already done
 something similar, the following snippet will massively improve build
 times::
@@ -73,15 +84,8 @@ directory::
 
 The ``eggs`` directory will be created automatically.
 
-
-Getting the latest version of the code
-======================================
-
-You can grab the code manually from Launchpad but Bazaar makes it easy to fetch
-the last version of the code. Go into the directory where you want the code
-to reside and run::
-
-    $ bzr branch lp:maas maas && cd maas
+.. _Buildout:
+  http://www.buildout.org/
 
 
 Running tests
@@ -102,19 +106,6 @@ latter is essential when using ``pdb`` so that stdout is not
 adulterated.
 
 .. _nose: http://readthedocs.org/docs/nose/en/latest/
-
-
-Running tests with a real Cobbler
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Once you have a Cobbler instance running somewhere there are some
-tests that can be run against it::
-
-    $ PSERV_TEST_COBBLER_URL=http://user:pass@localhost/cobbler_api \
-        bin/test.pserv provisioningserver.tests.test_api
-
-Adjust ``PSERV_TEST_COBBLER_URL`` as necessary. **Warning:** these
-tests will modify your Cobbler database.
 
 
 Running JavaScript tests
@@ -187,12 +178,9 @@ Optionally, populate your database with the sample data::
 
     $ make sampledata
 
-Install Cobbler (via the maas-provision package), and install the preseed
-files and snippets::
+Install the provisioning server::
 
-    $ sudo apt-get install apache2 maas-provision
-    $ sudo cp contrib/preseeds/* /var/lib/cobbler/kickstarts/
-    $ sudo cp contrib/snippets/* /var/lib/cobbler/snippets/
+    $ sudo apt-get install maas-provision
 
 By default, the snippet ``maas_proxy`` includes a definition for an http
 proxy running on port 8000 on the same host as the MAAS server.  This
@@ -200,7 +188,7 @@ means you can *either* install ``squid-deb-proxy``::
 
     $ sudo apt-get install squid-deb-proxy
 
-*or* you can edit ``contrib/snippets/maas_proxy`` to remove the proxy
+*or* you can edit ``contrib/snippets_v2/generic`` to remove the proxy
 definition.
 
 Set the iSCSI config to include the MAAS configs::
@@ -210,7 +198,8 @@ Set the iSCSI config to include the MAAS configs::
 Now run ``maas-import-pxe-files`` to download current Ubuntu releases for
 installing nodes::
 
-    $ sudo http_proxy=$http_proxy PATH=$PATH:./bin:./scripts \
+    $ sudo http_proxy=$http_proxy PATH=$PATH:$PWD/bin:$PWD/scripts \
+        MAAS_PROVISIONING_SETTINGS=$PWD/etc/pserv.yaml \
         ./scripts/maas-import-pxe-files
 
 This may download dozens or hundreds of megabytes, so depending on your
@@ -220,16 +209,6 @@ The http_proxy variable is only needed if you're downloading through a
 proxy; "sudo" wouldn't pass it on to the script without the assignment.
 Or if you don't have it set but do want to download through a proxy, pass
 your proxy's URL: "http_proxy=http://proxy.example.com/"
-
-Now add yourself as a user in Cobbler. For convenience, give yourself the
-password ``test``::
-
-    $ sudo htdigest /etc/cobbler/users.digest Cobbler $USER
-
-Alternatively, if you're not interested in the Provisioning Server or
-Cobbler, set ``USE_REAL_PSERV`` to ``False`` in one of ``maas``'s
-settings files (typically ``src/maas/demo.py``), and a fake Provisioning
-Server will be used instead.
 
 Run the development webserver and watch all the logs go by::
 
@@ -286,6 +265,29 @@ Then as for TFTP above, create an authbind authorisation::
     $ sudo chmod a+x /etc/authbind/byport/53
 
 and run as for TFTP.
+
+
+Configuring DHCP
+^^^^^^^^^^^^^^^^
+
+MAAS requires a properly configured DHCP server so it can boot machines using
+PXE.  MAAS works with the ISC DHCP server; install it if it's not already
+installed::
+
+    $ sudo apt-get install isc-dhcp-server
+
+There is a tool to generate a configuration that will work with MAAS::
+
+    $ maas-provision generate-dhcp-config [options]
+
+Run ``maas-provision generate-dhcp-config -h`` to see the options.  You will
+need to provide various IP details such as the range of IP addresses to assign
+to clients.  You can use the generated output to configure your system's ISC
+DHCP server, by putting the configuration in the ``/etc/dhcp/dhcpd.conf`` file.
+
+Now restart dhcpd::
+
+    $ sudo /etc/init.d/isc-dhcp-server restart
 
 
 Development services
@@ -349,12 +351,12 @@ Apparently Django needs a lot of debugging ;)
 Adding new dependencies
 =======================
 
-Since MAAS is distributed mainly as Ubuntu package, all runtime dependencies
-should be packaged and we should develop with the packaged version if
-possible. You'll need to add the dependency to the
-``allowed-eggs-from-site-packages`` option in the ``buildout.cfg`` file. You
-also need to add it to setup.py (And don't forget to add the version to
-``versions.cfg`` as we run with ``allowed-picked-version`` set to false.)
+Since MAAS is distributed mainly as an Ubuntu package, all runtime
+dependencies should be packaged, and we should develop with the
+packaged version if possible. All dependencies, from a package or not,
+need to be added to ``setup.py`` and ``buildout.cfg``, and the version
+specified in ``versions.cfg`` (``allowed-picked-version`` is disabled,
+hence ``buildout`` must be given precise version information).
 
 If it is a development-only dependency (i.e. only needed for the test suite, or
 for developers' convenience), simply running ``buildout`` like this will make
@@ -447,28 +449,3 @@ documentation`_.
 
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
-
-
-Acceptance tests
-================
-
-MAAS uses `Checkbox`_ to verify features are implemented according to
-the spec. They can be found in the `official checkbox repository`_, in
-the ``jobs/`` directory.
-
-.. _Checkbox: https://wiki.ubuntu.com/Testing/Automation/Checkbox
-
-.. _official checkbox repository:
-  https://code.launchpad.net/~nskaggs/checkbox/checkbox-app-testing-qt
-
-You need to install additional QT dependencies::
-
-    $ sudo apt-get install libqt4-dev qt4-qmake
-
-Get a copy of the checkbox repository::
-
-    $ bzr branch lp:~nskaggs/checkbox/checkbox-app-testing-qt
-
-To run them, move into the branch directory and run::
-
-    $ bin/checbox-app-testing --whitelist-file=
