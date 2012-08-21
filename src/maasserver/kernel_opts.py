@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'compose_kernel_command_line',
+    'compose_kernel_command_line_new',
     ]
 
 import os
@@ -124,7 +125,7 @@ def compose_purpose_opts(release, arch, purpose):
             ]
 
 
-def compose_kernel_command_line(node, arch, subarch, purpose):
+def compose_kernel_command_line_new(arch, subarch, purpose, hostname, preseed_url):
     """Generate a line of kernel options for booting `node`.
 
     Include these options in the PXE config file's APPEND argument.
@@ -133,17 +134,6 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     """
     # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
     release = 'precise'
-
-    if node is None:
-        preseed_url = compose_enlistment_preseed_url()
-    else:
-        preseed_url = compose_preseed_url(node)
-
-    if node is None:
-        # Not a known host; still needs enlisting.  Make up a name.
-        hostname = 'maas-enlist'
-    else:
-        hostname = node.hostname
 
     # TODO: This is probably not enough!
     domain = 'local.lan'
@@ -159,3 +149,25 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     options += compose_purpose_opts(release, arch, purpose)
     options += compose_logging_opts()
     return ' '.join(options)
+
+
+def compose_kernel_command_line(node, arch, subarch, purpose):
+    """Generate a line of kernel options for booting `node`.
+
+    Include these options in the PXE config file's APPEND argument.
+
+    The node may be None, in which case it will boot into enlistment.
+    """
+    if node is None:
+        preseed_url = compose_enlistment_preseed_url()
+    else:
+        preseed_url = compose_preseed_url(node)
+
+    if node is None:
+        # Not a known host; still needs enlisting.  Make up a name.
+        hostname = 'maas-enlist'
+    else:
+        hostname = node.hostname
+
+    return compose_kernel_command_line_new(
+        arch, subarch, purpose, hostname, preseed_url)
