@@ -13,8 +13,10 @@ __metaclass__ = type
 __all__ = [
     'compose_kernel_command_line',
     'compose_kernel_command_line_new',
+    'KernelParameters',
     ]
 
+from collections import namedtuple
 import os
 
 from maasserver.preseed import (
@@ -29,6 +31,12 @@ from provisioningserver.utils import parse_key_value_file
 
 class EphemeralImagesDirectoryNotFound(Exception):
     """The ephemeral images directory cannot be found."""
+
+
+KernelParameters = namedtuple(
+    b"KernelParameters", (
+        "arch", "subarch", "release", "purpose",
+        "hostname", "domain", "preseed_url"))
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
@@ -125,7 +133,28 @@ def compose_purpose_opts(release, arch, purpose):
             ]
 
 
-def compose_kernel_command_line_new(arch, subarch, purpose, hostname, preseed_url):
+def compose_kernel_command_line_new(params):
+    """Generate a line of kernel options for booting `node`.
+
+    :type params: `KernelParameters`.
+    """
+    options = [
+        compose_initrd_opt(
+            params.arch, params.subarch,
+            params.release, params.purpose),
+        compose_preseed_opt(params.preseed_url),
+        compose_suite_opt(params.release),
+        compose_hostname_opt(params.hostname),
+        compose_domain_opt(params.domain),
+        compose_locale_opt(),
+        ]
+    options += compose_purpose_opts(
+        params.release, params.arch, params.purpose)
+    options += compose_logging_opts()
+    return ' '.join(options)
+
+
+def compose_kernel_command_line(node, arch, subarch, purpose):
     """Generate a line of kernel options for booting `node`.
 
     Include these options in the PXE config file's APPEND argument.
@@ -138,26 +167,6 @@ def compose_kernel_command_line_new(arch, subarch, purpose, hostname, preseed_ur
     # TODO: This is probably not enough!
     domain = 'local.lan'
 
-    options = [
-        compose_initrd_opt(arch, subarch, release, purpose),
-        compose_preseed_opt(preseed_url),
-        compose_suite_opt(release),
-        compose_hostname_opt(hostname),
-        compose_domain_opt(domain),
-        compose_locale_opt(),
-        ]
-    options += compose_purpose_opts(release, arch, purpose)
-    options += compose_logging_opts()
-    return ' '.join(options)
-
-
-def compose_kernel_command_line(node, arch, subarch, purpose):
-    """Generate a line of kernel options for booting `node`.
-
-    Include these options in the PXE config file's APPEND argument.
-
-    The node may be None, in which case it will boot into enlistment.
-    """
     if node is None:
         preseed_url = compose_enlistment_preseed_url()
     else:
@@ -169,5 +178,8 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     else:
         hostname = node.hostname
 
-    return compose_kernel_command_line_new(
-        arch, subarch, purpose, hostname, preseed_url)
+    params = KernelParameters(
+        arch=arch, subarch=subarch, release=release, purpose=purpose,
+        hostname=hostname, domain=domain, preseed_url=preseed_url)
+
+    return compose_kernel_command_line_new(params)
