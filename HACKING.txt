@@ -58,7 +58,7 @@ it seems to cause import errors for ``oauth`` when running the test
 suite.
 
 All other development dependencies are pulled automatically from
-`PyPI`_ when ``buildout`` runs. See ``First time using buildout`_ and
+`PyPI`_ when ``buildout`` runs. See `First time using buildout?`_ and
 `Running tests`_.
 
 .. _PyPI:
@@ -68,7 +68,7 @@ All other development dependencies are pulled automatically from
 First time using buildout?
 ==========================
 
-Buildout is used to develop MAAS. Buildout, if configured so, can
+Buildout_ is used to develop MAAS. Buildout, if configured so, can
 cache downloaded files and built eggs. If you've not already done
 something similar, the following snippet will massively improve build
 times::
@@ -83,6 +83,9 @@ directory::
     $ mkdir /home/<your-user-name>/.buildout/cache
 
 The ``eggs`` directory will be created automatically.
+
+.. _Buildout:
+  http://www.buildout.org/
 
 
 Running tests
