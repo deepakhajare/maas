@@ -47,18 +47,11 @@ def compose_suite_opt(release):
     return "suite=%s" % release
 
 
-def compose_hostname_opt(node):
-    if node is None:
-        # Not a known host; still needs enlisting.  Make up a name.
-        hostname = 'maas-enlist'
-    else:
-        hostname = node.hostname
+def compose_hostname_opt(hostname):
     return "hostname=%s" % hostname
 
 
-def compose_domain_opt(node):
-    # TODO: This is probably not enough!
-    domain = 'local.lan'
+def compose_domain_opt(domain):
     return "domain=%s" % domain
 
 
@@ -146,12 +139,21 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     else:
         preseed_url = compose_preseed_url(node)
 
+    if node is None:
+        # Not a known host; still needs enlisting.  Make up a name.
+        hostname = 'maas-enlist'
+    else:
+        hostname = node.hostname
+
+    # TODO: This is probably not enough!
+    domain = 'local.lan'
+
     options = [
         compose_initrd_opt(arch, subarch, release, purpose),
         compose_preseed_opt(preseed_url),
         compose_suite_opt(release),
-        compose_hostname_opt(node),
-        compose_domain_opt(node),
+        compose_hostname_opt(hostname),
+        compose_domain_opt(domain),
         compose_locale_opt(),
         ]
     options += compose_purpose_opts(release, arch, purpose)
