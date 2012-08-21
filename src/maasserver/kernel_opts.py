@@ -35,15 +35,11 @@ def compose_initrd_opt(arch, subarch, release, purpose):
     return "initrd=%s" % path
 
 
-def compose_preseed_opt(node):
-    """Compose a kernel option for preseed URL for given `node`.
+def compose_preseed_opt(preseed_url):
+    """Compose a kernel option for preseed URL.
 
-    :param mac_address: A `Node`, or `None`.
+    :param preseed_url: The URL from which a preseed can be fetched.
     """
-    if node is None:
-        preseed_url = compose_enlistment_preseed_url()
-    else:
-        preseed_url = compose_preseed_url(node)
     return "auto url=%s" % preseed_url
 
 
@@ -145,9 +141,14 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
     release = 'precise'
 
+    if node is None:
+        preseed_url = compose_enlistment_preseed_url()
+    else:
+        preseed_url = compose_preseed_url(node)
+
     options = [
         compose_initrd_opt(arch, subarch, release, purpose),
-        compose_preseed_opt(node),
+        compose_preseed_opt(preseed_url),
         compose_suite_opt(release),
         compose_hostname_opt(node),
         compose_domain_opt(node),

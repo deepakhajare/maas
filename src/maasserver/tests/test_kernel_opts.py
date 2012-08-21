@@ -65,6 +65,13 @@ class TestKernelOpts(TestCase):
                 node, node.architecture, 'generic',
                 purpose=factory.make_name('purpose')))
 
+    def test_compose_kernel_command_line_includes_enlistment_preseed_url(self):
+        self.assertIn(
+            "auto url=%s" % compose_enlistment_preseed_url(),
+            compose_kernel_command_line(
+                None, factory.make_name("arch"), 'generic',
+                purpose=factory.make_name('purpose')))
+
     def test_compose_kernel_command_line_includes_initrd(self):
         node = factory.make_node()
         initrd_path = compose_image_path(
@@ -195,13 +202,8 @@ class TestKernelOpts(TestCase):
             compose_kernel_command_line, node, factory.make_name('arch'),
             factory.make_name('subarch'), purpose="commissioning")
 
-    def test_compose_preseed_kernel_opt_returns_option_for_known_node(self):
-        node = factory.make_node()
+    def test_compose_preseed_kernel_opt_returns_kernel_option(self):
+        dummy_preseed_url = factory.make_name("url")
         self.assertEqual(
-            "auto url=%s" % compose_preseed_url(node),
-            compose_preseed_opt(node))
-
-    def test_compose_preseed_kernel_opt_returns_option_for_unknown_node(self):
-        self.assertEqual(
-            "auto url=%s" % compose_enlistment_preseed_url(),
-            compose_preseed_opt(None))
+            "auto url=%s" % dummy_preseed_url,
+            compose_preseed_opt(dummy_preseed_url))
