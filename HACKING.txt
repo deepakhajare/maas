@@ -445,28 +445,3 @@ documentation`_.
 
 .. _convention for headings as used in the Python documentation:
   http://sphinx.pocoo.org/rest.html#sections
-
-
-Acceptance tests
-================
-
-MAAS uses `Checkbox`_ to verify features are implemented according to
-the spec. They can be found in the `official checkbox repository`_, in
-the ``jobs/`` directory.
-
-.. _Checkbox: https://wiki.ubuntu.com/Testing/Automation/Checkbox
-
-.. _official checkbox repository:
-  https://code.launchpad.net/~nskaggs/checkbox/checkbox-app-testing-qt
-
-You need to install additional QT dependencies::
-
-    $ sudo apt-get install libqt4-dev qt4-qmake
-
-Get a copy of the checkbox repository::
-
-    $ bzr branch lp:~nskaggs/checkbox/checkbox-app-testing-qt
-
-To run them, move into the branch directory and run::
-
-    $ bin/checbox-app-testing --whitelist-file=
