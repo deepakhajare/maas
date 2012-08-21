@@ -25,7 +25,6 @@ from maasserver.exceptions import (
     Unauthorized,
     )
 from maasserver.models import SSHKey
-from maasserver.provisioning import get_provisioning_api_proxy
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
@@ -47,7 +46,6 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
-from provisioningserver.testing.factory import ProvisioningFakeFactory
 
 
 class TestHelpers(DjangoTestCase):
@@ -120,7 +118,7 @@ class TestHelpers(DjangoTestCase):
         self.assertEqual(node, get_queried_node(request))
 
 
-class TestViews(DjangoTestCase, ProvisioningFakeFactory):
+class TestViews(DjangoTestCase):
     """Tests for the API views."""
 
     def make_node_client(self, node=None):
@@ -371,21 +369,6 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(NODE_STATUS.READY, reload_object(node).status)
 
-    def test_signaling_commissioning_success_restores_node_profile(self):
-        papi = get_provisioning_api_proxy()
-        commissioning_profile = self.add_profile(papi)
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
-        original_profile = node_data['profile']
-        node.status = NODE_STATUS.COMMISSIONING
-        node.save()
-        papi.modify_nodes({node.system_id: {'profile': commissioning_profile}})
-        client = self.make_node_client(node=node)
-        response = self.call_signal(client, status='OK')
-        self.assertEqual(httplib.OK, response.status_code)
-        node_data = papi.get_nodes_by_name([node.system_id])[node.system_id]
-        self.assertEqual(original_profile, node_data['profile'])
-
     def test_signaling_commissioning_success_is_idempotent(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
@@ -608,7 +591,7 @@ class TestViews(DjangoTestCase, ProvisioningFakeFactory):
             response)
 
 
-class TestEnlistViews(DjangoTestCase, ProvisioningFakeFactory):
+class TestEnlistViews(DjangoTestCase):
     """Tests for the enlistment metadata views."""
 
     def test_get_instance_id(self):
