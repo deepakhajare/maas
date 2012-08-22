@@ -525,11 +525,11 @@ class MAASAndNetworkForm(ConfigForm):
             "publish its DNS zones."))
     manage_dhcp = forms.BooleanField(
         label="Manage DHCP", required=False, help_text=(
-            "When enabled, MAAS workers will work with the DHCP server(s) "
-            "to give each DHCP client its own host map.  Unlike normal "
-            "leases, these host maps never expire.  Thus enabling DHCP "
-            "management ensures that a node will never change its "
-            "IP address."))
+            "When enabled, MAAS workers will work with ISC DHCP servers, "
+            "if suitably configured, to give each DHCP client its own host "
+            "map.  Unlike normal leases, these host maps never expire.  "
+            "Thus enabling DHCP management ensures that a node will never "
+            "change its IP address."))
 
 
 class CommissioningForm(ConfigForm):

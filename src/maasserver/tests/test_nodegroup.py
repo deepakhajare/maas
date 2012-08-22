@@ -174,12 +174,16 @@ class TestNodeGroup(TestCase):
         Config.objects.set_config('manage_dhcp', True)
         required_fields = [
             'subnet_mask', 'broadcast_ip', 'ip_range_low', 'ip_range_high']
+        # Map each required field's name to a nodegroup that has just
+        # that field set to None.
         nodegroups = {
             field: factory.make_node_group()
             for field in required_fields}
         for field, nodegroup in nodegroups.items():
             setattr(nodegroup, field, None)
             nodegroup.save()
+        # List any nodegroups from this mapping that have DHCP
+        # management enabled.  There should not be any.
         self.assertEqual([], [
             field
             for field, nodegroup in nodegroups.items()

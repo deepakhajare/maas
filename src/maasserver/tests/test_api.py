@@ -2443,9 +2443,14 @@ def make_worker_client(nodegroup):
         get_worker_user(), token=nodegroup.api_token)
 
 
-def enable_dhcp_management(enabled=True):
+def enable_dhcp_management():
+    """Turn MAAS DHCP management on."""
+    Config.objects.set_config('manage_dhcp', True)
+
+
+def disable_dhcp_management():
     """Turn MAAS DHCP management on, or off."""
-    Config.objects.set_config('manage_dhcp', enabled)
+    Config.objects.set_config('manage_dhcp', False)
 
 
 class TestNodeGroupAPI(APITestCase):
@@ -2509,7 +2514,7 @@ class TestNodeGroupAPI(APITestCase):
                 for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
 
     def test_update_leases_stores_leases_even_if_not_managing_dhcp(self):
-        enable_dhcp_management(False)
+        disable_dhcp_management()
         nodegroup = factory.make_node_group()
         lease = factory.make_random_leases()
         client = make_worker_client(nodegroup)
