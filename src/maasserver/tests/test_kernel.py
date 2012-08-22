@@ -17,11 +17,6 @@ import os
 from django.conf import settings
 from maasserver.api import get_boot_purpose
 from maasserver.kernel import compose_kernel_command_line
-from maasserver.kernel_opts import (
-    EphemeralImagesDirectoryNotFound,
-    ISCSI_TARGET_NAME_PREFIX,
-    KernelParameters,
-    )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
@@ -30,6 +25,11 @@ from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.matchers import ContainsAll
+from provisioningserver.kernel_opts import (
+    EphemeralImagesDirectoryNotFound,
+    ISCSI_TARGET_NAME_PREFIX,
+    KernelParameters,
+    )
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
 

@@ -14,7 +14,10 @@ __all__ = []
 
 import os
 
-from maasserver.kernel_opts import (
+from maastesting.factory import factory
+from maastesting.matchers import ContainsAll
+from maastesting.testcase import TestCase
+from provisioningserver.kernel_opts import (
     compose_kernel_command_line_new,
     compose_preseed_opt,
     EphemeralImagesDirectoryNotFound,
@@ -22,9 +25,6 @@ from maasserver.kernel_opts import (
     ISCSI_TARGET_NAME_PREFIX,
     KernelParameters,
     )
-from maastesting.factory import factory
-from maastesting.matchers import ContainsAll
-from maastesting.testcase import TestCase
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
 

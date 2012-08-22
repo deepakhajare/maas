@@ -18,15 +18,15 @@ __all__ = [
     'compose_kernel_command_line',
     ]
 
-from maasserver.kernel_opts import (
-    compose_kernel_command_line_new,
-    KernelParameters,
-    )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from provisioningserver.kernel_opts import (
+    compose_kernel_command_line_new,
+    KernelParameters,
+    )
 
 
 def compose_kernel_command_line(node, arch, subarch, purpose):
