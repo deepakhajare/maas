@@ -26,6 +26,7 @@ from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     )
+from maasserver.server_address import get_maas_facing_server_address
 
 
 def compose_kernel_command_line(node, arch, subarch, purpose):
@@ -52,8 +53,11 @@ def compose_kernel_command_line(node, arch, subarch, purpose):
     else:
         hostname = node.hostname
 
+    server_address = get_maas_facing_server_address()
+
     params = KernelParameters(
         arch=arch, subarch=subarch, release=release, purpose=purpose,
-        hostname=hostname, domain=domain, preseed_url=preseed_url)
+        hostname=hostname, domain=domain, preseed_url=preseed_url,
+        log_host=server_address, fs_host=server_address)
 
     return compose_kernel_command_line_new(params)

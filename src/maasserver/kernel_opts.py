@@ -18,7 +18,6 @@ __all__ = [
 from collections import namedtuple
 import os
 
-from maasserver.server_address import get_maas_facing_server_address
 from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.utils import parse_key_value_file
@@ -30,8 +29,8 @@ class EphemeralImagesDirectoryNotFound(Exception):
 
 KernelParameters = namedtuple(
     b"KernelParameters", (
-        "arch", "subarch", "release", "purpose",
-        "hostname", "domain", "preseed_url"))
+        "arch", "subarch", "release", "purpose", "hostname",
+        "domain", "preseed_url", "log_host", "fs_host"))
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
@@ -64,9 +63,9 @@ def compose_locale_opt():
     return "locale=%s" % locale
 
 
-def compose_logging_opts():
+def compose_logging_opts(log_host):
     return [
-        'log_host=%s' % get_maas_facing_server_address(),
+        'log_host=%s' % log_host,
         'log_port=%d' % 514,
         'text priority=%s' % 'critical',
         ]
@@ -111,15 +110,16 @@ def get_ephemeral_name(release, arch):
     return name
 
 
-def compose_purpose_opts(release, arch, purpose):
+def compose_purpose_opts(params):
     """Return the list of the purpose-specific kernel options."""
-    if purpose == "commissioning":
+    if params.purpose == "commissioning":
         return [
             "iscsi_target_name=%s:%s" % (
-                ISCSI_TARGET_NAME_PREFIX, get_ephemeral_name(release, arch)),
+                ISCSI_TARGET_NAME_PREFIX,
+                get_ephemeral_name(params.release, params.arch)),
             "ip=dhcp",
             "ro root=LABEL=cloudimg-rootfs",
-            "iscsi_target_ip=%s" % get_maas_facing_server_address(),
+            "iscsi_target_ip=%s" % params.fs_host,
             "iscsi_target_port=3260",
             ]
     else:
@@ -143,7 +143,6 @@ def compose_kernel_command_line_new(params):
         compose_domain_opt(params.domain),
         compose_locale_opt(),
         ]
-    options += compose_purpose_opts(
-        params.release, params.arch, params.purpose)
-    options += compose_logging_opts()
+    options += compose_purpose_opts(params)
+    options += compose_logging_opts(params.log_host)
     return ' '.join(options)

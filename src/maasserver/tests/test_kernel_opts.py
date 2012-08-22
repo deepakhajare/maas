@@ -14,7 +14,6 @@ __all__ = []
 
 import os
 
-from django.conf import settings
 from maasserver.kernel_opts import (
     compose_kernel_command_line_new,
     compose_preseed_opt,
@@ -23,7 +22,6 @@ from maasserver.kernel_opts import (
     ISCSI_TARGET_NAME_PREFIX,
     KernelParameters,
     )
-from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.matchers import ContainsAll
@@ -93,15 +91,13 @@ class TestKernelOpts(TestCase):
 
     def test_compose_kernel_command_line_includes_log_settings(self):
         params = generate_kernel_parameters()
-        log_host = factory.getRandomIPAddress()
-        self.patch(settings, 'DEFAULT_MAAS_URL', 'http://%s/' % log_host)
         # Port 514 (UDP) is syslog.
         log_port = "514"
         text_priority = "critical"
         self.assertThat(
             compose_kernel_command_line_new(params),
             ContainsAll([
-                "log_host=%s" % log_host,
+                "log_host=%s" % params.log_host,
                 "log_port=%s" % log_port,
                 "text priority=%s" % text_priority,
                 ]))
@@ -147,7 +143,7 @@ class TestKernelOpts(TestCase):
                 "iscsi_target_name=%s:%s" % (
                     ISCSI_TARGET_NAME_PREFIX, ephemeral_name),
                 "iscsi_target_port=3260",
-                "iscsi_target_ip=%s" % get_maas_facing_server_address(),
+                "iscsi_target_ip=%s" % params.fs_host,
                 ]))
 
     def test_compose_kernel_command_line_reports_error_about_missing_dir(self):
