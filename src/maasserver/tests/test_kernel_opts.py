@@ -22,9 +22,9 @@ from maasserver.kernel_opts import (
     ISCSI_TARGET_NAME_PREFIX,
     KernelParameters,
     )
-from maasserver.testing.factory import factory
-from maasserver.testing.testcase import TestCase
+from maastesting.factory import factory
 from maastesting.matchers import ContainsAll
+from maastesting.testcase import TestCase
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
 
