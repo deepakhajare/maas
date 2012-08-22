@@ -11,7 +11,6 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'compose_kernel_command_line',
     'compose_kernel_command_line_new',
     'KernelParameters',
     ]
@@ -19,10 +18,6 @@ __all__ = [
 from collections import namedtuple
 import os
 
-from maasserver.preseed import (
-    compose_enlistment_preseed_url,
-    compose_preseed_url,
-    )
 from maasserver.server_address import get_maas_facing_server_address
 from provisioningserver.config import Config
 from provisioningserver.pxe.tftppath import compose_image_path
@@ -152,34 +147,3 @@ def compose_kernel_command_line_new(params):
         params.release, params.arch, params.purpose)
     options += compose_logging_opts()
     return ' '.join(options)
-
-
-def compose_kernel_command_line(node, arch, subarch, purpose):
-    """Generate a line of kernel options for booting `node`.
-
-    Include these options in the PXE config file's APPEND argument.
-
-    The node may be None, in which case it will boot into enlistment.
-    """
-    # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
-    release = 'precise'
-
-    # TODO: This is probably not enough!
-    domain = 'local.lan'
-
-    if node is None:
-        preseed_url = compose_enlistment_preseed_url()
-    else:
-        preseed_url = compose_preseed_url(node)
-
-    if node is None:
-        # Not a known host; still needs enlisting.  Make up a name.
-        hostname = 'maas-enlist'
-    else:
-        hostname = node.hostname
-
-    params = KernelParameters(
-        arch=arch, subarch=subarch, release=release, purpose=purpose,
-        hostname=hostname, domain=domain, preseed_url=preseed_url)
-
-    return compose_kernel_command_line_new(params)
