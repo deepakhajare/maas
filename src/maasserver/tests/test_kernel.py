@@ -28,17 +28,9 @@ from maastesting.matchers import ContainsAll
 from provisioningserver.kernel_opts import (
     EphemeralImagesDirectoryNotFound,
     ISCSI_TARGET_NAME_PREFIX,
-    KernelParameters,
     )
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
-
-
-def generate_kernel_parameters():
-    return KernelParameters(**{
-            field: factory.make_name(field)
-            for field in KernelParameters._fields
-            })
 
 
 class TestComposeKernelCommandLine(TestCase):
