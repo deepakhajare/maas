@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from collections import OrderedDict
 import errno
 from os import path
 import re
@@ -94,6 +95,50 @@ class TestFunctions(TestCase):
         self.assertRaises(
             IOError, config.get_pxe_template,
             *factory.make_names("purpose", "arch", "subarch"))
+
+
+def parse_pxe_config(text):
+    """Parse a PXE config file.
+
+    Returns a structure like the following, defining the sections::
+
+      {"section_label": {"KERNEL": "...", "INITRD": "...", ...}, ...}
+
+    Additionally, the returned dict - which is actually an `OrderedDict`, as
+    are all mappings returned from this function - has a `header` attribute.
+    This is an `OrderedDict` of the settings in the top part of the PXE config
+    file, the part before any labelled sections.
+    """
+    result = OrderedDict()
+    sections = re.split("^LABEL ", text, flags=re.MULTILINE)
+    for index, section in enumerate(sections):
+        elements = [
+            line.split(None, 1) for line in section.splitlines()
+            if line and not line.isspace()
+            ]
+        if index == 0:
+            result.header = OrderedDict(elements)
+        else:
+            [label] = elements.pop(0)
+            if label in result:
+                raise AssertionError(
+                    "Section %r already defined" % label)
+            result[label] = OrderedDict(elements)
+    return result
+
+
+class TestParsePXEConfig(TestCase):
+    """Tests for `parse_pxe_config`."""
+
+    def test_parse_with_no_header(self):
+        config = parse_pxe_config("LABEL foo\nOPTION setting")
+        self.assertEqual({"foo": {"OPTION": "setting"}}, config)
+        self.assertEqual({}, config.header)
+
+    def test_parse_with_no_labels(self):
+        config = parse_pxe_config("OPTION setting")
+        self.assertEqual({"OPTION": "setting"}, config.header)
+        self.assertEqual({}, config)
 
 
 class TestRenderPXEConfig(TestCase):
