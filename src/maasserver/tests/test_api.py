@@ -33,10 +33,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import (
-    api,
-    kernel_opts,
-    )
+from maasserver import api
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -53,10 +50,7 @@ from maasserver.enum import (
     )
 from maasserver.exceptions import Unauthorized
 from maasserver.fields import mac_error_msg
-from maasserver.kernel_opts import (
-    compose_enlistment_preseed_url,
-    compose_preseed_url,
-    )
+from maasserver.kernel import compose_enlistment_preseed_url
 from maasserver.models import (
     Config,
     DHCPLease,
@@ -68,6 +62,7 @@ from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
     )
+from maasserver.preseed import compose_preseed_url
 from maasserver.testing import (
     reload_object,
     reload_objects,
@@ -90,7 +85,10 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
-from provisioningserver import tasks
+from provisioningserver import (
+    kernel_opts,
+    tasks,
+    )
 from provisioningserver.auth import get_recorded_nodegroup_name
 from provisioningserver.enum import (
     POWER_TYPE,
