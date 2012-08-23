@@ -112,7 +112,7 @@ class TestKernelOpts(TestCase):
 
     def create_ephemeral_info(self, name, arch, release):
         """Create a pseudo-real ephemeral info file."""
-        epheneral_info = """
+        ephemeral_info = """
             release=%s
             stream=ephemeral
             label=release
@@ -127,7 +127,7 @@ class TestKernelOpts(TestCase):
             ephemeral_root, release, 'ephemeral', arch, release)
         os.makedirs(ephemeral_dir)
         factory.make_file(
-            ephemeral_dir, name='info', contents=epheneral_info)
+            ephemeral_dir, name='info', contents=ephemeral_info)
 
     def test_compose_kernel_command_line_inc_purpose_opts_comm_node(self):
         # The result of compose_kernel_command_line includes the purpose
