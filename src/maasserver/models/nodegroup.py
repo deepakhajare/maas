@@ -22,7 +22,9 @@ from django.db.models import (
     Manager,
     )
 from maasserver import DefaultMeta
+from maasserver.dhcp import is_dhcp_management_enabled
 from maasserver.models.timestampedmodel import TimestampedModel
+from maasserver.refresh_worker import refresh_worker
 from piston.models import (
     KEY_SIZE,
     Token,
@@ -94,6 +96,11 @@ class NodeGroupManager(Manager):
         """For Django, a node group's name is a natural key."""
         return self.get(name=name)
 
+    def refresh_workers(self):
+        """Send refresh tasks to all node-group workers."""
+        for nodegroup in self.all():
+            refresh_worker(nodegroup)
+
 
 class NodeGroup(TimestampedModel):
 
@@ -143,7 +150,7 @@ class NodeGroup(TimestampedModel):
 
     def is_dhcp_enabled(self):
         """Is the DHCP for this nodegroup enabled?"""
-        return all([
+        return is_dhcp_management_enabled() and all([
                 self.subnet_mask,
                 self.broadcast_ip,
                 self.ip_range_low,

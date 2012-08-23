@@ -125,7 +125,6 @@ from maasserver.models import (
     Node,
     NodeGroup,
     )
-from maasserver.refresh_worker import refresh_worker
 from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
@@ -882,8 +881,7 @@ class NodeGroupsHandler(BaseHandler):
         does not know its node-group name or API credentials yet) but the
         information will be sent only to the known workers.
         """
-        for nodegroup in NodeGroup.objects.all():
-            refresh_worker(nodegroup)
+        NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
 

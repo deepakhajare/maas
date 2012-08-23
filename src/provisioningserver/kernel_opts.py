@@ -29,8 +29,16 @@ class EphemeralImagesDirectoryNotFound(Exception):
 
 KernelParameters = namedtuple(
     "KernelParameters", (
-        "arch", "subarch", "release", "purpose", "hostname",
-        "domain", "preseed_url", "log_host", "fs_host"))
+        "arch",  # Machine architecture, e.g. "i386"
+        "subarch",  # Machine subarchitecture, e.g. "generic"
+        "release",  # Ubuntu release, e.g. "precise"
+        "purpose",  # Boot purpose, e.g. "commissioning"
+        "hostname",  # Machine hostname, e.g. "coleman"
+        "domain",  # Machine domain name, e.g. "example.com"
+        "preseed_url",  # URL from which a preseed can be obtained.
+        "log_host",  # Host/IP to which syslog can be streamed.
+        "fs_host",  # Host/IP on which ephemeral filesystems are hosted.
+        ))
 
 
 def compose_initrd_opt(arch, subarch, release, purpose):
