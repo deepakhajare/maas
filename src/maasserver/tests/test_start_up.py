@@ -23,12 +23,19 @@ from lockfile import (
     )
 from maasserver import start_up
 from maasserver.models.nodegroup import NodeGroup
+from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
+from provisioningserver import tasks
+from testresources import FixtureResource
 
 
 class TestStartUp(TestCase):
     """Testing for the method `start_up`."""
+
+    resources = (
+        ('celery', FixtureResource(CeleryFixture())),
+        )
 
     def setUp(self):
         super(TestStartUp, self).setUp()
@@ -53,6 +60,15 @@ class TestStartUp(TestCase):
     def test_start_up_creates_master_nodegroup(self):
         start_up.start_up()
         self.assertEqual(1, NodeGroup.objects.all().count())
+
+    def test_start_up_refreshes_workers(self):
+        patched_handlers = tasks.refresh_functions.copy()
+        patched_handlers['nodegroup_name'] = FakeMethod()
+        self.patch(tasks, 'refresh_functions', patched_handlers)
+        start_up.start_up()
+        self.assertIn(
+            (NodeGroup.objects.ensure_master().name, ),
+            patched_handlers['nodegroup_name'].extract_args())
 
     def test_start_up_runs_in_exclusion(self):
         called = Value('b', False)
