@@ -28,7 +28,7 @@ class EphemeralImagesDirectoryNotFound(Exception):
 
 
 KernelParameters = namedtuple(
-    b"KernelParameters", (
+    "KernelParameters", (
         "arch", "subarch", "release", "purpose", "hostname",
         "domain", "preseed_url", "log_host", "fs_host"))
 
