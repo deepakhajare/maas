@@ -21,7 +21,6 @@ __all__ = [
 
 
 from errno import ENOENT
-from functools import partial
 from os import path
 
 import posixpath
