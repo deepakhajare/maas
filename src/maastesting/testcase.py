@@ -20,6 +20,7 @@ import unittest
 from fixtures import TempDir
 from maastesting.factory import factory
 from maastesting.scenarios import WithScenarios
+from maastesting.worker_cache import WorkerCacheFixture
 from nose.proxy import ResultProxy
 from nose.tools import nottest
 import testresources
@@ -77,6 +78,7 @@ class TestCase(WithScenarios, testtools.TestCase):
 
     def setUp(self):
         super(TestCase, self).setUp()
+        self.useFixture(WorkerCacheFixture())
         self.setUpResources()
 
     def setUpResources(self):
