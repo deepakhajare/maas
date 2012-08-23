@@ -15,6 +15,7 @@ from __future__ import (
 
 __metaclass__ = type
 
+from datetime import timedelta
 
 from maas import import_settings
 
@@ -57,3 +58,11 @@ CELERY_ACKS_LATE = True
 # Do not store the tasks' return values (aka tombstones);
 # This improves performance.
 CELERY_IGNORE_RESULT = True
+
+
+CELERYBEAT_SCHEDULE = {
+    'unconditional-dhcp-lease-upload': {
+        'task': 'provisioningserver.tasks.upload_dhcp_leases',
+        'schedule': timedelta(minutes=1),
+    },
+}
