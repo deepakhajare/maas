@@ -26,6 +26,7 @@ from maasserver.models.nodegroup import NodeGroup
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
+from mock import Mock
 from provisioningserver import tasks
 from testresources import FixtureResource
 
@@ -63,12 +64,11 @@ class TestStartUp(TestCase):
 
     def test_start_up_refreshes_workers(self):
         patched_handlers = tasks.refresh_functions.copy()
-        patched_handlers['nodegroup_name'] = FakeMethod()
+        patched_handlers['nodegroup_name'] = Mock()
         self.patch(tasks, 'refresh_functions', patched_handlers)
         start_up.start_up()
-        self.assertIn(
-            (NodeGroup.objects.ensure_master().name, ),
-            patched_handlers['nodegroup_name'].extract_args())
+        patched_handlers['nodegroup_name'].assert_called_once_with(
+            NodeGroup.objects.ensure_master().name)
 
     def test_start_up_runs_in_exclusion(self):
         called = Value('b', False)
