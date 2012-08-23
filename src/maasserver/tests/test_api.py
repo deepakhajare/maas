@@ -94,6 +94,7 @@ from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
     )
+from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.omshell import Omshell
 from testresources import FixtureResource
 from testtools.matchers import (
@@ -2275,34 +2276,15 @@ class TestPXEConfigAPI(AnonAPITestCase):
                 )),
             response)
 
-    def test_pxeconfig_returns_complete_config(self):
+    def test_pxeconfig_returns_all_kernel_parameters(self):
         self.assertThat(
             self.get_pxeconfig(),
-            ContainsAll([
-                'arch',
-                'subarch',
-                'append',
-                'release',
-                'purpose',
-                ]))
+            ContainsAll(KernelParameters._fields))
 
     def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
         params_out = self.get_pxeconfig()
         self.assertEqual(ARCHITECTURE.i386, params_out["arch"])
         self.assertEqual("generic", params_out["subarch"])
-
-    def test_pxeconfig_adds_some_parameters(self):
-        params_in = self.get_params()
-        added_params = {'arch', 'subarch', 'append', 'release', 'purpose'}
-        for param in added_params:
-            if param in params_in:
-                del params_in[param]
-        params_out = self.get_pxeconfig(params_in)
-        self.assertEqual(
-            set(params_out).difference(params_in), added_params)
-        # The release is always "precise".
-        self.assertEqual('precise', params_out['release'])
-        self.assertThat(params_out['append'], Contains("auto url=http://"))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
@@ -2324,22 +2306,22 @@ class TestPXEConfigAPI(AnonAPITestCase):
             httplib.BAD_REQUEST,
             self.get_without_param("mac").status_code)
 
-    def test_pxeconfig_appends_enlistment_preseed_url_for_unknown_node(self):
+    def test_pxeconfig_has_enlistment_preseed_url_for_unknown_node(self):
         self.silence_get_ephemeral_name()
         params = self.get_params()
         params['mac'] = factory.getRandomMACAddress()
         response = self.client.get(reverse('pxeconfig'), params)
-        self.assertIn(
+        self.assertEqual(
             compose_enlistment_preseed_url(),
-            json.loads(response.content)["append"])
+            json.loads(response.content)["preseed_url"])
 
-    def test_pxeconfig_appends_preseed_url_for_known_node(self):
+    def test_pxeconfig_has_preseed_url_for_known_node(self):
         params = self.get_params()
         node = MACAddress.objects.get(mac_address=params['mac']).node
         response = self.client.get(reverse('pxeconfig'), params)
-        self.assertIn(
+        self.assertEqual(
             compose_preseed_url(node),
-            json.loads(response.content)["append"])
+            json.loads(response.content)["preseed_url"])
 
     def test_get_boot_purpose_unknown_node(self):
         # A node that's not yet known to MAAS is assumed to be enlisting,
