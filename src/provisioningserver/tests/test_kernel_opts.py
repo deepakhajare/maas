@@ -42,7 +42,8 @@ class TestUtilitiesKernelOpts(TestCase):
         self.assertEqual(dir1, get_last_directory(root))
 
 
-def generate_kernel_parameters():
+def make_kernel_parameters():
+    """Make a randomly populated `KernelParameters` instance."""
     return KernelParameters(**{
             field: factory.make_name(field)
             for field in KernelParameters._fields
@@ -52,13 +53,13 @@ def generate_kernel_parameters():
 class TestKernelOpts(TestCase):
 
     def test_compose_kernel_command_line_includes_preseed_url(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         self.assertIn(
             "auto url=%s" % params.preseed_url,
             compose_kernel_command_line_new(params))
 
     def test_compose_kernel_command_line_includes_initrd(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         initrd_path = compose_image_path(
             params.arch, params.subarch, params.release,
             purpose=params.purpose)
@@ -68,13 +69,13 @@ class TestKernelOpts(TestCase):
 
     def test_compose_kernel_command_line_includes_suite(self):
         # At the moment, the OS release we use is hard-coded to "precise."
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         self.assertIn(
             "suite=%s" % params.release,
             compose_kernel_command_line_new(params))
 
     def test_compose_kernel_command_line_includes_hostname_and_domain(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         self.assertThat(
             compose_kernel_command_line_new(params),
             ContainsAll([
@@ -83,14 +84,14 @@ class TestKernelOpts(TestCase):
                 ]))
 
     def test_compose_kernel_command_line_includes_locale(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         locale = "en_US"
         self.assertIn(
             "locale=%s" % locale,
             compose_kernel_command_line_new(params))
 
     def test_compose_kernel_command_line_includes_log_settings(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         # Port 514 (UDP) is syslog.
         log_port = "514"
         text_priority = "critical"
@@ -105,7 +106,7 @@ class TestKernelOpts(TestCase):
     def test_compose_kernel_command_line_inc_purpose_opts(self):
         # The result of compose_kernel_command_line includes the purpose
         # options for a non "commissioning" node.
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         self.assertIn(
             "netcfg/choose_interface=auto",
             compose_kernel_command_line_new(params))
@@ -133,7 +134,7 @@ class TestKernelOpts(TestCase):
         # The result of compose_kernel_command_line includes the purpose
         # options for a "commissioning" node.
         ephemeral_name = factory.make_name("ephemeral")
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         params = params._replace(purpose="commissioning")
         self.create_ephemeral_info(
             ephemeral_name, params.arch, params.release)
@@ -147,7 +148,7 @@ class TestKernelOpts(TestCase):
                 ]))
 
     def test_compose_kernel_command_line_reports_error_about_missing_dir(self):
-        params = generate_kernel_parameters()
+        params = make_kernel_parameters()
         params = params._replace(purpose="commissioning")
         missing_dir = factory.make_name('missing-dir')
         config = {"boot": {"ephemeral": {"directory": missing_dir}}}
