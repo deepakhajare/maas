@@ -20,9 +20,9 @@ import unittest
 from fixtures import TempDir
 from maastesting.factory import factory
 from maastesting.scenarios import WithScenarios
-from maastesting.worker_cache import WorkerCacheFixture
 from nose.proxy import ResultProxy
 from nose.tools import nottest
+from provisioningserver.testing.worker_cache import WorkerCacheFixture
 import testresources
 import testtools
 

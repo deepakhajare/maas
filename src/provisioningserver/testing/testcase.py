@@ -15,7 +15,7 @@ __all__ = [
     ]
 
 from maastesting import testcase
-from maastesting.worker_cache import WorkerCacheFixture
+from provisioningserver.testing.worker_cache import WorkerCacheFixture
 
 
 class PservTestCase(testcase.TestCase):
