@@ -37,19 +37,9 @@ class FakeQueryResult:
     def __init__(self, model, items):
         self.model = model
         self.items = items
-        self._impersonate_sequence()
 
-    def _impersonate_sequence(self):
-        """Assume sequence functionality of `items`."""
-        sequence_attrs = (
-            '__getitem__',
-            '__getslice__',
-            '__iter__',
-            '__len__',
-            'count',
-            )
-        for attr in sequence_attrs:
-            setattr(self, attr, getattr(self.items, attr))
+    def __iter__(self):
+        return self.items.__iter__()
 
     def __repr__(self):
         return "<FakeQueryResult: %r>" % self.items
