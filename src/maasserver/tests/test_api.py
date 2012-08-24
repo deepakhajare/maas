@@ -2282,6 +2282,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
             ContainsAll(KernelParameters._fields))
 
     def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
+        # As a lowest-common-denominator, i386 is chosen when the node is not
+        # yet known to MAAS.
         params_out = self.get_pxeconfig()
         self.assertEqual(ARCHITECTURE.i386, params_out["arch"])
         self.assertEqual("generic", params_out["subarch"])
