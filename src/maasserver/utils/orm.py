@@ -15,6 +15,10 @@ __all__ = [
     ]
 
 
+def get_exception_class(items):
+    """Return exception class to raise."""
+
+
 def get_one(items):
     """Assume there's at most one item in `items`, and return it (or None).
 
@@ -26,3 +30,11 @@ def get_one(items):
     :param items: Any sequence.
     :return: The one item in that sequence, or None if it was empty.
     """
+    retrieved_items = items[:2]
+    length = len(retrieved_items)
+    if length == 0:
+        return None
+    elif length == 1:
+        return retrieved_items[0]
+    else:
+        raise get_exception_class(items)("Got more than one item.")
