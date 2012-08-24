@@ -132,10 +132,18 @@ class TestConfigMasterDHCP(TestCase):
     def test_name_option_turns_dhcp_setting_name_into_option(self):
         self.assertEqual('--subnet-mask', name_option('subnet_mask'))
 
-    def test_sets_up_dhcp_if_enabled(self):
+    def test_sets_up_dhcp_if_dhcp_enabled(self):
         master = NodeGroup.objects.ensure_master()
         self.patch(NodeGroup, 'set_up_dhcp', Mock())
         settings = make_dhcp_settings()
         Config.objects.set_config('manage_dhcp', True)
         call_command('config_master_dhcp', **settings)
         self.assertEqual(1, master.set_up_dhcp.call_count)
+
+    def test_ignores_set_up_dhcp_if_dhcp_disabled(self):
+        master = NodeGroup.objects.ensure_master()
+        self.patch(NodeGroup, 'set_up_dhcp', Mock())
+        settings = make_dhcp_settings()
+        Config.objects.set_config('manage_dhcp', False)
+        call_command('config_master_dhcp', **settings)
+        self.assertEqual(0, master.set_up_dhcp.call_count)

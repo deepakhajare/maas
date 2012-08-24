@@ -25,7 +25,10 @@ from optparse import (
     )
 
 from django.core.management.base import BaseCommand
-from maasserver.models import NodeGroup
+from maasserver.models import (
+    Config,
+    NodeGroup,
+    )
 
 
 dhcp_items = {
@@ -95,4 +98,5 @@ class Command(BaseCommand):
             for item, value in settings.items():
                 setattr(master_nodegroup, item, value)
             master_nodegroup.save()
-            master_nodegroup.set_up_dhcp()
+            if Config.objects.get_config('manage_dhcp'):
+                master_nodegroup.set_up_dhcp()
