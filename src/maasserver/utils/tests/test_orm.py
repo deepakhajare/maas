@@ -13,20 +13,91 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import MultipleObjectsReturned
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from maasserver.utils.orm import get_one
+from mock import Mock
+
+
+class FakeModel:
+
+    class MultipleObjectsReturned(MultipleObjectsReturned):
+        pass
+
+    def __init__(self, name):
+        self.name == name
+
+    def __repr__(self):
+        return self.name
+
+
+class FakeQueryResult:
+    """Something that looks, to `get_one`, close enough to a Django model."""
+
+    def __init__(self, model, items):
+        self.model = model
+        self.items = items
+        self._impersonate_sequence()
+
+    def _impersonate_sequence(self):
+        """Assume sequence functionality of `items`."""
+        sequence_attrs = (
+            '__getitem__',
+            '__getslice__',
+            '__iter__',
+            '__len__',
+            'count',
+            )
+        for attr in sequence_attrs:
+            setattr(self, attr, getattr(self.items, attr))
+
+    def __repr__(self):
+        return "<FakeQueryResult: %r>" % self.items
 
 
 class TestGetOne(TestCase):
 
-    def test_get_one_returns_None_for_empty_result(self):
-        self.fail("TEST THIS")
+    def test_get_one_returns_None_for_empty_list(self):
+        self.assertIsNone(get_one([]))
 
-    def test_get_one_returns_single_result(self):
-        self.fail("TEST THIS")
+    def test_get_one_returns_single_list_item(self):
+        item = factory.getRandomString()
+        self.assertEqual(item, get_one([item]))
+
+    def test_get_one_returns_None_from_any_empty_sequence(self):
+        self.assertIsNone(get_one("no item" for counter in range(0)))
+
+    def test_get_one_returns_item_from_any_sequence_of_length_one(self):
+        item = factory.getRandomString()
+        self.assertEqual(item, get_one(item for counter in range(1)))
+
+    def test_get_one_does_not_trigger_database_counting(self):
+        item = factory.getRandomString()
+        sequence = FakeQueryResult(type(item), [item])
+        sequence.__len__ = Mock(side_effect=Exception("len() was called"))
+        self.assertEqual(item, get_one(sequence))
+
+    def test_get_one_does_not_iterate_long_sequence_indefinitely(self):
+
+        class InfinityException(Exception):
+            """Iteration went on indefinitely."""
+
+        def infinite_sequence():
+            """Generator: count to infinity (more or less), then fail."""
+            for counter in range(3):
+                yield counter
+            raise InfinityException()
+
+        # Raises MultipleObjectsReturned as spec'ed.  It does not
+        # iterate to infinity first!
+        self.assertRaises(
+            MultipleObjectsReturned, get_one, range(5))
 
     def test_get_one_raises_django_error_if_query_result_is_too_big(self):
-        self.fail("TEST THIS")
+        self.assertRaises(
+            FakeModel.MultipleObjectsReturned,
+            get_one,
+            FakeQueryResult(FakeModel, range(2)))
 
     def test_get_one_raises_assertion_error_if_other_sequence_is_too_big(self):
-        self.fail("TEST THIS")
+        self.assertRaises(MultipleObjectsReturned, get_one, range(2))
