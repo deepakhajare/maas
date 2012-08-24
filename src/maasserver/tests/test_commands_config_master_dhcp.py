@@ -59,7 +59,7 @@ class TestConfigMasterDHCP(TestCase):
         super(TestConfigMasterDHCP, self).setUp()
         # Make sure any attempts to write a dhcp config end up in a temp
         # file rather than the system one.
-        conf_file = self.make_file(contents=factory.getRandomString())
+        conf_file = self.make_file()
         self.patch(tasks, "DHCP_CONFIG_FILE", conf_file)
         # Prevent DHCPD restarts.
         self.patch(tasks, 'check_call', Mock())
