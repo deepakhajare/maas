@@ -15,11 +15,13 @@ __all__ = [
     ]
 
 from contextlib import contextmanager
+from functools import wraps
 import unittest
 
 from fixtures import TempDir
 from maastesting.factory import factory
 from maastesting.scenarios import WithScenarios
+import mock
 from nose.proxy import ResultProxy
 from nose.tools import nottest
 from provisioningserver.testing.worker_cache import WorkerCacheFixture
@@ -121,3 +123,10 @@ class TestCase(WithScenarios, testtools.TestCase):
     def __call__(self, result=None):
         with active_test(result, self):
             super(TestCase, self).__call__(result)
+
+    @wraps(testtools.TestCase.patch)
+    def patch(self, obj, attribute, value=mock.sentinel.unset):
+        if value is mock.sentinel.unset:
+            value = mock.MagicMock()
+        super(TestCase, self).patch(obj, attribute, value)
+        return value
