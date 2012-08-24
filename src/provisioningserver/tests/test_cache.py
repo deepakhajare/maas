@@ -22,6 +22,7 @@ from provisioningserver.testing.testcase import PservTestCase
 class TestCache(PservTestCase):
 
     def test_initialize_initializes_backend(self):
+        self.patch(cache, 'initialized', False)
         cache.initialize()
         self.addCleanup(cache._manager.shutdown)
         self.assertIsInstance(cache.cache.cache_backend, DictProxy)

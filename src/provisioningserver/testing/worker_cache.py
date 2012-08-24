@@ -16,6 +16,7 @@ __all__ = [
 
 from fixtures import Fixture
 from provisioningserver import cache
+from testtools.monkey import MonkeyPatcher
 
 
 class WorkerCacheFixture(Fixture):
@@ -23,12 +24,8 @@ class WorkerCacheFixture(Fixture):
 
     def setUp(self):
         super(WorkerCacheFixture, self).setUp()
-        self.old_initialized = cache.initialized
-        self.old_cache = cache.cache
-        cache.cache = cache.Cache({})
-        cache.initalized = True
-
-    def cleanUp(self):
-        cache.cache = self.old_cache
-        cache.initialized = self.old_initialized
-        super(WorkerCacheFixture, self).cleanUp()
+        patcher = MonkeyPatcher(
+            (cache, 'cache', cache.Cache({})),
+            (cache, 'initialized', True))
+        self.addCleanup(patcher.restore)
+        patcher.patch()
