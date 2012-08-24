@@ -129,6 +129,7 @@ from maasserver.preseed import (
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from maasserver.utils.orm import get_one
 from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
@@ -1128,12 +1129,11 @@ def pxeconfig(request):
     mac = get_mandatory_param(request.GET, 'mac')
 
     # See if we have a record of this MAC address, and thus node.
-    try:
-        macaddress = MACAddress.objects.get(mac_address=mac)
-    except MACAddress.DoesNotExist:
+    macaddress = get_one(MACAddress.objects.filter(mac_address=mac))
+    if macaddress is None:
         # Default to i386 as a works-for-all solution. This will not support
         # non-x86 architectures, but for now this assumption holds.
-        macaddress = node = None
+        node = None
         arch, subarch = ARCHITECTURE.i386, "generic"
         preseed_url = compose_enlistment_preseed_url()
         hostname = 'maas-enlist'
