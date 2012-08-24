@@ -27,6 +27,7 @@ from provisioningserver.pxe import config
 from provisioningserver.pxe.config import render_pxe_config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.tests.test_kernel_opts import make_kernel_parameters
+import tempita
 from testtools.matchers import (
     Contains,
     IsInstance,
@@ -51,14 +52,14 @@ class TestFunctions(TestCase):
         observed = config.gen_pxe_template_filenames(purpose, arch, subarch)
         self.assertSequenceEqual(expected, list(observed))
 
-    @mock.patch("tempita.Template.from_filename")
-    @mock.patch.object(config, "gen_pxe_template_filenames")
-    def test_get_pxe_template(self, gen_filenames, from_filename):
+    def test_get_pxe_template(self):
         purpose = factory.make_name("purpose")
         arch, subarch = factory.make_names("arch", "subarch")
         filename = factory.make_name("filename")
         # Set up the mocks that we've patched in.
+        gen_filenames = self.patch(config, "gen_pxe_template_filenames")
         gen_filenames.return_value = [filename]
+        from_filename = self.patch(tempita.Template, "from_filename")
         from_filename.return_value = mock.sentinel.template
         # The template returned matches the return value above.
         template = config.get_pxe_template(purpose, arch, subarch)
@@ -80,19 +81,18 @@ class TestFunctions(TestCase):
             path.join(config.template_dir, "config.template"),
             template.name)
 
-    @mock.patch.object(config, "gen_pxe_template_filenames")
-    def test_get_pxe_template_not_found(self, gen_filenames):
+    def test_get_pxe_template_not_found(self):
         # It is a critical and unrecoverable error if the default PXE template
         # is not found.
-        gen_filenames.return_value = []
+        self.patch(config, "gen_pxe_template_filenames").return_value = []
         self.assertRaises(
             AssertionError, config.get_pxe_template,
             *factory.make_names("purpose", "arch", "subarch"))
 
-    @mock.patch("tempita.Template.from_filename")
-    def test_get_pxe_templates_only_suppresses_ENOENT(self, from_filename):
+    def test_get_pxe_templates_only_suppresses_ENOENT(self):
         # The IOError arising from trying to load a template that doesn't
         # exist is suppressed, but other errors are not.
+        from_filename = self.patch(tempita.Template, "from_filename")
         from_filename.side_effect = IOError()
         from_filename.side_effect.errno = errno.EACCES
         self.assertRaises(
