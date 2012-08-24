@@ -89,8 +89,7 @@ class ConfigMeta(DeclarativeMeta):
         configured_location = environ.get("MAAS_PROVISIONING_SETTINGS")
         if configured_location is not None:
             return configured_location
-        for location in [os.path.curdir, '/']:
-            filename = os.path.join(location, 'etc', 'maas', 'pserv.yaml')
+        for filename in ['etc/pserv.yaml', '/etc/maas/pserv.yaml']:
             if os.path.isfile(filename):
                 return filename
         # Oh well.  Just return the last filename we tried, and let the

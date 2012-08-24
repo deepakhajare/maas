@@ -77,13 +77,13 @@ class TestConfig_DEFAULT_FILENAME(TestCase):
     def make_current_dir(self):
         """Create a directory and pretend it's the current one."""
         local_dir = self.make_dir()
-        # This is enough to fool the config-searching logic.
-        self.patch(os.path, 'curdir', local_dir)
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(local_dir)
         return local_dir
 
     def make_local_config(self):
         """Set up a local configuration file."""
-        file_location = os.path.join(self.make_current_dir(), 'etc', 'maas')
+        file_location = os.path.join(self.make_current_dir(), 'etc')
         os.makedirs(file_location)
         return factory.make_file(file_location, name='pserv.yaml')
 
@@ -94,8 +94,8 @@ class TestConfig_DEFAULT_FILENAME(TestCase):
         self.assertEqual(dummy_filename, Config.DEFAULT_FILENAME)
 
     def test_gets_local_config_file(self):
-        local_config = self.make_local_config()
-        self.assertEqual(local_config, Config.DEFAULT_FILENAME)
+        self.make_local_config()
+        self.assertEqual('etc/pserv.yaml', Config.DEFAULT_FILENAME)
 
     def test_environment_overrides_filesystem(self):
         dummy_filename = factory.make_name("config")
