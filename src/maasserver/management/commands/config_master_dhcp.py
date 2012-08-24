@@ -98,5 +98,8 @@ class Command(BaseCommand):
             for item, value in settings.items():
                 setattr(master_nodegroup, item, value)
             master_nodegroup.save()
+
+            # If DHCP management is enabled, create a Task that will
+            # write the config out.
             if Config.objects.get_config('manage_dhcp'):
                 master_nodegroup.set_up_dhcp()
