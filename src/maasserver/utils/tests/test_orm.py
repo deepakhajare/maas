@@ -13,9 +13,9 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import MultipleObjectsReturned
+from maasserver.utils.orm import get_one
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
-from maasserver.utils.orm import get_one
 from mock import Mock
 
 
@@ -72,12 +72,16 @@ class TestGetOne(TestCase):
         self.assertEqual(item, get_one(item for counter in range(1)))
 
     def test_get_one_does_not_trigger_database_counting(self):
+        # Avoid typical performance pitfall of querying objects *and*
+        # the number of objects.
         item = factory.getRandomString()
         sequence = FakeQueryResult(type(item), [item])
         sequence.__len__ = Mock(side_effect=Exception("len() was called"))
         self.assertEqual(item, get_one(sequence))
 
     def test_get_one_does_not_iterate_long_sequence_indefinitely(self):
+        # Avoid typical performance pitfall of retrieving all objects.
+        # In rare failure cases, there may be large numbers.  Fail fast.
 
         class InfinityException(Exception):
             """Iteration went on indefinitely."""
@@ -93,11 +97,11 @@ class TestGetOne(TestCase):
         self.assertRaises(
             MultipleObjectsReturned, get_one, range(5))
 
-    def test_get_one_raises_django_error_if_query_result_is_too_big(self):
+    def test_get_one_raises_model_error_if_query_result_is_too_big(self):
         self.assertRaises(
             FakeModel.MultipleObjectsReturned,
             get_one,
             FakeQueryResult(FakeModel, range(2)))
 
-    def test_get_one_raises_assertion_error_if_other_sequence_is_too_big(self):
+    def test_get_one_raises_generic_error_if_other_sequence_is_too_big(self):
         self.assertRaises(MultipleObjectsReturned, get_one, range(2))
