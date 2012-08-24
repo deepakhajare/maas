@@ -14,9 +14,17 @@ __all__ = [
     'get_one',
     ]
 
+from django.core.exceptions import MultipleObjectsReturned
+
 
 def get_exception_class(items):
     """Return exception class to raise."""
+    model = getattr(items, 'model', None)
+    if model is None:
+        return MultipleObjectsReturned
+    else:
+        return getattr(
+            model, 'MultipleObjectsReturned', MultipleObjectsReturned)
 
 
 def get_one(items):
