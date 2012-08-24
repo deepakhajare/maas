@@ -14,17 +14,20 @@ __all__ = [
     'get_one',
     ]
 
+from itertools import islice
+
 from django.core.exceptions import MultipleObjectsReturned
 
 
 def get_exception_class(items):
-    """Return exception class to raise."""
-    model = getattr(items, 'model', None)
-    if model is None:
-        return MultipleObjectsReturned
-    else:
-        return getattr(
-            model, 'MultipleObjectsReturned', MultipleObjectsReturned)
+    """Return exception class to raise.
+
+    If `items` looks like a Django ORM result set, returns the
+    `MultipleObjectsReturned` class as defined in that model.  Otherwise,
+    returns the generic class.
+    """
+    return getattr(
+        items, 'model.MultipleObjectsReturned', MultipleObjectsReturned)
 
 
 def get_one(items):
@@ -38,7 +41,7 @@ def get_one(items):
     :param items: Any sequence.
     :return: The one item in that sequence, or None if it was empty.
     """
-    retrieved_items = items[:2]
+    retrieved_items = tuple(islice(items, 0, 2))
     length = len(retrieved_items)
     if length == 0:
         return None
