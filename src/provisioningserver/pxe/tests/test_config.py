@@ -256,9 +256,7 @@ class TestRenderPXEConfig(TestCase):
             section = config[section_label]
             self.assertThat(
                 section, ContainsAll(("KERNEL", "INITRD", "APPEND")))
-            self.assertThat(
-                section["KERNEL"], Contains("/%s/" % section_label))
-            self.assertThat(
-                section["INITRD"], Contains("/%s/" % section_label))
-            self.assertThat(
-                section["APPEND"], Contains("/%s/" % section_label))
+            contains_arch_path = Contains("/%s/" % section_label)
+            self.assertThat(section["KERNEL"], contains_arch_path)
+            self.assertThat(section["INITRD"], contains_arch_path)
+            self.assertThat(section["APPEND"], contains_arch_path)
