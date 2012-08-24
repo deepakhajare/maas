@@ -12,11 +12,15 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from mock import Mock
 from optparse import OptionValueError
 
 from django.core.management import call_command
 from maasserver.management.commands.config_master_dhcp import name_option
-from maasserver.models import NodeGroup
+from maasserver.models import (
+    Config,
+    NodeGroup,
+    )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from testtools.matchers import MatchesStructure
@@ -117,3 +121,11 @@ class TestConfigMasterDHCP(TestCase):
 
     def test_name_option_turns_dhcp_setting_name_into_option(self):
         self.assertEqual('--subnet-mask', name_option('subnet_mask'))
+
+    def test_sets_up_dhcp_if_enabled(self):
+        master = NodeGroup.objects.ensure_master()
+        master.set_up_dhcp = Mock()
+        settings = make_dhcp_settings()
+        Config.objects.set_config('manage_dhcp', True)
+        call_command('config_master_dhcp', **settings)
+        self.assertEqual(1, master.set_up_dhcp.call_count)
