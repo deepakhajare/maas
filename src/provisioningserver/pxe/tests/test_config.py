@@ -18,6 +18,7 @@ from os import path
 import re
 
 from maastesting.factory import factory
+from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 import mock
 import posixpath
@@ -26,6 +27,7 @@ from provisioningserver.pxe.config import render_pxe_config
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.tests.test_kernel_opts import make_kernel_parameters
 from testtools.matchers import (
+    Contains,
     IsInstance,
     MatchesAll,
     MatchesRegex,
@@ -223,3 +225,40 @@ class TestRenderPXEConfig(TestCase):
         output = render_pxe_config(**options)
         self.assertIn("chain.c32", output)
         self.assertNotIn("LOCALBOOT", output)
+
+    @mock.patch("provisioningserver.kernel_opts.get_ephemeral_name")
+    def test_render_pxe_config_for_commissioning(self, get_ephemeral_name):
+        # The commissioning config uses an extra PXELINUX module to auto
+        # select between i386 and amd64.
+        get_ephemeral_name.return_value = factory.make_name("ephemeral")
+        options = {
+            "bootpath": factory.make_name("bootpath"),
+            "kernel_params": make_kernel_parameters()._replace(
+                purpose="commissioning"),
+            }
+        output = render_pxe_config(**options)
+        config = parse_pxe_config(output)
+        # The default section is defined.
+        default_section_label = config.header["DEFAULT"]
+        self.assertThat(config, Contains(default_section_label))
+        default_section = config[default_section_label]
+        # The default section uses the ifcpu64 module, branching to the "i386"
+        # or "amd64" labels accordingly.
+        self.assertEqual("ifcpu64.c32", default_section["KERNEL"])
+        self.assertEqual(
+            ["amd64", "--", "i386"],
+            default_section["APPEND"].split())
+        # Both "i386" and "amd64" sections exist.
+        self.assertThat(config, ContainsAll(("i386", "amd64")))
+        # Each section defines KERNEL, INITRD, and APPEND settings, each
+        # containing paths referring to their architectures.
+        for section_label in ("i386", "amd64"):
+            section = config[section_label]
+            self.assertThat(
+                section, ContainsAll(("KERNEL", "INITRD", "APPEND")))
+            self.assertThat(
+                section["KERNEL"], Contains("/%s/" % section_label))
+            self.assertThat(
+                section["INITRD"], Contains("/%s/" % section_label))
+            self.assertThat(
+                section["APPEND"], Contains("/%s/" % section_label))
