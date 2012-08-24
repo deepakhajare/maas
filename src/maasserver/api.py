@@ -1128,7 +1128,6 @@ def pxeconfig(request):
     """
     mac = get_mandatory_param(request.GET, 'mac')
 
-    # See if we have a record of this MAC address, and thus node.
     macaddress = get_one(MACAddress.objects.filter(mac_address=mac))
     if macaddress is None:
         # Default to i386 as a works-for-all solution. This will not support
