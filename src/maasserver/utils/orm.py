@@ -26,8 +26,8 @@ def get_exception_class(items):
     `MultipleObjectsReturned` class as defined in that model.  Otherwise,
     returns the generic class.
     """
-    return getattr(
-        items, 'model.MultipleObjectsReturned', MultipleObjectsReturned)
+    model = getattr(items, 'model', None)
+    return getattr(model, 'MultipleObjectsReturned', MultipleObjectsReturned)
 
 
 def get_one(items):
@@ -41,6 +41,9 @@ def get_one(items):
     :param items: Any sequence.
     :return: The one item in that sequence, or None if it was empty.
     """
+    # The only numbers we care about are zero, one, and "many."  Fetch
+    # just enough items to distinguish between these.  Use islice so as
+    # to support both sequences and iterators.
     retrieved_items = tuple(islice(items, 0, 2))
     length = len(retrieved_items)
     if length == 0:
