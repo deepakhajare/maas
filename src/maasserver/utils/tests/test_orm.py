@@ -95,7 +95,7 @@ class TestGetOne(TestCase):
         # Raises MultipleObjectsReturned as spec'ed.  It does not
         # iterate to infinity first!
         self.assertRaises(
-            MultipleObjectsReturned, get_one, range(5))
+            MultipleObjectsReturned, get_one, infinite_sequence())
 
     def test_get_one_raises_model_error_if_query_result_is_too_big(self):
         self.assertRaises(
