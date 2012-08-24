@@ -1131,6 +1131,8 @@ def pxeconfig(request):
     try:
         macaddress = MACAddress.objects.get(mac_address=mac)
     except MACAddress.DoesNotExist:
+        # Default to i386 as a works-for-all solution. This will not support
+        # non-x86 architectures, but for now this assumption holds.
         macaddress = node = None
         arch, subarch = ARCHITECTURE.i386, "generic"
         preseed_url = compose_enlistment_preseed_url()
