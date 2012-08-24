@@ -12,10 +12,10 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from mock import Mock
 from optparse import OptionValueError
 
 from django.core.management import call_command
+from mock import Mock
 from maasserver.management.commands.config_master_dhcp import name_option
 from maasserver.models import (
     Config,
@@ -23,6 +23,7 @@ from maasserver.models import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from provisioningserver import tasks
 from testtools.matchers import MatchesStructure
 
 
@@ -53,6 +54,15 @@ def make_cleared_dhcp_settings():
 
 
 class TestConfigMasterDHCP(TestCase):
+
+    def setUp(self):
+        super(TestConfigMasterDHCP, self).setUp()
+        # Make sure any attempts to write a dhcp config end up in a temp
+        # file rather than the system one.
+        conf_file = self.make_file(contents=factory.getRandomString())
+        self.patch(tasks, "DHCP_CONFIG_FILE", conf_file)
+        # Prevent DHCPD restarts.
+        self.patch(tasks, 'check_call', Mock())
 
     def test_configures_dhcp_for_master_nodegroup(self):
         settings = make_dhcp_settings()
@@ -124,7 +134,7 @@ class TestConfigMasterDHCP(TestCase):
 
     def test_sets_up_dhcp_if_enabled(self):
         master = NodeGroup.objects.ensure_master()
-        master.set_up_dhcp = Mock()
+        self.patch(NodeGroup, 'set_up_dhcp', Mock())
         settings = make_dhcp_settings()
         Config.objects.set_config('manage_dhcp', True)
         call_command('config_master_dhcp', **settings)

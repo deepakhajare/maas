@@ -95,3 +95,4 @@ class Command(BaseCommand):
             for item, value in settings.items():
                 setattr(master_nodegroup, item, value)
             master_nodegroup.save()
+            master_nodegroup.set_up_dhcp()
