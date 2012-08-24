@@ -15,6 +15,7 @@ from __future__ import (
 
 __metaclass__ = type
 
+from datetime import timedelta
 
 from maas import import_settings
 
@@ -49,11 +50,26 @@ else:
 
 
 CELERY_IMPORTS = (
+    # Tasks.
     "provisioningserver.tasks",
-)
+
+    # This import is needed for its side effect: it initializes the
+    # cache that allows workers to share data.
+    "provisioningserver.initialize_cache",
+    )
 
 CELERY_ACKS_LATE = True
 
 # Do not store the tasks' return values (aka tombstones);
 # This improves performance.
 CELERY_IGNORE_RESULT = True
+
+
+CELERYBEAT_SCHEDULE = {
+    # XXX JeroenVermeulen 2012-08-24, bug=1039366: once we have multiple
+    # workers, make sure each worker gets one of these.
+    'unconditional-dhcp-lease-upload': {
+        'task': 'provisioningserver.tasks.upload_dhcp_leases',
+        'schedule': timedelta(minutes=1),
+    },
+}
