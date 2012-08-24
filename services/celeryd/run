@@ -20,4 +20,6 @@ export CELERY_CONFIG_MODULE=democeleryconfig
 # either pass the --beat only to the master (and make upload_dhcp tasks go
 # to all workers) or pass --beat to each worker (and make sure each routes
 # scheduled tasks only to itself).
-exec celeryd -l INFO --beat
+# XXX JeroenVermeulen 2012-08-23, bug=1040529: Use fghack to kludge around
+# hanging celery shutdown.
+exec fghack "$(type -p celeryd)" -l INFO --beat

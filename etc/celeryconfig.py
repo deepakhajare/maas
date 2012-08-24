@@ -50,8 +50,13 @@ else:
 
 
 CELERY_IMPORTS = (
+    # Tasks.
     "provisioningserver.tasks",
-)
+
+    # This import is needed for its side effect: it initializes the
+    # cache that allows workers to share data.
+    "provisioningserver.initialize_cache",
+    )
 
 CELERY_ACKS_LATE = True
 
