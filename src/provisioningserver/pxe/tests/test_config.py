@@ -22,6 +22,7 @@ from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 import mock
 import posixpath
+from provisioningserver import kernel_opts
 from provisioningserver.pxe import config
 from provisioningserver.pxe.config import render_pxe_config
 from provisioningserver.pxe.tftppath import compose_image_path
@@ -226,10 +227,10 @@ class TestRenderPXEConfig(TestCase):
         self.assertIn("chain.c32", output)
         self.assertNotIn("LOCALBOOT", output)
 
-    @mock.patch("provisioningserver.kernel_opts.get_ephemeral_name")
-    def test_render_pxe_config_for_commissioning(self, get_ephemeral_name):
+    def test_render_pxe_config_for_commissioning(self):
         # The commissioning config uses an extra PXELINUX module to auto
         # select between i386 and amd64.
+        get_ephemeral_name = self.patch(kernel_opts, "get_ephemeral_name")
         get_ephemeral_name.return_value = factory.make_name("ephemeral")
         options = {
             "bootpath": factory.make_name("bootpath"),
