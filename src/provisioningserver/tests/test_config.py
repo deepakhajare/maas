@@ -74,15 +74,39 @@ class TestConfig_DEFAULT_FILENAME(TestCase):
         fixture = EnvironmentVariableFixture("MAAS_PROVISIONING_SETTINGS")
         self.useFixture(fixture)
 
-    def test_get_with_environment_empty(self):
-        self.assertEqual("/etc/maas/pserv.yaml", Config.DEFAULT_FILENAME)
+    def make_current_dir(self):
+        """Create a directory and pretend it's the current one."""
+        local_dir = self.make_dir()
+        # This is enough to fool the config-searching logic.
+        self.patch(os.path, 'curdir', local_dir)
+        return local_dir
 
-    def test_get_with_environment_set(self):
+    def make_local_config(self):
+        """Set up a local configuration file."""
+        file_location = os.path.join(self.make_current_dir(), 'etc', 'maas')
+        os.makedirs(file_location)
+        return factory.make_file(file_location, name='pserv.yaml')
+
+    def test_gets_filename_from_environment(self):
         dummy_filename = factory.make_name("config")
-        fixture = EnvironmentVariableFixture(
-            "MAAS_PROVISIONING_SETTINGS", dummy_filename)
-        self.useFixture(fixture)
+        self.useFixture(EnvironmentVariableFixture(
+            "MAAS_PROVISIONING_SETTINGS", dummy_filename))
         self.assertEqual(dummy_filename, Config.DEFAULT_FILENAME)
+
+    def test_gets_local_config_file(self):
+        local_config = self.make_local_config()
+        self.assertEqual(local_config, Config.DEFAULT_FILENAME)
+
+    def test_environment_overrides_filesystem(self):
+        dummy_filename = factory.make_name("config")
+        self.useFixture(EnvironmentVariableFixture(
+            "MAAS_PROVISIONING_SETTINGS", dummy_filename))
+        self.make_local_config()
+        self.assertEqual(dummy_filename, Config.DEFAULT_FILENAME)
+
+    def test_defaults_to_global_config(self):
+        self.make_current_dir()
+        self.assertEqual('/etc/maas/pserv.yaml', Config.DEFAULT_FILENAME)
 
     def test_set(self):
         dummy_filename = factory.make_name("config")
@@ -90,6 +114,7 @@ class TestConfig_DEFAULT_FILENAME(TestCase):
         self.assertEqual(dummy_filename, Config.DEFAULT_FILENAME)
 
     def test_delete(self):
+        self.make_current_dir()
         Config.DEFAULT_FILENAME = factory.make_name("config")
         del Config.DEFAULT_FILENAME
         # The filename reverts; see test_get_with_environment_empty.
