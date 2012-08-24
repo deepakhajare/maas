@@ -15,7 +15,6 @@ __all__ = [
     ]
 
 from contextlib import contextmanager
-from functools import wraps
 import unittest
 
 from fixtures import TempDir
@@ -124,8 +123,17 @@ class TestCase(WithScenarios, testtools.TestCase):
         with active_test(result, self):
             super(TestCase, self).__call__(result)
 
-    @wraps(testtools.TestCase.patch)
     def patch(self, obj, attribute, value=mock.sentinel.unset):
+        """Patch `obj.attribute` with `value`.
+
+        If `value` is unspecified, a new `MagicMock` will be created and
+        patched-in instead.
+
+        This is a thin customisation of `testtools.TestCase.patch`, so refer
+        to that in case of doubt.
+
+        :return: The patched-in object.
+        """
         if value is mock.sentinel.unset:
             value = mock.MagicMock()
         super(TestCase, self).patch(obj, attribute, value)
