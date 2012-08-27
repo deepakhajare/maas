@@ -38,15 +38,15 @@ from pyparsing import (
 ip = Regex("[0-9]{1,3}(\.[0-9]{1,3}){3}")
 mac = Regex("[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}")
 hardware_type = Regex('[A-Za-z0-9_-]+')
-args = Regex('[^"{;]+') | QuotedString('"')
+args = Regex('[^;]+') | QuotedString('"')
 expiry = Regex('[0-9]\s+[0-9/-]+\s+[0-9:]+') | 'never'
 
 hardware = CaselessKeyword("hardware") + hardware_type("type") + mac("mac")
 ends = CaselessKeyword("ends") + expiry("expiry")
 other_statement = (
     oneOf(
-        ['starts', 'tstp', 'tsfp', 'uid', 'binding'], caseless=True) +
-    args
+        ['starts', 'tstp', 'tsfp', 'cltt', 'uid', 'binding', 'set', 'next'],
+        caseless=True) + args
     )
 
 lease_statement = (hardware | ends | other_statement) + Suppress(';')
