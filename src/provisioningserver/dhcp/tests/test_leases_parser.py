@@ -86,6 +86,17 @@ class TestLeasesParser(TestCase):
                 hardware ethernet %(mac)s;
                 uid "\001\000\234\002\242\2020";
                 set vendorclass = "PXEClient:Arch:00000:UNDI:002001";
+                client-hostname foo;
+                abandoned;
+                option agent.circuit-id thing;
+                option agent.remote-id thing;
+                ddns-text foo;
+                ddns-fwd-name foo;
+                ddns-client-fqdn foo;
+                ddns-rev-name foo;
+                vendor-class-identifier foo;
+                bootp;
+                reserved;
             }
             """ % params))
         self.assertEqual({params['ip']: params['mac']}, leases)
