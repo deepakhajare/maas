@@ -51,7 +51,7 @@ hardware = CaselessKeyword("hardware") + hardware_type("type") + mac("mac")
 ends = CaselessKeyword("ends") + expiry("expiry")
 other_statement = (
     oneOf(
-        ['starts', 'tstp', 'tsfp', 'cltt', 'uid', 'binding', 'next'],
+        ['starts', 'tstp', 'atsfp', 'tsfp', 'cltt', 'uid', 'binding', 'next'],
         caseless=True) + args
     )
 

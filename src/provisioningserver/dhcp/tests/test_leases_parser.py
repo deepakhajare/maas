@@ -79,6 +79,7 @@ class TestLeasesParser(TestCase):
                 ends never;
                 tstp 6 2010/01/02 05:00:00;
                 tsfp 6 2010/01/02 05:00:00;
+                atsfp 6 2010/01/02 05:00:00;
                 cltt 1 2010/01/02 05:00:00;
                 binding state free;
                 next binding state free;
