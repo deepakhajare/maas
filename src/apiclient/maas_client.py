@@ -117,9 +117,9 @@ class MAASClient:
         """
         if not isinstance(path, basestring):
             path = '/'.join(unicode(element) for element in path)
-        # urljoin is massively unreliable when spurious slashes appear
-        # since it removes path parts. This is why joining is done
-        # manually here.
+        # urljoin is very sensitive to leading slashes and when spurious
+        # slashes appear it removes path parts. This is why joining is
+        # done manually here.
         return self.url.rstrip("/") + "/" + path.lstrip("/")
 
     def _formulate_get(self, path, params=None):
