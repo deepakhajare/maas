@@ -108,12 +108,6 @@ class TestMAASClient(TestCase):
     def test_make_url_joins_root_and_path(self):
         path = make_path()
         client = make_client()
-        self.assertEqual(urljoin(client.url, path), client._make_url(path))
-
-    def test_make_url_joins_root_with_path_that_has_leading_slash(self):
-        path = make_path()
-        self.assertThat(path, StartsWith("/"))
-        client = make_client()
         expected = client.url.rstrip("/") + "/" + path.lstrip("/")
         self.assertEqual(expected, client._make_url(path))
 
@@ -133,7 +127,8 @@ class TestMAASClient(TestCase):
         path = make_path()
         client = make_client()
         url, headers = client._formulate_get(path)
-        self.assertEqual(urljoin(client.url, path), url)
+        expected = client.url.rstrip("/") + "/" + path.lstrip("/")
+        self.assertEqual(expected, url)
 
     def test_formulate_get_adds_parameters_to_url(self):
         params = {
@@ -151,7 +146,8 @@ class TestMAASClient(TestCase):
         path = make_path()
         client = make_client()
         url, headers, body = client._formulate_change(path, {})
-        self.assertEqual(urljoin(client.url, path), url)
+        expected = client.url.rstrip("/") + "/" + path.lstrip("/")
+        self.assertEqual(expected, url)
 
     def test_formulate_change_signs_request(self):
         url, headers, body = make_client()._formulate_change(make_path(), {})
