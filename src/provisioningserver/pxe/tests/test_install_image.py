@@ -80,7 +80,7 @@ class TestInstallPXEImage(TestCase):
         # The directory that make_destination returns follows the PXE
         # directory hierarchy specified for MAAS:
         # /var/lib/maas/tftp/<arch>/<subarch>/<release>/<purpose>
-        # (Where the /var/lib/tftpboot/ part is configurable, so we
+        # (Where the /var/lib/maas/tftp/ part is configurable, so we
         # can test this without overwriting system files).
         tftproot = self.make_dir()
         arch, subarch, release, purpose = make_arch_subarch_release_purpose()

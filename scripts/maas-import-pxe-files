@@ -6,7 +6,7 @@
 # pre-boot loader, kernels, and initrd images.
 #
 # This script downloads the required files into the TFTP home directory
-# (by default, /var/lib/tftpboot).  Run it with the necessarily privileges
+# (by default, /var/lib/maas/tftp).  Run it with the necessarily privileges
 # to write them there.
 
 # Exit immediately if a command exits with a non-zero status.
