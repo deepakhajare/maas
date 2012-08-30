@@ -23,7 +23,6 @@ __all__ = [
 from errno import ENOENT
 from os import path
 
-import posixpath
 from provisioningserver.kernel_opts import compose_kernel_command_line_new
 from provisioningserver.pxe.tftppath import compose_image_path
 import tempita
@@ -71,7 +70,7 @@ def get_pxe_template(purpose, arch, subarch):
             "No PXE template found in %r!" % template_dir)
 
 
-def render_pxe_config(bootpath, kernel_params, **extra):
+def render_pxe_config(kernel_params, **extra):
     """Render a PXE configuration file as a unicode string.
 
     :param bootpath: The directory path of `pxelinux.0`.
@@ -80,9 +79,6 @@ def render_pxe_config(bootpath, kernel_params, **extra):
         parameters generated in another component (for example, see
         `TFTPBackend.get_config_reader`) won't cause this to break.
     """
-    if bootpath is None:
-        bootpath = ''
-
     template = get_pxe_template(
         kernel_params.purpose, kernel_params.arch,
         kernel_params.subarch)
@@ -104,15 +100,10 @@ def render_pxe_config(bootpath, kernel_params, **extra):
     def kernel_command(params):
         return compose_kernel_command_line_new(params)
 
-    def relative(path):
-        # Return `path` relative to `bootpath`.
-        return posixpath.relpath(path, start=bootpath)
-
     namespace = {
         "initrd_path": initrd_path,
         "kernel_command": kernel_command,
         "kernel_params": kernel_params,
         "kernel_path": kernel_path,
-        "relative": relative,
         }
     return template.substitute(namespace)
