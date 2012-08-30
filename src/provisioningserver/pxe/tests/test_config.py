@@ -241,13 +241,14 @@ class TestRenderPXEConfig(TestCase):
             default_section["APPEND"].split())
         # Both "i386" and "amd64" sections exist.
         self.assertThat(config, ContainsAll(("i386", "amd64")))
-        # Each section defines KERNEL, INITRD, and APPEND settings, each
-        # containing paths referring to their architectures.
+        # Each section defines KERNEL, INITRD, and APPEND settings.  The
+        # KERNEL and INITRD ones contain paths referring to their
+        # architectures.
         for section_label in ("i386", "amd64"):
             section = config[section_label]
             self.assertThat(
                 section, ContainsAll(("KERNEL", "INITRD", "APPEND")))
-            contains_arch_path = Contains("/%s/" % section_label)
+            contains_arch_path = StartsWith("%s/" % section_label)
             self.assertThat(section["KERNEL"], contains_arch_path)
             self.assertThat(section["INITRD"], contains_arch_path)
-            self.assertThat(section["APPEND"], contains_arch_path)
+            self.assertIn("APPEND", section)

@@ -159,7 +159,6 @@ class TestImportPXEFiles(TestCase):
         arch = factory.make_name('arch')
         release = 'precise'
         tftp_path = compose_tftp_bootloader_path(self.tftproot)
-        os.makedirs(os.path.dirname(tftp_path))
         with open(tftp_path, 'w') as existing_file:
             existing_file.write(factory.getRandomString())
         archive = self.make_downloads(arch=arch, release=release)
