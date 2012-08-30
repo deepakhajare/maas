@@ -73,7 +73,6 @@ def get_pxe_template(purpose, arch, subarch):
 def render_pxe_config(kernel_params, **extra):
     """Render a PXE configuration file as a unicode string.
 
-    :param bootpath: The directory path of `pxelinux.0`.
     :param kernel_params: An instance of `KernelParameters`.
     :param extra: Allow for other arguments. This is a safety valve;
         parameters generated in another component (for example, see
