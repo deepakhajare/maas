@@ -95,10 +95,10 @@ def render_pxe_config(bootpath, kernel_params, **extra):
             params.arch, params.subarch,
             params.release, params.purpose)
 
-    def initrd(params):
+    def initrd_path(params):
         return "%s/initrd.gz" % image_dir(params)
 
-    def kernel(params):
+    def kernel_path(params):
         return "%s/linux" % image_dir(params)
 
     def kernel_command(params):
@@ -109,10 +109,10 @@ def render_pxe_config(bootpath, kernel_params, **extra):
         return posixpath.relpath(path, start=bootpath)
 
     namespace = {
-        "initrd_path": initrd,
+        "initrd_path": initrd_path,
         "kernel_command": kernel_command,
         "kernel_params": kernel_params,
-        "kernel_path": kernel,
+        "kernel_path": kernel_path,
         "relative": relative,
         }
     return template.substitute(namespace)
