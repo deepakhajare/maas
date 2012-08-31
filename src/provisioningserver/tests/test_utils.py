@@ -108,9 +108,7 @@ class TestWriteAtomic(TestCase):
         # be tightened up by umask later.
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
-        # Filter out the "regular file" bit that os.stat() will give us.
-        # There's no need to set it, and it's not relevant to the test.
-        observed_mode = os.stat(atomic_file).st_mode & ~stat.S_IFREG
+        observed_mode = os.stat(atomic_file).st_mode & stat.S_IMODE
         self.assertEqual(mode, observed_mode)
 
     def test_atomic_write_sets_permissions_before_moving_into_place(self):
@@ -127,9 +125,7 @@ class TestWriteAtomic(TestCase):
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
         [recorded_mode] = recorded_modes
-        # Filter out the "regular file" bit that os.stat() will give us.
-        # There's no need to set it, and it's not relevant to the test.
-        observed_mode = recorded_mode & ~stat.S_IFREG
+        observed_mode = recorded_mode & stat.S_IMODE
         self.assertEqual(mode, observed_mode)
 
 
