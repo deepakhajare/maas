@@ -63,13 +63,17 @@ def _write_temp_file(content, filename):
     return temp_file
 
 
-def atomic_write(content, filename, overwrite=True):
+def atomic_write(content, filename, overwrite=True, mode=0600):
     """Write `content` into the file `filename` in an atomic fashion.
 
     This requires write permissions to the directory that `filename` is in.
     It creates a temporary file in the same directory (so that it will be
     on the same filesystem as the destination) and then renames it to
     replace the original, if any.  Such a rename is atomic in POSIX.
+
+    :param overwrite: Overwrite `filename` if it already exists?  Default
+        is True.
+    :param mode: Access permissions for the file, if written.
     """
     temp_file = _write_temp_file(content, filename)
     try:
