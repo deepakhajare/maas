@@ -27,6 +27,7 @@ from provisioningserver.pxe.tftppath import (
     compose_image_path,
     locate_tftp_path,
     )
+from twisted.python.filepath import FilePath
 
 
 def make_destination(tftproot, arch, subarch, release, purpose):
@@ -109,6 +110,13 @@ def install_dir(new, old):
         os.rename(old, '%s.old' % old)
     os.rename('%s.new' % old, old)
     # End of critical window.
+
+    # Normalise permissions.
+    for filepath in FilePath(old).walk():
+        if filepath.isdir():
+            filepath.chmod(0755)
+        else:
+            filepath.chmod(0644)
 
     # Now delete the old image directory at leisure.
     rmtree('%s.old' % old, ignore_errors=True)
