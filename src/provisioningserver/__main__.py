@@ -29,6 +29,6 @@ main.register(
     "generate-dhcp-config",
     provisioningserver.dhcp.writer)
 main.register(
-    "atomic_write",
+    "atomic-write",
     AtomicWriteScript)
 main()
