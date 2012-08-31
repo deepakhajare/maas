@@ -89,6 +89,15 @@ class TestWriteAtomic(TestCase):
             [os.path.basename(filename)],
             os.listdir(os.path.dirname(filename)))
 
+    def test_atomic_write_leaves_permissions_alone_by_default(self):
+        self.fail("TEST THIS")
+
+    def test_atomic_write_sets_permissions_if_given(self):
+        self.fail("TEST THIS")
+
+    def test_atomic_write_sets_permissions_before_moving_into_place(self):
+        self.fail("TEST THIS")
+
 
 class TestIncrementalWrite(TestCase):
     """Test `incremental_write`."""
