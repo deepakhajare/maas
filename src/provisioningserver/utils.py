@@ -55,9 +55,17 @@ def _write_temp_file(content, filename):
     # Write the file to a temporary place (next to the target destination,
     # to ensure that it is on the same filesystem).
     directory = os.path.dirname(filename)
-    temp_fd, temp_file = tempfile.mkstemp(
-        dir=directory, suffix=".tmp",
-        prefix=".%s." % os.path.basename(filename))
+    prefix = ".%s." % os.path.basename(filename)
+    suffix = ".tmp"
+    try:
+        temp_fd, temp_file = tempfile.mkstemp(
+            dir=directory, suffix=suffix, prefix=prefix)
+    except OSError, error:
+        if error.filename is None:
+            error.filename = os.path.join(
+                directory, "{prefix}XXXXXX{suffix}".format(
+                    suffix=suffix, prefix=prefix))
+        raise
     with os.fdopen(temp_fd, "wb") as f:
         f.write(content)
     return temp_file
