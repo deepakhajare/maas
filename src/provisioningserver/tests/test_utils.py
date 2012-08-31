@@ -31,6 +31,7 @@ import types
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
+from mock import Mock
 import provisioningserver
 from provisioningserver.utils import (
     ActionScript,
@@ -413,3 +414,15 @@ class TestAtomicWriteScript(TestCase):
                 env=dict(PYTHONPATH=":".join(sys.path)))
             cmd.communicate()
         self.assertThat(target_file, FileContains(content))
+
+    def test_passes_overwrite_flag(self):
+        content = factory.getRandomString()
+        self.patch(sys, "stdin", StringIO.StringIO(content))
+        parser = self.get_parser()
+        filename = factory.getRandomString()
+        args = parser.parse_args(('--filename', filename, '--no-overwrite'))
+        mock = Mock()
+        self.patch(provisioningserver.utils, 'atomic_write', mock)
+        AtomicWriteScript.run(args)
+        
+        mock.assert_called_once_with(content, filename, overwrite=False)
