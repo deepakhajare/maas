@@ -16,9 +16,9 @@ from argparse import (
     ArgumentParser,
     Namespace,
     )
-from mock import Mock
 import os
 from random import randint
+import stat
 import StringIO
 from subprocess import CalledProcessError
 import sys
@@ -28,6 +28,7 @@ import types
 from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
+from mock import Mock
 from provisioningserver.utils import (
     ActionScript,
     atomic_write,
@@ -100,30 +101,36 @@ class TestWriteAtomic(TestCase):
             [os.path.basename(filename)],
             os.listdir(os.path.dirname(filename)))
 
-    def test_atomic_write_sets_permissions_if_given(self):
-        playground = self.make_dir()
-        atomic_file = os.path.join(playground, factory.make_name('atomic'))
+    def test_atomic_write_sets_permissions(self):
+        atomic_file = self.make_file()
         # Pick an unusual mode that is also likely to fall outside our
         # umask.  We want this mode set, not treated as advice that may
         # be tightened up by umask later.
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
-        self.assertEqual(mode, os.stat(atomic_file).st_mode)
+        # Filter out the "regular file" bit that os.stat() will give us.
+        # There's no need to set it, and it's not relevant to the test.
+        observed_mode = os.stat(atomic_file).st_mode & ~stat.S_IFREG
+        self.assertEqual(mode, observed_mode)
 
     def test_atomic_write_sets_permissions_before_moving_into_place(self):
 
-        recorded_mode = []
+        recorded_modes = []
 
         def record_mode(source, dest):
             """Stub for os.rename: get source file's access mode."""
-            recorded_mode.append(os.stat(source).st_mode)
+            recorded_modes.append(os.stat(source).st_mode)
 
         self.patch(os, 'rename', Mock(side_effect=record_mode))
         playground = self.make_dir()
         atomic_file = os.path.join(playground, factory.make_name('atomic'))
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
-        self.assertEqual([mode], recorded_mode)
+        [recorded_mode] = recorded_modes
+        # Filter out the "regular file" bit that os.stat() will give us.
+        # There's no need to set it, and it's not relevant to the test.
+        observed_mode = recorded_mode & ~stat.S_IFREG
+        self.assertEqual(mode, observed_mode)
 
 
 class TestIncrementalWrite(TestCase):

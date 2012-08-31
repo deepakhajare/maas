@@ -76,6 +76,7 @@ def atomic_write(content, filename, overwrite=True, mode=0600):
     :param mode: Access permissions for the file, if written.
     """
     temp_file = _write_temp_file(content, filename)
+    os.chmod(temp_file, mode)
     try:
         if overwrite:
             os.rename(temp_file, filename)
