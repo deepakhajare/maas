@@ -105,18 +105,18 @@ def install_dir(new, old):
     # much.
     copytree(new, '%s.new' % old)
 
+    # Normalise permissions.
+    for filepath in FilePath('%s.new' % old).walk():
+        if filepath.isdir():
+            filepath.chmod(0755)
+        else:
+            filepath.chmod(0644)
+
     # Start of critical window.
     if os.path.isdir(old):
         os.rename(old, '%s.old' % old)
     os.rename('%s.new' % old, old)
     # End of critical window.
-
-    # Normalise permissions.
-    for filepath in FilePath(old).walk():
-        if filepath.isdir():
-            filepath.chmod(0755)
-        else:
-            filepath.chmod(0644)
 
     # Now delete the old image directory at leisure.
     rmtree('%s.old' % old, ignore_errors=True)
