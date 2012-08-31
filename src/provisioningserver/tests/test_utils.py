@@ -71,13 +71,13 @@ class TestWriteAtomic(TestCase):
         content = factory.getRandomString()
         random_content = factory.getRandomString()
         filename = self.make_file(contents=random_content)
-        atomic_write(content, filename, False)
+        atomic_write(content, filename, overwrite=False)
         self.assertThat(filename, FileContains(random_content))
 
     def test_atomic_write_writes_file_if_no_file_present(self):
         filename = os.path.join(self.make_dir(), factory.getRandomString())
         content = factory.getRandomString()
-        atomic_write(content, filename, False)
+        atomic_write(content, filename, overwrite=False)
         self.assertThat(filename, FileContains(content))
 
     def test_atomic_write_does_not_leak_temp_file_when_not_overwriting(self):
