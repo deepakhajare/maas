@@ -63,12 +63,12 @@ def _write_temp_file(content, filename):
     except OSError, error:
         if error.filename is None:
             error.filename = os.path.join(
-                directory, "{prefix}XXXXXX{suffix}".format(
-                    suffix=suffix, prefix=prefix))
+                directory, prefix + "XXXXXX" + suffix)
         raise
-    with os.fdopen(temp_fd, "wb") as f:
-        f.write(content)
-    return temp_file
+    else:
+        with os.fdopen(temp_fd, "wb") as f:
+            f.write(content)
+        return temp_file
 
 
 def atomic_write(content, filename, overwrite=True, mode=0600):
