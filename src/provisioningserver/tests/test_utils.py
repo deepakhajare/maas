@@ -108,8 +108,7 @@ class TestWriteAtomic(TestCase):
         # be tightened up by umask later.
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
-        observed_mode = os.stat(atomic_file).st_mode & stat.S_IMODE
-        self.assertEqual(mode, observed_mode)
+        self.assertEqual(mode, stat.S_IMODE(os.stat(atomic_file).st_mode))
 
     def test_atomic_write_sets_permissions_before_moving_into_place(self):
 
@@ -125,8 +124,7 @@ class TestWriteAtomic(TestCase):
         mode = 0323
         atomic_write(factory.getRandomString(), atomic_file, mode=mode)
         [recorded_mode] = recorded_modes
-        observed_mode = recorded_mode & stat.S_IMODE
-        self.assertEqual(mode, observed_mode)
+        self.assertEqual(mode, stat.S_IMODE(recorded_mode))
 
 
 class TestIncrementalWrite(TestCase):
