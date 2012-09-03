@@ -335,8 +335,8 @@ class AtomicWriteScript:
             "The name of the file in which to store contents of stdin"))
         parser.add_argument(
             "--mode", action="store", required=False, default=None, help=(
-            "The permissions to set on the file. If not set will be r/w only to"
-            "owner"))
+            "The permissions to set on the file. If not set will be r/w only "
+            "to owner"))
 
     @staticmethod
     def run(args):

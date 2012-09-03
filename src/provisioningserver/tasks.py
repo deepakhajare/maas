@@ -310,8 +310,8 @@ def write_dhcp_config(**kwargs):
     """
     output = config.get_config(**kwargs).encode("ascii")
     proc = Popen(
-        ["sudo", "maas-provsion", "atomic-write", "--filename", DHCP_CONFIG_FILE,
-        "--mode", "744"], stdin=PIPE)
+        ["sudo", "maas-provsion", "atomic-write", "--filename",
+        DHCP_CONFIG_FILE, "--mode", "744"], stdin=PIPE)
     proc.communicate(output)
     restart_dhcp_server()
 

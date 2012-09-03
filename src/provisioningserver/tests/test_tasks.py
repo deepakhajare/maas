@@ -67,7 +67,6 @@ from provisioningserver.testing.testcase import PservTestCase
 from testresources import FixtureResource
 from testtools.matchers import (
     Equals,
-    FileContains,
     FileExists,
     MatchesListwise,
     )
