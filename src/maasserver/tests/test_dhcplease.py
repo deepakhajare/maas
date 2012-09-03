@@ -13,10 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from maasserver import dns
-from maasserver.models import (
-    DHCPLease,
-    NodeGroup,
-    )
+from maasserver.models import DHCPLease
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.utils import ignore_unused
@@ -158,8 +155,7 @@ class TestDHCPLeaseManager(TestCase):
         nodegroup = factory.make_node_group()
         DHCPLease.objects.update_leases(
             nodegroup, factory.make_random_leases())
-        dns.change_dns_zones.assert_called_once_with(
-            sorted(NodeGroup.objects.all()))
+        dns.change_dns_zones.assert_called_once_with([nodegroup])
 
     def test_get_hostname_ip_mapping_returns_mapping(self):
         nodegroup = factory.make_node_group()

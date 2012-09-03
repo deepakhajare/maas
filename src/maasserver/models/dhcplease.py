@@ -99,11 +99,10 @@ class DHCPLeaseManager(Manager):
         """
         # Avoid circular imports.
         from maasserver import dns
-        from maasserver.models import NodeGroup
 
         self._delete_obsolete_leases(nodegroup, leases)
         new_leases = self._add_missing_leases(nodegroup, leases)
-        dns.change_dns_zones(sorted(NodeGroup.objects.all()))
+        dns.change_dns_zones([nodegroup])
         return new_leases
 
     def get_hostname_ip_mapping(self, nodegroup):
