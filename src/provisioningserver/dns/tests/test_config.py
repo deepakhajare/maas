@@ -382,3 +382,26 @@ class TestDNSZoneConfig(TestCase):
                 )
             )
         )
+
+    def test_DNSZoneConfig_config_file_is_world_readable(self):
+        self.patch(DNSConfig, 'target_dir', self.make_dir())
+        dns_zone_config = DNSZoneConfig(
+            factory.getRandomString(), serial=random.randint(1, 100),
+            dns_ip=factory.getRandomIPAddress(),
+            **network_infos(factory.getRandomNetwork()))
+        dns_zone_config.write_config()
+        self.assertEqual(
+            stat.S_IROTH,
+            os.stat(dns_zone_config.target_path).st_mode & stat.S_IROTH)
+
+    def test_DNSZoneConfig_reverse_config_file_is_world_readable(self):
+        self.patch(DNSConfig, 'target_dir', self.make_dir())
+        dns_zone_config = DNSZoneConfig(
+            factory.getRandomString(), serial=random.randint(1, 100),
+            dns_ip=factory.getRandomIPAddress(),
+            **network_infos(factory.getRandomNetwork()))
+        dns_zone_config.write_reverse_config()
+        self.assertEqual(
+            stat.S_IROTH,
+            os.stat(
+                dns_zone_config.target_reverse_path).st_mode & stat.S_IROTH)
