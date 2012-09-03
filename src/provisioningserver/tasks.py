@@ -26,6 +26,8 @@ __all__ = [
 from subprocess import (
     CalledProcessError,
     check_call,
+    PIPE,
+    Popen,
     )
 
 from celery.task import task
@@ -308,7 +310,9 @@ def write_dhcp_config(**kwargs):
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
     output = config.get_config(**kwargs).encode("ascii")
-    atomic_write(output, DHCP_CONFIG_FILE, mode=0744)
+    proc = Popen(
+        ["sudo", "maas-provsion", "atomic-write", "--filename", DHCP_CONFIG_FILE])
+    #atomic_write(output, DHCP_CONFIG_FILE, mode=0744)
     restart_dhcp_server()
 
 

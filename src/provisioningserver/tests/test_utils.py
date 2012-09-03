@@ -446,7 +446,6 @@ class TestAtomicWriteScript(TestCase):
         args = parser.parse_args((
             '--no-overwrite',
             '--filename', filename,
-            # Pick a strange mode that is unlikely to appear in reality.
             '--mode', "111"))
         self.assertThat(
             args, MatchesStructure.byEquality(
@@ -469,15 +468,13 @@ class TestAtomicWriteScript(TestCase):
             os.path.dirname(provisioningserver.__file__),
             os.pardir, os.pardir)
         content = factory.getRandomString()
-        test_data_file = self.make_file(contents=content)
         script = ["%s/bin/maas-provision" % dev_root, 'atomic-write']
         target_file = self.make_file()
         script.extend(('--filename', target_file))
-        with open(test_data_file, "rb") as stdin:
-            cmd = Popen(
-                script, stdin=stdin,
-                env=dict(PYTHONPATH=":".join(sys.path)))
-            cmd.communicate()
+        cmd = Popen(
+            script, stdin=PIPE,
+            env=dict(PYTHONPATH=":".join(sys.path)))
+        cmd.communicate(content)
         self.assertThat(target_file, FileContains(content))
 
     def test_passes_overwrite_flag(self):
