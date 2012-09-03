@@ -236,14 +236,14 @@ class TestDHCPTasks(PservTestCase):
         config_params = self.make_dhcp_config_params()
         write_dhcp_config(**config_params)
 
-        # It should construcy Popen with the right parameters.
+        # It should construct Popen with the right parameters.
         popen_args = mocked_popen.call_args[0][0]
         self.assertEqual(
             popen_args,
-            ["sudo", "maas-provsion", "atomic-write", "--filename",
+            ["sudo", "maas-provision", "atomic-write", "--filename",
             DHCP_CONFIG_FILE, "--mode", "744"])
 
-        # It should then pass the content to communicate()
+        # It should then pass the content to communicate().
         content = config.get_config(**config_params).encode("ascii")
         mocked_proc.communicate.assert_called_once_with(content)
 
