@@ -512,7 +512,7 @@ class TestAtomicWriteScript(TestCase):
         filename = factory.getRandomString()
         mocked_atomic_write = self.get_mocked_script(
             content, filename,
-            ('--filename', filename, '--mode', "744"))
+            ('--filename', filename))
 
         mocked_atomic_write.assert_called_once_with(
-            content, filename, mode=0744, overwrite=True)
+            content, filename, mode=0600, overwrite=True)
