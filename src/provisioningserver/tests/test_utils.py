@@ -445,11 +445,14 @@ class TestAtomicWriteScript(TestCase):
         filename = factory.getRandomString()
         args = parser.parse_args((
             '--no-overwrite',
-            '--filename', filename))
+            '--filename', filename,
+            # Pick a strange mode that is unlikely to appear in reality.
+            '--mode', "111"))
         self.assertThat(
             args, MatchesStructure.byEquality(
                 no_overwrite=True,
-                filename=filename))
+                filename=filename,
+                mode="111"))
 
     def test_filename_arg_required(self):
         parser = self.get_parser()
@@ -488,4 +491,17 @@ class TestAtomicWriteScript(TestCase):
         AtomicWriteScript.run(args)
 
         mocked_atomic_write.assert_called_once_with(
-            content, filename, overwrite=False)
+            content, filename, mode=0600, overwrite=False)
+
+    def test_passes_mode_flag(self):
+        content = factory.getRandomString()
+        self.patch(sys, "stdin", StringIO.StringIO(content))
+        parser = self.get_parser()
+        filename = factory.getRandomString()
+        args = parser.parse_args(('--filename', filename, '--mode', "744"))
+        mocked_atomic_write = self.patch(
+            provisioningserver.utils, 'atomic_write')
+        AtomicWriteScript.run(args)
+
+        mocked_atomic_write.assert_called_once_with(
+            content, filename, mode=0744, overwrite=True)
