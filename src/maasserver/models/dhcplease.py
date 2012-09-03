@@ -102,7 +102,8 @@ class DHCPLeaseManager(Manager):
 
         self._delete_obsolete_leases(nodegroup, leases)
         new_leases = self._add_missing_leases(nodegroup, leases)
-        dns.change_dns_zones([nodegroup])
+        if len(new_leases) > 0:
+            dns.change_dns_zones([nodegroup])
         return new_leases
 
     def get_hostname_ip_mapping(self, nodegroup):
