@@ -145,7 +145,7 @@ def compose_purpose_opts(params):
 def compose_arch_opts(params):
     """Return any architecture-specific options required"""
     if (params.arch, params.subarch) == ("armhf", "highbank"):
-        return [ "console=ttyAMA0" ]
+        return ["console=ttyAMA0"]
     else:
         return []
 
