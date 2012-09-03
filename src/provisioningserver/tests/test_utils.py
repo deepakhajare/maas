@@ -440,6 +440,15 @@ class TestAtomicWriteScript(TestCase):
         AtomicWriteScript.add_arguments(parser)
         return parser
 
+    def get_mocked_script(self, content, filename, *args):
+        self.patch(sys, "stdin", StringIO.StringIO(content))
+        parser = self.get_parser()
+        parsed_args = parser.parse_args(*args)
+        mocked_atomic_write = self.patch(
+            provisioningserver.utils, 'atomic_write')
+        AtomicWriteScript.run(parsed_args)
+        return mocked_atomic_write
+
     def test_arg_setup(self):
         parser = self.get_parser()
         filename = factory.getRandomString()
@@ -470,35 +479,40 @@ class TestAtomicWriteScript(TestCase):
         content = factory.getRandomString()
         script = ["%s/bin/maas-provision" % dev_root, 'atomic-write']
         target_file = self.make_file()
-        script.extend(('--filename', target_file))
+        script.extend(('--filename', target_file, '--mode', '615'))
         cmd = Popen(
             script, stdin=PIPE,
             env=dict(PYTHONPATH=":".join(sys.path)))
         cmd.communicate(content)
         self.assertThat(target_file, FileContains(content))
+        self.assertEqual(0615, stat.S_IMODE(os.stat(target_file).st_mode))
 
     def test_passes_overwrite_flag(self):
         content = factory.getRandomString()
-        self.patch(sys, "stdin", StringIO.StringIO(content))
-        parser = self.get_parser()
         filename = factory.getRandomString()
-        args = parser.parse_args(('--filename', filename, '--no-overwrite'))
-        mocked_atomic_write = self.patch(
-            provisioningserver.utils, 'atomic_write')
-        AtomicWriteScript.run(args)
+        mocked_atomic_write = self.get_mocked_script(
+            content, filename,
+            ('--filename', filename, '--no-overwrite'))
 
         mocked_atomic_write.assert_called_once_with(
             content, filename, mode=0600, overwrite=False)
 
     def test_passes_mode_flag(self):
         content = factory.getRandomString()
-        self.patch(sys, "stdin", StringIO.StringIO(content))
-        parser = self.get_parser()
         filename = factory.getRandomString()
-        args = parser.parse_args(('--filename', filename, '--mode', "744"))
-        mocked_atomic_write = self.patch(
-            provisioningserver.utils, 'atomic_write')
-        AtomicWriteScript.run(args)
+        mocked_atomic_write = self.get_mocked_script(
+            content, filename,
+            ('--filename', filename, '--mode', "744"))
+
+        mocked_atomic_write.assert_called_once_with(
+            content, filename, mode=0744, overwrite=True)
+
+    def test_default_mode(self):
+        content = factory.getRandomString()
+        filename = factory.getRandomString()
+        mocked_atomic_write = self.get_mocked_script(
+            content, filename,
+            ('--filename', filename, '--mode', "744"))
 
         mocked_atomic_write.assert_called_once_with(
             content, filename, mode=0744, overwrite=True)
