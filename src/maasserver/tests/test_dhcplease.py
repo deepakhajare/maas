@@ -150,12 +150,18 @@ class TestDHCPLeaseManager(TestCase):
             },
             map_leases(nodegroup))
 
-    def test_update_leases_updates_dns_zones(self):
+    def test_update_leases_updates_dns_zone(self):
         self.patch(dns, 'change_dns_zones')
         nodegroup = factory.make_node_group()
         DHCPLease.objects.update_leases(
             nodegroup, factory.make_random_leases())
         dns.change_dns_zones.assert_called_once_with([nodegroup])
+
+    def test_update_leases_does_not_update_dns_zone_if_nothing_added(self):
+        self.patch(dns, 'change_dns_zones')
+        nodegroup = factory.make_node_group()
+        DHCPLease.objects.update_leases(nodegroup, {})
+        self.assertFalse(dns.change_dns_zones.called)
 
     def test_get_hostname_ip_mapping_returns_mapping(self):
         nodegroup = factory.make_node_group()
