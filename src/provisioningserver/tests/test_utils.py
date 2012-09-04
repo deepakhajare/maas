@@ -440,7 +440,7 @@ class TestAtomicWriteScript(TestCase):
         AtomicWriteScript.add_arguments(parser)
         return parser
 
-    def get_mocked_script(self, content, filename, *args):
+    def get_and_run_mocked_script(self, content, filename, *args):
         self.patch(sys, "stdin", StringIO.StringIO(content))
         parser = self.get_parser()
         parsed_args = parser.parse_args(*args)
@@ -490,7 +490,7 @@ class TestAtomicWriteScript(TestCase):
     def test_passes_overwrite_flag(self):
         content = factory.getRandomString()
         filename = factory.getRandomString()
-        mocked_atomic_write = self.get_mocked_script(
+        mocked_atomic_write = self.get_and_run_mocked_script(
             content, filename,
             ('--filename', filename, '--no-overwrite'))
 
@@ -500,7 +500,7 @@ class TestAtomicWriteScript(TestCase):
     def test_passes_mode_flag(self):
         content = factory.getRandomString()
         filename = factory.getRandomString()
-        mocked_atomic_write = self.get_mocked_script(
+        mocked_atomic_write = self.get_and_run_mocked_script(
             content, filename,
             ('--filename', filename, '--mode', "744"))
 
@@ -510,7 +510,7 @@ class TestAtomicWriteScript(TestCase):
     def test_default_mode(self):
         content = factory.getRandomString()
         filename = factory.getRandomString()
-        mocked_atomic_write = self.get_mocked_script(
+        mocked_atomic_write = self.get_and_run_mocked_script(
             content, filename,
             ('--filename', filename))
 
