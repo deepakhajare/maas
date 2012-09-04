@@ -106,7 +106,7 @@ class Command(BaseCommand):
                 setattr(master_nodegroup, item, value)
             master_nodegroup.save()
 
-            # If DHCP management is enabled, create a Task that will
+            # Enable DHCP management and create a Task that will
             # write the config out.
             Config.objects.set_config('manage_dhcp', True)
             master_nodegroup.set_up_dhcp()
