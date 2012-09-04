@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+sudo -A dpkg --install -- "$@"
+sudo -A apt-get --fix-broken --assume-yes install
