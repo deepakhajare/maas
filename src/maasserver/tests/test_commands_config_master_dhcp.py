@@ -132,6 +132,7 @@ class TestConfigMasterDHCP(TestCase):
     def test_sets_up_dhcp_and_enables_it(self):
         master = NodeGroup.objects.ensure_master()
         settings = make_dhcp_settings()
+        Config.objects.set_config('manage_dhcp', False)
         call_command('config_master_dhcp', **settings)
         self.assertEqual(1, master.set_up_dhcp.call_count)
         self.assertTrue(Config.objects.get_config('manage_dhcp'))
