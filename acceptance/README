@@ -1,0 +1,13 @@
+MAAS Packaging Acceptance Testing
+---------------------------------
+
+The `test` make target will build binary packages for the current
+branch using the latest packaging branch from Launchpad, and then run
+the "test" script (from the current directory) in an ephemeral LXC
+container.
+
+Consider the "test" script, as it stands, as a bootstrap point for
+further testing. It may not be suitable for full automated end-to-end
+testing of MAAS, so be clear about what you need to test before
+investing work here. OTOH, it is a good place to test that the
+packages install and configure themselves as expected.
