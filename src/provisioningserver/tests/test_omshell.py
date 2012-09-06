@@ -109,6 +109,8 @@ class TestOmshell(TestCase):
             'hostname': factory.make_name('hostname')
         }
         shell = Omshell(factory.make_name('server'), factory.make_name('key'))
+        # This is the kind of error output we get if a host map has
+        # already been created.
         error_output = dedent("""\
             obj: host
             ip-address = %(ip)s
