@@ -24,8 +24,8 @@ misc_bucket:
 
       echo "$user:$pass" | chpasswd
       bfile="/tmp/block-reboot"
-      { echo "#!/bin/sh"; echo "touch $bfile"; } > /etc/profile.d/A01-block
-      chmod 755 /etc/profile.d/A01-block
+      { echo "#!/bin/sh"; echo "touch $bfile"; } > /etc/profile.d/A01-block.sh
+      chmod 755 /etc/profile.d/A01-block.sh
       echo
       echo =============================================
       echo "failed to enlist system maas server '$host'"
