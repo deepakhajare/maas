@@ -18,6 +18,7 @@ __all__ = [
     "MainScript",
     "parse_key_value_file",
     "ShellTemplate",
+    "write_custom_config_section",
     ]
 
 from argparse import ArgumentParser
@@ -188,6 +189,39 @@ def parse_key_value_file(file_name, separator=":"):
     """
     with open(file_name, 'rb') as input:
         return dict(strip_pairs(split_lines(input, separator)))
+
+
+# Header and footer comments for MAAS custom config sections, as managed
+# by write_custom_config_section.
+maas_custom_config_markers = (
+    "## Begin MAAS settings.  Do not edit; MAAS will overwrite this section.",
+    "## End MAAS settings.",
+    )
+
+
+def write_custom_config_section(original_text, custom_section):
+    """Insert or replace a custom section in a configuration file's text.
+
+    This allows you to rewrite configuration files that are not owned by
+    MAAS, but where MAAS will have one section for its own settings.  It
+    doesn't read or write any files; this is a pure text operation.
+
+    Appends `custom_section` to the end of `original_text` if there was no
+    custom MAAS section yet.  Otherwise, replaces the existing custom MAAS
+    section with `custom_section`.  Returns the new text.
+
+    Assumes that the configuration file's format accepts lines starting with
+    hash marks (#) as comments.  The custom section will be bracketed by
+    special marker comments that make it clear that MAAS wrote the section
+    and it should not be edited by hand.
+
+    :param original_text: The config file's current text.
+    :type original_text: unicode
+    :param custom_section: Custom config sectin to insert.
+    :type custom_section: unicode
+    :return: New config file text.
+    :rtype: unicode
+    """
 
 
 class Safe:
