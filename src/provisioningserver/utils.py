@@ -225,7 +225,7 @@ def write_custom_config_section(original_text, custom_section):
 
     :param original_text: The config file's current text.
     :type original_text: unicode
-    :param custom_section: Custom config sectin to insert.
+    :param custom_section: Custom config section to insert.
     :type custom_section: unicode
     :return: New config file text.
     :rtype: unicode
