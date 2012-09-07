@@ -199,6 +199,14 @@ maas_custom_config_markers = (
     )
 
 
+def find_list_item(item, in_list, starting_at=0):
+    """Return index of `item` in `in_list`, or None if not found."""
+    try:
+        return in_list.index(item, starting_at)
+    except ValueError:
+        return None
+
+
 def write_custom_config_section(original_text, custom_section):
     """Insert or replace a custom section in a configuration file's text.
 
@@ -222,6 +230,39 @@ def write_custom_config_section(original_text, custom_section):
     :return: New config file text.
     :rtype: unicode
     """
+    header, footer = maas_custom_config_markers
+    lines = original_text.splitlines()
+    header_index = find_list_item(header, lines)
+    if header_index is not None:
+        footer_index = find_list_item(footer, lines, header_index)
+        if footer_index is None:
+            # There's a header but no footer.  Pretend we didn't see the
+            # header; just append a new custom section at the end.  Any
+            # subsequent rewrite will replace the part starting at the
+            # header and ending at the header we will add here.  At that
+            # point there will be no trace of the strange situation
+            # left.
+            header_index = None
+
+    if header_index is None:
+        # There was no MAAS custom section in this file.  Append it at
+        # the end.  Our INTERFACES setting will supersede any that was
+        # already in the file, but leave it in there.
+        lines += [
+            header,
+            custom_section,
+            footer,
+            ]
+    elif lines[(header_index + 1):footer_index] == [custom_section]:
+        return None
+    else:
+        # There is a MAAS custom section in the file.  Replace it.
+        lines = (
+            lines[:(header_index + 1)] +
+            [custom_section] +
+            lines[footer_index:])
+
+    return '\n'.join(lines) + '\n'
 
 
 class Safe:
