@@ -16,9 +16,21 @@ image := maas-$(DISTRIB_CODENAME)
 test: sudo build image
 	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
 	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
-	    SUDO_ASKPASS=$(abspath ubuntupass) $(abspath test) $(packages)
+	    SUDO_ASKPASS=$(abspath ubuntupass) $(abspath with-make) \
+	    make -C $(abspath .) test-inner
 
-build: source source/debian
+test-inner:
+	sudo -A dpkg --install -- $(packages)
+	sudo -A apt-get --fix-broken --assume-yes install
+
+build: sudo source source/debian
+	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
+	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
+	    SUDO_ASKPASS=$(abspath ubuntupass) $(abspath with-make) \
+	    make -C $(abspath .) build-inner
+
+build-inner:
+	sudo -A apt-get --assume-yes install devscripts debhelper dh-apport
 	cd source && debuild -i -us -uc -b
 
 image:

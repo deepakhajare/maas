@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+sudo -A apt-get install --assume-yes make && exec "$@"
