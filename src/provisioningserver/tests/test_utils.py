@@ -322,7 +322,7 @@ class WriteCustomConfigSectionTest(TestCase):
         # config section whose header has been changed or deleted.
         header, footer = maas_custom_config_markers
         original = [
-            header,
+            footer,
             "Possible old custom section.",
             ]
         expected = [
