@@ -354,6 +354,7 @@ class WriteCustomConfigSectionTest(TestCase):
         # eliminates problems with line endings.  This test here
         # verifies that the actual text you get is sensible, preserves
         # newlines, and generally looks normal.
+        header, footer = maas_custom_config_markers
         original = dedent("""\
             Top.
 
@@ -364,7 +365,7 @@ class WriteCustomConfigSectionTest(TestCase):
             %s
             End.
 
-            """)
+            """) % (header, footer)
         new_custom_section = dedent("""\
             New custom section.
 
@@ -381,7 +382,7 @@ class WriteCustomConfigSectionTest(TestCase):
             %s
             End.
 
-            """)
+            """) % (header, footer)
         self.assertEqual(
             expected,
             write_custom_config_section(original, new_custom_section))
