@@ -17,7 +17,6 @@ from datetime import (
     timedelta,
     )
 from textwrap import dedent
-from uuid import uuid1
 
 from apiclient.maas_client import MAASClient
 from maastesting.factory import factory
@@ -113,7 +112,7 @@ class TestUpdateLeases(PservTestCase):
 
     def set_nodegroup_uuid(self):
         """Set the recorded nodegroup uuid for the duration of this test."""
-        uuid = str(uuid1())
+        uuid = factory.getRandomUUID()
         cache.cache.set(NODEGROUP_UUID_CACHE_KEY, uuid)
         return uuid
 
