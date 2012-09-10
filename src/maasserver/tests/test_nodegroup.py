@@ -16,6 +16,7 @@ from django.conf import settings
 import maasserver
 from maasserver.dns import get_dns_server_address
 from maasserver.models import NodeGroup
+from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing import (
     disable_dhcp_management,
     enable_dhcp_management,
@@ -194,6 +195,9 @@ class TestNodeGroup(TestCase):
     def test_set_up_dhcp_writes_dhcp_config(self):
         mocked_task = self.patch(
             maasserver.models.nodegroup, 'write_dhcp_config')
+        self.patch(
+            settings, 'DEFAULT_MAAS_URL',
+            'http://%s/' % factory.getRandomIPAddress())
         nodegroup = factory.make_node_group(
             dhcp_key=factory.getRandomString(),
             ip_range_low='192.168.102.1', ip_range_high='192.168.103.254',
@@ -202,28 +206,20 @@ class TestNodeGroup(TestCase):
         dhcp_params = [
             'subnet_mask', 'broadcast_ip', 'router_ip',
             'ip_range_low', 'ip_range_high']
-        expected_params = {}
-        for param in dhcp_params:
-            expected_params[param] = getattr(nodegroup, param)
-        expected_params["next_server"] = nodegroup.worker_ip
+
+        expected_params = {
+            param: getattr(nodegroup, param)
+            for param in dhcp_params}
+
+        # Currently all nodes use the central TFTP server.  This will be
+        # decentralized to use NodeGroup.worker_ip later.
+        expected_params["next_server"] = get_maas_facing_server_address()
+
         expected_params["omapi_key"] = nodegroup.dhcp_key
         expected_params["dns_servers"] = get_dns_server_address()
         expected_params["subnet"] = '192.168.100.0'
-        mocked_task.delay.assert_called_once_with(**expected_params)
 
-    def test_set_up_dhcp_refers_to_tftp_server(self):
-        # The next_server field tells clients where they can find their
-        # TFTP server for netbooting.
-        # Currently all nodes use the central TFTP server.  This will be
-        # decentralized to use NodeGroup.worker_ip later.
-        server_ip = factory.getRandomIPAddress()
-        self.patch(settings, 'DEFAULT_MAAS_URL', 'http://%s/' % server_ip)
-        self.patch(maasserver.models.nodegroup, 'write_dhcp_config')
-        patched_task = maasserver.models.nodegroup.write_dhcp_config
-        factory.make_node_group().set_up_dhcp()
-        self.assertEqual(
-            server_ip,
-            patched_task.delay.call_args[1]['next_server'])
+        mocked_task.delay.assert_called_once_with(**expected_params)
 
     def test_add_dhcp_host_maps_adds_maps_if_managing_dhcp(self):
         self.patch(Omshell, 'create', FakeMethod())
