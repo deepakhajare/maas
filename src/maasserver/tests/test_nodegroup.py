@@ -52,7 +52,7 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_creates_nodegroup(self):
         name = factory.make_name('nodegroup')
-        uuid = factory.make_name('uuid')
+        uuid = factory.getRandomUUID()
         ip = factory.getRandomIPAddress()
         self.assertThat(
             NodeGroup.objects.new(name, uuid, ip),
@@ -61,7 +61,7 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_does_not_require_dhcp_settings(self):
         name = factory.make_name('nodegroup')
-        uuid = factory.make_name('uuid')
+        uuid = factory.getRandomUUID()
         ip = factory.getRandomIPAddress()
         nodegroup = NodeGroup.objects.new(name, uuid, ip)
         self.assertThat(
