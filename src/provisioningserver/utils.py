@@ -246,15 +246,12 @@ def write_custom_config_section(original_text, custom_section):
 
     if header_index is None:
         # There was no MAAS custom section in this file.  Append it at
-        # the end.  Our INTERFACES setting will supersede any that was
-        # already in the file, but leave it in there.
+        # the end.
         lines += [
             header,
             custom_section,
             footer,
             ]
-    elif lines[(header_index + 1):footer_index] == [custom_section]:
-        return None
     else:
         # There is a MAAS custom section in the file.  Replace it.
         lines = (
