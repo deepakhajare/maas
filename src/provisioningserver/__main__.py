@@ -21,17 +21,15 @@ from provisioningserver.utils import (
     )
 
 
+script_commands = {
+    'atomic-write': AtomicWriteScript,
+    'install-pxe-bootloader': provisioningserver.pxe.install_bootloader,
+    'install-pxe-image': provisioningserver.pxe.install_image,
+    'generate-dhcp-config': provisioningserver.dhcp.writer,
+}
+
+
 main = MainScript(__doc__)
-main.register(
-    "install-pxe-bootloader",
-    provisioningserver.pxe.install_bootloader)
-main.register(
-    "install-pxe-image",
-    provisioningserver.pxe.install_image)
-main.register(
-    "generate-dhcp-config",
-    provisioningserver.dhcp.writer)
-main.register(
-    "atomic-write",
-    AtomicWriteScript)
+for name, command in sorted(script_commands.items()):
+    main.register(name, command)
 main()
