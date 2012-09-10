@@ -1095,17 +1095,11 @@ def reST_to_html_fragment(a_str):
     return parts['body_pre_docinfo'] + parts['fragment']
 
 
-_API_DOC = None
-
-
 def api_doc(request):
     """Get ReST documentation for the REST API."""
     # Generate the documentation and keep it cached.  Note that we can't do
     # that at the module level because the API doc generation needs Django
     # fully initialized.
-    global _API_DOC
-    if _API_DOC is None:
-        _API_DOC = render_api_docs()
     return render_to_response(
         'maasserver/api_doc.html',
         {'doc': reST_to_html_fragment(render_api_docs())},
