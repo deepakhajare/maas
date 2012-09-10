@@ -17,6 +17,7 @@ __all__ = [
 from io import BytesIO
 import random
 import time
+from uuid import uuid1
 
 from django.contrib.auth.models import User
 from maasserver.enum import (
@@ -133,7 +134,7 @@ class Factory(maastesting.factory.Factory):
         if name is None:
             name = self.make_name('nodegroup')
         if uuid is None:
-            uuid = self.make_name('uuid')
+            uuid = uuid1()
         if network is not None:
             subnet_mask = str(network.netmask)
             broadcast_ip = str(network.broadcast)
