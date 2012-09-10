@@ -1014,16 +1014,6 @@ class MAASHandler(BaseHandler):
         return HttpResponse(json.dumps(value), content_type='application/json')
 
 
-# Title section for the API documentation.  Matches in style, format,
-# etc. whatever render_api_docs() produces, so that you can concatenate
-# the two.
-api_doc_title = dedent("""
-    ========
-    MAAS API
-    ========
-    """.lstrip('\n'))
-
-
 def find_api_handlers(module):
     """Find the API handlers defined in `module`.
 
@@ -1060,6 +1050,16 @@ def generate_api_docs(handlers):
             raise AssertionError(
                 "Missing resource_uri in %s" % handler.__name__)
         yield generate_doc(handler)
+
+
+# Title section for the API documentation.  Matches in style, format,
+# etc. whatever render_api_docs() produces, so that you can concatenate
+# the two.
+api_doc_title = dedent("""\
+    ========
+    MAAS API
+    ========
+    """.lstrip('\n'))
 
 
 def render_api_docs():
