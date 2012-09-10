@@ -37,10 +37,10 @@ from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
 from maasserver.api import (
-    find_api_handlers,
     extract_constraints,
     extract_oauth_key,
     extract_oauth_key_from_auth_header,
+    find_api_handlers,
     get_oauth_token,
     get_overrided_query_dict,
     )
