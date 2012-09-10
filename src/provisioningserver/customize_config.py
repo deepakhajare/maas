@@ -25,11 +25,11 @@ from provisioningserver.utils import write_custom_config_section
 
 def add_arguments(parser):
     parser.add_argument(
+        'file', metavar='FILE',
+        help="Configuration file that you want to customize.")
+    parser.add_argument(
         '--encoding', dest='encoding', default='utf-8',
         help="Encoding to use when reading and writing config.")
-    parser.add_argument(
-        '--file', dest='file', default=None,
-        help="Configuration file that you want to customize.")
 
 
 def run(args):

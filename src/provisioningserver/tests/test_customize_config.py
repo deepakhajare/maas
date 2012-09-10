@@ -12,10 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from argparse import (
-    ArgumentError,
-    ArgumentParser,
-    )
+from argparse import ArgumentParser
 from io import BytesIO
 import sys
 from textwrap import dedent
@@ -41,7 +38,7 @@ class TestCustomizeConfig(TestCase):
             sys, 'stdin', BytesIO("Custom section here.".encode('utf-8')))
         self.patch(sys, 'stdout', BytesIO())
 
-        self.run_command('--file', original_file)
+        self.run_command(original_file)
 
         sys.stdout.seek(0)
         expected = dedent("""\
@@ -52,14 +49,11 @@ class TestCustomizeConfig(TestCase):
             """) % (header, footer)
         self.assertEqual(expected, sys.stdout.read().decode('utf-8'))
 
-    def test_requires_file_argument(self):
-        self.assertRaises(ArgumentError, self.run_command)
-
     def test_does_not_modify_original(self):
         original_text = factory.getRandomString().encode('ascii')
         original_file = self.make_file(contents=original_text)
 
-        self.run_command('--file', original_file)
+        self.run_command(original_file)
 
         with open(original_file, 'rb') as reread_file:
             contents_after = reread_file.read()
