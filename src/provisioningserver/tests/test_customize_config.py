@@ -12,29 +12,36 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from argparse import ArgumentError
+from argparse import (
+    ArgumentError,
+    ArgumentParser,
+    )
 from io import BytesIO
 import sys
 from textwrap import dedent
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from provisioningserver import customize_config
 from provisioningserver.utils import maas_custom_config_markers
 
 
 class TestCustomizeConfig(TestCase):
 
-    def run_command(self, **kwargs):
-# TODO: Run command.
-        pass
+    def run_command(self, *args):
+        parser = ArgumentParser()
+        customize_config.add_arguments(parser)
+        parsed_args = parser.parse_args(args)
+        customize_config.run(parsed_args)
 
     def test_integration(self):
         header, footer = maas_custom_config_markers
         original_file = self.make_file("Original text here.")
-        self.patch(sys.stdin, BytesIO("Custom section here.".encode('utf-8')))
-        self.patch(sys.stdout, BytesIO())
+        self.patch(
+            sys, 'stdin', BytesIO("Custom section here.".encode('utf-8')))
+        self.patch(sys, 'stdout', BytesIO())
 
-        self.run_command(file=original_file)
+        self.run_command('--file', original_file)
 
         sys.stdout.seek(0)
         expected = dedent("""\
@@ -52,7 +59,7 @@ class TestCustomizeConfig(TestCase):
         original_text = factory.getRandomString().encode('ascii')
         original_file = self.make_file(contents=original_text)
 
-        self.run_command(file=original_file)
+        self.run_command('--file', original_file)
 
         with open(original_file, 'rb') as reread_file:
             contents_after = reread_file.read()
