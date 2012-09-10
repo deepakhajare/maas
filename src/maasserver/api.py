@@ -1024,6 +1024,37 @@ api_doc_title = dedent("""
     """.lstrip('\n'))
 
 
+def find_api_handlers(module):
+    """Find the API handlers defined in `module`.
+
+    Handlers are of type :class:`HandlerMetaClass`.
+
+    :rtype: Generator, yielding handlers.
+    """
+    try:
+        names = module.__all__
+    except AttributeError:
+        names = sorted(
+            name for name in dir(module)
+            if not name.startswith("_"))
+    for name in names:
+        candidate = getattr(module, name)
+        if isinstance(candidate, HandlerMetaClass):
+            yield candidate
+
+
+def ensure_resource_uri_defined(handler):
+    """Ensure that `handler` defines a 'resource_uri' method.
+
+    This is easily forgotten and essential in order to generate proper
+    documentation.
+    """
+    sentinel = object()
+    resource_uri = getattr(handler, "resource_uri", sentinel)
+    assert resource_uri is not sentinel, (
+        "Missing resource_uri in %s" % handler.__name__)
+
+
 def generate_api_doc():
     """Generate ReST documentation for the REST API.
 
@@ -1033,24 +1064,11 @@ def generate_api_doc():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
-
-    # Fetch all the API Handlers (objects with the class
-    # HandlerMetaClass).
     module = sys.modules[__name__]
-
-    all = [getattr(module, name) for name in module.__all__]
-    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
-
-    # Make sure each handler defines a 'resource_uri' method (this is
-    # easily forgotten and essential to have a proper documentation).
+    handlers = list(find_api_handlers(module))
     for handler in handlers:
-        sentinel = object()
-        resource_uri = getattr(handler, "resource_uri", sentinel)
-        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
-            handler.__name__)
-
+        ensure_resource_uri_defined(handler)
     docs = [generate_doc(handler) for handler in handlers]
-
     messages = [
         __doc__.strip(),
         '',

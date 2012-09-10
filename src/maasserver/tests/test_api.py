@@ -24,6 +24,7 @@ from datetime import (
     )
 import httplib
 import json
+import new
 import os
 import random
 import shutil
@@ -36,6 +37,7 @@ from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
 from maasserver.api import (
+    find_api_handlers,
     extract_constraints,
     extract_oauth_key,
     extract_oauth_key_from_auth_header,
@@ -93,6 +95,7 @@ from metadataserver.models import (
     )
 from metadataserver.nodeinituser import get_node_init_user
 from mock import Mock
+from piston.handler import BaseHandler
 from provisioningserver import (
     kernel_opts,
     tasks,
@@ -2592,3 +2595,43 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
+
+
+class TestInspection(TestCase):
+    """Tests for API inspection support."""
+
+    @staticmethod
+    def make_module():
+        name = factory.make_name("module").encode("ascii")
+        return new.module(name)
+
+    def test_empty_module(self):
+        module = self.make_module()
+        module.__all__ = []
+        self.assertSequenceEqual(
+            [], list(find_api_handlers(module)))
+
+    def test_empty_module_without_all(self):
+        module = self.make_module()
+        self.assertSequenceEqual(
+            [], list(find_api_handlers(module)))
+
+    def test_module_without_handler(self):
+        module = self.make_module()
+        module.something = 123
+        self.assertSequenceEqual(
+            [], list(find_api_handlers(module)))
+
+    def test_module_with_handler(self):
+        module = self.make_module()
+        module.handler = BaseHandler
+        self.assertSequenceEqual(
+            [BaseHandler], list(find_api_handlers(module)))
+
+    def test_module_with_handler_not_in_all(self):
+        module = self.make_module()
+        module.handler = BaseHandler
+        module.something = "abc"
+        module.__all__ = ["something"]
+        self.assertSequenceEqual(
+            [], list(find_api_handlers(module)))
