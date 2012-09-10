@@ -25,35 +25,35 @@ from provisioningserver.utils import maas_custom_config_markers
 
 class TestCustomizeConfig(TestCase):
 
-    def run_command(self, *args):
+    def run_command(self, input_file, stdin):
+        self.patch(sys, 'stdin', BytesIO(stdin.encode('utf-8')))
+        self.patch(sys, 'stdout', BytesIO())
         parser = ArgumentParser()
         customize_config.add_arguments(parser)
-        parsed_args = parser.parse_args(args)
+        parsed_args = parser.parse_args((input_file, ))
         customize_config.run(parsed_args)
 
     def test_integration(self):
         header, footer = maas_custom_config_markers
-        original_file = self.make_file("Original text here.")
-        self.patch(
-            sys, 'stdin', BytesIO("Custom section here.".encode('utf-8')))
-        self.patch(sys, 'stdout', BytesIO())
+        original_file = self.make_file(contents="Original text here.")
 
-        self.run_command(original_file)
+        self.run_command(original_file, stdin="Custom section here.")
 
         sys.stdout.seek(0)
         expected = dedent("""\
-            "Original text here.
+            Original text here.
             %s
             Custom section here.
             %s
             """) % (header, footer)
-        self.assertEqual(expected, sys.stdout.read().decode('utf-8'))
+        output = sys.stdout.read()
+        self.assertEqual(expected, output.decode('utf-8'))
 
     def test_does_not_modify_original(self):
         original_text = factory.getRandomString().encode('ascii')
         original_file = self.make_file(contents=original_text)
 
-        self.run_command(original_file)
+        self.run_command(original_file, factory.getRandomString())
 
         with open(original_file, 'rb') as reread_file:
             contents_after = reread_file.read()

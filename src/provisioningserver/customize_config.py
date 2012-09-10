@@ -20,6 +20,8 @@ __all__ = [
     'run',
     ]
 
+import sys
+
 from provisioningserver.utils import write_custom_config_section
 
 
@@ -40,3 +42,8 @@ def run(args):
     the custom section appended, or substituted for an existing custom
     section if there already was one.
     """
+    with open(args.file, 'rb') as original_file:
+        original_text = original_file.read().decode(args.encoding)
+    custom_section = sys.stdin.read().decode(args.encoding)
+    new_text = write_custom_config_section(original_text, custom_section)
+    sys.stdout.write(new_text.encode(args.encoding))
