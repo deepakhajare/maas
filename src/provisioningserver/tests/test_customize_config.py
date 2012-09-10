@@ -14,13 +14,26 @@ __all__ = []
 
 from argparse import ArgumentParser
 from io import BytesIO
+import os.path
+from subprocess import (
+    PIPE,
+    Popen,
+    )
 import sys
 from textwrap import dedent
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
+import provisioningserver
 from provisioningserver import customize_config
 from provisioningserver.utils import maas_custom_config_markers
+
+
+def locate_dev_root():
+    """Return root of development source tree."""
+    return os.path.join(
+        os.path.dirname(provisioningserver.__file__),
+        os.pardir, os.pardir)
 
 
 class TestCustomizeConfig(TestCase):
@@ -33,7 +46,18 @@ class TestCustomizeConfig(TestCase):
         parsed_args = parser.parse_args((input_file, ))
         customize_config.run(parsed_args)
 
-    def test_integration(self):
+    def test_runs_as_script(self):
+        original_text = factory.getRandomString()
+        original_file = self.make_file(original_text)
+        script = "%s/bin/maas-provision" % locate_dev_root()
+        command = Popen(
+            [script, "customize-config", original_file],
+            stdin=PIPE, stdout=PIPE,
+            env=dict(PYTHONPATH=":".join(sys.path)))
+        command.communicate(original_text)
+        self.assertEqual(0, command.returncode)
+
+    def test_produces_sensible_text(self):
         header, footer = maas_custom_config_markers
         original_file = self.make_file(contents="Original text here.")
 
