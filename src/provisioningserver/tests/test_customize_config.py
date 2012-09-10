@@ -12,16 +12,49 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from argparse import ArgumentError
+from io import BytesIO
+import sys
+from textwrap import dedent
+
+from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from provisioningserver.utils import maas_custom_config_markers
 
 
 class TestCustomizeConfig(TestCase):
 
+    def run_command(self, **kwargs):
+# TODO: Run command.
+        pass
+
     def test_integration(self):
-        self.fail("TEST THIS")
+        header, footer = maas_custom_config_markers
+        original_file = self.make_file("Original text here.")
+        self.patch(sys.stdin, BytesIO("Custom section here.".encode('utf-8')))
+        self.patch(sys.stdout, BytesIO())
+
+        self.run_command(file=original_file)
+
+        sys.stdout.seek(0)
+        expected = dedent("""\
+            "Original text here.
+            %s
+            Custom section here.
+            %s
+            """) % (header, footer)
+        self.assertEqual(expected, sys.stdout.read().decode('utf-8'))
 
     def test_requires_file_argument(self):
-        self.fail("TEST THIS")
+        self.assertRaises(ArgumentError, self.run_command)
 
     def test_does_not_modify_original(self):
-        self.fail("TEST THIS")
+        original_text = factory.getRandomString().encode('ascii')
+        original_file = self.make_file(contents=original_text)
+
+        self.run_command(file=original_file)
+
+        with open(original_file, 'rb') as reread_file:
+            contents_after = reread_file.read()
+
+        self.assertEqual(original_text, contents_after)
