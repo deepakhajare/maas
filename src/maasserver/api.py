@@ -99,6 +99,10 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
+from maasserver.apidoc import (
+    find_api_handlers,
+    generate_api_docs,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
@@ -130,11 +134,9 @@ from maasserver.preseed import (
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils.orm import get_one
-from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
-    HandlerMetaClass,
     )
 from piston.models import Token
 from piston.resource import Resource
@@ -1012,44 +1014,6 @@ class MAASHandler(BaseHandler):
         name = get_mandatory_param(request.GET, 'name')
         value = Config.objects.get_config(name)
         return HttpResponse(json.dumps(value), content_type='application/json')
-
-
-def find_api_handlers(module):
-    """Find the API handlers defined in `module`.
-
-    Handlers are of type :class:`HandlerMetaClass`.
-
-    :rtype: Generator, yielding handlers.
-    """
-    try:
-        names = module.__all__
-    except AttributeError:
-        names = sorted(
-            name for name in dir(module)
-            if not name.startswith("_"))
-    for name in names:
-        candidate = getattr(module, name)
-        if isinstance(candidate, HandlerMetaClass):
-            yield candidate
-
-
-def generate_api_docs(handlers):
-    """Generate ReST documentation objects for the ReST API.
-
-    Yields Piston Documentation objects describing the current registered
-    handlers.
-
-    This also ensures that handlers define 'resource_uri' methods. This is
-    easily forgotten and essential in order to generate proper documentation.
-
-    :rtype: :class:`...`
-    """
-    sentinel = object()
-    for handler in handlers:
-        if getattr(handler, "resource_uri", sentinel) is sentinel:
-            raise AssertionError(
-                "Missing resource_uri in %s" % handler.__name__)
-        yield generate_doc(handler)
 
 
 # Title section for the API documentation.  Matches in style, format,

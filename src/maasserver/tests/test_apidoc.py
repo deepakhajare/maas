@@ -14,7 +14,10 @@ __all__ = []
 
 import new
 
-from maasserver import api
+from maasserver.apidoc import (
+    find_api_handlers,
+    generate_api_docs,
+    )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from piston.doc import HandlerDocumentation
@@ -35,27 +38,27 @@ class TestFindingHandlers(TestCase):
         module = self.make_module()
         module.__all__ = []
         self.assertSequenceEqual(
-            [], list(api.find_api_handlers(module)))
+            [], list(find_api_handlers(module)))
 
     def test_empty_module_without_all(self):
         # The absence of __all__ does not matter.
         module = self.make_module()
         self.assertSequenceEqual(
-            [], list(api.find_api_handlers(module)))
+            [], list(find_api_handlers(module)))
 
     def test_ignore_non_handlers(self):
         # Module properties that are not handlers are ignored.
         module = self.make_module()
         module.something = 123
         self.assertSequenceEqual(
-            [], list(api.find_api_handlers(module)))
+            [], list(find_api_handlers(module)))
 
     def test_module_with_handler(self):
         # Handlers are discovered in a module and returned.
         module = self.make_module()
         module.handler = BaseHandler
         self.assertSequenceEqual(
-            [BaseHandler], list(api.find_api_handlers(module)))
+            [BaseHandler], list(find_api_handlers(module)))
 
     def test_module_with_handler_not_in_all(self):
         # When __all__ is defined, only the names it defines are searched for
@@ -65,7 +68,7 @@ class TestFindingHandlers(TestCase):
         module.something = "abc"
         module.__all__ = ["something"]
         self.assertSequenceEqual(
-            [], list(api.find_api_handlers(module)))
+            [], list(find_api_handlers(module)))
 
 
 class TestGeneratingDocs(TestCase):
@@ -83,29 +86,29 @@ class TestGeneratingDocs(TestCase):
         return type(name, (BaseHandler,), namespace)
 
     def test_generates_doc_for_handler(self):
-        # api.generate_api_docs() yields HandlerDocumentation objects for the
+        # generate_api_docs() yields HandlerDocumentation objects for the
         # handlers passed in.
         handler = self.make_handler()
-        docs = list(api.generate_api_docs([handler]))
+        docs = list(generate_api_docs([handler]))
         self.assertEqual(1, len(docs))
         [doc] = docs
         self.assertIsInstance(doc, HandlerDocumentation)
         self.assertIs(handler, doc.handler)
 
     def test_generates_doc_for_multiple_handlers(self):
-        # api.generate_api_docs() yields HandlerDocumentation objects for the
+        # generate_api_docs() yields HandlerDocumentation objects for the
         # handlers passed in.
         handlers = [self.make_handler() for _ in range(5)]
-        docs = list(api.generate_api_docs(handlers))
+        docs = list(generate_api_docs(handlers))
         self.assertEqual(len(handlers), len(docs))
         self.assertEqual(handlers, [doc.handler for doc in docs])
 
     def test_handler_without_resource_uri(self):
-        # api.generate_api_docs() raises an exception if a handler does not have a
+        # generate_api_docs() raises an exception if a handler does not have a
         # resource_uri attribute.
         handler = self.make_handler()
         del handler.resource_uri
-        docs = api.generate_api_docs([handler])
+        docs = generate_api_docs([handler])
         error = self.assertRaises(AssertionError, list, docs)
         self.assertEqual(
             "Missing resource_uri in %s" % handler.__name__,
