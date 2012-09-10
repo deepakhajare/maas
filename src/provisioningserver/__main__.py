@@ -12,6 +12,7 @@ from __future__ import (
 
 __metaclass__ = type
 
+import provisioningserver.customize_config
 import provisioningserver.dhcp.writer
 import provisioningserver.pxe.install_bootloader
 import provisioningserver.pxe.install_image
@@ -23,9 +24,10 @@ from provisioningserver.utils import (
 
 script_commands = {
     'atomic-write': AtomicWriteScript,
+    'customize-config': provisioningserver.customize_config,
+    'generate-dhcp-config': provisioningserver.dhcp.writer,
     'install-pxe-bootloader': provisioningserver.pxe.install_bootloader,
     'install-pxe-image': provisioningserver.pxe.install_image,
-    'generate-dhcp-config': provisioningserver.dhcp.writer,
 }
 
 
