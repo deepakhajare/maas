@@ -54,19 +54,19 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "api_doc",
-    "api_doc_title",
-    "generate_api_doc",
-    "get_oauth_token",
     "AccountHandler",
     "AnonNodesHandler",
+    "api_doc",
+    "api_doc_title",
     "FilesHandler",
+    "get_oauth_token",
     "NodeGroupsHandler",
     "NodeHandler",
-    "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
+    "NodesHandler",
     "pxeconfig",
+    "render_api_docs",
     ]
 
 from base64 import b64decode
@@ -1015,7 +1015,7 @@ class MAASHandler(BaseHandler):
 
 
 # Title section for the API documentation.  Matches in style, format,
-# etc. whatever generate_api_doc() produces, so that you can concatenate
+# etc. whatever render_api_docs() produces, so that you can concatenate
 # the two.
 api_doc_title = dedent("""
     ========
@@ -1062,7 +1062,7 @@ def generate_api_docs(handlers):
         yield generate_doc(handler)
 
 
-def generate_api_doc():
+def render_api_docs():
     """Render ReST documentation for the REST API.
 
     This module's docstring forms the head of the documentation; details of
@@ -1105,10 +1105,10 @@ def api_doc(request):
     # fully initialized.
     global _API_DOC
     if _API_DOC is None:
-        _API_DOC = generate_api_doc()
+        _API_DOC = render_api_docs()
     return render_to_response(
         'maasserver/api_doc.html',
-        {'doc': reST_to_html_fragment(generate_api_doc())},
+        {'doc': reST_to_html_fragment(render_api_docs())},
         context_instance=RequestContext(request))
 
 
