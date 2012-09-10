@@ -57,7 +57,7 @@ class TestNodeGroupManager(TestCase):
         self.assertThat(
             NodeGroup.objects.new(name, uuid, ip),
             MatchesStructure.fromExample(
-                {'name': name, 'worker_id': uuid, 'worker_ip': ip}))
+                {'name': name, 'uuid': uuid, 'worker_ip': ip}))
 
     def test_new_does_not_require_dhcp_settings(self):
         name = factory.make_name('nodegroup')

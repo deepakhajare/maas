@@ -116,7 +116,7 @@ class Factory(maastesting.factory.Factory):
             Node.objects.filter(id=node.id).update(created=created)
         return reload_object(node)
 
-    def make_node_group(self, name=None, worker_id=None, worker_ip=None,
+    def make_node_group(self, name=None, uuid=None, worker_ip=None,
                         router_ip=None, network=None, subnet_mask=None,
                         broadcast_ip=None, ip_range_low=None,
                         ip_range_high=None, dhcp_interfaces=None, **kwargs):
@@ -132,8 +132,8 @@ class Factory(maastesting.factory.Factory):
         """
         if name is None:
             name = self.make_name('nodegroup')
-        if worker_id is None:
-            worker_id = self.make_name('uuid')
+        if uuid is None:
+            uuid = self.make_name('uuid')
         if network is not None:
             subnet_mask = str(network.netmask)
             broadcast_ip = str(network.broadcast)
@@ -157,7 +157,7 @@ class Factory(maastesting.factory.Factory):
         if dhcp_interfaces is None:
             dhcp_interfaces = self.make_name('interface')
         ng = NodeGroup.objects.new(
-            name=name, worker_id=worker_id, worker_ip=worker_ip,
+            name=name, uuid=uuid, worker_ip=worker_ip,
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
             router_ip=router_ip, ip_range_low=ip_range_low,
             ip_range_high=ip_range_high, dhcp_interfaces=dhcp_interfaces,

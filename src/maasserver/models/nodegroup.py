@@ -44,7 +44,7 @@ class NodeGroupManager(Manager):
     the model class it manages.
     """
 
-    def new(self, name, worker_id, worker_ip, subnet_mask=None,
+    def new(self, name, uuid, worker_ip, subnet_mask=None,
             broadcast_ip=None, router_ip=None, ip_range_low=None,
             ip_range_high=None, dhcp_key='', dhcp_interfaces=''):
         """Create a :class:`NodeGroup` with the given parameters.
@@ -69,7 +69,7 @@ class NodeGroupManager(Manager):
 
         api_token = create_auth_token(get_worker_user())
         nodegroup = NodeGroup(
-            name=name, worker_id=worker_id, worker_ip=worker_ip,
+            name=name, uuid=uuid, worker_ip=worker_ip,
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
             router_ip=router_ip, ip_range_low=ip_range_low,
             ip_range_high=ip_range_high, api_token=api_token,
@@ -124,7 +124,7 @@ class NodeGroup(TimestampedModel):
         unique=True)
 
     # Unique identifier of the worker.
-    worker_id = CharField(
+    uuid = CharField(
         max_length=36, unique=True, null=False, blank=False, editable=False)
 
     # Address of the worker.
