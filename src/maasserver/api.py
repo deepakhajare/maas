@@ -1065,10 +1065,6 @@ def generate_api_doc():
     :rtype: :class:`unicode`
     """
     module = sys.modules[__name__]
-    handlers = list(find_api_handlers(module))
-    for handler in handlers:
-        ensure_resource_uri_defined(handler)
-    docs = [generate_doc(handler) for handler in handlers]
     messages = [
         __doc__.strip(),
         '',
@@ -1077,7 +1073,9 @@ def generate_api_doc():
         '----------',
         '',
         ]
-    for doc in docs:
+    for handler in find_api_handlers(module):
+        ensure_resource_uri_defined(handler)
+        doc = generate_doc(handler)
         for method in doc.get_methods():
             messages.append(
                 "%s %s\n  %s\n" % (
