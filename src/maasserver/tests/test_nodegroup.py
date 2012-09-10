@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.conf import settings
 import maasserver
 from maasserver.dns import get_dns_server_address
 from maasserver.models import NodeGroup
@@ -209,6 +210,20 @@ class TestNodeGroup(TestCase):
         expected_params["dns_servers"] = get_dns_server_address()
         expected_params["subnet"] = '192.168.100.0'
         mocked_task.delay.assert_called_once_with(**expected_params)
+
+    def test_set_up_dhcp_refers_to_tftp_server(self):
+        # The next_server field tells clients where they can find their
+        # TFTP server for netbooting.
+        # Currently all nodes use the central TFTP server.  This will be
+        # decentralized to use NodeGroup.worker_ip later.
+        server_ip = factory.getRandomIPAddress()
+        self.patch(settings, 'DEFAULT_MAAS_URL', 'http://%s/' % server_ip)
+        self.patch(maasserver.models.nodegroup, 'write_dhcp_config')
+        patched_task = maasserver.models.nodegroup.write_dhcp_config
+        factory.make_node_group().set_up_dhcp()
+        self.assertEqual(
+            server_ip,
+            patched_task.delay.call_args[1]['next_server'])
 
     def test_add_dhcp_host_maps_adds_maps_if_managing_dhcp(self):
         self.patch(Omshell, 'create', FakeMethod())
