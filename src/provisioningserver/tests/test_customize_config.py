@@ -53,7 +53,7 @@ class TestCustomizeConfig(TestCase):
         command = Popen(
             [script, "customize-config", original_file],
             stdin=PIPE, stdout=PIPE,
-            env=dict(PYTHONPATH=":".join(sys.path)))
+            env=dict(PYTHONPATH=":".join(sys.path), LC_ALL='en_US.UTF-8'))
         command.communicate(original_text)
         self.assertEqual(0, command.returncode)
 
