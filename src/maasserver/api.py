@@ -892,10 +892,10 @@ class NodeGroupsHandler(BaseHandler):
 
 
 def get_nodegroup_for_worker(request, uuid):
-    """Get :class:`NodeGroup` by name, for access by its worker.
+    """Get :class:`NodeGroup` by uuid, for access by its worker.
 
     This supports a nodegroup worker accessing its nodegroup object on
-    the API.  If the request is done by ayone but the worker for this
+    the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
     nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
