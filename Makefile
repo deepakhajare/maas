@@ -180,37 +180,35 @@ endef
 # Development services.
 #
 
-service_names := celeryd database dns pserv reloader txlongpoll web webapp
-services := $(patsubst %,services/%/,$(service_names))
+service_names_region := database dns reloader txlongpoll web webapp
+service_names_cluster := celeryd pserv reloader
 
-run:
-	@services/run $(service_names)
+define service_template
+$(1)-region: $(patsubst %,services/%/@$(1),$(service_names_region))
+$(1)-cluster: $(patsubst %,services/%/@$(1),$(service_names_cluster))
+$(1): $(1)-region $(1)-cluster
+phony_services_targets += $(1)-region $(1)-cluster $(1)
+endef
+
+$(eval $(call service_template,pause))
+$(eval $(call service_template,restart))
+$(eval $(call service_template,start))
+$(eval $(call service_template,status))
+$(eval $(call service_template,stop))
+$(eval $(call service_template,supervise))
+
+run-region:
+	@services/run $(service_names_region)
+run-cluster:
+	@services/run $(service_names_cluster)
+run: run-region run-cluster
+
+phony_services_targets += run-region run-cluster run
 
 run+webapp:
-	@services/run $(service_names) +webapp
+	@services/run $(service_names_region) +webapp
 
-start: $(addsuffix @start,$(services))
-
-pause: $(addsuffix @pause,$(services))
-
-status: $(addsuffix @status,$(services))
-
-restart: $(addsuffix @restart,$(services))
-
-stop: $(addsuffix @stop,$(services))
-
-supervise: $(addsuffix @supervise,$(services))
-
-define phony_services_targets
-  pause
-  restart
-  run
-  run+webapp
-  start
-  status
-  stop
-  supervise
-endef
+phony_services_targets += run+webapp
 
 # Convenient variables and functions for service control.
 
