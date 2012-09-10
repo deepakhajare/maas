@@ -22,3 +22,6 @@ class TestCustomizeConfig(TestCase):
 
     def test_requires_file_argument(self):
         self.fail("TEST THIS")
+
+    def test_does_not_modify_original(self):
+        self.fail("TEST THIS")
