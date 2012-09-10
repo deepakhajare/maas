@@ -41,6 +41,7 @@ from maasserver.api import (
     extract_oauth_key,
     extract_oauth_key_from_auth_header,
     find_api_handlers,
+    generate_api_docs,
     get_oauth_token,
     get_overrided_query_dict,
     )
@@ -95,6 +96,7 @@ from metadataserver.models import (
     )
 from metadataserver.nodeinituser import get_node_init_user
 from mock import Mock
+from piston.doc import HandlerDocumentation
 from piston.handler import BaseHandler
 from provisioningserver import (
     kernel_opts,
@@ -2597,8 +2599,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
             explain_unexpected_response(httplib.FORBIDDEN, response))
 
 
-class TestInspection(TestCase):
-    """Tests for API inspection support."""
+class TestFindingHandlers(TestCase):
+    """Tests for API inspection support: finding handlers."""
 
     @staticmethod
     def make_module():
@@ -2635,3 +2637,37 @@ class TestInspection(TestCase):
         module.__all__ = ["something"]
         self.assertSequenceEqual(
             [], list(find_api_handlers(module)))
+
+
+class TestGeneratingDocs(TestCase):
+    """Tests for API inspection support: generating docs."""
+
+    @staticmethod
+    def make_handler():
+        name = factory.make_name("handler").encode("ascii")
+        resource_uri = lambda cls: factory.make_name("resource-uri")
+        namespace = {"resource_uri": classmethod(resource_uri)}
+        return type(name, (BaseHandler,), namespace)
+
+    def test_generates_doc_for_handler(self):
+        handler = self.make_handler()
+        docs = list(generate_api_docs([handler]))
+        self.assertEqual(1, len(docs))
+        [doc] = docs
+        self.assertIsInstance(doc, HandlerDocumentation)
+        self.assertIs(handler, doc.handler)
+
+    def test_generates_doc_for_multiple_handlers(self):
+        handlers = [self.make_handler() for _ in range(5)]
+        docs = list(generate_api_docs(handlers))
+        self.assertEqual(len(handlers), len(docs))
+        self.assertEqual(handlers, [doc.handler for doc in docs])
+
+    def test_handler_without_resource_uri(self):
+        handler = self.make_handler()
+        del handler.resource_uri
+        docs = generate_api_docs([handler])
+        error = self.assertRaises(AssertionError, list, docs)
+        self.assertEqual(
+            "Missing resource_uri in %s" % handler.__name__,
+            unicode(error))

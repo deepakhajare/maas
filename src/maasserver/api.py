@@ -1043,20 +1043,27 @@ def find_api_handlers(module):
             yield candidate
 
 
-def ensure_resource_uri_defined(handler):
-    """Ensure that `handler` defines a 'resource_uri' method.
+def generate_api_docs(handlers):
+    """Generate ReST documentation objects for the ReST API.
 
-    This is easily forgotten and essential in order to generate proper
-    documentation.
+    Yields Piston Documentation objects describing the current registered
+    handlers.
+
+    This also ensures that handlers define 'resource_uri' methods. This is
+    easily forgotten and essential in order to generate proper documentation.
+
+    :rtype: :class:`...`
     """
     sentinel = object()
-    resource_uri = getattr(handler, "resource_uri", sentinel)
-    assert resource_uri is not sentinel, (
-        "Missing resource_uri in %s" % handler.__name__)
+    for handler in handlers:
+        if getattr(handler, "resource_uri", sentinel) is sentinel:
+            raise AssertionError(
+                "Missing resource_uri in %s" % handler.__name__)
+        yield generate_doc(handler)
 
 
 def generate_api_doc():
-    """Generate ReST documentation for the REST API.
+    """Render ReST documentation for the REST API.
 
     This module's docstring forms the head of the documentation; details of
     the API methods follow.
@@ -1073,9 +1080,8 @@ def generate_api_doc():
         '----------',
         '',
         ]
-    for handler in find_api_handlers(module):
-        ensure_resource_uri_defined(handler)
-        doc = generate_doc(handler)
+    handlers = find_api_handlers(module)
+    for doc in generate_api_docs(handlers):
         for method in doc.get_methods():
             messages.append(
                 "%s %s\n  %s\n" % (
