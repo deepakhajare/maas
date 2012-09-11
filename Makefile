@@ -183,6 +183,13 @@ endef
 service_names_region := database dns reloader txlongpoll web webapp
 service_names_cluster := celeryd pserv reloader
 
+# The following template is intended to be used with `call`, and it
+# accepts a single argument: a target name. The target name must
+# correspond to a service action (see "Pseudo-magic targets" below).
+# A region- and cluster-specific variant of the target will be
+# created, in addition to the target itself. These can be used to
+# apply the service action to the region services, the cluster
+# services, or all services, at the same time.
 define service_template
 $(1)-region: $(patsubst %,services/%/@$(1),$(service_names_region))
 $(1)-cluster: $(patsubst %,services/%/@$(1),$(service_names_cluster))
@@ -190,6 +197,7 @@ $(1): $(1)-region $(1)-cluster
 phony_services_targets += $(1)-region $(1)-cluster $(1)
 endef
 
+# Expand out aggregate service targets using `service_template`.
 $(eval $(call service_template,pause))
 $(eval $(call service_template,restart))
 $(eval $(call service_template,start))
@@ -197,6 +205,7 @@ $(eval $(call service_template,status))
 $(eval $(call service_template,stop))
 $(eval $(call service_template,supervise))
 
+# The `run` targets do not fit into the mould of the others.
 run-region:
 	@services/run $(service_names_region)
 run-cluster:
@@ -205,6 +214,7 @@ run: run-region run-cluster
 
 phony_services_targets += run-region run-cluster run
 
+# This one's for the rapper, yo.
 run+webapp:
 	@services/run $(service_names_region) +webapp
 
