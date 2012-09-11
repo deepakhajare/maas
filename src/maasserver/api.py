@@ -1184,3 +1184,4 @@ class BootImagesHandler(BaseHandler):
             these images.
         """
         get_nodegroup_for_worker(request, 'master')
+        images = json.loads(get_mandatory_param(request.data, 'images'))

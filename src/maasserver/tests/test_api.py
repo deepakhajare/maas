@@ -2624,7 +2624,6 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_report_boot_images_stores_images(self):
-        NodeGroup.objects.ensure_master()
         image = {
             'architecture': factory.make_name('architecture'),
             'subarchitecture': factory.make_name('subarchitecture'),
@@ -2638,3 +2637,17 @@ class TestBootImagesAPI(APITestCase):
             (response.status_code, response.content))
         self.assertTrue(
             BootImage.objects.have_boot_image(**image))
+
+    def test_report_boot_images_ignores_unknown_image_properties(self):
+        image = {
+            'architecture': factory.make_name('architecture'),
+            'subarchitecture': factory.make_name('subarchitecture'),
+            'release': factory.make_name('release'),
+            'purpose': factory.make_name('purpose'),
+            'nonesuch': factory.make_name('nonesuch'),
+        }
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+        response = self.report_images([image], client=client)
+        self.assertEqual(
+            (httplib.OK, "Images noted."),
+            (response.status_code, response.content))
