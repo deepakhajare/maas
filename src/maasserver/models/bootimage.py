@@ -34,6 +34,12 @@ class BootImageManager(Manager):
         """Look up a specific image."""
         return self.get(architecture, subarchitecture, release, purpose)
 
+    def register_image(self, architecture, subarchitecture, release, purpose):
+        """Register an image if it wasn't already registered."""
+
+    def have_image(self, architecture, subarchitecture, release, purpose):
+        """Is an image for the given kind of boot available?"""
+
 
 class BootImage(Model):
 

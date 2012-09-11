@@ -37,11 +37,11 @@ class TestBootImageManager(TestCase):
 
     def test_register_image_registers_new_image(self):
         params = self.make_image_params()
-        BootImage.register_image(**params)
+        BootImage.objects.register_image(**params)
         self.assertTrue(BootImage.objects.have_image(**params))
 
     def test_register_image_leaves_existing_image_intact(self):
         params = self.make_image_params()
         factory.make_boot_image(**params)
-        BootImage.register_image(**params)
+        BootImage.objects.register_image(**params)
         self.assertTrue(BootImage.objects.have_image(**params))
