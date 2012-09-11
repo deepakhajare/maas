@@ -2604,19 +2604,15 @@ class TestDescribe(AnonAPITestCase):
     def test_describe_returns_json(self):
         response = self.client.get(reverse('describe'))
         self.assertThat(
-            (
-                response.status_code,
-                response['Content-Type'],
-                response.content,
-                response.content,
-            ),
+            (response.status_code,
+             response['Content-Type'],
+             response.content,
+             response.content),
             MatchesListwise(
-                (
-                    Equals(httplib.OK),
-                    Equals("application/json"),
-                    StartsWith(b'{'),
-                    Contains('name'),
-                )),
+                (Equals(httplib.OK),
+                 Equals("application/json"),
+                 StartsWith(b'{'),
+                 Contains('name'))),
             response)
 
     def test_describe(self):
