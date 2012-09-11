@@ -9,7 +9,7 @@ class Migration(SchemaMigration):
     def forwards(self, orm):
         
         # Adding field 'NodeGroup.uuid'
-        db.add_column(u'maasserver_nodegroup', 'uuid', self.gf('django.db.models.fields.CharField')(default='master', unique=True, max_length=36), keep_default=False)
+        db.add_column(u'maasserver_nodegroup', 'uuid', self.gf('django.db.models.fields.CharField')(default='', unique=True, max_length=36), keep_default=False)
 
 
     def backwards(self, orm):
