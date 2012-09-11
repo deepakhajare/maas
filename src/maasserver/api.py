@@ -100,6 +100,7 @@ from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
 from maasserver.apidoc import (
+    describe_handler,
     find_api_handlers,
     generate_api_docs,
     )
@@ -1133,4 +1134,22 @@ def pxeconfig(request):
 
     return HttpResponse(
         json.dumps(params._asdict()),
+        content_type="application/json")
+
+
+def describe(request):
+    """Return a description of the whole MAAS API.
+
+    Returns a JSON object describing the whole MAAS API.
+    """
+    module = sys.modules[__name__]
+    description = {
+        "doc": "MAAS API",
+        "handlers": [
+            describe_handler(handler)
+            for handler in find_api_handlers(module)
+            ],
+        }
+    return HttpResponse(
+        json.dumps(description),
         content_type="application/json")

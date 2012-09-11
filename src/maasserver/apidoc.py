@@ -132,8 +132,9 @@ def describe_handler(handler):
     uri_params = uri_params[1] if len(uri_params) >= 2 else []
 
     actions = []
+    operation_methods = getattr(handler, "_available_api_methods", {})
     for http_method in handler.allowed_methods:
-        if http_method in handler._available_api_methods:
+        if http_method in operation_methods:
             # Default Piston CRUD method has been overridden; inspect
             # custom operations instead.
             operations = handler._available_api_methods[http_method]

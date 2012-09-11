@@ -2592,3 +2592,35 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
+
+
+class TestDescribe(AnonAPITestCase):
+
+    def get_describe(self):
+        """Make a request to `describe`, and return its response dict."""
+        response = self.client.get(reverse('describe'))
+        return json.loads(response.content)
+
+    def test_describe_returns_json(self):
+        response = self.client.get(reverse('describe'))
+        self.assertThat(
+            (
+                response.status_code,
+                response['Content-Type'],
+                response.content,
+                response.content,
+            ),
+            MatchesListwise(
+                (
+                    Equals(httplib.OK),
+                    Equals("application/json"),
+                    StartsWith(b'{'),
+                    Contains('name'),
+                )),
+            response)
+
+    def test_describe(self):
+        response = self.client.get(reverse('describe'))
+        description = json.loads(response.content)
+        self.assertSetEqual({"doc", "handlers"}, set(description))
+        self.assertIsInstance(description["handlers"], list)
