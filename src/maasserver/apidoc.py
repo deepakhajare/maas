@@ -11,9 +11,20 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "describe_api",
+    "describe_handler",
+    "describe_method",
     "find_api_handlers",
     "generate_api_docs",
     ]
+
+from inspect import getargspec
+from itertools import (
+    chain,
+    izip,
+    repeat,
+    )
+from types import MethodType as instancemethod
 
 from piston.doc import generate_doc
 from piston.handler import HandlerMetaClass
@@ -55,3 +66,54 @@ def generate_api_docs(handlers):
             raise AssertionError(
                 "Missing resource_uri in %s" % handler.__name__)
         yield generate_doc(handler)
+
+
+def describe_args(args, defaults):
+    """Generate serialisable descriptions of a method's regular arguments.
+
+    When describing the API, we ignore varargs and keywords args.
+    """
+    # The end of the defaults list aligns with the end of the args list, hence
+    # we pad it with undefined, in order that we can zip it with args later.
+    undefined = object()
+    defaults = chain(
+        repeat(undefined, len(args) - len(defaults)),
+        defaults)
+    for arg, default in izip(args, defaults):
+        if default is undefined:
+            yield {"name": arg}
+        else:
+            yield {"name": arg, "default": default}
+
+
+def describe_method(method_doc):
+    """Return a serialisable description of a handler method.
+
+    :type method_doc: :class:`HandlerMethod`
+    """
+    argspec = getargspec(method_doc.method)
+    # Trim the first (self or cls) argument from the argument list if it's an
+    # instance method or class method.
+    if isinstance(method_doc.method, (instancemethod, classmethod)):
+        argspec = argspec._replace(args=argspec.args[1:])
+    arguments = describe_args(argspec.args, argspec.defaults)
+    return {
+        "arguments": list(arguments),
+        "documentation": method_doc.doc,
+        "name": method_doc.name,
+        "signature": method_doc.signature,
+        }
+
+
+def describe_handler(handler_doc):
+    """Return a serialisable description of a handler.
+
+    :type handler_doc: :class:`HandlerDocumentation`
+    """
+
+
+def describe_api(docs):
+    """Return a serialisable description of an API.
+
+    :type docs: Iterable of :class:`HandlerDocumentation`
+    """

@@ -15,12 +15,16 @@ __all__ = []
 import new
 
 from maasserver.apidoc import (
+    describe_method,
     find_api_handlers,
     generate_api_docs,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from piston.doc import HandlerDocumentation
+from piston.doc import (
+    HandlerDocumentation,
+    HandlerMethod,
+    )
 from piston.handler import BaseHandler
 
 
@@ -113,3 +117,25 @@ class TestGeneratingDocs(TestCase):
         self.assertEqual(
             "Missing resource_uri in %s" % handler.__name__,
             unicode(error))
+
+
+class TestDescribingAPI(TestCase):
+    """Tests for functions that describe a Piston API."""
+
+    def test_describe_method(self):
+        method = lambda a, b=1, c=2: a + b + c
+        method.__doc__ = factory.make_name("doc")
+        method.__name__ = factory.make_name("name").encode("ascii")
+        method_doc = HandlerMethod(method)
+        expected = {
+            "name": method.__name__,
+            "documentation": method.__doc__,
+            "signature": "a, b=1, c=2",
+            "arguments": [
+                {"name": "a"},
+                {"default": 1, "name": "b"},
+                {"default": 2, "name": "c"},
+                ],
+            }
+        observed = describe_method(method_doc)
+        self.assertEqual(expected, observed)
