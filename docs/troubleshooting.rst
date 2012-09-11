@@ -22,7 +22,7 @@ Possible Cause: Network drivers
 
 Sometimes the hardware can boot from PXE, but fail to load correct drivers when booting the received image. This is sometimes the case when no open source drivers are available for the network hardware.
 
-**SOLUTION:** The best fix for this problem is to install a Linux-friendly network adaptor. It *is* theoretically possible to modify the boot image to include proprietary drivers, but it is not a straightforward task
+**SOLUTION:** The best fix for this problem is to install a Linux-friendly network adaptor. It *is* theoretically possible to modify the boot image to include proprietary drivers, but it is not a straightforward task.
 
 **Nodes fail to PXE boot**
 =========================
@@ -40,23 +40,24 @@ If you are using MAAS in a setup with an existing DHCP, *DO NOT SET UP THE MAAS 
 **SOLUTION**: You will need to either:
 
 
-* Configure your existing DHCP server to point to the MAAS server
+* Configure your existing DHCP server to point to the MAAS server.
 
 or
 
-* Enlist nodes using avahi, which is the preferred option. 
+* Enlist nodes using avahi, which is the preferred option. For a quick guide to this, please see https://wiki.ubuntu.com/ServerTeam/MAAS/AvahiBoot
 
 
 
 **Can't log in to node**
 ========================
 
-Sometimes you may wish to login directly to a node on your system. When MAAS provisions the nodes it also copies across existing ssh keys and sets up ssh on the node to authenticate via key. There is also an option in the MAAS web interface to add new ssh keys to the nodes (via Preferences in the drop down menu which appears when clicking your username in the top-right of the page).
+Sometimes you may wish to login directly to a node on your system. If you have set up Juju and MAAS, the attached nodes will automatically receive existing ssh keys and sets up ssh on the node to authenticate via key, so you can just login with no password from the server.
+There is also an option in the MAAS web interface to add new ssh keys to the nodes (via Preferences in the drop down menu which appears when clicking your username in the top-right of the page).
 
-**Forgot superuser password**
+**Forgot MAAS superuser password**
 ====================
 
-As long as you have sudo privileges, this is not a disaster. You can use the maas command to change the password:
+As long as you have sudo privileges, this is not a disaster. You can use the ``maas`` command to change the password for the MAAS superuser on the MAAS server:
 
     ``sudo maas changepassword maas-root``
 
@@ -67,7 +68,6 @@ If you made a mistake during setup or you just need to reconfigure your MAAS ser
 
     ``sudo dpkg-reconfigure maas``
 
-    ``sudo maas-import-isos --update-settings``
 
 **Can't find MAAS webpage**
 ====================
@@ -79,3 +79,5 @@ The default webpage is located at ``http://<hostname>/maas``. If you can't acces
   #. If you are still getting "404 - Page not found" errors, check that the MAAS web interface has been installed in the right place. There should be a file present called /usr/share/maas/maas/urls.py
 
 
+Getting help
+~~~~~~~~~~~~
