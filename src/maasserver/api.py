@@ -1175,6 +1175,10 @@ def pxeconfig(request):
 @api_operations
 class BootImagesHandler(BaseHandler):
 
+    @classmethod
+    def resource_uri(cls):
+        return ('boot_images_handler', [])
+
     @api_exported('POST')
     def report_boot_images(self, request):
         """Report images available to net-boot nodes from.
