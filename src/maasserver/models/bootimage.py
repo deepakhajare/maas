@@ -54,6 +54,16 @@ class BootImageManager(Manager):
 
 
 class BootImage(Model):
+    """Available boot image (i.e. kerne and initrd).
+
+    Each `BootImage` represents a type of boot for which a boot image is
+    available.  The `maas-import-pxe-files` script imports these, and the
+    TFTP server provides them to booting nodes.
+
+    If a boot image is missing, that may mean that the import script has not
+    been run yet, or has failed; or that it was not configured to provide
+    that particular image.
+    """
 
     class Meta(DefaultMeta):
         unique_together = (
