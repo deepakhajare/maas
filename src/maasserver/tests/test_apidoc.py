@@ -179,3 +179,26 @@ class TestDescribingAPI(TestCase):
         # The `uri` field is None here, because it relies on more plumbing
         # than has been set up (routing, resource_uri method).
         self.assertIsNone(observed["uri"])
+
+    def test_describe_handler_with_maas_handler(self):
+        # Ensure that describe_handler() yields something sensible with a
+        # "real" MAAS API handler.
+        from maasserver.api import NodeHandler as handler
+        description = describe_handler(handler)
+        self.assertEqual("/api/1.0/nodes/{system_id}/", description["uri"])
+        # The RUD of CRUD actions are still available, but the C(reate) action
+        # has been overridden with custom operations. Not entirely sure how
+        # this makes sense, but there we go :)
+        expected_actions = {
+            "DELETE",
+            "GET",
+            "POST release",
+            "POST start",
+            "POST stop",
+            "PUT",
+            }
+        observed_actions = {
+            ("%(method)s %(op)s" if "op" in action else "%(method)s") % action
+            for action in description["actions"]
+            }
+        self.assertSetEqual(expected_actions, observed_actions)
