@@ -1587,17 +1587,6 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(
             node.hostname, json.loads(response.content)['hostname'])
 
-    def test_POST_acquire_constrains_by_name(self):
-        # Negative test for name constraint.
-        # If a name constraint is given, "acquire" will only consider a
-        # node with that name.
-        factory.make_node(status=NODE_STATUS.READY, owner=None)
-        response = self.client.post(self.get_uri('nodes/'), {
-            'op': 'acquire',
-            'name': factory.getRandomString(),
-        })
-        self.assertEqual(httplib.CONFLICT, response.status_code)
-
     def test_POST_acquire_treats_unknown_name_as_resource_conflict(self):
         # A name constraint naming an unknown node produces a resource
         # conflict: most likely the node existed but has changed or
