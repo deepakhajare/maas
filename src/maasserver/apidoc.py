@@ -11,15 +11,15 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "describe_api",
-    "describe_args",
     "describe_handler",
-    "describe_method",
     "find_api_handlers",
     "generate_api_docs",
     ]
 
-from inspect import getargspec
+from inspect import (
+    getargspec,
+    getdoc,
+    )
 from itertools import (
     chain,
     izip,
@@ -70,16 +70,16 @@ def generate_api_docs(handlers):
 
 
 def describe_args(args, defaults):
-    """Generate serialisable descriptions of a method's regular arguments.
-
-    When describing the API, we ignore varargs and keywords args.
-    """
+    """Generate serialisable descriptions of arguments."""
     # The end of the defaults list aligns with the end of the args list, hence
     # we pad it with undefined, in order that we can zip it with args later.
     undefined = object()
-    defaults = chain(
-        repeat(undefined, len(args) - len(defaults)),
-        defaults)
+    if defaults is None:
+        defaults = repeat(undefined)
+    else:
+        defaults = chain(
+            repeat(undefined, len(args) - len(defaults)),
+            defaults)
     for arg, default in izip(args, defaults):
         if default is undefined:
             yield {"name": arg}
@@ -87,34 +87,57 @@ def describe_args(args, defaults):
             yield {"name": arg, "default": default}
 
 
-def describe_method(method_doc):
-    """Return a serialisable description of a handler method.
+def describe_function_args(func):
+    """Generate serialisable descriptions of function arguments.
 
-    :type method_doc: :class:`HandlerMethod`
+    When describing the API, we ignore varargs and keywords args.
     """
-    argspec = getargspec(method_doc.method)
-    # Trim the first (self or cls) argument from the argument list if it's an
-    # instance method or class method.
-    if isinstance(method_doc.method, (instancemethod, classmethod)):
-        argspec = argspec._replace(args=argspec.args[1:])
-    arguments = describe_args(argspec.args, argspec.defaults)
-    return {
-        "arguments": list(arguments),
-        "documentation": method_doc.doc,
-        "name": method_doc.name,
-        "signature": method_doc.signature,
-        }
+    args, _, _, defaults = getargspec(func)
+    # Trim the first arg (self or cls) if it's uninteresting.
+    if isinstance(func, (instancemethod, classmethod)):
+        args = args[1:]
+    return describe_args(args, defaults)
 
 
-def describe_handler(handler_doc):
+def describe_function(method, func):
+    """Return a serialisable description of a handler function."""
+    return {"doc": getdoc(func), "method": method}
+
+
+def describe_operation(method, func, op):
+    """Return a serialisable description of a handler operation."""
+    description = describe_function(method, func)
+    description["args"] = list(describe_function_args(func))
+    description["op"] = op
+    return description
+
+
+def describe_handler(handler):
     """Return a serialisable description of a handler.
 
-    :type handler_doc: :class:`HandlerDocumentation`
+    :type handler: :class:`BaseHandler` instance that has been decorated by
+        `api_operations`.
     """
+    # Avoid circular imports.
+    from maasserver.api import dispatch_methods
 
+    actions = []
 
-def describe_api(docs):
-    """Return a serialisable description of an API.
+    for http_method in handler.allowed_methods:
+        if http_method in handler._available_api_methods:
+            # Default Piston CRUD method has been overridden; inspect
+            # custom operations instead.
+            operations = handler._available_api_methods[http_method]
+            actions.extend(
+                describe_operation(http_method, func, op)
+                for op, func in operations.items())
+        else:
+            # Default Piston CRUD method still stands.
+            op = dispatch_methods[http_method]
+            func = getattr(handler, op)
+            actions.append(describe_function(http_method, func))
 
-    :type docs: Iterable of :class:`HandlerDocumentation`
-    """
+    return {
+        "uri": generate_doc(handler).resource_uri_template,
+        "actions": actions,
+        }

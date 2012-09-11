@@ -14,18 +14,19 @@ __all__ = []
 
 import new
 
+from maasserver.api import (
+    api_exported,
+    api_operations,
+    )
 from maasserver.apidoc import (
     describe_args,
-    describe_method,
+    describe_handler,
     find_api_handlers,
     generate_api_docs,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from piston.doc import (
-    HandlerDocumentation,
-    HandlerMethod,
-    )
+from piston.doc import HandlerDocumentation
 from piston.handler import BaseHandler
 
 
@@ -134,20 +135,47 @@ class TestDescribingAPI(TestCase):
             [{"name": "alice"}, {"name": "bob", "default": "carol"}],
             list(describe_args(("alice", "bob"), ("carol",))))
 
-    def test_describe_method(self):
-        method = lambda a, b=1, c=2: a + b + c
-        method.__doc__ = factory.make_name("doc")
-        method.__name__ = factory.make_name("name").encode("ascii")
-        method_doc = HandlerMethod(method)
-        expected = {
-            "name": method.__name__,
-            "documentation": method.__doc__,
-            "signature": "a, b=1, c=2",
-            "arguments": [
-                {"name": "a"},
-                {"default": 1, "name": "b"},
-                {"default": 2, "name": "c"},
-                ],
-            }
-        observed = describe_method(method_doc)
-        self.assertEqual(expected, observed)
+    def test_describe_handler(self):
+        # describe_handler() returns a description of a handler that can be
+        # readily serialised into JSON, for example.
+
+        @api_operations
+        class MegadethHandler(BaseHandler):
+
+            allowed_methods = "GET", "POST", "PUT"
+
+            @api_exported("POST")
+            def peace_sells(but, whos, buying):
+                """Released 1986."""
+
+            @api_exported("GET")
+            def so_far(so_good, so_what):
+                """Released 1988."""
+
+        expected_actions = [
+            {"args": [
+                    {"name": "so_good"},
+                    {"name": "so_what"},
+                    ],
+             "doc": "Released 1988.",
+             "method": "GET",
+             "op": "so_far"},
+            {"args": [
+                    {"name": "but"},
+                    {"name": "whos"},
+                    {"name": "buying"},
+                    ],
+             "doc": "Released 1986.",
+             "method": "POST",
+             "op": "peace_sells"},
+            {"doc": None,
+             "method": "PUT"},
+            ]
+
+        observed = describe_handler(MegadethHandler)
+        # The description contains `uri` and `actions` entries.
+        self.assertEqual({"uri", "actions"}, set(observed))
+        self.assertEqual(expected_actions, observed["actions"])
+        # The `uri` field is None here, because it relies on more plumbing
+        # than has been set up (routing, resource_uri method).
+        self.assertIsNone(observed["uri"])
