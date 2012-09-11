@@ -152,6 +152,10 @@ class TestDescribingAPI(TestCase):
             def so_far(so_good, so_what):
                 """Released 1988."""
 
+            @classmethod
+            def resource_uri(self):
+                return ("megadeth_view", ["vic", "rattlehead"])
+
         expected_actions = [
             {"args": [
                     {"name": "so_good"},
@@ -174,11 +178,14 @@ class TestDescribingAPI(TestCase):
 
         observed = describe_handler(MegadethHandler)
         # The description contains `uri` and `actions` entries.
-        self.assertEqual({"uri", "actions"}, set(observed))
-        self.assertEqual(expected_actions, observed["actions"])
+        self.assertSetEqual({"uri", "uri_params", "actions"}, set(observed))
+        self.assertSequenceEqual(expected_actions, observed["actions"])
         # The `uri` field is None here, because it relies on more plumbing
         # than has been set up (routing, resource_uri method).
         self.assertIsNone(observed["uri"])
+        # The `uri_params` field does not depend on the same plumbing.
+        self.assertSequenceEqual(
+            ["vic", "rattlehead"], observed["uri_params"])
 
     def test_describe_handler_with_maas_handler(self):
         # Ensure that describe_handler() yields something sensible with a
@@ -186,6 +193,7 @@ class TestDescribingAPI(TestCase):
         from maasserver.api import NodeHandler as handler
         description = describe_handler(handler)
         self.assertEqual("/api/1.0/nodes/{system_id}/", description["uri"])
+        self.assertSequenceEqual(["system_id"], description["uri_params"])
         # The RUD of CRUD actions are still available, but the C(reate) action
         # has been overridden with custom operations. Not entirely sure how
         # this makes sense, but there we go :)

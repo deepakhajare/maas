@@ -137,7 +137,12 @@ def describe_handler(handler):
             func = getattr(handler, op)
             actions.append(describe_function(http_method, func))
 
+    resource_uri = handler.resource_uri()
+    assert len(resource_uri) <= 2 or resource_uri[2] == {}, (
+        "Resource URIs with keyword parameters are not yet supported.")
+
     return {
         "uri": generate_doc(handler).resource_uri_template,
+        "uri_params": resource_uri[1] if len(resource_uri) >= 2 else [],
         "actions": actions,
         }
