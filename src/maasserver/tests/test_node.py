@@ -20,6 +20,7 @@ from django.core.exceptions import (
     ValidationError,
     )
 from maasserver.enum import (
+    ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
     NODE_STATUS_CHOICES,
@@ -630,6 +631,22 @@ class NodeManagerTest(TestCase):
             None,
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': factory.getRandomString()}))
+
+    def test_get_available_node_constraints_by_arch(self):
+        user = factory.make_user()
+        nodes = [self.make_node(architecture=s)
+            for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
+        available_node = Node.objects.get_available_node_for_acquisition(
+                user, {'arch': "i386"})
+        self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
+        self.assertEqual(nodes[1], available_node)
+
+    def test_get_available_node_returns_None_if_arch_is_unknown(self):
+        user = factory.make_user()
+        self.assertEqual(
+            None,
+            Node.objects.get_available_node_for_acquisition(
+                user, {'arch': "sparc"}))
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go

@@ -1600,6 +1600,27 @@ class TestNodesAPI(APITestCase):
         })
         self.assertEqual(httplib.CONFLICT, response.status_code)
 
+    def test_POST_acquire_allocates_node_by_arch(self):
+        # Asking for a particular arch acquires a node with that arch.
+        node = factory.make_node(status=NODE_STATUS.READY,
+            architecture=ARCHITECTURE.i386)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'i386',
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.architecture, response_json['architecture'])
+
+    def test_POST_acquire_treats_unknown_arch_as_resource_conflict(self):
+        # Asking for an unknown arch returns an HTTP conflict
+        factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'sparc',
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
     def test_POST_acquire_sets_a_token(self):
         # "acquire" should set the Token being used in the request on
         # the Node that is allocated.
