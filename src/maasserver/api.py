@@ -1020,7 +1020,7 @@ class MAASHandler(BaseHandler):
 # Title section for the API documentation.  Matches in style, format,
 # etc. whatever render_api_docs() produces, so that you can concatenate
 # the two.
-api_doc_title = dedent("""\
+api_doc_title = dedent("""
     ========
     MAAS API
     ========
