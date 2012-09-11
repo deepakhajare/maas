@@ -2636,7 +2636,7 @@ class TestBootImagesAPI(APITestCase):
             (httplib.OK, "Images noted."),
             (response.status_code, response.content))
         self.assertTrue(
-            BootImage.objects.have_boot_image(**image))
+            BootImage.objects.have_image(**image))
 
     def test_report_boot_images_ignores_unknown_image_properties(self):
         image = {

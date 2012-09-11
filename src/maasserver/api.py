@@ -118,6 +118,7 @@ from maasserver.forms import (
     get_node_edit_form,
     )
 from maasserver.models import (
+    BootImage,
     Config,
     DHCPLease,
     FileStorage,
@@ -1185,3 +1186,10 @@ class BootImagesHandler(BaseHandler):
         """
         get_nodegroup_for_worker(request, 'master')
         images = json.loads(get_mandatory_param(request.data, 'images'))
+        for image in images:
+            BootImage.objects.register_image(
+                architecture=image['architecture'],
+                subarchitecture=image.get('subarchitecture', 'generic'),
+                release=image['release'],
+                purpose=image['purpose'])
+        return HttpResponse("Images noted.")
