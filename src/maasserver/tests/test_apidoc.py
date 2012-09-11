@@ -163,7 +163,9 @@ class TestDescribingAPI(TestCase):
                     ],
              "doc": "Released 1988.",
              "method": "GET",
-             "op": "so_far"},
+             "op": "so_far",
+             "uri": "?op=so_far",
+             "uri_params": ["vic", "rattlehead"]},
             {"args": [
                     {"name": "but"},
                     {"name": "whos"},
@@ -171,42 +173,38 @@ class TestDescribingAPI(TestCase):
                     ],
              "doc": "Released 1986.",
              "method": "POST",
-             "op": "peace_sells"},
+             "op": "peace_sells",
+             "uri": "?op=peace_sells",
+             "uri_params": ["vic", "rattlehead"]},
             {"doc": None,
-             "method": "PUT"},
+             "method": "PUT",
+             "uri": "",
+             "uri_params": ["vic", "rattlehead"]},
             ]
 
         observed = describe_handler(MegadethHandler)
         # The description contains `uri` and `actions` entries.
-        self.assertSetEqual({"uri", "uri_params", "actions"}, set(observed))
+        self.assertSetEqual({"actions"}, set(observed))
         self.assertSequenceEqual(expected_actions, observed["actions"])
-        # The `uri` field is None here, because it relies on more plumbing
-        # than has been set up (routing, resource_uri method).
-        self.assertIsNone(observed["uri"])
-        # The `uri_params` field does not depend on the same plumbing.
-        self.assertSequenceEqual(
-            ["vic", "rattlehead"], observed["uri_params"])
 
     def test_describe_handler_with_maas_handler(self):
         # Ensure that describe_handler() yields something sensible with a
         # "real" MAAS API handler.
         from maasserver.api import NodeHandler as handler
         description = describe_handler(handler)
-        self.assertEqual("/api/1.0/nodes/{system_id}/", description["uri"])
-        self.assertSequenceEqual(["system_id"], description["uri_params"])
         # The RUD of CRUD actions are still available, but the C(reate) action
         # has been overridden with custom operations. Not entirely sure how
         # this makes sense, but there we go :)
         expected_actions = {
-            "DELETE",
-            "GET",
-            "POST release",
-            "POST start",
-            "POST stop",
-            "PUT",
+            "DELETE /api/1.0/nodes/{system_id}/",
+            "GET /api/1.0/nodes/{system_id}/",
+            "POST /api/1.0/nodes/{system_id}/?op=release",
+            "POST /api/1.0/nodes/{system_id}/?op=start",
+            "POST /api/1.0/nodes/{system_id}/?op=stop",
+            "PUT /api/1.0/nodes/{system_id}/",
             }
         observed_actions = {
-            ("%(method)s %(op)s" if "op" in action else "%(method)s") % action
+            "%(method)s %(uri)s" % action
             for action in description["actions"]
             }
         self.assertSetEqual(expected_actions, observed_actions)

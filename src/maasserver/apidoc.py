@@ -26,6 +26,7 @@ from itertools import (
     repeat,
     )
 from types import MethodType as instancemethod
+from urllib import quote
 
 from piston.doc import generate_doc
 from piston.handler import HandlerMetaClass
@@ -121,28 +122,35 @@ def describe_handler(handler):
     # Avoid circular imports.
     from maasserver.api import dispatch_methods
 
-    actions = []
+    uri_template = generate_doc(handler).resource_uri_template
+    if uri_template is None:
+        uri_template = ""
 
+    uri_params = handler.resource_uri()
+    assert len(uri_params) <= 2 or uri_params[2] == {}, (
+        "Resource URIs with keyword parameters are not yet supported.")
+    uri_params = uri_params[1] if len(uri_params) >= 2 else []
+
+    actions = []
     for http_method in handler.allowed_methods:
         if http_method in handler._available_api_methods:
             # Default Piston CRUD method has been overridden; inspect
             # custom operations instead.
             operations = handler._available_api_methods[http_method]
-            actions.extend(
-                describe_operation(http_method, func, op)
-                for op, func in operations.items())
+            for op, func in operations.items():
+                desc = describe_operation(http_method, func, op)
+                desc["uri"] = "%s?op=%s" % (uri_template, quote(desc["op"]))
+                desc["uri_params"] = uri_params
+                actions.append(desc)
         else:
             # Default Piston CRUD method still stands.
             op = dispatch_methods[http_method]
             func = getattr(handler, op)
-            actions.append(describe_function(http_method, func))
-
-    resource_uri = handler.resource_uri()
-    assert len(resource_uri) <= 2 or resource_uri[2] == {}, (
-        "Resource URIs with keyword parameters are not yet supported.")
+            desc = describe_function(http_method, func)
+            desc["uri"] = uri_template
+            desc["uri_params"] = uri_params
+            actions.append(desc)
 
     return {
-        "uri": generate_doc(handler).resource_uri_template,
-        "uri_params": resource_uri[1] if len(resource_uri) >= 2 else [],
         "actions": actions,
         }
