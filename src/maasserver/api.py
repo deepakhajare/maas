@@ -1183,3 +1183,4 @@ class BootImagesHandler(BaseHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
+        get_nodegroup_for_worker(request, 'master')

@@ -2607,6 +2607,7 @@ class TestBootImagesAPI(APITestCase):
             {'op': 'report_boot_images', 'images': json.dumps(images)})
 
     def test_report_boot_images_does_not_work_for_normal_user(self):
+        NodeGroup.objects.ensure_master()
         log_in_as_normal_user(self.client)
         response = self.report_images([])
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
@@ -2617,11 +2618,13 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_report_boot_images_does_not_work_for_other_workers(self):
+        NodeGroup.objects.ensure_master()
         client = make_worker_client(factory.make_node_group())
         response = self.report_images([], client=client)
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_report_boot_images_stores_images(self):
+        NodeGroup.objects.ensure_master()
         image = {
             'architecture': factory.make_name('architecture'),
             'subarchitecture': factory.make_name('subarchitecture'),
