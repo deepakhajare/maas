@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "describe_api",
+    "describe_args",
     "describe_handler",
     "describe_method",
     "find_api_handlers",

@@ -15,6 +15,7 @@ __all__ = []
 import new
 
 from maasserver.apidoc import (
+    describe_args,
     describe_method,
     find_api_handlers,
     generate_api_docs,
@@ -121,6 +122,17 @@ class TestGeneratingDocs(TestCase):
 
 class TestDescribingAPI(TestCase):
     """Tests for functions that describe a Piston API."""
+
+    def test_describe_args(self):
+        self.assertEqual(
+            [{"name": "alice"}],
+            list(describe_args(("alice",), ())))
+        self.assertEqual(
+            [{"name": "alice"}, {"name": "bob"}],
+            list(describe_args(("alice", "bob"), ())))
+        self.assertEqual(
+            [{"name": "alice"}, {"name": "bob", "default": "carol"}],
+            list(describe_args(("alice", "bob"), ("carol",))))
 
     def test_describe_method(self):
         method = lambda a, b=1, c=2: a + b + c
