@@ -160,3 +160,22 @@ NODEGROUP_STATUS_CHOICES = (
     (NODEGROUP_STATUS.ACCEPTED, "Accepted"),
     (NODEGROUP_STATUS.REJECTED, "Rejected"),
     )
+
+
+class NODEGROUPINTERFACE_STATUS:
+    """The vocabulary of a `NodeGroupInterface`'s possible statuses."""
+    # A nodegroupinterface starts out as UNMANAGED.
+    DEFAULT_STATUS = 0
+
+    #: MAAS manages the IP assignement for this interface.
+    UNMANAGED = 0
+    #: MAAS manages the IP assignement for this interface.
+    MANAGED = 1
+
+
+# Django choices for NODEGROUP_STATUS: sequence of tuples (key, UI
+# representation).
+NODEGROUPINTERFACE_STATUS_CHOICES = (
+    (NODEGROUPINTERFACE_STATUS.UNMANAGED, "Unmanaged"),
+    (NODEGROUPINTERFACE_STATUS.MANAGED, "Managed"),
+    )
