@@ -152,5 +152,7 @@ def describe_handler(handler):
             actions.append(desc)
 
     return {
+        "name": handler.__name__,
+        "doc": getdoc(handler),
         "actions": actions,
         }

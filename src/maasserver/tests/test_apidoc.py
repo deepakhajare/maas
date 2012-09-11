@@ -141,6 +141,7 @@ class TestDescribingAPI(TestCase):
 
         @api_operations
         class MegadethHandler(BaseHandler):
+            """The mighty 'deth."""
 
             allowed_methods = "GET", "POST", "PUT"
 
@@ -184,7 +185,9 @@ class TestDescribingAPI(TestCase):
 
         observed = describe_handler(MegadethHandler)
         # The description contains `uri` and `actions` entries.
-        self.assertSetEqual({"actions"}, set(observed))
+        self.assertSetEqual({"actions", "doc", "name"}, set(observed))
+        self.assertEqual(MegadethHandler.__name__, observed["name"])
+        self.assertEqual(MegadethHandler.__doc__, observed["doc"])
         self.assertSequenceEqual(expected_actions, observed["actions"])
 
     def test_describe_handler_with_maas_handler(self):
