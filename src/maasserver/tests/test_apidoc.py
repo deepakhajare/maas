@@ -19,7 +19,6 @@ from maasserver.api import (
     api_operations,
     )
 from maasserver.apidoc import (
-    describe_args,
     describe_handler,
     find_api_handlers,
     generate_api_docs,
@@ -124,16 +123,7 @@ class TestGeneratingDocs(TestCase):
 class TestDescribingAPI(TestCase):
     """Tests for functions that describe a Piston API."""
 
-    def test_describe_args(self):
-        self.assertEqual(
-            [{"name": "alice"}],
-            list(describe_args(("alice",), ())))
-        self.assertEqual(
-            [{"name": "alice"}, {"name": "bob"}],
-            list(describe_args(("alice", "bob"), ())))
-        self.assertEqual(
-            [{"name": "alice"}, {"name": "bob", "default": "carol"}],
-            list(describe_args(("alice", "bob"), ("carol",))))
+    maxDiff = 10000
 
     def test_describe_handler(self):
         # describe_handler() returns a description of a handler that can be
@@ -146,33 +136,24 @@ class TestDescribingAPI(TestCase):
             allowed_methods = "GET", "POST", "PUT"
 
             @api_exported("POST")
-            def peace_sells(but, whos, buying):
+            def peace_sells(self, request, but, whos, buying):
                 """Released 1986."""
 
             @api_exported("GET")
-            def so_far(so_good, so_what):
+            def so_far(self, request, so_good, so_what):
                 """Released 1988."""
 
             @classmethod
-            def resource_uri(self):
+            def resource_uri(cls):
                 return ("megadeth_view", ["vic", "rattlehead"])
 
         expected_actions = [
-            {"args": [
-                    {"name": "so_good"},
-                    {"name": "so_what"},
-                    ],
-             "doc": "Released 1988.",
+            {"doc": "Released 1988.",
              "method": "GET",
              "op": "so_far",
              "uri": "?op=so_far",
              "uri_params": ["vic", "rattlehead"]},
-            {"args": [
-                    {"name": "but"},
-                    {"name": "whos"},
-                    {"name": "buying"},
-                    ],
-             "doc": "Released 1986.",
+            {"doc": "Released 1986.",
              "method": "POST",
              "op": "peace_sells",
              "uri": "?op=peace_sells",
