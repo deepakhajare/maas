@@ -61,11 +61,6 @@ def generate_api_docs(handlers):
         yield generate_doc(handler)
 
 
-def describe_function(method, func):
-    """Return a serialisable description of a handler function."""
-    return {"doc": getdoc(func), "method": method}
-
-
 def describe_handler(handler):
     """Return a serialisable description of a handler.
 
@@ -92,18 +87,24 @@ def describe_handler(handler):
             # custom operations instead.
             operations = handler._available_api_methods[http_method]
             for op, func in operations.items():
-                desc = describe_function(http_method, func)
-                desc["op"] = op
-                desc["uri"] = "%s?op=%s" % (uri_template, quote(desc["op"]))
-                desc["uri_params"] = uri_params
+                desc = {
+                    "doc": getdoc(func),
+                    "method": http_method,
+                    "op": op,
+                    "uri": "%s?op=%s" % (uri_template, quote(op)),
+                    "uri_params": uri_params,
+                    }
                 actions.append(desc)
         else:
             # Default Piston CRUD method still stands.
             op = dispatch_methods[http_method]
             func = getattr(handler, op)
-            desc = describe_function(http_method, func)
-            desc["uri"] = uri_template
-            desc["uri_params"] = uri_params
+            desc = {
+                "doc": getdoc(func),
+                "method": http_method,
+                "uri": uri_template,
+                "uri_params": uri_params,
+                }
             actions.append(desc)
 
     return {
