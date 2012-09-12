@@ -73,8 +73,8 @@ CELERYBEAT_SCHEDULE = {
         'schedule': timedelta(minutes=1),
     },
 
-    # Task for the master only: report boot images that are available
-    # over TFTP.
+    # XXX JeroenVermeulen 2012-09-12, bug=1039366: this task should run
+    # only on the master worker.
     'report-boot-images': {
         'task': 'provisioningserver.report_boot_images',
         'schedule': timedelta(minutes=5),
