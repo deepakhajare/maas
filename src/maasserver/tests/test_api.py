@@ -1602,8 +1602,8 @@ class TestNodesAPI(APITestCase):
 
     def test_POST_acquire_allocates_node_by_arch(self):
         # Asking for a particular arch acquires a node with that arch.
-        node = factory.make_node(status=NODE_STATUS.READY,
-            architecture=ARCHITECTURE.i386)
+        node = factory.make_node(
+            status=NODE_STATUS.READY, architecture=ARCHITECTURE.i386)
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',
             'arch': 'i386',
