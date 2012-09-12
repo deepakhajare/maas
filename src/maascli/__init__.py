@@ -19,8 +19,8 @@ from os.path import (
     )
 import sys
 
-# Insert all eggs in the current directory into sys.path.
-sys.path[:0] = iglob(join(dirname(__file__), "*.egg"))
+# Add `lib` in the current directory into sys.path.
+sys.path[:0] = iglob(join(dirname(__file__), "lib"))
 
 from commandant import builtins
 from commandant.controller import CommandController
