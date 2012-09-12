@@ -109,11 +109,6 @@ class TestTFTPPath(TestCase):
         self.assertEqual(
             self.tftproot, locate_tftp_path(None, tftproot=self.tftproot))
 
-    def test_list_boot_images_copes_with_missing_directory(self):
-        missing_dir = os.path.join(
-            self.make_dir(), factory.make_name('missing-dir'))
-        self.assertItemsEqual([], list_boot_images(missing_dir))
-
     def test_list_boot_images_copes_with_empty_directory(self):
         self.assertItemsEqual([], list_boot_images(self.tftproot))
 
