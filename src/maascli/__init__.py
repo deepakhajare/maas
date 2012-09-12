@@ -38,4 +38,11 @@ def main(argv=sys.argv):
     controller.load_module(maascli.api)
     controller.load_module(builtins)
     controller.install_bzrlib_hooks()
-    controller.run(argv[1:])
+    # Run, doing polite things with exceptions.
+    try:
+        controller.run(argv[1:])
+    except KeyboardInterrupt:
+        raise SystemExit(1)
+    except StandardError as error:
+        sys.stderr.write("%s\n" % error)
+        raise SystemExit(2)
