@@ -17,6 +17,8 @@ __all__ = [
     'DNS_DHCP_MANAGEMENT_CHOICES',
     'NODEGROUP_STATUS',
     'NODEGROUP_STATUS_CHOICES',
+    'NODEGROUPINTERFACE_MANAGEMENT',
+    'NODEGROUPINTERFACE_MANAGEMENT_CHOICES',
     'NODE_PERMISSION',
     'NODE_STATUS',
     'NODE_STATUS_CHOICES',
@@ -162,20 +164,23 @@ NODEGROUP_STATUS_CHOICES = (
     )
 
 
-class NODEGROUPINTERFACE_STATUS:
+class NODEGROUPINTERFACE_MANAGEMENT:
     """The vocabulary of a `NodeGroupInterface`'s possible statuses."""
     # A nodegroupinterface starts out as UNMANAGED.
     DEFAULT_STATUS = 0
 
-    #: MAAS manages IP address assignments on this interface.
+    # Do not manage DHCP or DNS for this interface.
     UNMANAGED = 0
-    #: MAAS does not manage IP address assignments on this interface.
-    MANAGED = 1
+    # Manage DHCP for this interface.
+    DHCP = 1
+    # Manage DHCP and DNS for this interface.
+    DHCP_AND_DNS = 2
 
 
 # Django choices for NODEGROUP_STATUS: sequence of tuples (key, UI
 # representation).
-NODEGROUPINTERFACE_STATUS_CHOICES = (
-    (NODEGROUPINTERFACE_STATUS.UNMANAGED, "Unmanaged"),
-    (NODEGROUPINTERFACE_STATUS.MANAGED, "Managed"),
+NODEGROUPINTERFACE_MANAGEMENT_CHOICES = (
+    (NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED, "Unmanaged"),
+    (NODEGROUPINTERFACE_MANAGEMENT.DHCP, "Manage DHCP"),
+    (NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS, "Manage DHCP and DNS"),
     )

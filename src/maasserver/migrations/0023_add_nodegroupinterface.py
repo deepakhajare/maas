@@ -17,7 +17,7 @@ class Migration(SchemaMigration):
             ('updated', self.gf('django.db.models.fields.DateTimeField')()),
             ('ip', self.gf('django.db.models.fields.IPAddressField')(max_length=15)),
             ('nodegroup', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['maasserver.NodeGroup'])),
-            ('status', self.gf('django.db.models.fields.IntegerField')(default=0)),
+            ('management', self.gf('django.db.models.fields.IntegerField')(default=0)),
             ('interface', self.gf('django.db.models.fields.CharField')(default=u'', max_length=255, blank=True)),
             ('subnet_mask', self.gf('django.db.models.fields.IPAddressField')(default=None, max_length=15, null=True, blank=True)),
             ('broadcast_ip', self.gf('django.db.models.fields.IPAddressField')(default=None, max_length=15, null=True, blank=True)),
@@ -152,7 +152,7 @@ class Migration(SchemaMigration):
             'ip_range_low': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
             'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']"}),
             'router_ip': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'null': 'True', 'blank': 'True'}),
-            'status': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            'management': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'subnet_mask': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'null': 'True', 'blank': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
