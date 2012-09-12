@@ -167,9 +167,9 @@ class NODEGROUPINTERFACE_STATUS:
     # A nodegroupinterface starts out as UNMANAGED.
     DEFAULT_STATUS = 0
 
-    #: MAAS manages the IP assignement for this interface.
+    #: MAAS manages IP address assignments on this interface.
     UNMANAGED = 0
-    #: MAAS manages the IP assignement for this interface.
+    #: MAAS does not manage IP address assignments on this interface.
     MANAGED = 1
 
 
