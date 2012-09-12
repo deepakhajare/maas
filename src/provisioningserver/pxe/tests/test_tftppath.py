@@ -21,7 +21,11 @@ from provisioningserver.pxe.tftppath import (
     compose_bootloader_path,
     compose_config_path,
     compose_image_path,
+    drill_down,
+    extend_path,
+    is_visible_subdir,
     list_boot_images,
+    list_subdirs,
     locate_tftp_path,
     )
 from provisioningserver.testing.config import ConfigFixture
@@ -127,3 +131,91 @@ class TestTFTPPath(TestCase):
         for image in images:
             self.make_image_dir(image, self.tftproot)
         self.assertItemsEqual(images, list_boot_images(self.tftproot))
+
+    def test_is_visible_subdir_ignores_regular_files(self):
+        plain_file = self.make_file()
+        self.assertFalse(
+            is_visible_subdir(
+                os.path.dirname(plain_file), os.path.basename(plain_file)))
+
+    def test_is_visible_subdir_ignores_hidden_directories(self):
+        base_dir = self.make_dir()
+        hidden_dir = factory.make_name('.')
+        os.makedirs(os.path.join(base_dir, hidden_dir))
+        self.assertFalse(is_visible_subdir(base_dir, hidden_dir))
+
+    def test_is_visible_subdir_recognizes_subdirectory(self):
+        base_dir = self.make_dir()
+        subdir = factory.make_name('subdir')
+        os.makedirs(os.path.join(base_dir, subdir))
+        self.assertTrue(is_visible_subdir(base_dir, subdir))
+
+    def test_list_subdirs_lists_empty_directory(self):
+        self.assertItemsEqual([], list_subdirs(self.make_dir()))
+
+    def test_list_subdirs_lists_subdirs(self):
+        base_dir = self.make_dir()
+        factory.make_file(base_dir, factory.make_name('plain-file'))
+        subdir = factory.make_name('subdir')
+        os.makedirs(os.path.join(base_dir, subdir))
+        self.assertItemsEqual([subdir], list_subdirs(base_dir))
+
+    def test_extend_path_finds_path_extensions(self):
+        base_dir = self.make_dir()
+        subdirs = [
+            factory.make_name('subdir-%d' % counter)
+            for counter in range(3)]
+        for subdir in subdirs:
+            os.makedirs(os.path.join(base_dir, subdir))
+        self.assertItemsEqual(
+            [[os.path.basename(base_dir), subdir] for subdir in subdirs],
+            extend_path(
+                os.path.dirname(base_dir), [os.path.basename(base_dir)]))
+
+    def test_extend_path_builds_on_given_paths(self):
+        base_dir = self.make_dir()
+        lower_dir = factory.make_name('lower')
+        subdir = factory.make_name('sub')
+        os.makedirs(os.path.join(base_dir, lower_dir, subdir))
+        self.assertEqual(
+            [[lower_dir, subdir]],
+            extend_path(base_dir, [lower_dir]))
+
+    def test_extend_path_stops_if_no_subdirs_found(self):
+        self.assertItemsEqual([], extend_path(self.make_dir(), []))
+
+    def test_drill_down_follows_directory_tree(self):
+        base_dir = self.make_dir()
+        lower_dir = factory.make_name('lower')
+        os.makedirs(os.path.join(base_dir, lower_dir))
+        subdirs = [
+            factory.make_name('subdir-%d' % counter)
+            for counter in range(3)]
+        for subdir in subdirs:
+            os.makedirs(os.path.join(base_dir, lower_dir, subdir))
+        self.assertItemsEqual(
+            [[lower_dir, subdir] for subdir in subdirs],
+            drill_down(base_dir, [[lower_dir]]))
+
+    def test_drill_down_ignores_subdir_not_in_path(self):
+        base_dir = self.make_dir()
+        irrelevant_dir = factory.make_name('irrelevant')
+        irrelevant_subdir = factory.make_name('subdir')
+        relevant_dir = factory.make_name('relevant')
+        relevant_subdir = factory.make_name('subdir')
+        os.makedirs(os.path.join(base_dir, irrelevant_dir, irrelevant_subdir))
+        os.makedirs(os.path.join(base_dir, relevant_dir, relevant_subdir))
+        self.assertEqual(
+            [[relevant_dir, relevant_subdir]],
+            drill_down(base_dir, [[relevant_dir]]))
+
+    def test_drill_down_drops_paths_that_do_not_go_deep_enough(self):
+        base_dir = self.make_dir()
+        shallow_dir = factory.make_name('shallow')
+        os.makedirs(os.path.join(base_dir, shallow_dir))
+        deep_dir = factory.make_name('deep')
+        subdir = factory.make_name('sub')
+        os.makedirs(os.path.join(base_dir, deep_dir, subdir))
+        self.assertEqual(
+            [[deep_dir, subdir]],
+            drill_down(base_dir, [[shallow_dir], [deep_dir]]))
