@@ -79,10 +79,7 @@ def merge(*iterables):
     """
     undefined = object()
     for values in izip_longest(*iterables, fillvalue=undefined):
-        for value in values:
-            if value is not undefined:
-                yield value
-                break
+        yield next(value for value in values if value is not undefined)
 
 
 def describe_handler(handler):
