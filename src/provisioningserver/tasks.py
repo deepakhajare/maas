@@ -45,6 +45,7 @@ from provisioningserver.auth import (
     record_maas_url,
     record_nodegroup_name,
     )
+from provisioningserver.config import Config
 from provisioningserver.dhcp import config
 from provisioningserver.dhcp.leases import upload_leases
 from provisioningserver.dns.config import (
@@ -349,7 +350,7 @@ def report_boot_images():
         task_logger.info("Not reporting boot images: don't have API key yet.")
         return
 
-    images = list_boot_images()
+    images = list_boot_images(Config.load_from_cache()['tftp']['root'])
 
     MAASClient(MAASOAuth(*api_credentials), MAASDispatcher(), maas_url).post(
         'api/1.0/boot-images/', 'report_boot_images',

@@ -48,18 +48,15 @@ class TestTFTPPath(TestCase):
             'purpose': factory.make_name('purpose'),
         }
 
-    def make_image_dir(self, image_params):
-        """Fake a boot image matching `image_params`.
-
-        Makes use of the fake tftproot set up by the config fixture.
-        """
+    def make_image_dir(self, image_params, tftproot):
+        """Fake a boot image matching `image_params` under `tftproot`."""
         image_dir = locate_tftp_path(
             compose_image_path(
                 arch=image_params['architecture'],
                 subarch=image_params['subarchitecture'],
                 release=image_params['release'],
                 purpose=image_params['purpose']),
-            self.tftproot)
+            tftproot)
         os.makedirs(image_dir)
         factory.make_file(image_dir, 'linux')
         factory.make_file(image_dir, 'initrd.gz')
@@ -115,25 +112,23 @@ class TestTFTPPath(TestCase):
     def test_list_boot_images_copes_with_missing_directory(self):
         missing_dir = os.path.join(
             self.make_dir(), factory.make_name('missing-dir'))
-        self.config = {"tftp": {"root": missing_dir}}
-        self.useFixture(ConfigFixture(self.config))
-        self.assertItemsEqual([], list_boot_images())
+        self.assertItemsEqual([], list_boot_images(missing_dir))
 
     def test_list_boot_images_copes_with_empty_directory(self):
-        self.assertItemsEqual([], list_boot_images())
+        self.assertItemsEqual([], list_boot_images(self.tftproot))
 
     def test_list_boot_images_copes_with_unexpected_files(self):
         os.makedirs(os.path.join(self.tftproot, factory.make_name('empty')))
         factory.make_file(self.tftproot)
-        self.assertItemsEqual([], list_boot_images())
+        self.assertItemsEqual([], list_boot_images(self.tftproot))
 
     def test_list_boot_images_finds_boot_image(self):
         image = self.make_boot_image_params()
-        self.make_image_dir(image)
-        self.assertItemsEqual([image], list_boot_images())
+        self.make_image_dir(image, self.tftproot)
+        self.assertItemsEqual([image], list_boot_images(self.tftproot))
 
     def test_list_boot_images_enumerates_boot_images(self):
         images = [self.make_boot_image_params() for counter in range(3)]
         for image in images:
-            self.make_image_dir(image)
-        self.assertItemsEqual(images, list_boot_images())
+            self.make_image_dir(image, self.tftproot)
+        self.assertItemsEqual(images, list_boot_images(self.tftproot))

@@ -70,6 +70,7 @@ from provisioningserver.tasks import (
     write_full_dns_config,
     )
 from provisioningserver.testing import network_infos
+from provisioningserver.testing.config import ConfigFixture
 from provisioningserver.testing.testcase import PservTestCase
 from testresources import FixtureResource
 from testtools.matchers import (
@@ -439,6 +440,10 @@ class TestBootImagesTasks(PservTestCase):
     resources = (
         ("celery", FixtureResource(CeleryFixture())),
         )
+
+    def setUp(self):
+        super(TestBootImagesTasks, self).setUp()
+        self.useFixture(ConfigFixture({'tftp': {'root': self.make_dir()}}))
 
     def make_image_params(self):
         """Create a dict of parameters describing a boot image."""

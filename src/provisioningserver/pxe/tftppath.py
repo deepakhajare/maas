@@ -86,9 +86,26 @@ def locate_tftp_path(path, tftproot):
     return os.path.join(tftproot, path.lstrip('/'))
 
 
-def list_boot_images():
+def is_visible_subdir(directory, subdir):
+    """Is `subdir` a non-hidden sub-directory of `directory`?"""
+    if subdir.startswith('.'):
+        return False
+    else:
+        return os.path.isdir(os.path.join(directory, subdir))
+
+
+def list_subdirs(directory):
+    """Return a list of non-hidden directories in `directory`."""
+    return [
+        subdir
+        for subdir in os.listdir(directory)
+            if is_visible_subdir(directory, subdir)]
+
+
+def list_boot_images(tftproot):
     """List the available boot images.
 
+    :param tftproot: TFTP root directory.
     :return: An iterable of dicts, describing boot images as consumed by
         the report_boot_images API call.
     """
