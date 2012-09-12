@@ -23,8 +23,8 @@ from django.db.models import (
     )
 from maasserver import DefaultMeta
 from maasserver.enum import (
-    NODEGROUPINTERFACE_STATUS,
-    NODEGROUPINTERFACE_STATUS_CHOICES,
+    NODEGROUPINTERFACE_MANAGEMENT,
+    NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
 from maasserver.models.timestampedmodel import TimestampedModel
 
@@ -41,9 +41,9 @@ class NodeGroupInterface(TimestampedModel):
     nodegroup = ForeignKey(
         'maasserver.NodeGroup', editable=True, null=False, blank=False)
 
-    status = IntegerField(
-        choices=NODEGROUPINTERFACE_STATUS_CHOICES, editable=False,
-        default=NODEGROUPINTERFACE_STATUS.DEFAULT_STATUS)
+    management = IntegerField(
+        choices=NODEGROUPINTERFACE_MANAGEMENT_CHOICES, editable=False,
+        default=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT_STATUS)
 
     # DHCP server settings.
     interface = CharField(
