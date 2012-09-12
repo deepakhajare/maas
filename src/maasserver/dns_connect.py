@@ -52,7 +52,7 @@ def dns_post_save_NodeGroup(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=NodeGroupInterface)
 def dns_post_save_NodeGroupInterface(sender, instance, created, **kwargs):
-    """Create or update DNS zones related to the save nodegroupinterface."""
+    """Create or update DNS zones related to the saved nodegroupinterface."""
     from maasserver.dns import write_full_dns_config, add_zone
     if created:
         add_zone(instance.nodegroup)
