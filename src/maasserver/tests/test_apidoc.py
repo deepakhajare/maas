@@ -14,6 +14,7 @@ __all__ = []
 
 import new
 
+from django.conf import settings
 from maasserver.api import (
     api_exported,
     api_operations,
@@ -125,6 +126,11 @@ class TestDescribingAPI(TestCase):
 
     maxDiff = 10000
 
+    def setUp(self):
+        super(TestDescribingAPI, self).setUp()
+        # Override DEFAULT_MAAS_URL so that it's stable for testing.
+        self.patch(settings, "DEFAULT_MAAS_URL", "http://example.com/")
+
     def test_describe_handler(self):
         # describe_handler() returns a description of a handler that can be
         # readily serialised into JSON, for example.
@@ -151,16 +157,16 @@ class TestDescribingAPI(TestCase):
             {"doc": "Released 1988.",
              "method": "GET",
              "op": "so_far",
-             "uri": "?op=so_far",
+             "uri": "http://example.com/?op=so_far",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": "Released 1986.",
              "method": "POST",
              "op": "peace_sells",
-             "uri": "?op=peace_sells",
+             "uri": "http://example.com/?op=peace_sells",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": None,
              "method": "PUT",
-             "uri": "",
+             "uri": "http://example.com/",
              "uri_params": ["vic", "rattlehead"]},
             ]
 
@@ -180,12 +186,12 @@ class TestDescribingAPI(TestCase):
         # has been overridden with custom operations. Not entirely sure how
         # this makes sense, but there we go :)
         expected_actions = {
-            "DELETE /api/1.0/nodes/{system_id}/",
-            "GET /api/1.0/nodes/{system_id}/",
-            "POST /api/1.0/nodes/{system_id}/?op=release",
-            "POST /api/1.0/nodes/{system_id}/?op=start",
-            "POST /api/1.0/nodes/{system_id}/?op=stop",
-            "PUT /api/1.0/nodes/{system_id}/",
+            "DELETE http://example.com/api/1.0/nodes/{system_id}/",
+            "GET http://example.com/api/1.0/nodes/{system_id}/",
+            "POST http://example.com/api/1.0/nodes/{system_id}/?op=release",
+            "POST http://example.com/api/1.0/nodes/{system_id}/?op=start",
+            "POST http://example.com/api/1.0/nodes/{system_id}/?op=stop",
+            "PUT http://example.com/api/1.0/nodes/{system_id}/",
             }
         observed_actions = {
             "%(method)s %(uri)s" % action

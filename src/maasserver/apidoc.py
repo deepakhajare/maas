@@ -18,7 +18,9 @@ __all__ = [
 
 from inspect import getdoc
 from urllib import quote
+from urlparse import urljoin
 
+from django.conf import settings
 from piston.doc import generate_doc
 from piston.handler import HandlerMetaClass
 
@@ -72,7 +74,9 @@ def describe_handler(handler):
 
     uri_template = generate_doc(handler).resource_uri_template
     if uri_template is None:
-        uri_template = ""
+        uri_template = settings.DEFAULT_MAAS_URL
+    else:
+        uri_template = urljoin(settings.DEFAULT_MAAS_URL, uri_template)
 
     uri_params = handler.resource_uri()
     assert len(uri_params) <= 2 or uri_params[2] == {}, (
