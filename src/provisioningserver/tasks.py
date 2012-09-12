@@ -23,6 +23,7 @@ __all__ = [
     'write_full_dns_config',
     ]
 
+import json
 from subprocess import (
     CalledProcessError,
     check_call,
@@ -30,9 +31,16 @@ from subprocess import (
     Popen,
     )
 
+from apiclient.maas_client import (
+    MAASClient,
+    MAASDispatcher,
+    MAASOAuth,
+    )
 from celery.task import task
 from celeryconfig import DHCP_CONFIG_FILE
 from provisioningserver.auth import (
+    get_recorded_api_credentials,
+    get_recorded_maas_url,
     record_api_credentials,
     record_maas_url,
     record_nodegroup_name,
@@ -44,11 +52,13 @@ from provisioningserver.dns.config import (
     execute_rndc_command,
     setup_rndc,
     )
+from provisioningserver.logging import task_logger
 from provisioningserver.omshell import Omshell
 from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
+from provisioningserver.pxe.tftppath import list_boot_images
 
 # For each item passed to refresh_secrets, a refresh function to give it to.
 refresh_functions = {
@@ -320,3 +330,27 @@ def write_dhcp_config(**kwargs):
 def restart_dhcp_server():
     """Restart the DHCP server."""
     check_call(['sudo', 'service', 'isc-dhcp-server', 'restart'])
+
+
+# =====================================================================
+# Boot images-related tasks
+# =====================================================================
+
+
+@task
+def report_boot_images():
+    """For master worker only: report available netboot images."""
+    maas_url = get_recorded_maas_url()
+    if maas_url is None:
+        task_logger.info("Not reporting boot images: don't have API URL yet.")
+        return
+    api_credentials = get_recorded_api_credentials()
+    if api_credentials is None:
+        task_logger.info("Not reporting boot images: don't have API key yet.")
+        return
+
+    images = list_boot_images()
+
+    MAASClient(MAASOAuth(*api_credentials), MAASDispatcher(), maas_url).post(
+        'api/1.0/boot-images/', 'report_boot_images',
+        images=json.dumps(images))

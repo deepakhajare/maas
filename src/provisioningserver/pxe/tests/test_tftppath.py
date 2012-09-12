@@ -21,6 +21,7 @@ from provisioningserver.pxe.tftppath import (
     compose_bootloader_path,
     compose_config_path,
     compose_image_path,
+    list_boot_images,
     locate_tftp_path,
     )
 from provisioningserver.testing.config import ConfigFixture
@@ -37,6 +38,31 @@ class TestTFTPPath(TestCase):
         self.tftproot = self.make_dir()
         self.config = {"tftp": {"root": self.tftproot}}
         self.useFixture(ConfigFixture(self.config))
+
+    def make_boot_image_params(self):
+        """Create a dict of boot-image parameters, as in list_boot_images."""
+        return {
+            'architecture': factory.make_name('architecture'),
+            'subarchitecture': factory.make_name('subarchitecture'),
+            'release': factory.make_name('release'),
+            'purpose': factory.make_name('purpose'),
+        }
+
+    def make_image_dir(self, image_params):
+        """Fake a boot image matching `image_params`.
+
+        Makes use of the fake tftproot set up by the config fixture.
+        """
+        image_dir = locate_tftp_path(
+            compose_image_path(
+                arch=image_params['architecture'],
+                subarch=image_params['subarchitecture'],
+                release=image_params['release'],
+                purpose=image_params['purpose']),
+            self.tftproot)
+        os.makedirs(image_dir)
+        factory.make_file(image_dir, 'linux')
+        factory.make_file(image_dir, 'initrd.gz')
 
     def test_compose_config_path_follows_maas_pxe_directory_layout(self):
         name = factory.make_name('config')
@@ -85,3 +111,29 @@ class TestTFTPPath(TestCase):
     def test_locate_tftp_path_returns_root_when_path_is_None(self):
         self.assertEqual(
             self.tftproot, locate_tftp_path(None, tftproot=self.tftproot))
+
+    def test_list_boot_images_copes_with_missing_directory(self):
+        missing_dir = os.path.join(
+            self.make_dir(), factory.make_name('missing-dir'))
+        self.config = {"tftp": {"root": missing_dir}}
+        self.useFixture(ConfigFixture(self.config))
+        self.assertItemsEqual([], list_boot_images())
+
+    def test_list_boot_images_copes_with_empty_directory(self):
+        self.assertItemsEqual([], list_boot_images())
+
+    def test_list_boot_images_copes_with_unexpected_files(self):
+        os.makedirs(os.path.join(self.tftproot, factory.make_name('empty')))
+        factory.make_file(self.tftproot)
+        self.assertItemsEqual([], list_boot_images())
+
+    def test_list_boot_images_finds_boot_image(self):
+        image = self.make_boot_image_params()
+        self.make_image_dir(image)
+        self.assertItemsEqual([image], list_boot_images())
+
+    def test_list_boot_images_enumerates_boot_images(self):
+        images = [self.make_boot_image_params() for counter in range(3)]
+        for image in images:
+            self.make_image_dir(image)
+        self.assertItemsEqual(images, list_boot_images())

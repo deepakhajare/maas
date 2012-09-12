@@ -14,6 +14,7 @@ __all__ = [
     'compose_bootloader_path',
     'compose_config_path',
     'compose_image_path',
+    'list_boot_images',
     'locate_tftp_path',
     ]
 
@@ -83,3 +84,11 @@ def locate_tftp_path(path, tftproot):
     if path is None:
         return tftproot
     return os.path.join(tftproot, path.lstrip('/'))
+
+
+def list_boot_images():
+    """List the available boot images.
+
+    :return: An iterable of dicts, describing boot images as consumed by
+        the report_boot_images API call.
+    """

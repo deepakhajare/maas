@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from datetime import datetime
+import json
 import os
 import random
 from subprocess import (
@@ -21,6 +22,7 @@ from subprocess import (
     )
 
 from apiclient.creds import convert_tuple_to_string
+from apiclient.maas_client import MAASClient
 from celeryconfig import DHCP_CONFIG_FILE
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
@@ -49,6 +51,7 @@ from provisioningserver.dns.config import (
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
+from provisioningserver.pxe import tftppath
 from provisioningserver.tasks import (
     add_new_dhcp_host_map,
     Omshell,
@@ -56,6 +59,7 @@ from provisioningserver.tasks import (
     power_on,
     refresh_secrets,
     remove_dhcp_host_map,
+    report_boot_images,
     restart_dhcp_server,
     rndc_command,
     RNDC_COMMAND_MAX_RETRY,
@@ -423,3 +427,24 @@ class TestDNSTasks(PservTestCase):
                     FileExists(),
                     FileExists(),
                 )))
+
+
+class TestBootImagesTasks(PservTestCase):
+
+    resources = (
+        ("celery", FixtureResource(CeleryFixture())),
+        )
+
+    def test_sends_boot_images_to_server(self):
+        image = {
+            'architecture': factory.make_name('architecture'),
+            'subarchitecture': factory.make_name('subarchitecture'),
+            'release': factory.make_name('release'),
+            'purpose': factory.make_name('purpose'),
+        }
+        self.patch(tftppath, 'list_boot_images', Mock(result=[image]))
+        self.patch(MAASClient, 'post')
+        report_boot_images()
+        self.assertItemsEqual(
+            [image],
+            json.loads(MAASClient.post.call_args[1]['images']))

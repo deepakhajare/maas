@@ -72,4 +72,11 @@ CELERYBEAT_SCHEDULE = {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
     },
+
+    # Task for the master only: report boot images that are available
+    # over TFTP.
+    'report-boot-images': {
+        'task': 'provisioningserver.report_boot_images',
+        'schedule': timedelta(minutes=5),
+    },
 }
