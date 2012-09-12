@@ -95,6 +95,7 @@ class TestDNSUtilities(TestCase):
     def test_get_zone_creates_DNSZoneConfig(self):
         enable_dns_management()
         nodegroup = factory.make_node_group()
+        interface = nodegroup.get_managed_interface()
         serial = random.randint(1, 100)
         zone = dns.get_zone(nodegroup, serial)
         self.assertAttributes(
@@ -102,10 +103,10 @@ class TestDNSUtilities(TestCase):
             dict(
                 zone_name=nodegroup.name,
                 serial=serial,
-                subnet_mask=nodegroup.subnet_mask,
-                broadcast_ip=nodegroup.broadcast_ip,
-                ip_range_low=nodegroup.ip_range_low,
-                ip_range_high=nodegroup.ip_range_high,
+                subnet_mask=interface.subnet_mask,
+                broadcast_ip=interface.broadcast_ip,
+                ip_range_low=interface.ip_range_low,
+                ip_range_high=interface.ip_range_high,
                 mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
                 ))
 
@@ -146,10 +147,11 @@ class TestDNSConfigModifications(TestCase):
         if nodegroup is None:
             nodegroup = factory.make_node_group(
                 network=IPNetwork('192.168.0.1/24'))
+        interface = nodegroup.get_managed_interface()
         node = factory.make_node(
             nodegroup=nodegroup, set_hostname=True)
         mac = factory.make_mac_address(node=node)
-        ips = IPRange(nodegroup.ip_range_low, nodegroup.ip_range_high)
+        ips = IPRange(interface.ip_range_low, interface.ip_range_high)
         lease_ip = str(islice(ips, lease_number, lease_number + 1).next())
         lease = factory.make_dhcp_lease(
             nodegroup=nodegroup, mac=mac.mac_address, ip=lease_ip)
@@ -205,8 +207,9 @@ class TestDNSConfigModifications(TestCase):
         recorder = FakeMethod()
         self.patch(DNSZoneConfig, 'write_config', recorder)
         nodegroup = factory.make_node_group()
-        nodegroup.subnet_mask = None
-        nodegroup.save()
+        interface = nodegroup.get_managed_interface()
+        interface.subnet_mask = None
+        interface.save()
         self.patch(settings, 'DNS_CONNECT', True)
         dns.add_zone(nodegroup)
         self.assertEqual(0, recorder.call_count)
@@ -238,8 +241,9 @@ class TestDNSConfigModifications(TestCase):
         recorder = FakeMethod()
         self.patch(DNSZoneConfig, 'write_config', recorder)
         nodegroup = factory.make_node_group()
-        nodegroup.subnet_mask = None
-        nodegroup.save()
+        interface = nodegroup.get_managed_interface()
+        interface.subnet_mask = None
+        interface.save()
         self.patch(settings, 'DNS_CONNECT', True)
         dns.change_dns_zones(nodegroup)
         self.assertEqual(0, recorder.call_count)
@@ -248,8 +252,9 @@ class TestDNSConfigModifications(TestCase):
         recorder = FakeMethod()
         self.patch(DNSZoneConfig, 'write_config', recorder)
         nodegroup = factory.make_node_group()
-        nodegroup.subnet_mask = None
-        nodegroup.save()
+        interface = nodegroup.get_managed_interface()
+        interface.subnet_mask = None
+        interface.save()
         self.patch(settings, 'DNS_CONNECT', True)
         dns.write_full_dns_config()
         self.assertEqual(0, recorder.call_count)
@@ -305,17 +310,18 @@ class TestDNSConfigModifications(TestCase):
         nodegroup = factory.make_node_group(network=network)
         self.assertDNSMatches(generated_hostname(ip), nodegroup.name, ip)
 
-    def test_edit_nodegroup_updates_DNS_zone(self):
+    def test_edit_nodegroupinterface_updates_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
         old_network = IPNetwork('192.168.7.1/24')
         old_ip = factory.getRandomIPInNetwork(old_network)
         nodegroup = factory.make_node_group(network=old_network)
+        interface = nodegroup.get_managed_interface()
         # Edit nodegroup's network information to '192.168.44.1/24'
-        nodegroup.broadcast_ip = '192.168.44.255'
-        nodegroup.netmask = '255.255.255.0'
-        nodegroup.ip_range_low = '192.168.44.0'
-        nodegroup.ip_range_high = '192.168.44.255'
-        nodegroup.save()
+        interface.broadcast_ip = '192.168.44.255'
+        interface.netmask = '255.255.255.0'
+        interface.ip_range_low = '192.168.44.0'
+        interface.ip_range_high = '192.168.44.255'
+        interface.save()
         ip = factory.getRandomIPInNetwork(IPNetwork('192.168.44.1/24'))
         # The ip from the old network does not resolve anymore.
         self.assertEqual([''], self.dig_resolve(generated_hostname(old_ip)))
