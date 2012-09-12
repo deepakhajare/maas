@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""..."""
+"""Utilities to help document/describe the public facing API."""
 
 from __future__ import (
     absolute_import,
@@ -54,7 +54,7 @@ def generate_api_docs(handlers):
     This also ensures that handlers define 'resource_uri' methods. This is
     easily forgotten and essential in order to generate proper documentation.
 
-    :rtype: :class:`...`
+    :return: Generates :class:`piston.doc.HandlerDocumentation` instances.
     """
     sentinel = object()
     for handler in handlers:
