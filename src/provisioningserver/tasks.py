@@ -59,7 +59,7 @@ from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
-from provisioningserver.pxe.tftppath import list_boot_images
+from provisioningserver.pxe import tftppath
 
 # For each item passed to refresh_secrets, a refresh function to give it to.
 refresh_functions = {
@@ -350,7 +350,8 @@ def report_boot_images():
         task_logger.info("Not reporting boot images: don't have API key yet.")
         return
 
-    images = list_boot_images(Config.load_from_cache()['tftp']['root'])
+    images = tftppath.list_boot_images(
+        Config.load_from_cache()['tftp']['root'])
 
     MAASClient(MAASOAuth(*api_credentials), MAASDispatcher(), maas_url).post(
         'api/1.0/boot-images/', 'report_boot_images',

@@ -465,7 +465,7 @@ class TestBootImagesTasks(PservTestCase):
         self.set_maas_url()
         self.set_api_credentials()
         image = self.make_image_params()
-        self.patch(tftppath, 'list_boot_images', Mock(result=[image]))
+        self.patch(tftppath, 'list_boot_images', Mock(return_value=[image]))
         self.patch(MAASClient, 'post')
 
         report_boot_images.delay()
@@ -478,7 +478,7 @@ class TestBootImagesTasks(PservTestCase):
         self.set_api_credentials()
         self.patch(
             tftppath, 'list_boot_images',
-            Mock(result=self.make_image_params()))
+            Mock(return_value=self.make_image_params()))
         report_boot_images.delay()
         self.assertItemsEqual([], tftppath.list_boot_images.call_args_list)
 
@@ -486,6 +486,6 @@ class TestBootImagesTasks(PservTestCase):
         self.set_maas_url()
         self.patch(
             tftppath, 'list_boot_images',
-            Mock(result=self.make_image_params()))
+            Mock(return_value=self.make_image_params()))
         report_boot_images.delay()
         self.assertItemsEqual([], tftppath.list_boot_images.call_args_list)
