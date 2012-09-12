@@ -18,11 +18,16 @@ __all__ = [
 from django.db.models import (
     CharField,
     ForeignKey,
+    IntegerField,
     IPAddressField,
     Manager,
     )
 from maasserver import DefaultMeta
 from maasserver.dhcp import is_dhcp_management_enabled
+from maasserver.enum import (
+    NODEGROUP_STATUS,
+    NODEGROUP_STATUS_CHOICES,
+    )
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.refresh_worker import refresh_worker
 from maasserver.server_address import get_maas_facing_server_address
@@ -45,9 +50,9 @@ class NodeGroupManager(Manager):
     the model class it manages.
     """
 
-    def new(self, name, worker_ip, subnet_mask=None, broadcast_ip=None,
-            router_ip=None, ip_range_low=None, ip_range_high=None,
-            dhcp_key='', dhcp_interfaces=''):
+    def new(self, name, uuid, worker_ip, subnet_mask=None,
+            broadcast_ip=None, router_ip=None, ip_range_low=None,
+            ip_range_high=None, dhcp_key='', dhcp_interfaces=''):
         """Create a :class:`NodeGroup` with the given parameters.
 
         This method will generate API credentials for the nodegroup's
@@ -70,10 +75,11 @@ class NodeGroupManager(Manager):
 
         api_token = create_auth_token(get_worker_user())
         nodegroup = NodeGroup(
-            name=name, worker_ip=worker_ip, subnet_mask=subnet_mask,
-            broadcast_ip=broadcast_ip, router_ip=router_ip,
-            ip_range_low=ip_range_low, ip_range_high=ip_range_high,
-            api_token=api_token, api_key=api_token.key, dhcp_key=dhcp_key,
+            name=name, uuid=uuid, worker_ip=worker_ip,
+            subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
+            router_ip=router_ip, ip_range_low=ip_range_low,
+            ip_range_high=ip_range_high, api_token=api_token,
+            api_key=api_token.key, dhcp_key=dhcp_key,
             dhcp_interfaces=dhcp_interfaces)
         nodegroup.save()
         return nodegroup
@@ -86,9 +92,9 @@ class NodeGroupManager(Manager):
         try:
             master = self.get(name='master')
         except NodeGroup.DoesNotExist:
-            # The master did not exist yet; create it on demand.
+            # The master did not ist yet; create it on demand.
             master = self.new(
-                'master', '127.0.0.1', dhcp_key=generate_omapi_key())
+                'master', 'master', '127.0.0.1', dhcp_key=generate_omapi_key())
 
             # If any legacy nodes were still not associated with a node
             # group, enroll them in the master node group.
@@ -96,9 +102,9 @@ class NodeGroupManager(Manager):
 
         return master
 
-    def get_by_natural_key(self, name):
-        """For Django, a node group's name is a natural key."""
-        return self.get(name=name)
+    def get_by_natural_key(self, uuid):
+        """For Django, a node group's uuid is a natural key."""
+        return self.get(uuid=uuid)
 
     def refresh_workers(self):
         """Send refresh tasks to all node-group workers."""
@@ -117,11 +123,19 @@ class NodeGroup(TimestampedModel):
     name = CharField(
         max_length=80, unique=True, editable=True, blank=False, null=False)
 
+    status = IntegerField(
+        choices=NODEGROUP_STATUS_CHOICES, editable=False,
+        default=NODEGROUP_STATUS.DEFAULT_STATUS)
+
     # Credentials for the worker to access the API with.
     api_token = ForeignKey(Token, null=False, editable=False, unique=True)
     api_key = CharField(
         max_length=KEY_SIZE, null=False, blank=False, editable=False,
         unique=True)
+
+    # Unique identifier of the worker.
+    uuid = CharField(
+        max_length=36, unique=True, null=False, blank=False, editable=False)
 
     # Address of the worker.
     worker_ip = IPAddressField(null=False, editable=True, unique=True)
