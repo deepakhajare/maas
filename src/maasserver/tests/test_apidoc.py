@@ -142,27 +142,29 @@ class TestDescribingAPI(TestCase):
             allowed_methods = "GET", "POST", "PUT"
 
             @api_exported("POST")
-            def peace_sells(self, request, but, whos, buying):
+            def peace_sells_but_whos_buying(self, request, vic, rattlehead):
                 """Released 1986."""
 
             @api_exported("GET")
-            def so_far(self, request, so_good, so_what):
+            def so_far_so_good_so_what(self, request, vic, rattlehead):
                 """Released 1988."""
 
             @classmethod
             def resource_uri(cls):
+                # Note that the arguments, after request, to each of the ops
+                # above matches the parameters (index 1) in the tuple below.
                 return ("megadeth_view", ["vic", "rattlehead"])
 
         expected_actions = [
             {"doc": "Released 1988.",
              "method": "GET",
-             "op": "so_far",
-             "uri": "http://example.com/?op=so_far",
+             "op": "so_far_so_good_so_what",
+             "uri": "http://example.com/?op=so_far_so_good_so_what",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": "Released 1986.",
              "method": "POST",
-             "op": "peace_sells",
-             "uri": "http://example.com/?op=peace_sells",
+             "op": "peace_sells_but_whos_buying",
+             "uri": "http://example.com/?op=peace_sells_but_whos_buying",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": None,
              "method": "PUT",
