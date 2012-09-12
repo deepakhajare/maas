@@ -17,6 +17,7 @@ __all__ = [
     ]
 
 from inspect import getdoc
+from itertools import izip_longest
 from urllib import quote
 from urlparse import urljoin
 
@@ -63,6 +64,27 @@ def generate_api_docs(handlers):
         yield generate_doc(handler)
 
 
+def merge(*iterables):
+    """Merge iterables.
+
+    The iterables are iterated in lock-step. For the values at each iteration,
+    the first defined one is yielded, the rest are discarded.
+
+    This is useful for unpacking variable length results with defaults:
+
+      >>> a, b, c = merge("AB", "123")
+      >>> print(a, b, c)
+      A B 3
+
+    """
+    undefined = object()
+    for values in izip_longest(*iterables, fillvalue=undefined):
+        for value in values:
+            if value is not undefined:
+                yield value
+                break
+
+
 def describe_handler(handler):
     """Return a serialisable description of a handler.
 
@@ -78,10 +100,11 @@ def describe_handler(handler):
     else:
         uri_template = urljoin(settings.DEFAULT_MAAS_URL, uri_template)
 
-    uri_params = handler.resource_uri()
-    assert len(uri_params) <= 2 or uri_params[2] == {}, (
-        "Resource URIs with keyword parameters are not yet supported.")
-    uri_params = uri_params[1] if len(uri_params) >= 2 else []
+    view_name, uri_params, uri_kw = merge(
+        handler.resource_uri(), (None, (), {}))
+    assert uri_kw == {}, (
+        "Resource URI specifications with keyword parameters are not yet "
+        "supported: handler=%r; view_name=%r" % (handler, view_name))
 
     actions = []
     operation_methods = getattr(handler, "_available_api_methods", {})
