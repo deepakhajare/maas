@@ -23,6 +23,7 @@ sys.path.insert(0, join(dirname(__file__), "lib"))
 
 from commandant import builtins
 from commandant.controller import CommandController
+import maascli.api
 
 
 def main(argv=sys.argv):
@@ -34,6 +35,7 @@ def main(argv=sys.argv):
     # At this point controller.load_path(...) can be used to load commands
     # from a pre-agreed location on the filesystem, so that the command set
     # will grow and shrink with the installed packages.
+    controller.load_module(maascli.api)
     controller.load_module(builtins)
     controller.install_bzrlib_hooks()
     controller.run(argv[1:])
