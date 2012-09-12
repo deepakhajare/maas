@@ -27,7 +27,8 @@ from commandant.controller import CommandController
 
 def main(argv=sys.argv):
     controller = CommandController(
-        program_name=__name__, program_version="2.0",
+        program_name=argv[0],
+        program_version="1.0",
         program_summary="Control MAAS using its API from the command-line.",
         program_url="http://maas.ubuntu.com/")
     # At this point controller.load_path(...) can be used to load commands
