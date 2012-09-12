@@ -12,15 +12,14 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from glob import iglob
 from os.path import (
     dirname,
     join,
     )
 import sys
 
-# Add `lib` in the current directory into sys.path.
-sys.path[:0] = iglob(join(dirname(__file__), "lib"))
+# Add `lib` in this package's directory to sys.path.
+sys.path.insert(0, join(dirname(__file__), "lib"))
 
 from commandant import builtins
 from commandant.controller import CommandController
