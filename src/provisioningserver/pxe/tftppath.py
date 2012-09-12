@@ -92,3 +92,4 @@ def list_boot_images():
     :return: An iterable of dicts, describing boot images as consumed by
         the report_boot_images API call.
     """
+    return []
