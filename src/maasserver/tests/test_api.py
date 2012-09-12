@@ -2596,11 +2596,7 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
 
 class TestDescribe(AnonAPITestCase):
-
-    def get_describe(self):
-        """Make a request to `describe`, and return its response dict."""
-        response = self.client.get(reverse('describe'))
-        return json.loads(response.content)
+    """Tests for the `describe` view."""
 
     def test_describe_returns_json(self):
         response = self.client.get(reverse('describe'))
