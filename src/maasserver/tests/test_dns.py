@@ -110,12 +110,6 @@ class TestDNSUtilities(TestCase):
                 mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
                 ))
 
-    def test_get_zone_returns_None_if_dhcp_not_enabled(self):
-        nodegroup = factory.make_node_group()
-        nodegroup.subnet_mask = None
-        nodegroup.save()
-        self.assertIsNone(dns.get_zone(nodegroup))
-
 
 class TestDNSConfigModifications(TestCase):
 
@@ -203,17 +197,6 @@ class TestDNSConfigModifications(TestCase):
         dns.add_zone(nodegroup)
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
-    def test_add_zone_doesnt_write_config_if_dhcp_disabled(self):
-        recorder = FakeMethod()
-        self.patch(DNSZoneConfig, 'write_config', recorder)
-        nodegroup = factory.make_node_group()
-        interface = nodegroup.get_managed_interface()
-        interface.subnet_mask = None
-        interface.save()
-        self.patch(settings, 'DNS_CONNECT', True)
-        dns.add_zone(nodegroup)
-        self.assertEqual(0, recorder.call_count)
-
     def test_change_dns_zone_changes_dns_zone(self):
         nodegroup, _, _ = self.create_nodegroup_with_lease()
         self.patch(settings, 'DNS_CONNECT', True)
@@ -236,28 +219,6 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, 'DNS_CONNECT', True)
         enable_dns_management()
         self.assertTrue(dns.is_dns_enabled())
-
-    def test_change_dns_zone_changes_doesnt_write_conf_if_dhcp_disabled(self):
-        recorder = FakeMethod()
-        self.patch(DNSZoneConfig, 'write_config', recorder)
-        nodegroup = factory.make_node_group()
-        interface = nodegroup.get_managed_interface()
-        interface.subnet_mask = None
-        interface.save()
-        self.patch(settings, 'DNS_CONNECT', True)
-        dns.change_dns_zones(nodegroup)
-        self.assertEqual(0, recorder.call_count)
-
-    def test_write_full_dns_doesnt_write_config_if_dhcp_disabled(self):
-        recorder = FakeMethod()
-        self.patch(DNSZoneConfig, 'write_config', recorder)
-        nodegroup = factory.make_node_group()
-        interface = nodegroup.get_managed_interface()
-        interface.subnet_mask = None
-        interface.save()
-        self.patch(settings, 'DNS_CONNECT', True)
-        dns.write_full_dns_config()
-        self.assertEqual(0, recorder.call_count)
 
     def test_write_full_dns_loads_full_dns_config(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()

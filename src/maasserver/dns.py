@@ -115,10 +115,13 @@ def get_zone(nodegroup, serial=None):
     if not nodegroup.is_dhcp_enabled():
         return None
 
+    interface = nodegroup.get_managed_interface()
+    if interface is None:
+        return None
+
     if serial is None:
         serial = next_zone_serial()
     dns_ip = get_dns_server_address()
-    interface = nodegroup.get_managed_interface()
     return DNSZoneConfig(
         zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
         subnet_mask=interface.subnet_mask,

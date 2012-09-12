@@ -20,12 +20,14 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     Manager,
+    Q,
     )
 from maasserver import DefaultMeta
+from maasserver.dhcp import is_dhcp_management_enabled
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUP_STATUS_CHOICES,
-    NODEGROUPINTERFACE_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.models.nodegroupinterface import NodeGroupInterface
 from maasserver.models.timestampedmodel import TimestampedModel
@@ -54,7 +56,7 @@ class NodeGroupManager(Manager):
     def new(self, name, uuid, ip, subnet_mask=None,
             broadcast_ip=None, router_ip=None, ip_range_low=None,
             ip_range_high=None, dhcp_key='', interface='',
-            status=NODEGROUPINTERFACE_STATUS.UNMANAGED):
+            management=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT_STATUS):
         """Create a :class:`NodeGroup` with the given parameters.
 
         This method will:
@@ -85,7 +87,7 @@ class NodeGroupManager(Manager):
             nodegroup=nodegroup, ip=ip, subnet_mask=subnet_mask,
             broadcast_ip=broadcast_ip, router_ip=router_ip,
             interface=interface, ip_range_low=ip_range_low,
-            ip_range_high=ip_range_high, status=status)
+            ip_range_high=ip_range_high, management=management)
         nginterface.save()
         return nodegroup
 
@@ -149,14 +151,16 @@ class NodeGroup(TimestampedModel):
         return "<NodeGroup %r>" % self.name
 
     def get_managed_interface(self):
-        """Return the configured interface for this nodegroup.
+        """Return the interface for which MAAS managed the DHCP service.
 
         This is a temporary method that should be refactored once we add
         proper support for multiple interfaces on a nodegroup.
         """
         return get_one(
             NodeGroupInterface.objects.filter(
-                nodegroup=self, status=NODEGROUPINTERFACE_STATUS.MANAGED))
+                Q(management=NODEGROUPINTERFACE_MANAGEMENT.DHCP) |
+                Q(management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS),
+                nodegroup=self))
 
     def set_up_dhcp(self):
         """Write the DHCP configuration file and restart the DHCP server."""
@@ -192,8 +196,13 @@ class NodeGroup(TimestampedModel):
 
     def is_dhcp_enabled(self):
         """Is the DHCP for this nodegroup enabled?"""
+        # Once we have support for multiple managed interfaces, this
+        # method will have to be improved to cope with that.
+        if not is_dhcp_management_enabled():
+            return False
+
         interface = self.get_managed_interface()
         if interface is not None:
-            return interface.is_dhcp_enabled()
+            return True
         else:
             return False

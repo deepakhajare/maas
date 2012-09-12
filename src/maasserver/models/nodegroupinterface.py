@@ -22,7 +22,6 @@ from django.db.models import (
     IPAddressField,
     )
 from maasserver import DefaultMeta
-from maasserver.dhcp import is_dhcp_management_enabled
 from maasserver.enum import (
     NODEGROUPINTERFACE_MANAGEMENT,
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
@@ -62,12 +61,3 @@ class NodeGroupInterface(TimestampedModel):
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
-
-    def is_dhcp_enabled(self):
-        """Is the DHCP for this nodegroupinterface enabled?"""
-        return is_dhcp_management_enabled() and all([
-                self.subnet_mask,
-                self.broadcast_ip,
-                self.ip_range_low,
-                self.ip_range_high
-                ])

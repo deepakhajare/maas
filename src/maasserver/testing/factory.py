@@ -22,7 +22,7 @@ from django.contrib.auth.models import User
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_STATUS,
-    NODEGROUPINTERFACE_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.models import (
     DHCPLease,
@@ -120,7 +120,7 @@ class Factory(maastesting.factory.Factory):
     def make_node_group(self, name=None, uuid=None, ip=None,
                         router_ip=None, network=None, subnet_mask=None,
                         broadcast_ip=None, ip_range_low=None,
-                        ip_range_high=None, interface=None, status=None,
+                        ip_range_high=None, interface=None, management=None,
                         **kwargs):
         """Create a :class:`NodeGroup`.
 
@@ -132,8 +132,8 @@ class Factory(maastesting.factory.Factory):
         Otherwise, use the provided values for these values or use random IP
         addresses if they are not provided.
         """
-        if status is None:
-            status = NODEGROUPINTERFACE_STATUS.MANAGED
+        if management is None:
+            management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
         if name is None:
             name = self.make_name('nodegroup')
         if uuid is None:
@@ -165,7 +165,7 @@ class Factory(maastesting.factory.Factory):
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
             router_ip=router_ip, ip_range_low=ip_range_low,
             ip_range_high=ip_range_high, interface=interface,
-            status=status, **kwargs)
+            management=management, **kwargs)
         ng.save()
         return ng
 

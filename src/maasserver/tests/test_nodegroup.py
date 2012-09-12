@@ -15,22 +15,15 @@ __all__ = []
 from django.conf import settings
 import maasserver
 from maasserver.dns import get_dns_server_address
-from maasserver.enum import NODEGROUPINTERFACE_STATUS
-from maasserver.models import (
-    NodeGroup,
-    NodeGroupInterface,
-    )
+from maasserver.enum import NODEGROUPINTERFACE_MANAGEMENT
+from maasserver.models import NodeGroup
 from maasserver.server_address import get_maas_facing_server_address
-from maasserver.testing import (
-    enable_dhcp_management,
-    reload_object,
-    )
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
-from mock import Mock
 from provisioningserver.omshell import (
     generate_omapi_key,
     Omshell,
@@ -180,22 +173,12 @@ class TestNodeGroup(TestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
-    def test_is_dhcp_enabled_delegates_to_interface(self):
-        enable_dhcp_management()
-        nodegroup = factory.make_node_group()
-        configured = factory.getRandomBoolean()
-        recorder = Mock(return_value=configured)
-        self.patch(NodeGroupInterface, 'is_dhcp_enabled', recorder)
-        is_dhcp_enabled = nodegroup.is_dhcp_enabled()
-        self.assertEqual(
-            (configured, recorder.call_count), (is_dhcp_enabled, 1))
-
     def test_is_dhcp_enabled_returns_False_if_interface_not_managed(self):
         nodegroup = factory.make_node_group()
         interface = nodegroup.get_managed_interface()
-        interface.status = NODEGROUPINTERFACE_STATUS.UNMANAGED
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
         interface.save()
-        self.assertFalse(interface.is_dhcp_enabled())
+        self.assertFalse(nodegroup.is_dhcp_enabled())
 
     def test_set_up_dhcp_writes_dhcp_config(self):
         mocked_task = self.patch(
@@ -253,7 +236,7 @@ class TestNodeGroup(TestCase):
     def test_get_managed_interface_does_not_return_unmanaged_interface(self):
         nodegroup = factory.make_node_group()
         interface = nodegroup.nodegroupinterface_set.all()[0]
-        interface.status = NODEGROUPINTERFACE_STATUS.UNMANAGED
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
         interface.save()
         self.assertIsNone(nodegroup.get_managed_interface())
 
@@ -262,6 +245,6 @@ class TestNodeGroup(TestCase):
         # Create another nodegroup with a managed interface.
         factory.make_node_group()
         interface = nodegroup.nodegroupinterface_set.all()[0]
-        interface.status = NODEGROUPINTERFACE_STATUS.UNMANAGED
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
         interface.save()
         self.assertIsNone(nodegroup.get_managed_interface())
