@@ -102,7 +102,8 @@ class APICommand(Command):
         # TODO: encode_multipart_data insists on a dict for the data, which
         # prevents specifying multiple values for a field, like mac_addresses.
         # This needs to be fixed.
-        data.update(item.split("=", 1) for item in data_list)
+        if data_list is not None:
+            data.update(item.split("=", 1) for item in data_list)
         body, headers = encode_multipart_data(data, {})
 
         if MAAS_API_CREDENTIALS is not None:
