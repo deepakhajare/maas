@@ -1,10 +1,8 @@
 # encoding: utf-8
 import datetime
-
-from django.db import models
 from south.db import db
 from south.v2 import SchemaMigration
-
+from django.db import models
 
 class Migration(SchemaMigration):
 
@@ -77,6 +75,14 @@ class Migration(SchemaMigration):
             'model': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '100'})
         },
+        u'maasserver.bootimage': {
+            'Meta': {'unique_together': "((u'architecture', u'subarchitecture', u'release', u'purpose'),)", 'object_name': 'BootImage'},
+            'architecture': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'purpose': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'release': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'subarchitecture': ('django.db.models.fields.CharField', [], {'max_length': '255'})
+        },
         u'maasserver.config': {
             'Meta': {'object_name': 'Config'},
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
@@ -118,7 +124,7 @@ class Migration(SchemaMigration):
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-29a5206a-fc12-11e1-bbff-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-1f13fae2-fd8c-11e1-b78b-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
@@ -150,9 +156,9 @@ class Migration(SchemaMigration):
             'ip': ('django.db.models.fields.IPAddressField', [], {'max_length': '15'}),
             'ip_range_high': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
             'ip_range_low': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
+            'management': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']"}),
             'router_ip': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'null': 'True', 'blank': 'True'}),
-            'management': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'subnet_mask': ('django.db.models.fields.IPAddressField', [], {'default': 'None', 'max_length': '15', 'null': 'True', 'blank': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
@@ -188,7 +194,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1347369065L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1347531405L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
