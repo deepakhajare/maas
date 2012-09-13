@@ -921,14 +921,14 @@ class NodeGroupsHandler(BaseHandler):
             if form.is_valid():
                 form.save()
                 return HttpResponse(
-                    "Cluster registered.  Awaiting admin approval",
+                    "Cluster registered.  Awaiting admin approval.",
                     status=httplib.ACCEPTED)
             else:
                 raise ValidationError(form.errors)
         else:
             if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
                 # The nodegroup exists and is validated, return the RabbitMQ
-                # credentials.
+                # credentials as JSON.
                 # XXX: rvb 2012-09-13 bug=1050492: MAAS uses the 'guest'
                 # account to communicate with RabbitMQ, hence none of the
                 # connection information are defined.
@@ -940,7 +940,7 @@ class NodeGroupsHandler(BaseHandler):
                 raise PermissionDenied('Rejected cluster.')
             elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
                 return HttpResponse(
-                    "Awaiting admin approval", status=httplib.ACCEPTED)
+                    "Awaiting admin approval.", status=httplib.ACCEPTED)
 
 
 def get_nodegroup_for_worker(request, uuid):
