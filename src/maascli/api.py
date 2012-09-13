@@ -18,8 +18,12 @@ import httplib
 import json
 import os
 import re
+from urllib import urlencode
 from urllib2 import urlopen
-from urlparse import urljoin
+from urlparse import (
+    urljoin,
+    urlparse,
+    )
 
 from apiclient.creds import convert_string_to_tuple
 from apiclient.maas_client import MAASOAuth
@@ -81,37 +85,45 @@ class APICommand(Command):
 
     def run(self, action, data_list, **params):
         try:
-            # TODO: this does not find CRUD actions because they don't
-            # currently have an "op" parameter.
             action = next(
                 act for act in self.actions
-                if act.get("op") == action)
+                if act.get("name") == action)
         except StopIteration:
             raise LookupError(
                 "%s: cannot '%s'" % (self.name(), action))
 
-        method = action["method"]
         # TODO: this is el-cheapo URI Template
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
         # <https://github.com/uri-templates/uritemplate-py> here?
-        uri = action["uri"].format(**params)
-        # TODO: the op is already appended to the uri, but this isn't
-        # consulted for POST requests. Either look at the query string on the
-        # server, or don't bother appending to the uri for POST
-        # requests. Doesn't matter much actually; does not harm to leave it.
+        uri = self.uri.format(**params)
+
+        if data_list is None:
+            data = dict()
+        else:
+            data = dict(item.split("=", 1) for item in data_list)
+
         op = action["op"]
+        if op is not None:
+            data["op"] = op
 
-        # TODO: deal with state information, i.e. where to stuff CRUD data.
-        data = {"op": op}
-        # TODO: encode_multipart_data insists on a dict for the data, which
-        # prevents specifying multiple values for a field, like mac_addresses.
-        # This needs to be fixed.
-        if data_list is not None:
-            data.update(item.split("=", 1) for item in data_list)
-        # TODO: only encode multipart for non-ReSTful POST requests; all
-        # others should use query parameters.
-        body, headers = encode_multipart_data(data, {})
+        method = action["method"]
+        restful = action["restful"]
 
+        if method == "POST" and not restful:
+            # Encode the data as multipart for non-ReSTful POST requests; all
+            # others should use query parameters. TODO: encode_multipart_data
+            # insists on a dict for the data, which prevents specifying
+            # multiple values for a field, like mac_addresses.  This needs to
+            # be fixed.
+            body, headers = encode_multipart_data(data, {})
+        else:
+            # TODO: deal with state information, i.e. where to stuff CRUD
+            # data, content types, etc.
+            body, headers = None, {}
+            # TODO: smarter merging of data with query.
+            uri = urlparse(uri)._replace(query=urlencode(data)).geturl()
+
+        # Sign request if credentials have been provided.
         if MAAS_API_CREDENTIALS is not None:
             creds = convert_string_to_tuple(MAAS_API_CREDENTIALS)
             auth = MAASOAuth(*creds)
@@ -145,15 +157,14 @@ def gen_api_commands(api):
     """Manufacture command classes based on an API description document."""
     for handler in api["handlers"]:
         actions = handler["actions"]
-        # TODO: all uri_params for a handler are the same, so the description
-        # ought not to specify them for every action.
-        params = actions[0]["uri_params"]
+        params = handler["params"]
         name = handler["name"]
         command = type(
             b"cmd_api_" + handler_command_name(name), (APICommand,), {
                 "__doc__": handler["doc"],
                 "actions": APICommand.actions + actions,
                 "takes_args": APICommand.takes_args + params,
+                "uri": handler["uri"],
                 }
             )
         yield command.__name__, command
