@@ -44,6 +44,7 @@ def main(argv=None):
     # from a pre-agreed location on the filesystem, so that the command set
     # will grow and shrink with the installed packages.
     controller.load_module(maascli.api)
+    controller.load_module(maascli.api.command_module())
     controller.load_module(builtins)
     controller.install_bzrlib_hooks()
     # Run, doing polite things with exceptions.
@@ -52,5 +53,8 @@ def main(argv=None):
     except KeyboardInterrupt:
         raise SystemExit(1)
     except StandardError as error:
-        sys.stderr.write("%s\n" % error)
-        raise SystemExit(2)
+        if __debug__:
+            raise
+        else:
+            sys.stderr.write("%s\n" % error)
+            raise SystemExit(2)
