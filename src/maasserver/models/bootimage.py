@@ -21,7 +21,6 @@ from django.db.models import (
     Model,
     )
 from maasserver import DefaultMeta
-from maasserver.enum import ARCHITECTURE_CHOICES
 
 
 class BootImageManager(Manager):
@@ -55,7 +54,7 @@ class BootImageManager(Manager):
 
 
 class BootImage(Model):
-    """Available boot image (i.e. kerne and initrd).
+    """Available boot image (i.e. kernel and initrd).
 
     Each `BootImage` represents a type of boot for which a boot image is
     available.  The `maas-import-pxe-files` script imports these, and the
@@ -64,6 +63,8 @@ class BootImage(Model):
     If a boot image is missing, that may mean that the import script has not
     been run yet, or has failed; or that it was not configured to provide
     that particular image.
+
+    Fields correspond directly to values used in the `tftppath` module.
     """
 
     class Meta(DefaultMeta):
@@ -73,9 +74,16 @@ class BootImage(Model):
 
     objects = BootImageManager()
 
-    architecture = CharField(
-        max_length=255, blank=False, choices=ARCHITECTURE_CHOICES,
-        editable=False)
+    # System architecture (e.g. "i386") that the image is for.
+    architecture = CharField(max_length=255, blank=False, editable=False)
+
+    # Sub-architecture, e.g. a particular type of ARM machine that needs
+    # different treatment.  (For architectures that don't need these
+    # such as i386 and amd64, we use "generic").
     subarchitecture = CharField(max_length=255, blank=False, editable=False)
+
+    # Ubuntu release (e.g. "precise") that the image boots.
     release = CharField(max_length=255, blank=False, editable=False)
+
+    # Boot purpose (e.g. "commissioning" or "install") that the image is for.
     purpose = CharField(max_length=255, blank=False, editable=False)
