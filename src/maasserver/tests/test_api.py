@@ -2651,3 +2651,6 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(
             (httplib.OK, "Images noted."),
             (response.status_code, response.content))
+
+    def test_report_boot_images_warns_if_no_images_found(self):
+        self.fail("TEST THIS")
