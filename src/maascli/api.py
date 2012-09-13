@@ -101,12 +101,15 @@ class APICommand(Command):
         # requests. Doesn't matter much actually; does not harm to leave it.
         op = action["op"]
 
+        # TODO: deal with state information, i.e. where to stuff CRUD data.
         data = {"op": op}
         # TODO: encode_multipart_data insists on a dict for the data, which
         # prevents specifying multiple values for a field, like mac_addresses.
         # This needs to be fixed.
         if data_list is not None:
             data.update(item.split("=", 1) for item in data_list)
+        # TODO: only encode multipart for non-ReSTful POST requests; all
+        # others should use query parameters.
         body, headers = encode_multipart_data(data, {})
 
         if MAAS_API_CREDENTIALS is not None:
