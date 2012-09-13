@@ -36,8 +36,8 @@ from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import (
     api,
-    components,
     )
+from maasserver.components import COMPONENT
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -2654,7 +2654,7 @@ class TestBootImagesAPI(APITestCase):
             (response.status_code, response.content))
 
     def test_report_boot_images_warns_if_no_images_found(self):
-        recorder = self.patch(components, 'register_persistent_error')
+        recorder = self.patch(api, 'register_persistent_error')
         client = make_worker_client(NodeGroup.objects.ensure_master())
 
         response = self.report_images([], client=client)
@@ -2663,12 +2663,12 @@ class TestBootImagesAPI(APITestCase):
             (response.status_code, response.content))
 
         self.assertIn(
-            components.COMPONENT.IMPORT_PXE_FILES,
+            COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])
 
     def test_report_boot_images_removes_warning_if_images_found(self):
-        register_error = self.patch(components, 'register_persistent_error')
-        discard_error = self.patch(components, 'discard_persistent_error')
+        register_error = self.patch(api, 'register_persistent_error')
+        discard_error = self.patch(api, 'discard_persistent_error')
         client = make_worker_client(NodeGroup.objects.ensure_master())
 
         response = self.report_images(
@@ -2679,5 +2679,5 @@ class TestBootImagesAPI(APITestCase):
 
         self.assertItemsEqual([], register_error.call_args_list)
         self.assertIn(
-            [components.COMPONENT.IMPORT_PXE_FILES],
+            [COMPONENT.IMPORT_PXE_FILES],
             [args[0] for args in discard_error.call_args_list])

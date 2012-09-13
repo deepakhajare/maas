@@ -15,10 +15,19 @@ __all__ = [
     ]
 
 
+from textwrap import dedent
+
 from lockfile import FileLock
+from maasserver.components import (
+    COMPONENT,
+    register_persistent_error,
+    )
 from maasserver.dns import write_full_dns_config
 from maasserver.maasavahi import setup_maas_avahi_service
-from maasserver.models import NodeGroup
+from maasserver.models import (
+    BootImage,
+    NodeGroup,
+    )
 
 # Lock file used to prevent concurrent runs of the start_up() method.
 LOCK_FILE_NAME = '/run/lock/' + __name__
@@ -63,3 +72,16 @@ def inner_start_up():
 
     # Send secrets etc. to workers.
     NodeGroup.objects.refresh_workers()
+
+    # Check whether we have boot images yet.
+    if not BootImage.objects.all().exists():
+        warning = dedent("""\
+            No boot images have been registered yet.  This may mean that the
+            maas-import-pxe-files script has not been run yet, or that it
+            failed; alternatively, there may be a communication problem
+            between the master worker and the MAAS server.
+
+            Try running maas-import-pxe-files manually.  If it succeeds, this
+            message should disappear within 5 minutes.
+            """)
+        register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)

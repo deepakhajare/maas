@@ -25,7 +25,10 @@ from maasserver import (
     components,
     start_up,
     )
-from maasserver.models.nodegroup import NodeGroup
+from maasserver.models import (
+    BootImage,
+    NodeGroup,
+    )
 from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
@@ -107,7 +110,8 @@ class TestStartUp(TestCase):
         # the import script has not been successfully run yet, or that
         # the master worker is having trouble reporting its images.  And
         # so start_up registers a persistent warning about this.
-        recorder = self.patch(components, 'register_persistent_error')
+        BootImage.objects.all().delete()
+        recorder = self.patch(start_up, 'register_persistent_error')
 
         start_up.start_up()
 
@@ -119,7 +123,7 @@ class TestStartUp(TestCase):
         # If boot images are known, there is no warning about the import
         # script.
         factory.make_boot_image()
-        recorder = self.patch(components, 'register_persistent_error')
+        recorder = self.patch(start_up, 'register_persistent_error')
 
         start_up.start_up()
 
