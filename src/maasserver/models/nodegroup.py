@@ -20,7 +20,6 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     Manager,
-    Q,
     )
 from maasserver import DefaultMeta
 from maasserver.dhcp import is_dhcp_management_enabled
@@ -158,9 +157,8 @@ class NodeGroup(TimestampedModel):
         """
         return get_one(
             NodeGroupInterface.objects.filter(
-                Q(management=NODEGROUPINTERFACE_MANAGEMENT.DHCP) |
-                Q(management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS),
-                nodegroup=self))
+                nodegroup=self).exclude(
+                    management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED))
 
     def set_up_dhcp(self):
         """Write the DHCP configuration file and restart the DHCP server."""
