@@ -34,7 +34,10 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import api
+from maasserver import (
+    api,
+    components,
+    )
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -2599,6 +2602,14 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
 class TestBootImagesAPI(APITestCase):
 
+    def make_boot_image_params(self):
+        return {
+            'architecture': factory.make_name('architecture'),
+            'subarchitecture': factory.make_name('subarchitecture'),
+            'release': factory.make_name('release'),
+            'purpose': factory.make_name('purpose'),
+        }
+
     def report_images(self, images, client=None):
         if client is None:
             client = self.client
@@ -2624,12 +2635,7 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_report_boot_images_stores_images(self):
-        image = {
-            'architecture': factory.make_name('architecture'),
-            'subarchitecture': factory.make_name('subarchitecture'),
-            'release': factory.make_name('release'),
-            'purpose': factory.make_name('purpose'),
-        }
+        image = self.make_boot_image_params()
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
@@ -2639,13 +2645,8 @@ class TestBootImagesAPI(APITestCase):
             BootImage.objects.have_image(**image))
 
     def test_report_boot_images_ignores_unknown_image_properties(self):
-        image = {
-            'architecture': factory.make_name('architecture'),
-            'subarchitecture': factory.make_name('subarchitecture'),
-            'release': factory.make_name('release'),
-            'purpose': factory.make_name('purpose'),
-            'nonesuch': factory.make_name('nonesuch'),
-        }
+        image = self.make_boot_image_params()
+        image['nonesuch'] = factory.make_name('nonesuch'),
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
@@ -2653,4 +2654,30 @@ class TestBootImagesAPI(APITestCase):
             (response.status_code, response.content))
 
     def test_report_boot_images_warns_if_no_images_found(self):
-        self.fail("TEST THIS")
+        recorder = self.patch(components, 'register_persistent_error')
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+
+        response = self.report_images([], client=client)
+        self.assertEqual(
+            (httplib.OK, "Images noted."),
+            (response.status_code, response.content))
+
+        self.assertIn(
+            components.COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+
+    def test_report_boot_images_removes_warning_if_images_found(self):
+        register_error = self.patch(components, 'register_persistent_error')
+        discard_error = self.patch(components, 'discard_persistent_error')
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+
+        response = self.report_images(
+            [self.make_boot_image_params()], client=client)
+        self.assertEqual(
+            (httplib.OK, "Images noted."),
+            (response.status_code, response.content))
+
+        self.assertItemsEqual([], register_error.call_args_list)
+        self.assertIn(
+            [components.COMPONENT.IMPORT_PXE_FILES],
+            [args[0] for args in discard_error.call_args_list])
