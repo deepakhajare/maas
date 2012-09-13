@@ -11,15 +11,22 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "cmd_api_describe",
+    "command_module",
     ]
 
+from glob import iglob
 import httplib
 import json
+import new
 import os
+from os.path import (
+    exists,
+    expanduser,
+    isdir,
+    join,
+    )
 import re
 from urllib import urlencode
-from urllib2 import urlopen
 from urlparse import (
     urljoin,
     urlparse,
@@ -29,9 +36,23 @@ from apiclient.creds import convert_string_to_tuple
 from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
+from bzrlib.errors import BzrCommandError
+from bzrlib.option import Option
 from commandant.commands import Command
 import httplib2
+import lockfile
 import yaml
+
+
+dotdir = expanduser("~/.maascli")
+dotlock = lockfile.FileLock("%s.lock" % dotdir)
+
+
+re_camelcase = re.compile(
+    r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
+
+def safe_name(string):
+    return "-".join(re_camelcase.findall(string))
 
 
 def ensure_trailing_slash(string):
@@ -40,45 +61,72 @@ def ensure_trailing_slash(string):
     return (string + slash) if not string.endswith(slash) else string
 
 
-re_camelcase = re.compile(
-    r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
+class cmd_login(Command):
+    """Log-in to a remote API, storing its description and credentials."""
+
+    takes_args = ("profile_name", "url")
+    takes_options = (
+        Option("credentials", type=unicode, short_name="c"),
+        )
+
+    def run(self, profile_name, url, credentials=None):
+        profile_path = join(
+            dotdir, "%s.profile" % safe_name(profile_name))
+        # Ensure that the credentials have a valid form.
+        if credentials is not None:
+            credentials = convert_string_to_tuple(credentials)
+        # Don't allow any concurrency beyond this point.
+        with dotlock:
+            if exists(profile_path):
+                raise BzrCommandError(
+                    "Already logged-in to %s." % profile_name)
+            if not isdir(dotdir):
+                os.mkdir(dotdir, 0700)
+
+            url = ensure_trailing_slash(url)
+            url_describe = urljoin(url, "describe/")
+
+            http = httplib2.Http()
+            response, content = http.request(
+                ascii_url(url_describe), "GET")
+
+            if response.status != httplib.OK:
+                raise BzrCommandError(
+                    "{0.status} {0.reason}:\n{1}".format(response, content))
+
+            profile = {
+                "credentials": credentials,
+                "description": json.loads(content),
+                "name": profile_name,
+                "url": url,
+                }
+
+            with open(profile_path, "wb") as stream:
+                yaml.safe_dump(profile, stream=stream)
 
 
-def handler_command_name(string):
-    string = string if isinstance(string, bytes) else string.encode("ascii")
-    parts = re_camelcase.findall(string)
-    parts = (part.lower() for part in parts)
-    parts = (part for part in parts if part != b"handler")
-    return b"_".join(parts)
+class cmd_logout(Command):
+    """Log-out of a remote API, purging any stored credentials."""
 
+    takes_args = ["profile_name"]
 
-# TODO: Change default; this one's for development.
-MAAS_API_URL = os.environ.get(
-    "MAAS_API_URL", "http://localhost:5243/api/1.0/")
-MAAS_API_URL = ensure_trailing_slash(MAAS_API_URL)
-MAAS_API_URL = ascii_url(MAAS_API_URL)
-
-MAAS_API_CREDENTIALS = os.environ.get("MAAS_API_CREDENTIALS")
-
-# This is dumber than a bag of wet mice, but it's a start.
-MAAS_API_DESCRIPTION_URL = urljoin(MAAS_API_URL, "describe/")
-MAAS_API_DESCRIPTION_URL = ascii_url(MAAS_API_DESCRIPTION_URL)
-MAAS_API_DESCRIPTION = json.load(urlopen(MAAS_API_DESCRIPTION_URL))
-
-
-class cmd_api_describe(Command):
-    """Describe the MAAS API referred to by `MAAS_API_URL`."""
-
-    def run(self):
-        yaml.safe_dump(MAAS_API_DESCRIPTION, stream=self.outf)
+    def run(self, profile_name):
+        profile_path = join(
+            dotdir, "%s.profile" % safe_name(profile_name))
+        with dotlock:
+            if exists(profile_path):
+                os.remove(profile_path)
 
 
 class APICommand(Command):
     """A generic MAAS API command.
 
     This is used as a base for creating more specific commands; see
-    `gen_api_commands`.
+    `gen_profile_commands`.
     """
+
+    # See `cmd_login` and `cmd_logout`.
+    profile = None
 
     # Override this in subclasses.
     actions = []
@@ -127,6 +175,8 @@ class APICommand(Command):
             # multiple values for a field, like mac_addresses.  This needs to
             # be fixed.
             body, headers = encode_multipart_data(data, {})
+            # TODO: make encode_multipart_data work with arbitrarily encoded
+            # strings; atm, it blows up when encountering a non-ASCII string.
         else:
             # TODO: deal with state information, i.e. where to stuff CRUD
             # data, content types, etc.
@@ -135,9 +185,9 @@ class APICommand(Command):
             uri = urlparse(uri)._replace(query=urlencode(data)).geturl()
 
         # Sign request if credentials have been provided.
-        if MAAS_API_CREDENTIALS is not None:
-            creds = convert_string_to_tuple(MAAS_API_CREDENTIALS)
-            auth = MAASOAuth(*creds)
+        credentials = self.profile["credentials"]
+        if credentials is not None:
+            auth = MAASOAuth(*credentials)
             auth.sign_request(uri, headers)
 
         # Use httplib2 instead of urllib2 (or MAASDispatcher, which is based
@@ -148,6 +198,7 @@ class APICommand(Command):
         response, content = http.request(
             uri, method, body=body, headers=headers)
 
+        # TODO: parse the content type with a little more elegance.
         if (response["content-type"] == "application/json" or
             response["content-type"].startswith("application/json;")):
             content = json.loads(content)
@@ -164,14 +215,33 @@ class APICommand(Command):
         yaml.safe_dump(contents, stream=self.outf)
 
 
-def gen_api_commands(api):
-    """Manufacture command classes based on an API description document."""
-    for handler in api["handlers"]:
+def handler_command_name(string):
+    """Create a handler command name from an arbitrary string.
+
+    Camel-case parts of string will be extracted, converted to lowercase,
+    joined with underscores, and the rest discarded. The term "handler" will
+    also be removed if discovered amongst the aforementioned parts.
+    """
+    string = string if isinstance(string, bytes) else string.encode("ascii")
+    parts = re_camelcase.findall(string)
+    parts = (part.lower() for part in parts)
+    parts = (part for part in parts if part != b"handler")
+    return b"_".join(parts)
+
+
+def gen_profile_commands(profile):
+    """Manufacture command classes based on an API profile."""
+    prefix = profile["name"].encode("ascii")
+    description = profile["description"]
+
+    for handler in description["handlers"]:
         actions = handler["actions"]
         params = handler["params"]
         name = handler["name"]
+        command_name = b"cmd_%s_%s" % (
+            prefix, handler_command_name(name))
         command = type(
-            b"cmd_api_" + handler_command_name(name), (APICommand,), {
+            command_name, (APICommand,), {
                 "__doc__": handler["doc"],
                 "actions": APICommand.actions + actions,
                 "takes_args": ["action"] + params + ["data*"],
@@ -181,6 +251,21 @@ def gen_api_commands(api):
         yield command.__name__, command
 
 
-# Generate command classes into the module's namespace, ready to be discovered
-# by CommandController.load_module().
-globals().update(gen_api_commands(MAAS_API_DESCRIPTION))
+def gen_profiles():
+    """Load all profiles that we're logged-in to."""
+    with dotlock:
+        for profile_path in iglob(join(dotdir, "*.profile")):
+            with open(profile_path, "rb") as stream:
+                yield yaml.safe_load(stream)
+
+
+def command_module():
+    """Return a module populated with command classes.
+
+    This is then ready to be passed to `CommandController.load_module`.
+    """
+    module = new.module(b"%s.commands" % __name__)
+    for profile in gen_profiles():
+        commands = gen_profile_commands(profile)
+        vars(module).update(commands)
+    return module
