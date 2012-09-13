@@ -108,6 +108,7 @@ from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
+    NODEGROUP_STATUS,
     )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
@@ -120,6 +121,7 @@ from maasserver.fields import validate_mac
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
+    NodeGroupWithInterfacesForm,
     )
 from maasserver.models import (
     Config,
@@ -892,6 +894,53 @@ class NodeGroupsHandler(BaseHandler):
         """
         NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
+
+    @api_exported('POST')
+    def register(self, request):
+        """Register a new `NodeGroup`.
+
+        :param uuid: The UUID of the nodegroup.
+        :type name: basestring
+        :param name: The name of the nodegroup.
+        :type name: basestring
+        :param interfaces: The list of the interfaces' data.
+        :type interface: json string containing a list of dictionaries with
+            the data to initialize the interfaces.
+            e.g.: '[{"ip_range_high": "192.168.168.254",
+            "ip_range_low": "192.168.168.1", "broadcast_ip":
+            "192.168.168.255", "ip": "192.168.168.18", "subnet_mask":
+            "255.255.255.0", "router_ip": "192.168.168.1", "interface":
+            "eth0"}]'
+        """
+        uuid = get_mandatory_param(request.data, 'uuid')
+        existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+        if existing_nodegroup is None:
+            # This nodegroup (identified by its uuid), does not exist yet,
+            # create it if the data validates.
+            form = NodeGroupWithInterfacesForm(request.data)
+            if form.is_valid():
+                form.save()
+                return HttpResponse(
+                    "Cluster registered.  Awaiting admin approval",
+                    status=httplib.ACCEPTED)
+            else:
+                raise ValidationError(form.errors)
+        else:
+            if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
+                # The nodegroup exists and is validated, return the RabbitMQ
+                # credentials.
+                # XXX: rvb 2012-09-13 bug=1050492: MAAS uses the 'guest'
+                # account to communicate with RabbitMQ, hence none of the
+                # connection information are defined.
+                return {
+                    # TODO: send RabbiMQ credentials.
+                    'test': 'test',
+                }
+            elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
+                raise PermissionDenied('Rejected cluster.')
+            elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
+                return HttpResponse(
+                    "Awaiting admin approval", status=httplib.ACCEPTED)
 
 
 def get_nodegroup_for_worker(request, uuid):
