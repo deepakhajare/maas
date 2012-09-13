@@ -158,15 +158,18 @@ class TestDescribingAPI(TestCase):
         expected_actions = [
             {"doc": "Released 1988.",
              "method": "GET",
+             "name": "so_far_so_good_so_what",
              "op": "so_far_so_good_so_what",
              "restful": False},
             {"doc": "Released 1986.",
              "method": "POST",
+             "name": "peace_sells_but_whos_buying",
              "op": "peace_sells_but_whos_buying",
              "restful": False},
             {"doc": None,
              "method": "PUT",
-             "op": "update",
+             "name": "update",
+             "op": None,
              "restful": True},
             ]
 
@@ -188,15 +191,15 @@ class TestDescribingAPI(TestCase):
         # The RUD of CRUD actions are still available, but the C(reate) action
         # has been overridden with custom non-ReSTful operations.
         expected_actions = {
-            "DELETE op=delete restful=True",
-            "GET op=read restful=True",
-            "POST op=start restful=False",
-            "POST op=stop restful=False",
-            "POST op=release restful=False",
-            "PUT op=update restful=True",
+            "DELETE delete op=None restful=True",
+            "GET read op=None restful=True",
+            "POST start op=start restful=False",
+            "POST stop op=stop restful=False",
+            "POST release op=release restful=False",
+            "PUT update op=None restful=True",
             }
         observed_actions = {
-            "%(method)s op=%(op)s restful=%(restful)s" % action
+            "%(method)s %(name)s op=%(op)s restful=%(restful)s" % action
             for action in description["actions"]
             }
         self.assertSetEqual(expected_actions, observed_actions)

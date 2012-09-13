@@ -82,7 +82,19 @@ def merge(*iterables):
 
 
 def describe_actions(handler):
-    """Describe the actions that `handler` supports."""
+    """Describe the actions that `handler` supports.
+
+    For each action, which could be a CRUD operation or a custom (piggybacked)
+    operation, a dict with the following entries is generated:
+
+      method: string, HTTP method.
+      name: string, a human-friendly name for the action.
+      doc: string, documentation about the action.
+      op: string or None, the op parameter to pass in requests for
+          non-CRUD/ReSTful requests.
+      restful: Indicates if this is a CRUD/ReSTful action.
+
+    """
     from maasserver.api import dispatch_methods  # Avoid circular imports.
     operation_methods = getattr(handler, "_available_api_methods", {})
     for http_method in handler.allowed_methods:
@@ -92,12 +104,16 @@ def describe_actions(handler):
             # custom operations instead.
             operations = handler._available_api_methods[http_method]
             for op, func in operations.items():
-                yield dict(desc_base, doc=getdoc(func), op=op, restful=False)
+                yield dict(
+                    desc_base, name=op, doc=getdoc(func),
+                    op=op, restful=False)
         else:
             # Default Piston CRUD method still stands.
-            op = dispatch_methods[http_method]
-            func = getattr(handler, op)
-            yield dict(desc_base, doc=getdoc(func), op=op, restful=True)
+            name = dispatch_methods[http_method]
+            func = getattr(handler, name)
+            yield dict(
+                desc_base, name=name, doc=getdoc(func),
+                op=None, restful=True)
 
 
 def describe_handler(handler):
