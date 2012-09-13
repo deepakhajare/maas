@@ -14,6 +14,7 @@ __all__ = [
     "command_module",
     ]
 
+from getpass import getpass
 from glob import iglob
 import httplib
 import json
@@ -26,6 +27,7 @@ from os.path import (
     join,
     )
 import re
+import sys
 from urllib import urlencode
 from urlparse import (
     urljoin,
@@ -37,7 +39,6 @@ from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
 from bzrlib.errors import BzrCommandError
-from bzrlib.option import Option
 from commandant.commands import Command
 import httplib2
 import lockfile
@@ -64,19 +65,30 @@ def ensure_trailing_slash(string):
 
 
 class cmd_login(Command):
-    """Log-in to a remote API, storing its description and credentials."""
+    """Log-in to a remote API, storing its description and credentials.
 
-    takes_args = ("profile_name", "url")
-    takes_options = (
-        Option("credentials", type=unicode, short_name="c"),
-        )
+    If credentials are not provided on the command-line, they will be prompted
+    for interactively.
+    """
+
+    # TODO: rename credentials api_key or something.
+    takes_args = ("profile_name", "url", "credentials?")
 
     def run(self, profile_name, url, credentials=None):
         profile_path = join(
             dotdir, "%s.profile" % safe_name(profile_name))
+        # Try and obtain credentials interactively if they're not given.
+        if credentials is None and sys.stdin.isatty():
+            prompt = "API key (leave empty for anonymous access): "
+            try:
+                credentials = getpass(prompt, stream=self.outf)
+            except EOFError:
+                credentials = None
         # Ensure that the credentials have a valid form.
-        if credentials is not None:
+        if credentials and not credentials.isspace():
             credentials = convert_string_to_tuple(credentials)
+        else:
+            credentials = None
         # Don't allow any concurrency beyond this point.
         with dotlock:
             if exists(profile_path):
