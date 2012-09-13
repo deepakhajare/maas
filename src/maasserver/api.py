@@ -1015,20 +1015,6 @@ class MAASHandler(BaseHandler):
         value = Config.objects.get_config(name)
         return HttpResponse(json.dumps(value), content_type='application/json')
 
-    @api_exported('POST')
-    def report_boot_images(self, request):
-        """Report available boot images.
-
-        A boot image consists of a kernel and initrd, which a netbooting
-        node can download from TFTP (as directed over PXE).  These are
-        downloaded by the `maas-import-pxe-files` script, running on the
-        same system as the master worker.  The master worker can report
-        to the server which boot images are available to nodes.
-
-        :param images: A list of tuples: (architecture, sub-architecture,
-            release, purpose).
-        """
-
 
 # Title section for the API documentation.  Matches in style, format,
 # etc. whatever generate_api_doc() produces, so that you can concatenate
