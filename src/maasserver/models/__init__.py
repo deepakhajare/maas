@@ -11,6 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    'BootImage',
     'Config',
     'DHCPLease',
     'FileStorage',
@@ -18,6 +19,7 @@ __all__ = [
     'MACAddress',
     'Node',
     'NodeGroup',
+    'NodeGroupInterface',
     'SSHKey',
     'UserProfile',
     ]
@@ -29,12 +31,14 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from maasserver.enum import NODE_PERMISSION
+from maasserver.models.bootimage import BootImage
 from maasserver.models.config import Config
 from maasserver.models.dhcplease import DHCPLease
 from maasserver.models.filestorage import FileStorage
 from maasserver.models.macaddress import MACAddress
 from maasserver.models.node import Node
 from maasserver.models.nodegroup import NodeGroup
+from maasserver.models.nodegroupinterface import NodeGroupInterface
 from maasserver.models.sshkey import SSHKey
 from maasserver.models.user import create_user
 from maasserver.models.userprofile import UserProfile
@@ -49,7 +53,7 @@ logger = getLogger('maasserver')
 # export in __all__.
 ignore_unused(
     Config, DHCPLease, FileStorage, MACAddress, NodeGroup, SSHKey,
-    UserProfile)
+    UserProfile, NodeGroupInterface)
 
 
 # Connect the 'create_user' method to the post save signal of User.
@@ -61,8 +65,9 @@ User._meta.get_field('email')._unique = True
 
 
 # Register the models in the admin site.
-admin.site.register(Consumer)
+admin.site.register(BootImage)
 admin.site.register(Config)
+admin.site.register(Consumer)
 admin.site.register(FileStorage)
 admin.site.register(MACAddress)
 admin.site.register(Node)
