@@ -119,24 +119,20 @@ class APICommand(Command):
         response, content = http.request(
             uri, method, body=body, headers=headers)
 
-        if response.status == httplib.OK:
-            # TODO: check if its safe to assume that the response is always
-            # JSON here.
-            yaml.safe_dump(json.loads(content), stream=self.outf)
-        elif response.status == httplib.BAD_REQUEST:
-            if response["content-type"] == "application/json":
-                # This is a document describing missing parameters. TODO:
-                # check that this is always true, and what exactly is this
-                # document's form.
-                yaml.safe_dump(json.loads(content), stream=self.outf)
-            else:
-                # TODO: present this more attractively.
-                print(response, content)
+        if (response["content-type"] == "application/json" or
+            response["content-type"].startswith("application/json;")):
+            content = json.loads(content)
+
+        self.report(
+            {"response": vars(response),
+             "headers": dict(response),
+             "content": content})
+
+        if response.status != httplib.OK:
             raise SystemExit(2)
-        else:
-            # TODO: present this more attractively.
-            print(response, content)
-            raise SystemExit(2)
+
+    def report(self, contents):
+        yaml.safe_dump(contents, stream=self.outf)
 
 
 def gen_api_commands(api):
