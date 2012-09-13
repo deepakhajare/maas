@@ -159,15 +159,15 @@ class TestDescribingAPI(TestCase):
             {"doc": "Released 1988.",
              "method": "GET",
              "op": "so_far_so_good_so_what",
-             "rest": False},
+             "restful": False},
             {"doc": "Released 1986.",
              "method": "POST",
              "op": "peace_sells_but_whos_buying",
-             "rest": False},
+             "restful": False},
             {"doc": None,
              "method": "PUT",
              "op": "update",
-             "rest": True},
+             "restful": True},
             ]
 
         observed = describe_handler(MegadethHandler)
@@ -186,17 +186,17 @@ class TestDescribingAPI(TestCase):
         from maasserver.api import NodeHandler as handler
         description = describe_handler(handler)
         # The RUD of CRUD actions are still available, but the C(reate) action
-        # has been overridden with custom non-ReST operations.
+        # has been overridden with custom non-ReSTful operations.
         expected_actions = {
-            "DELETE op=delete rest=True",
-            "GET op=read rest=True",
-            "POST op=start rest=False",
-            "POST op=stop rest=False",
-            "POST op=release rest=False",
-            "PUT op=update rest=True",
+            "DELETE op=delete restful=True",
+            "GET op=read restful=True",
+            "POST op=start restful=False",
+            "POST op=stop restful=False",
+            "POST op=release restful=False",
+            "PUT op=update restful=True",
             }
         observed_actions = {
-            "%(method)s op=%(op)s rest=%(rest)s" % action
+            "%(method)s op=%(op)s restful=%(restful)s" % action
             for action in description["actions"]
             }
         self.assertSetEqual(expected_actions, observed_actions)

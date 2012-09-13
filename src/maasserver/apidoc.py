@@ -92,12 +92,12 @@ def describe_actions(handler):
             # custom operations instead.
             operations = handler._available_api_methods[http_method]
             for op, func in operations.items():
-                yield dict(desc_base, doc=getdoc(func), op=op, rest=False)
+                yield dict(desc_base, doc=getdoc(func), op=op, restful=False)
         else:
             # Default Piston CRUD method still stands.
             op = dispatch_methods[http_method]
             func = getattr(handler, op)
-            yield dict(desc_base, doc=getdoc(func), op=op, rest=True)
+            yield dict(desc_base, doc=getdoc(func), op=op, restful=True)
 
 
 def describe_handler(handler):
