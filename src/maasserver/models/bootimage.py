@@ -21,6 +21,7 @@ from django.db.models import (
     Model,
     )
 from maasserver import DefaultMeta
+from maasserver.enum import ARCHITECTURE_CHOICES
 
 
 class BootImageManager(Manager):
@@ -72,7 +73,9 @@ class BootImage(Model):
 
     objects = BootImageManager()
 
-    architecture = CharField(max_length=255, blank=False)
-    subarchitecture = CharField(max_length=255, blank=False)
-    release = CharField(max_length=255, blank=False)
-    purpose = CharField(max_length=255, blank=False)
+    architecture = CharField(
+        max_length=255, blank=False, choices=ARCHITECTURE_CHOICES,
+        editable=False)
+    subarchitecture = CharField(max_length=255, blank=False, editable=False)
+    release = CharField(max_length=255, blank=False, editable=False)
+    purpose = CharField(max_length=255, blank=False, editable=False)
