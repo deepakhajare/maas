@@ -102,6 +102,7 @@ from formencode import validators
 from formencode.validators import Invalid
 from maasserver.components import (
     COMPONENT,
+    discard_persistent_error,
     register_persistent_error,
     )
 from maasserver.enum import (
@@ -1180,12 +1181,14 @@ class BootImagesHandler(BaseHandler):
         """
         get_nodegroup_for_worker(request, 'master')
         images = json.loads(get_mandatory_param(request.data, 'images'))
+
         for image in images:
             BootImage.objects.register_image(
                 architecture=image['architecture'],
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],
                 purpose=image['purpose'])
+
         if len(images) == 0:
             warning = dedent("""\
                 No boot images have been imported yet.  Either the
@@ -1195,4 +1198,7 @@ class BootImagesHandler(BaseHandler):
                 go away within 5 minutes.
                 """)
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
+        else:
+            discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
+
         return HttpResponse("Images noted.")
