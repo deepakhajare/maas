@@ -159,22 +159,28 @@ class TestDescribingAPI(TestCase):
             {"doc": "Released 1988.",
              "method": "GET",
              "op": "so_far_so_good_so_what",
-             "uri": "http://example.com/?op=so_far_so_good_so_what",
+             "rest": False,
+             "uri": "http://example.com/",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": "Released 1986.",
              "method": "POST",
              "op": "peace_sells_but_whos_buying",
-             "uri": "http://example.com/?op=peace_sells_but_whos_buying",
+             "rest": False,
+             "uri": "http://example.com/",
              "uri_params": ["vic", "rattlehead"]},
             {"doc": None,
              "method": "PUT",
+             "op": "update",
+             "rest": True,
              "uri": "http://example.com/",
              "uri_params": ["vic", "rattlehead"]},
             ]
 
         observed = describe_handler(MegadethHandler)
-        # The description contains `uri` and `actions` entries.
-        self.assertSetEqual({"actions", "doc", "name"}, set(observed))
+        # The description contains several entries.
+        self.assertSetEqual(
+            {"actions", "doc", "name", "params", "uri"},
+            set(observed))
         self.assertEqual(MegadethHandler.__name__, observed["name"])
         self.assertEqual(MegadethHandler.__doc__, observed["doc"])
         self.assertSequenceEqual(expected_actions, observed["actions"])
@@ -185,18 +191,23 @@ class TestDescribingAPI(TestCase):
         from maasserver.api import NodeHandler as handler
         description = describe_handler(handler)
         # The RUD of CRUD actions are still available, but the C(reate) action
-        # has been overridden with custom operations. Not entirely sure how
-        # this makes sense, but there we go :)
+        # has been overridden with custom non-ReST operations.
         expected_actions = {
-            "DELETE http://example.com/api/1.0/nodes/{system_id}/",
-            "GET http://example.com/api/1.0/nodes/{system_id}/",
-            "POST http://example.com/api/1.0/nodes/{system_id}/?op=release",
-            "POST http://example.com/api/1.0/nodes/{system_id}/?op=start",
-            "POST http://example.com/api/1.0/nodes/{system_id}/?op=stop",
-            "PUT http://example.com/api/1.0/nodes/{system_id}/",
+            "DELETE op=delete rest=True",
+            "GET op=read rest=True",
+            "POST op=start rest=False",
+            "POST op=stop rest=False",
+            "POST op=release rest=False",
+            "PUT op=update rest=True",
             }
         observed_actions = {
-            "%(method)s %(uri)s" % action
+            "%(method)s op=%(op)s rest=%(rest)s" % action
             for action in description["actions"]
             }
         self.assertSetEqual(expected_actions, observed_actions)
+        self.assertSetEqual({"system_id"}, set(description["params"]))
+        # The URI is a URI Template <http://tools.ietf.org/html/rfc6570>, the
+        # components of which correspond to the parameters declared.
+        self.assertEqual(
+            "http://example.com/api/1.0/nodes/{system_id}/",
+            description["uri"])

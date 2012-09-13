@@ -103,6 +103,9 @@ def describe_handler(handler):
         "Resource URI specifications with keyword parameters are not yet "
         "supported: handler=%r; view_name=%r" % (handler, view_name))
 
+    # The URI and its parameters are common to all actions.
+    desc_base = {"uri": uri_template, "uri_params": uri_params}
+
     actions = []
     operation_methods = getattr(handler, "_available_api_methods", {})
     for http_method in handler.allowed_methods:
@@ -111,28 +114,23 @@ def describe_handler(handler):
             # custom operations instead.
             operations = handler._available_api_methods[http_method]
             for op, func in operations.items():
-                desc = {
-                    "doc": getdoc(func),
-                    "method": http_method,
-                    "op": op,
-                    "uri": "%s?op=%s" % (uri_template, quote(op)),
-                    "uri_params": uri_params,
-                    }
+                desc = dict(
+                    desc_base, doc=getdoc(func), method=http_method,
+                    op=op, rest=False)
                 actions.append(desc)
         else:
             # Default Piston CRUD method still stands.
             op = dispatch_methods[http_method]
             func = getattr(handler, op)
-            desc = {
-                "doc": getdoc(func),
-                "method": http_method,
-                "uri": uri_template,
-                "uri_params": uri_params,
-                }
+            desc = dict(
+                desc_base, doc=getdoc(func), method=http_method,
+                op=op, rest=True)
             actions.append(desc)
 
     return {
-        "name": handler.__name__,
-        "doc": getdoc(handler),
         "actions": actions,
+        "doc": getdoc(handler),
+        "name": handler.__name__,
+        "params": uri_params,
+        "uri": uri_template,
         }
