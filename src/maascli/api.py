@@ -80,8 +80,11 @@ class APICommand(Command):
     `gen_api_commands`.
     """
 
+    # Override this in subclasses.
     actions = []
-    takes_args = ["action", "data*"]
+
+    # The ellipsis is where subclasses parameters should be inserted.
+    takes_args = ["action", "...", "data*"]
 
     def get_action(self, action):
         """Return the action specification for the given name.
@@ -171,7 +174,7 @@ def gen_api_commands(api):
             b"cmd_api_" + handler_command_name(name), (APICommand,), {
                 "__doc__": handler["doc"],
                 "actions": APICommand.actions + actions,
-                "takes_args": APICommand.takes_args + params,
+                "takes_args": ["action"] + params + ["data*"],
                 "uri": handler["uri"],
                 }
             )
