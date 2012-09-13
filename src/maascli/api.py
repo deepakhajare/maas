@@ -77,13 +77,16 @@ class cmd_login(Command):
     def run(self, profile_name, url, credentials=None):
         profile_path = join(
             dotdir, "%s.profile" % safe_name(profile_name))
-        # Try and obtain credentials interactively if they're not given.
+        # Try and obtain credentials interactively if they're not given, or
+        # read them from stdin if they're specified as "-".
         if credentials is None and sys.stdin.isatty():
             prompt = "API key (leave empty for anonymous access): "
             try:
                 credentials = getpass(prompt, stream=self.outf)
             except EOFError:
                 credentials = None
+        elif credentials == "-":
+            credentials = sys.stdin.readline()
         # Ensure that the credentials have a valid form.
         if credentials and not credentials.isspace():
             credentials = convert_string_to_tuple(credentials)
