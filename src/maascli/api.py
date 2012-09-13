@@ -83,14 +83,22 @@ class APICommand(Command):
     actions = []
     takes_args = ["action", "data*"]
 
-    def run(self, action, data_list, **params):
+    def get_action(self, action):
+        """Return the action specification for the given name.
+
+        :raises LookupError: if the named action is not found.
+        """
         try:
-            action = next(
+            return next(
                 act for act in self.actions
                 if act.get("name") == action)
         except StopIteration:
             raise LookupError(
                 "%s: cannot '%s'" % (self.name(), action))
+
+    def run(self, action, data_list, **params):
+        # Look for the action first.
+        action = self.get_action(action)
 
         # TODO: this is el-cheapo URI Template
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
