@@ -2680,6 +2680,5 @@ class TestBootImagesAPI(APITestCase):
         self.assertItemsEqual(
             [],
             api.register_persistent_error.call_args_list)
-        self.assertIn(
-            [COMPONENT.IMPORT_PXE_FILES],
-            [args[0] for args in api.discard_persistent_error.call_args_list])
+        api.discard_persistent_error.assert_called_once_with(
+            COMPONENT.IMPORT_PXE_FILES)

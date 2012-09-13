@@ -100,6 +100,10 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
+from maasserver.components import (
+    COMPONENT,
+    register_persistent_error,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
@@ -1182,4 +1186,13 @@ class BootImagesHandler(BaseHandler):
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],
                 purpose=image['purpose'])
+        if len(images) == 0:
+            warning = dedent("""\
+                No boot images have been imported yet.  Either the
+                maas-import-pxe-files script has not run yet, or it failed.
+
+                Try running it manually.  If it succeeds, this message should
+                go away within 5 minutes.
+                """)
+            register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
         return HttpResponse("Images noted.")
