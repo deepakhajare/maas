@@ -2667,8 +2667,8 @@ class TestBootImagesAPI(APITestCase):
             [args[0][0] for args in recorder.call_args_list])
 
     def test_report_boot_images_removes_warning_if_images_found(self):
-        register_error = self.patch(api, 'register_persistent_error')
-        discard_error = self.patch(api, 'discard_persistent_error')
+        self.patch(api, 'register_persistent_error')
+        self.patch(api, 'discard_persistent_error')
         client = make_worker_client(NodeGroup.objects.ensure_master())
 
         response = self.report_images(
@@ -2677,7 +2677,9 @@ class TestBootImagesAPI(APITestCase):
             (httplib.OK, "Images noted."),
             (response.status_code, response.content))
 
-        self.assertItemsEqual([], register_error.call_args_list)
+        self.assertItemsEqual(
+            [],
+            api.register_persistent_error.call_args_list)
         self.assertIn(
             [COMPONENT.IMPORT_PXE_FILES],
-            [args[0] for args in discard_error.call_args_list])
+            [args[0] for args in api.discard_persistent_error.call_args_list])
