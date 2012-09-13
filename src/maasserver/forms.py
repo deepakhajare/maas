@@ -650,6 +650,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
 
     def clean_interfaces(self):
         data = self.cleaned_data['interfaces']
+        # Stop here if the data is empty.
         if data is '':
             return data
         try:
@@ -657,10 +658,12 @@ class NodeGroupWithInterfacesForm(ModelForm):
         except ValueError:
             raise forms.ValidationError("Invalid json value.")
         else:
+            # Raise an exception if the interfaces json object is not a list.
             if not isinstance(interfaces, collections.Iterable):
                 raise forms.ValidationError(
                     INTERFACES_VALIDATION_ERROR_MESSAGE)
             for interface in interfaces:
+                # Raise an exception if the interface object is not a dict.
                 if not isinstance(interface, dict):
                     raise forms.ValidationError(
                         INTERFACES_VALIDATION_ERROR_MESSAGE)
