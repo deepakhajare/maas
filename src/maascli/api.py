@@ -91,6 +91,9 @@ class APICommand(Command):
                 "%s: cannot '%s'" % (self.name(), action))
 
         method = action["method"]
+        # TODO: this is el-cheapo URI Template
+        # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
+        # <https://github.com/uri-templates/uritemplate-py> here?
         uri = action["uri"].format(**params)
         # TODO: the op is already appended to the uri, but this isn't
         # consulted for POST requests. Either look at the query string on the
