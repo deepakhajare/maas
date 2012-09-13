@@ -159,21 +159,15 @@ class TestDescribingAPI(TestCase):
             {"doc": "Released 1988.",
              "method": "GET",
              "op": "so_far_so_good_so_what",
-             "rest": False,
-             "uri": "http://example.com/",
-             "uri_params": ["vic", "rattlehead"]},
+             "rest": False},
             {"doc": "Released 1986.",
              "method": "POST",
              "op": "peace_sells_but_whos_buying",
-             "rest": False,
-             "uri": "http://example.com/",
-             "uri_params": ["vic", "rattlehead"]},
+             "rest": False},
             {"doc": None,
              "method": "PUT",
              "op": "update",
-             "rest": True,
-             "uri": "http://example.com/",
-             "uri_params": ["vic", "rattlehead"]},
+             "rest": True},
             ]
 
         observed = describe_handler(MegadethHandler)
@@ -181,8 +175,9 @@ class TestDescribingAPI(TestCase):
         self.assertSetEqual(
             {"actions", "doc", "name", "params", "uri"},
             set(observed))
-        self.assertEqual(MegadethHandler.__name__, observed["name"])
         self.assertEqual(MegadethHandler.__doc__, observed["doc"])
+        self.assertEqual(MegadethHandler.__name__, observed["name"])
+        self.assertEqual(["vic", "rattlehead"], observed["params"])
         self.assertSequenceEqual(expected_actions, observed["actions"])
 
     def test_describe_handler_with_maas_handler(self):
