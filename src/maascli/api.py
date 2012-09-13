@@ -51,7 +51,9 @@ dotlock = lockfile.FileLock("%s.lock" % dotdir)
 re_camelcase = re.compile(
     r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
 
+
 def safe_name(string):
+    """Return a munged version of string, suitable as an ASCII filename."""
     return "-".join(re_camelcase.findall(string))
 
 
@@ -128,10 +130,8 @@ class APICommand(Command):
     # See `cmd_login` and `cmd_logout`.
     profile = None
 
-    # Override this in subclasses.
+    # Override these in subclasses; see `gen_profile_commands`.
     actions = []
-
-    # The ellipsis is where subclasses parameters should be inserted.
     takes_args = ["action", "...", "data*"]
 
     def get_action(self, action):
@@ -222,9 +222,8 @@ def handler_command_name(string):
     joined with underscores, and the rest discarded. The term "handler" will
     also be removed if discovered amongst the aforementioned parts.
     """
-    string = string if isinstance(string, bytes) else string.encode("ascii")
     parts = re_camelcase.findall(string)
-    parts = (part.lower() for part in parts)
+    parts = (part.lower().encode("ascii") for part in parts)
     parts = (part for part in parts if part != b"handler")
     return b"_".join(parts)
 
@@ -233,22 +232,19 @@ def gen_profile_commands(profile):
     """Manufacture command classes based on an API profile."""
     prefix = profile["name"].encode("ascii")
     description = profile["description"]
-
     for handler in description["handlers"]:
-        actions = handler["actions"]
-        params = handler["params"]
-        name = handler["name"]
         command_name = b"cmd_%s_%s" % (
-            prefix, handler_command_name(name))
-        command = type(
-            command_name, (APICommand,), {
-                "__doc__": handler["doc"],
-                "actions": APICommand.actions + actions,
-                "takes_args": ["action"] + params + ["data*"],
-                "uri": handler["uri"],
-                }
-            )
-        yield command.__name__, command
+            prefix, handler_command_name(handler["name"]))
+        command_bases = (APICommand,)
+        command_ns = {
+            "__doc__": handler["doc"],
+            "actions": handler["actions"],
+            "profile": profile,
+            "takes_args": ["action"] + handler["params"] + ["data*"],
+            "uri": handler["uri"],
+            }
+        yield command_name, type(
+            command_name, command_bases, command_ns)
 
 
 def gen_profiles():
