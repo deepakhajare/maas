@@ -14,13 +14,16 @@ __all__ = [
     "cmd_api_describe",
     ]
 
+import httplib
 import json
 import os
 import re
 from urllib2 import urlopen
 from urlparse import urljoin
 
+from apiclient.creds import convert_string_to_tuple
 from apiclient.maas_client import MAASOAuth
+from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
 from commandant.commands import Command
 import httplib2
@@ -51,6 +54,8 @@ MAAS_API_URL = os.environ.get(
 MAAS_API_URL = ensure_trailing_slash(MAAS_API_URL)
 MAAS_API_URL = ascii_url(MAAS_API_URL)
 
+MAAS_API_CREDENTIALS = os.environ.get("MAAS_API_CREDENTIALS")
+
 # This is dumber than a bag of wet mice, but it's a start.
 MAAS_API_DESCRIPTION_URL = urljoin(MAAS_API_URL, "describe/")
 MAAS_API_DESCRIPTION_URL = ascii_url(MAAS_API_DESCRIPTION_URL)
@@ -65,11 +70,16 @@ class cmd_api_describe(Command):
 
 
 class APICommand(Command):
+    """A generic MAAS API command.
+
+    This is used as a base for creating more specific commands; see
+    `gen_api_commands`.
+    """
 
     actions = []
-    takes_args = ["action"]
+    takes_args = ["action", "data*"]
 
-    def run(self, action, **params):
+    def run(self, action, data_list, **params):
         try:
             # TODO: this does not find CRUD actions because they don't
             # currently have an "op" parameter.
@@ -80,25 +90,56 @@ class APICommand(Command):
             raise LookupError(
                 "%s: cannot '%s'" % (self.name(), action))
 
-        # TODO: get rid of this.
-        #yaml.safe_dump(action, stream=self.outf)
-
         method = action["method"]
         uri = action["uri"].format(**params)
-        headers = {}
+        # TODO: the op is already appended to the uri, but this isn't
+        # consulted for POST requests. Either look at the query string on the
+        # server, or don't bother appending to the uri for POST
+        # requests. Doesn't matter much actually; does not harm to leave it.
+        op = action["op"]
 
-        auth = MAASOAuth("key", "token", "secret")
-        auth.sign_request(uri, headers)
+        data = {"op": op}
+        # TODO: encode_multipart_data insists on a dict for the data, which
+        # prevents specifying multiple values for a field, like mac_addresses.
+        # This needs to be fixed.
+        data.update(item.split("=", 1) for item in data_list)
+        body, headers = encode_multipart_data(data, {})
 
-        print(method, uri, headers)
+        if MAAS_API_CREDENTIALS is not None:
+            creds = convert_string_to_tuple(MAAS_API_CREDENTIALS)
+            auth = MAASOAuth(*creds)
+            auth.sign_request(uri, headers)
 
+        # Use httplib2 instead of urllib2 (or MAASDispatcher, which is based
+        # on urllib2) so that we get full control over HTTP method. TODO:
+        # create custom MAASDispatcher to use httplib2 so that MAASClient can
+        # be used.
         http = httplib2.Http()
-        response, content = http.request(uri, method, headers=headers)
+        response, content = http.request(
+            uri, method, body=body, headers=headers)
 
-        print(headers, response, content)
+        if response.status == httplib.OK:
+            # TODO: check if its safe to assume that the response is always
+            # JSON here.
+            yaml.safe_dump(json.loads(content), stream=self.outf)
+        elif response.status == httplib.BAD_REQUEST:
+            if response["content-type"] == "application/json":
+                # This is a document describing missing parameters. TODO:
+                # check that this is always true, and what exactly is this
+                # document's form.
+                yaml.safe_dump(json.loads(content), stream=self.outf)
+            else:
+                # TODO: present this more attractively.
+                print(response, content)
+            raise SystemExit(2)
+        else:
+            # TODO: present this more attractively.
+            print(response, content)
+            raise SystemExit(2)
 
 
 def gen_api_commands(api):
+    """Manufacture command classes based on an API description document."""
     for handler in api["handlers"]:
         actions = handler["actions"]
         # TODO: all uri_params for a handler are the same, so the description
@@ -115,4 +156,6 @@ def gen_api_commands(api):
         yield command.__name__, command
 
 
+# Generate command classes into the module's namespace, ready to be discovered
+# by CommandController.load_module().
 globals().update(gen_api_commands(MAAS_API_DESCRIPTION))
