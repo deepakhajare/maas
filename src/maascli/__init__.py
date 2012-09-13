@@ -12,11 +12,14 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import locale
 from os.path import (
     dirname,
     join,
     )
 import sys
+
+from bzrlib import osutils
 
 # Add `lib` in this package's directory to sys.path.
 sys.path.insert(0, join(dirname(__file__), "lib"))
@@ -26,7 +29,12 @@ from commandant.controller import CommandController
 import maascli.api
 
 
-def main(argv=sys.argv):
+def main(argv=None):
+    # Set up the process's locale; this helps bzrlib decode command-line
+    # arguments in the next step.
+    locale.setlocale(locale.LC_ALL, "")
+    if argv is None:
+        argv = sys.argv[:1] + osutils.get_unicode_argv()
     controller = CommandController(
         program_name=argv[0],
         program_version="1.0",
