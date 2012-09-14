@@ -2649,6 +2649,52 @@ class TestNodeGroupAPI(APITestCase):
         MAASClient.post.assert_called_once_with(
             nodegroup_path, 'update_leases', leases=json.dumps(leases))
 
+    def test_accept_accepts_nodegroup(self):
+        nodegroup = factory.make_node_group()
+        self.become_admin()
+        response = self.client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {
+                'op': 'accept',
+            })
+        self.assertEqual(
+            (httplib.OK, "Nodegroup accepted."),
+            (response.status_code, response.content))
+        self.assertEqual(
+            NODEGROUP_STATUS.ACCEPTED, reload_object(nodegroup).status)
+
+    def test_accept_reserved_to_admin(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {
+                'op': 'accept',
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_reject_rejects_nodegroup(self):
+        nodegroup = factory.make_node_group()
+        self.become_admin()
+        response = self.client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {
+                'op': 'reject',
+            })
+        self.assertEqual(
+            (httplib.OK, "Nodegroup rejected."),
+            (response.status_code, response.content))
+        self.assertEqual(
+            NODEGROUP_STATUS.REJECTED, reload_object(nodegroup).status)
+
+    def test_reject_reserved_to_admin(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {
+                'op': 'reject',
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
 
 def log_in_as_normal_user(client):
     """Log `client` in as a normal user."""

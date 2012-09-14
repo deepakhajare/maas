@@ -997,6 +997,32 @@ class NodeGroupHandler(BaseHandler):
         return ('nodegroup_handler', [uuid])
 
     @api_exported('POST')
+    def accept(self, request, uuid):
+        """Accept this nodegroup's enlistment.
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+            nodegroup.accept()
+            return HttpResponse("Nodegroup accepted.", status=httplib.OK)
+        else:
+            raise PermissionDenied("Only allowed for admin users.")
+
+    @api_exported('POST')
+    def reject(self, request, uuid):
+        """Reject this nodegroup's enlistment.
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+            nodegroup.reject()
+            return HttpResponse("Nodegroup rejected.", status=httplib.OK)
+        else:
+            raise PermissionDenied("Only allowed for admin users.")
+
+    @api_exported('POST')
     def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
