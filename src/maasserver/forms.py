@@ -651,7 +651,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
     def clean_interfaces(self):
         data = self.cleaned_data['interfaces']
         # Stop here if the data is empty.
-        if data is '':
+        if data == '':
             return data
         try:
             interfaces = json.loads(data)
