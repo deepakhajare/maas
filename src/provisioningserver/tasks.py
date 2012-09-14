@@ -43,7 +43,7 @@ from provisioningserver.auth import (
     get_recorded_maas_url,
     record_api_credentials,
     record_maas_url,
-    record_nodegroup_name,
+    record_nodegroup_uuid,
     )
 from provisioningserver.config import Config
 from provisioningserver.dhcp import config
@@ -65,7 +65,7 @@ from provisioningserver.pxe import tftppath
 refresh_functions = {
     'api_credentials': record_api_credentials,
     'maas_url': record_maas_url,
-    'nodegroup_name': record_nodegroup_name,
+    'nodegroup_uuid': record_nodegroup_uuid,
 }
 
 
@@ -103,7 +103,7 @@ def refresh_secrets(**kwargs):
     :param api_credentials: A colon separated string containing this
         worker's credentials for accessing the MAAS API: consumer key,
         resource token, resource secret.
-    :param nodegroup_name: The name of the node group that this worker
+    :param nodegroup_uuid: The uuid of the node group that this worker
         manages.
     """
     for key, value in kwargs.items():

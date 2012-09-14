@@ -21,6 +21,7 @@ from maasserver.api import (
     AdminRestrictedResource,
     api_doc,
     BootImagesHandler,
+    describe,
     FilesHandler,
     MAASHandler,
     NodeGroupHandler,
@@ -60,6 +61,7 @@ maas_handler = AdminRestrictedResource(MAASHandler, authentication=api_auth)
 # API URLs accessible to anonymous users.
 urlpatterns = patterns('',
     url(r'doc/$', api_doc, name='api-doc'),
+    url(r'describe/$', describe, name='describe'),
     url(r'nodegroups/$', nodegroups_handler, name='nodegroups_handler'),
     url(r'pxeconfig/$', pxeconfig, name='pxeconfig'),
 )
@@ -79,7 +81,7 @@ urlpatterns += patterns('',
         name='node_handler'),
     url(r'nodes/$', nodes_handler, name='nodes_handler'),
     url(
-        r'nodegroups/(?P<name>[^/]+)/$',
+        r'nodegroups/(?P<uuid>[^/]+)/$',
         nodegroup_handler, name='nodegroup_handler'),
     url(r'files/$', files_handler, name='files_handler'),
     url(r'account/$', account_handler, name='account_handler'),
