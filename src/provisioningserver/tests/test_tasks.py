@@ -23,6 +23,7 @@ from subprocess import (
 
 from apiclient.creds import convert_tuple_to_string
 from apiclient.maas_client import MAASClient
+from apiclient.testing.credentials import make_api_credentials
 from celeryconfig import DHCP_CONFIG_FILE
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
@@ -82,15 +83,6 @@ from testtools.matchers import (
 # An arbitrary MAC address.  Not using a properly random one here since
 # we might accidentally affect real machines on the network.
 arbitrary_mac = "AA:BB:CC:DD:EE:FF"
-
-
-def make_api_credentials():
-    """Create a tuple of fake API credentials."""
-    return (
-        factory.make_name('key'),
-        factory.make_name('token'),
-        factory.make_name('secret'),
-        )
 
 
 class TestRefreshSecrets(PservTestCase):
@@ -441,10 +433,6 @@ class TestBootImagesTasks(PservTestCase):
         ("celery", FixtureResource(CeleryFixture())),
         )
 
-    def setUp(self):
-        super(TestBootImagesTasks, self).setUp()
-        self.useFixture(ConfigFixture({'tftp': {'root': self.make_dir()}}))
-
     def make_image_params(self):
         """Create a dict of parameters describing a boot image."""
         return {
@@ -454,16 +442,10 @@ class TestBootImagesTasks(PservTestCase):
             'purpose': factory.make_name('purpose'),
         }
 
-    def set_maas_url(self):
-        auth.record_maas_url(
-            'http://127.0.0.1/%s' % factory.make_name('path'))
-
-    def set_api_credentials(self):
-        auth.record_api_credentials(':'.join(make_api_credentials()))
-
     def test_sends_boot_images_to_server(self):
-        self.set_maas_url()
-        self.set_api_credentials()
+        self.useFixture(ConfigFixture({'tftp': {'root': self.make_dir()}}))
+        auth.record_maas_url('http://127.0.0.1/%s' % factory.make_name('path'))
+        auth.record_api_credentials(':'.join(make_api_credentials()))
         image = self.make_image_params()
         self.patch(tftppath, 'list_boot_images', Mock(return_value=[image]))
         self.patch(MAASClient, 'post')
@@ -473,19 +455,3 @@ class TestBootImagesTasks(PservTestCase):
         self.assertItemsEqual(
             [image],
             json.loads(MAASClient.post.call_args[1]['images']))
-
-    def test_does_nothing_without_maas_url(self):
-        self.set_api_credentials()
-        self.patch(
-            tftppath, 'list_boot_images',
-            Mock(return_value=self.make_image_params()))
-        report_boot_images.delay()
-        self.assertItemsEqual([], tftppath.list_boot_images.call_args_list)
-
-    def test_does_nothing_without_credentials(self):
-        self.set_maas_url()
-        self.patch(
-            tftppath, 'list_boot_images',
-            Mock(return_value=self.make_image_params()))
-        report_boot_images.delay()
-        self.assertItemsEqual([], tftppath.list_boot_images.call_args_list)
