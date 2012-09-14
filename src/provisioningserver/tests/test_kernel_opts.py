@@ -27,6 +27,8 @@ from provisioningserver.kernel_opts import (
     ISCSI_TARGET_NAME_PREFIX,
     KernelParameters,
     )
+import provisioningserver.kernel_opts
+
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
 from testtools.matchers import (
@@ -35,12 +37,15 @@ from testtools.matchers import (
     )
 
 
-def make_kernel_parameters():
+def make_kernel_parameters(content=None):
     """Make a randomly populated `KernelParameters` instance."""
-    return KernelParameters(**{
+    parms = {
             field: factory.make_name(field)
             for field in KernelParameters._fields
-            })
+            }
+    if content is not None:
+        parms.update(content)
+    return KernelParameters(**parms)
 
 
 class TestUtilitiesKernelOpts(TestCase):
@@ -70,24 +75,8 @@ class TestKernelOpts(TestCase):
             "auto url=%s" % params.preseed_url,
             compose_kernel_command_line_new(params))
 
-    def test_compose_kernel_command_line_includes_initrd(self):
-        params = make_kernel_parameters()
-        initrd_path = compose_image_path(
-            params.arch, params.subarch, params.release,
-            purpose=params.purpose)
-        self.assertIn(
-            "initrd=%s" % initrd_path,
-            compose_kernel_command_line_new(params))
-
-    def test_compose_kernel_command_line_includes_suite(self):
-        # At the moment, the OS release we use is hard-coded to "precise."
-        params = make_kernel_parameters()
-        self.assertIn(
-            "suite=%s" % params.release,
-            compose_kernel_command_line_new(params))
-
-    def test_compose_kernel_command_line_includes_hostname_and_domain(self):
-        params = make_kernel_parameters()
+    def test_install_compose_kernel_command_line_includes_hostname_and_domain(self):
+        params = make_kernel_parameters({"purpose": "install"})
         self.assertThat(
             compose_kernel_command_line_new(params),
             ContainsAll([
@@ -95,15 +84,15 @@ class TestKernelOpts(TestCase):
                 "domain=%s" % params.domain,
                 ]))
 
-    def test_compose_kernel_command_line_includes_locale(self):
-        params = make_kernel_parameters()
+    def test_install_compose_kernel_command_line_includes_locale(self):
+        params = make_kernel_parameters({"purpose": "install"})
         locale = "en_US"
         self.assertIn(
             "locale=%s" % locale,
             compose_kernel_command_line_new(params))
 
-    def test_compose_kernel_command_line_includes_log_settings(self):
-        params = make_kernel_parameters()
+    def test_install_compose_kernel_command_line_includes_log_settings(self):
+        params = make_kernel_parameters({"purpose": "install"})
         # Port 514 (UDP) is syslog.
         log_port = "514"
         text_priority = "critical"
@@ -115,13 +104,27 @@ class TestKernelOpts(TestCase):
                 "text priority=%s" % text_priority,
                 ]))
 
-    def test_compose_kernel_command_line_inc_purpose_opts(self):
+    def test_install_compose_kernel_command_line_inc_purpose_opts(self):
         # The result of compose_kernel_command_line includes the purpose
         # options for a non "commissioning" node.
-        params = make_kernel_parameters()
+        params = make_kernel_parameters({"purpose": "install"})
         self.assertIn(
             "netcfg/choose_interface=auto",
             compose_kernel_command_line_new(params))
+
+    def test_commissioning_compose_kernel_command_line_inc_purpose_opts(self):
+        # The result of compose_kernel_command_line includes the purpose
+        # options for a non "commissioning" node.
+        real_get_ephemeral_name = provisioningserver.kernel_opts.get_ephemeral_name
+        try:
+            provisioningserver.kernel_opts.get_ephemeral_name = lambda rel, arch: "%s-%s" % (rel, arch)
+            params = make_kernel_parameters({"purpose": "commissioning"})
+            cmdline = compose_kernel_command_line_new(params)
+            self.assertIn("root=LABEL=cloudimg-rootfs", cmdline)
+            self.assertIn("iscsi_initiator=", cmdline)
+            self.assertIn("overlayroot=", cmdline)
+        finally:
+            provisioningserver.kernel_opts.get_ephemeral_name = real_get_ephemeral_name
 
     def create_ephemeral_info(self, name, arch, release):
         """Create a pseudo-real ephemeral info file."""
