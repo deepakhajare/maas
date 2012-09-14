@@ -103,13 +103,6 @@ class ProfileConfig:
         finally:
             database.close()
 
-    def close(self):
-        """Close the database.
-
-        This object is no longer useful once this method has returned.
-        """
-        self.database.close()
-
 
 re_camelcase = re.compile(
     r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
