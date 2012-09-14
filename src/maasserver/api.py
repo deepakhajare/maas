@@ -100,20 +100,21 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
-from maasserver.components import (
-    COMPONENT,
-    discard_persistent_error,
-    register_persistent_error,
-    )
 from maasserver.apidoc import (
     describe_handler,
     find_api_handlers,
     generate_api_docs,
     )
+from maasserver.components import (
+    COMPONENT,
+    discard_persistent_error,
+    register_persistent_error,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
+    NODEGROUP_STATUS,
     )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
@@ -126,6 +127,7 @@ from maasserver.fields import validate_mac
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
+    NodeGroupWithInterfacesForm,
     )
 from maasserver.models import (
     BootImage,
@@ -900,15 +902,71 @@ class NodeGroupsHandler(BaseHandler):
         NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
+    @api_exported('POST')
+    def register(self, request):
+        """Register a new `NodeGroup`.
 
-def get_nodegroup_for_worker(request, uuid):
-    """Get :class:`NodeGroup` by uuid, for access by its worker.
+        This method will use HTTP return codes to indicate the success of the
+        call:
+
+        - 200 (OK): the nodegroup has been accepted, the response will
+          contrain the RabbitMQ credentials in JSON format.
+        - 202 (Accepted): the registration of the nodegroup has been accepted,
+          it now needs to be validated by an administrator.  Please issue
+          the same request later.
+        - 403 (Forbidden): this nodegroup has been rejected.
+
+        :param uuid: The UUID of the nodegroup.
+        :type name: basestring
+        :param name: The name of the nodegroup.
+        :type name: basestring
+        :param interfaces: The list of the interfaces' data.
+        :type interface: json string containing a list of dictionaries with
+            the data to initialize the interfaces.
+            e.g.: '[{"ip_range_high": "192.168.168.254",
+            "ip_range_low": "192.168.168.1", "broadcast_ip":
+            "192.168.168.255", "ip": "192.168.168.18", "subnet_mask":
+            "255.255.255.0", "router_ip": "192.168.168.1", "interface":
+            "eth0"}]'
+        """
+        uuid = get_mandatory_param(request.data, 'uuid')
+        existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+        if existing_nodegroup is None:
+            # This nodegroup (identified by its uuid), does not exist yet,
+            # create it if the data validates.
+            form = NodeGroupWithInterfacesForm(request.data)
+            if form.is_valid():
+                form.save()
+                return HttpResponse(
+                    "Cluster registered.  Awaiting admin approval.",
+                    status=httplib.ACCEPTED)
+            else:
+                raise ValidationError(form.errors)
+        else:
+            if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
+                # The nodegroup exists and is validated, return the RabbitMQ
+                # credentials as JSON.
+                # XXX: rvb 2012-09-13 bug=1050492: MAAS uses the 'guest'
+                # account to communicate with RabbitMQ, hence none of the
+                # connection information are defined.
+                return {
+                    # TODO: send RabbiMQ credentials.
+                    'test': 'test',
+                }
+            elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
+                raise PermissionDenied('Rejected cluster.')
+            elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
+                return HttpResponse(
+                    "Awaiting admin approval.", status=httplib.ACCEPTED)
+
+
+def check_nodegroup_access(request, nodegroup):
+    """Validate API access by worker for `nodegroup`.
 
     This supports a nodegroup worker accessing its nodegroup object on
     the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
-    nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
     try:
         key = extract_oauth_key(request)
     except Unauthorized as e:
@@ -916,9 +974,7 @@ def get_nodegroup_for_worker(request, uuid):
 
     if key != nodegroup.api_key:
         raise PermissionDenied(
-            "Only allowed for the %r worker." % nodegroup.uuid)
-
-    return nodegroup
+            "Only allowed for the %r worker." % nodegroup.name)
 
 
 @api_operations
@@ -943,7 +999,8 @@ class NodeGroupHandler(BaseHandler):
     @api_exported('POST')
     def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
-        nodegroup = get_nodegroup_for_worker(request, uuid)
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        check_nodegroup_access(request, nodegroup)
         leases = json.loads(leases)
         new_leases = DHCPLease.objects.update_leases(nodegroup, leases)
         if len(new_leases) > 0:
@@ -1160,7 +1217,7 @@ class BootImagesHandler(BaseHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
-        get_nodegroup_for_worker(request, 'master')
+        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
         images = json.loads(get_mandatory_param(request.data, 'images'))
 
         for image in images:
@@ -1182,7 +1239,7 @@ class BootImagesHandler(BaseHandler):
         else:
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
 
-        return HttpResponse("Images noted.")
+        return HttpResponse("OK")
 
 
 def describe(request):

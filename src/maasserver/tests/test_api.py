@@ -34,10 +34,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
-from maasserver import (
-    api,
-    )
-from maasserver.components import COMPONENT
+from maasserver import api
 from maasserver.api import (
     extract_constraints,
     extract_oauth_key,
@@ -45,12 +42,14 @@ from maasserver.api import (
     get_oauth_token,
     get_overrided_query_dict,
     )
+from maasserver.components import COMPONENT
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
+    NODEGROUP_STATUS,
     )
 from maasserver.exceptions import Unauthorized
 from maasserver.fields import mac_error_msg
@@ -84,6 +83,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.tests.test_forms import make_interface_settings
 from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
@@ -109,11 +109,13 @@ from provisioningserver.enum import (
     )
 from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.omshell import Omshell
+from provisioningserver.pxe import tftppath
 from testresources import FixtureResource
 from testtools.matchers import (
     Contains,
     Equals,
     MatchesListwise,
+    MatchesStructure,
     StartsWith,
     )
 
@@ -2406,6 +2408,101 @@ class TestNodeGroupsAPI(AnonAPITestCase):
             (httplib.OK, "Sending worker refresh."),
             (response.status_code, response.content))
 
+    def test_register_nodegroup_creates_nodegroup_and_interfaces(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        interface = make_interface_settings()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+                'interfaces': json.dumps([interface]),
+            })
+        nodegroup = NodeGroup.objects.get(uuid=uuid)
+        # The nodegroup was created with its interface.  Its status is
+        # 'PENDING'.
+        self.assertEqual(
+            (name, NODEGROUP_STATUS.PENDING),
+            (nodegroup.name, nodegroup.status))
+        self.assertThat(
+            nodegroup.nodegroupinterface_set.all()[0],
+            MatchesStructure.byEquality(**interface))
+        # The response code is 'ACCEPTED': the nodegroup now needs to be
+        # validated by an admin.
+        self.assertEqual(httplib.ACCEPTED, response.status_code)
+
+    def test_register_nodegroup_validates_data(self):
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': factory.getRandomUUID(),
+                'interfaces': 'invalid data',
+            })
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'interfaces': ['Invalid json value.']},
+            ),
+            (response.status_code, json.loads(response.content)))
+
+    def test_register_nodegroup_twice_does_not_update_nodegroup(self):
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.PENDING
+        nodegroup.save()
+        name = factory.make_name('name')
+        uuid = nodegroup.uuid
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+            })
+        new_nodegroup = NodeGroup.objects.get(uuid=uuid)
+        self.assertEqual(
+            (nodegroup.name, NODEGROUP_STATUS.PENDING),
+            (new_nodegroup.name, new_nodegroup.status))
+        # The response code is 'ACCEPTED': the nodegroup still needs to be
+        # validated by an admin.
+        self.assertEqual(httplib.ACCEPTED, response.status_code)
+
+    def test_register_rejected_nodegroup_fails(self):
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.REJECTED
+        nodegroup.save()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': nodegroup.uuid,
+                'interfaces': json.dumps([]),
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_register_accepted_cluster_gets_credentials(self):
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.ACCEPTED
+        nodegroup.save()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertIn('application/json', response['Content-Type'])
+        # XXX: rvb 2012-09-13 bug=1050492: MAAS uses the 'guest' account to
+        # communicate with RabbitMQ, hence none of the connection information
+        # are defined.
+        self.assertEqual({'test': 'test'}, parsed_result)
+
 
 def explain_unexpected_response(expected_status, response):
     """Return human-readable failure message: unexpected http response."""
@@ -2603,6 +2700,10 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
 class TestBootImagesAPI(APITestCase):
 
+    resources = (
+        ('celery', FixtureResource(CeleryFixture())),
+        )
+
     def make_boot_image_params(self):
         return {
             'architecture': factory.make_name('architecture'),
@@ -2640,7 +2741,7 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
         self.assertTrue(
             BootImage.objects.have_image(**image))
@@ -2651,7 +2752,7 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
 
     def test_report_boot_images_warns_if_no_images_found(self):
@@ -2683,6 +2784,17 @@ class TestBootImagesAPI(APITestCase):
             api.register_persistent_error.call_args_list)
         api.discard_persistent_error.assert_called_once_with(
             COMPONENT.IMPORT_PXE_FILES)
+
+    def test_worker_calls_report_boot_images(self):
+        refresh_worker(NodeGroup.objects.ensure_master())
+        self.patch(MAASClient, 'post')
+        self.patch(tftppath, 'list_boot_images', Mock(return_value=[]))
+
+        tasks.report_boot_images.delay()
+
+        MAASClient.post.assert_called_once_with(
+            reverse('boot_images_handler').lstrip('/'), 'report_boot_images',
+            images=json.dumps([]))
 
 
 class TestDescribe(AnonAPITestCase):
