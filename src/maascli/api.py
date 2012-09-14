@@ -22,6 +22,7 @@ from getpass import getpass
 import httplib
 import json
 import new
+import os
 from os.path import expanduser
 import re
 import sqlite3
@@ -93,6 +94,9 @@ class ProfileConfig:
         **Note** that this returns a context manager which will close the
         database on exit, saving if the exit is clean.
         """
+        # Initialise filename with restrictive permissions...
+        os.close(os.open(dbpath, os.O_CREAT | os.O_APPEND, 0600))
+        # before opening it with sqlite.
         database = sqlite3.connect(dbpath)
         try:
             yield cls(database)

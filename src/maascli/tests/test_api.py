@@ -13,10 +13,12 @@ __metaclass__ = type
 __all__ = []
 
 import contextlib
+import os.path
 import sqlite3
 
 from maascli import api
 from maastesting.testcase import TestCase
+from twisted.python.filepath import FilePath
 
 
 class TestProfileConfig(TestCase):
@@ -61,8 +63,10 @@ class TestProfileConfig(TestCase):
         self.assertEqual(set(), set(config))
 
     def test_open_and_close(self):
-        # open() returns a context manager that closes the database on exit.
-        config = api.ProfileConfig.open(":memory:")
+        # ProfileConfig.open() returns a context manager that closes the
+        # database on exit.
+        config_file = os.path.join(self.make_dir(), "config")
+        config = api.ProfileConfig.open(config_file)
         self.assertIsInstance(config, contextlib.GeneratorContextManager)
         with config as config:
             self.assertIsInstance(config, api.ProfileConfig)
@@ -70,3 +74,21 @@ class TestProfileConfig(TestCase):
                 self.assertEqual(
                     (1,), cursor.execute("SELECT 1").fetchone())
         self.assertRaises(sqlite3.ProgrammingError, config.cursor)
+
+    def test_open_permissions_new_database(self):
+        # ProfileConfig.open() applies restrictive file permissions to newly
+        # created configuration databases.
+        config_file = os.path.join(self.make_dir(), "config")
+        with api.ProfileConfig.open(config_file):
+            perms = FilePath(config_file).getPermissions()
+            self.assertEqual("rw-------", perms.shorthand())
+
+    def test_open_permissions_existing_database(self):
+        # ProfileConfig.open() leaves the file permissions of existing
+        # configuration databases.
+        config_file = os.path.join(self.make_dir(), "config")
+        open(config_file, "wb").close()  # touch.
+        os.chmod(config_file, 0644)  # u=rw,go=r
+        with api.ProfileConfig.open(config_file):
+            perms = FilePath(config_file).getPermissions()
+            self.assertEqual("rw-r--r--", perms.shorthand())
