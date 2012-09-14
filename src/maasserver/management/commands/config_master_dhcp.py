@@ -38,7 +38,7 @@ from maasserver.models import (
 
 dhcp_items = {
     'interface': "The network interface that should service DHCP requests.",
-    'ip': "The IP address attached to that interface.",
+    'ip': "The IP address associated with that network interface.",
     'subnet_mask': "Subnet mask, e.g. 255.0.0.0.",
     'broadcast_ip': "Broadcast address for this subnet, e.g. 10.255.255.255.",
     'router_ip': "Address of default gateway.",
