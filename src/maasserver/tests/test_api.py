@@ -110,6 +110,7 @@ from provisioningserver.enum import (
 from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.omshell import Omshell
 from provisioningserver.pxe import tftppath
+from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
 from testtools.matchers import (
     Contains,
@@ -2704,14 +2705,6 @@ class TestBootImagesAPI(APITestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
-    def make_boot_image_params(self):
-        return {
-            'architecture': factory.make_name('architecture'),
-            'subarchitecture': factory.make_name('subarchitecture'),
-            'release': factory.make_name('release'),
-            'purpose': factory.make_name('purpose'),
-        }
-
     def report_images(self, images, client=None):
         if client is None:
             client = self.client
@@ -2737,7 +2730,7 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_report_boot_images_stores_images(self):
-        image = self.make_boot_image_params()
+        image = make_boot_image_params()
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
@@ -2747,7 +2740,7 @@ class TestBootImagesAPI(APITestCase):
             BootImage.objects.have_image(**image))
 
     def test_report_boot_images_ignores_unknown_image_properties(self):
-        image = self.make_boot_image_params()
+        image = make_boot_image_params()
         image['nonesuch'] = factory.make_name('nonesuch'),
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
@@ -2774,7 +2767,7 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
 
         response = self.report_images(
-            [self.make_boot_image_params()], client=client)
+            [make_boot_image_params()], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
