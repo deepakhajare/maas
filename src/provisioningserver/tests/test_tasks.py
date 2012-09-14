@@ -112,10 +112,10 @@ class TestRefreshSecrets(PservTestCase):
             api_credentials=convert_tuple_to_string(credentials))
         self.assertEqual(credentials, auth.get_recorded_api_credentials())
 
-    def test_updates_nodegroup_name(self):
-        nodegroup_name = factory.make_name('nodegroup')
-        refresh_secrets(nodegroup_name=nodegroup_name)
-        self.assertEqual(nodegroup_name, cache.cache.get('nodegroup_name'))
+    def test_updates_nodegroup_uuid(self):
+        nodegroup_uuid = factory.make_name('nodegroupuuid')
+        refresh_secrets(nodegroup_uuid=nodegroup_uuid)
+        self.assertEqual(nodegroup_uuid, cache.cache.get('nodegroup_uuid'))
 
 
 class TestPowerTasks(PservTestCase):
@@ -160,7 +160,7 @@ class TestDHCPTasks(PservTestCase):
     def make_dhcp_config_params(self):
         """Fake up a dict of dhcp configuration parameters."""
         param_names = [
-            'dhcp_interfaces',
+            'interface',
             'omapi_key',
             'subnet',
             'subnet_mask',
