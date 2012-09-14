@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import contextlib
 import sqlite3
 
 from maascli import api
@@ -60,10 +61,12 @@ class TestProfileConfig(TestCase):
         self.assertEqual(set(), set(config))
 
     def test_open_and_close(self):
+        # open() returns a context manager that closes the database on exit.
         config = api.ProfileConfig.open(":memory:")
-        self.assertIsInstance(config, api.ProfileConfig)
-        with config.cursor() as cursor:
-            self.assertEqual(
-                (1,), cursor.execute("SELECT 1").fetchone())
-        config.close()
+        self.assertIsInstance(config, contextlib.GeneratorContextManager)
+        with config as config:
+            self.assertIsInstance(config, api.ProfileConfig)
+            with config.cursor() as cursor:
+                self.assertEqual(
+                    (1,), cursor.execute("SELECT 1").fetchone())
         self.assertRaises(sqlite3.ProgrammingError, config.cursor)

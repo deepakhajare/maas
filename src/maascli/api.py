@@ -14,7 +14,10 @@ __all__ = [
     "command_module",
     ]
 
-from contextlib import closing
+from contextlib import (
+    closing,
+    contextmanager,
+    )
 from getpass import getpass
 from glob import iglob
 import httplib
@@ -88,13 +91,25 @@ class ProfileConfig:
                 " WHERE name = ?", (name,))
 
     @classmethod
+    @contextmanager
     def open(cls, dbpath=expanduser("~/.maascli.db")):
         """Load a profiles database.
 
         Called without arguments this will open (and create) a database in the
         user's home directory.
+
+        **Note** that this returns a context manager which will close the
+        database on exit, saving if the exit is clean.
         """
-        return cls(sqlite3.connect(dbpath))
+        database = sqlite3.connect(dbpath)
+        try:
+            yield cls(database)
+        except:
+            raise
+        else:
+            database.commit()
+        finally:
+            database.close()
 
     def close(self):
         """Close the database.
