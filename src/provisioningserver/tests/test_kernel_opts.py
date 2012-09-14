@@ -19,6 +19,7 @@ import os
 from maastesting.factory import factory
 from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
+from provisioningserver import kernel_opts
 from provisioningserver.kernel_opts import (
     compose_kernel_command_line_new,
     compose_preseed_opt,
@@ -27,7 +28,6 @@ from provisioningserver.kernel_opts import (
     ISCSI_TARGET_NAME_PREFIX,
     KernelParameters,
     )
-import provisioningserver.kernel_opts
 
 from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.testing.config import ConfigFixture
@@ -75,7 +75,7 @@ class TestKernelOpts(TestCase):
             "auto url=%s" % params.preseed_url,
             compose_kernel_command_line_new(params))
 
-    def test_install_compose_kernel_command_line_includes_hostname_and_domain(self):
+    def test_install_compose_kernel_command_line_includes_name_domain(self):
         params = make_kernel_parameters({"purpose": "install"})
         self.assertThat(
             compose_kernel_command_line_new(params),
@@ -115,16 +115,13 @@ class TestKernelOpts(TestCase):
     def test_commissioning_compose_kernel_command_line_inc_purpose_opts(self):
         # The result of compose_kernel_command_line includes the purpose
         # options for a non "commissioning" node.
-        real_get_ephemeral_name = provisioningserver.kernel_opts.get_ephemeral_name
-        try:
-            provisioningserver.kernel_opts.get_ephemeral_name = lambda rel, arch: "%s-%s" % (rel, arch)
-            params = make_kernel_parameters({"purpose": "commissioning"})
-            cmdline = compose_kernel_command_line_new(params)
-            self.assertIn("root=LABEL=cloudimg-rootfs", cmdline)
-            self.assertIn("iscsi_initiator=", cmdline)
-            self.assertIn("overlayroot=", cmdline)
-        finally:
-            provisioningserver.kernel_opts.get_ephemeral_name = real_get_ephemeral_name
+        self.patch(kernel_opts,
+                   "get_ephemeral_name").return_value = "RELEASE-ARCH"
+        params = make_kernel_parameters({"purpose": "commissioning"})
+        cmdline = compose_kernel_command_line_new(params)
+        self.assertIn("root=LABEL=cloudimg-rootfs", cmdline)
+        self.assertIn("iscsi_initiator=", cmdline)
+        self.assertIn("overlayroot=", cmdline)
 
     def create_ephemeral_info(self, name, arch, release):
         """Create a pseudo-real ephemeral info file."""
