@@ -1007,7 +1007,7 @@ class NodeGroupHandler(BaseHandler):
             nodegroup.accept()
             return HttpResponse("Nodegroup accepted.", status=httplib.OK)
         else:
-            raise PermissionDenied("Only allowed for admin users.")
+            raise PermissionDenied("That method is reserved to admin users.")
 
     @api_exported('POST')
     def reject(self, request, uuid):
@@ -1020,7 +1020,7 @@ class NodeGroupHandler(BaseHandler):
             nodegroup.reject()
             return HttpResponse("Nodegroup rejected.", status=httplib.OK)
         else:
-            raise PermissionDenied("Only allowed for admin users.")
+            raise PermissionDenied("That method is reserved to admin users.")
 
     @api_exported('POST')
     def update_leases(self, request, uuid):
