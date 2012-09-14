@@ -2458,7 +2458,6 @@ class TestNodeGroupsAPI(AnonAPITestCase):
                 'op': 'register',
                 'name': name,
                 'uuid': uuid,
-                'interfaces': json.dumps([]),
             })
         new_nodegroup = NodeGroup.objects.get(uuid=uuid)
         self.assertEqual(
