@@ -1175,7 +1175,7 @@ class BootImagesHandler(BaseHandler):
                 No boot images have been imported yet.  Either the
                 maas-import-pxe-files script has not run yet, or it failed.
 
-                Try running it manually.  If it succeeds, this message should
+                Try running it manually.  If it succeeds, this message will
                 go away within 5 minutes.
                 """)
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)

@@ -78,10 +78,12 @@ def inner_start_up():
         warning = dedent("""\
             No boot images have been registered yet.  This may mean that the
             maas-import-pxe-files script has not been run yet, or that it
-            failed; alternatively, there may be a communication problem
-            between the master worker and the MAAS server.
+            failed.  Alternatively, there may be a communication problem
+            between the master cluster manager and the MAAS server.
 
             Try running maas-import-pxe-files manually.  If it succeeds, this
-            message should disappear within 5 minutes.
+            message should disappear within 5 minutes.  If it does not, check
+            the master cluster manager's logs for signs that it was unable to
+            report to the MAAS API.
             """)
         register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
