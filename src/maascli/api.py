@@ -19,17 +19,10 @@ from contextlib import (
     contextmanager,
     )
 from getpass import getpass
-from glob import iglob
 import httplib
 import json
 import new
-import os
-from os.path import (
-    exists,
-    expanduser,
-    isdir,
-    join,
-    )
+from os.path import expanduser
 import re
 import sqlite3
 import sys
@@ -46,7 +39,6 @@ from apiclient.utils import ascii_url
 from bzrlib.errors import BzrCommandError
 from commandant.commands import Command
 import httplib2
-import lockfile
 import yaml
 
 
@@ -119,10 +111,6 @@ class ProfileConfig:
         self.database.close()
 
 
-dotdir = expanduser("~/.maascli")
-dotlock = lockfile.FileLock("%s.lock" % dotdir)
-
-
 re_camelcase = re.compile(
     r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
 
@@ -149,8 +137,6 @@ class cmd_login(Command):
     takes_args = ("profile_name", "url", "credentials?")
 
     def run(self, profile_name, url, credentials=None):
-        profile_path = join(
-            dotdir, "%s.profile" % safe_name(profile_name))
         # Try and obtain credentials interactively if they're not given, or
         # read them from stdin if they're specified as "-".
         if credentials is None and sys.stdin.isatty():
@@ -166,34 +152,28 @@ class cmd_login(Command):
             credentials = convert_string_to_tuple(credentials)
         else:
             credentials = None
-        # Don't allow any concurrency beyond this point.
-        with dotlock:
-            if exists(profile_path):
-                raise BzrCommandError(
-                    "Already logged-in to %s." % profile_name)
-            if not isdir(dotdir):
-                os.mkdir(dotdir, 0700)
-
-            url = ensure_trailing_slash(url)
-            url_describe = urljoin(url, "describe/")
-
-            http = httplib2.Http()
-            response, content = http.request(
-                ascii_url(url_describe), "GET")
-
-            if response.status != httplib.OK:
-                raise BzrCommandError(
-                    "{0.status} {0.reason}:\n{1}".format(response, content))
-
-            profile = {
+        # Normalise the remote service's URL.
+        url = ensure_trailing_slash(url)
+        # Get description of remote API.
+        url_describe = urljoin(url, "describe/")
+        http = httplib2.Http()
+        response, content = http.request(
+            ascii_url(url_describe), "GET")
+        if response.status != httplib.OK:
+            raise BzrCommandError(
+                "{0.status} {0.reason}:\n{1}".format(response, content))
+        if response["content-type"] != "application/json":
+            raise BzrCommandError(
+                "Expected application/json, got: %(content-type)s" % response)
+        description = json.loads(content)
+        # Save the config.
+        with ProfileConfig.open() as config:
+            config[profile_name] = {
                 "credentials": credentials,
-                "description": json.loads(content),
+                "description": description,
                 "name": profile_name,
                 "url": url,
                 }
-
-            with open(profile_path, "wb") as stream:
-                yaml.safe_dump(profile, stream=stream)
 
 
 class cmd_logout(Command):
@@ -202,11 +182,8 @@ class cmd_logout(Command):
     takes_args = ["profile_name"]
 
     def run(self, profile_name):
-        profile_path = join(
-            dotdir, "%s.profile" % safe_name(profile_name))
-        with dotlock:
-            if exists(profile_path):
-                os.remove(profile_path)
+        with ProfileConfig.open() as config:
+            del config[profile_name]
 
 
 class APICommand(Command):
@@ -325,21 +302,15 @@ def gen_profile_commands(profile):
                 command_action_name, command_bases, command_ns)
 
 
-def gen_profiles():
-    """Load all profiles that we're logged-in to."""
-    with dotlock:
-        for profile_path in iglob(join(dotdir, "*.profile")):
-            with open(profile_path, "rb") as stream:
-                yield yaml.safe_load(stream)
-
-
 def command_module():
     """Return a module populated with command classes.
 
     This is then ready to be passed to `CommandController.load_module`.
     """
     module = new.module(b"%s.commands" % __name__)
-    for profile in gen_profiles():
-        commands = gen_profile_commands(profile)
-        vars(module).update(commands)
+    with ProfileConfig.open() as config:
+        for profile_name in config:
+            profile = config[profile_name]
+            commands = gen_profile_commands(profile)
+            vars(module).update(commands)
     return module
