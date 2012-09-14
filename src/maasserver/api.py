@@ -899,6 +899,16 @@ class NodeGroupsHandler(BaseHandler):
     def register(self, request):
         """Register a new `NodeGroup`.
 
+        This method will use HTTP return codes to indicate the success of the
+        call:
+
+        - 200 (OK): the nodegroup has been accepted, the response will
+          contrain the RabbitMQ credentials in JSON format.
+        - 202 (Accepted): the registration of the nodegroup has been accepted,
+          it now needs to be validated by an administrator.  Please issue
+          the same request later.
+        - 403 (Forbidden): this nodegroup has been rejected.
+
         :param uuid: The UUID of the nodegroup.
         :type name: basestring
         :param name: The name of the nodegroup.
