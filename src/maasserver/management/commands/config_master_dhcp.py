@@ -38,7 +38,7 @@ from maasserver.models import (
 
 dhcp_items = {
     'interface': "The network interface that should service DHCP requests.",
-    'ip': "The IP address associated with that network interface.",
+    'ip': "The IP address at which nodes can reach the DHCP server.",
     'subnet_mask': "Subnet mask, e.g. 255.0.0.0.",
     'broadcast_ip': "Broadcast address for this subnet, e.g. 10.255.255.255.",
     'router_ip': "Address of default gateway.",
@@ -104,8 +104,8 @@ class Command(BaseCommand):
                 interface = NodeGroupInterface(
                     nodegroup=master_nodegroup,
                     management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
-            # TODO: that kind of manipulation should really be done via
-            # a form rather than with 'setattr'.
+            # That kind of manipulation should really be done via a form
+            # rather than with 'setattr'.
             for item, value in settings.items():
                 setattr(interface, item, value)
             interface.save()

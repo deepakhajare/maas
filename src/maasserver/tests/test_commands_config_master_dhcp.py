@@ -15,7 +15,10 @@ __all__ = []
 from optparse import OptionValueError
 
 from django.core.management import call_command
-from maasserver.enum import DNS_DHCP_MANAGEMENT, NODEGROUPINTERFACE_MANAGEMENT
+from maasserver.enum import (
+    DNS_DHCP_MANAGEMENT,
+    NODEGROUPINTERFACE_MANAGEMENT,
+    )
 from maasserver.management.commands.config_master_dhcp import name_option
 from maasserver.models import (
     Config,
@@ -69,20 +72,20 @@ class TestConfigMasterDHCP(TestCase):
         self.assertThat(
             master,
             MatchesStructure.fromExample(make_master_constants()))
-        self.assertThat(interface, MatchesStructure.byEquality(**settings))
-        self.assertEqual(
-            NODEGROUPINTERFACE_MANAGEMENT.DHCP, interface.management)
+        self.assertThat(
+            interface, MatchesStructure.byEquality(
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP, **settings))
 
-    def test_re_configures_dhcp_for_master_nodegroup(self):
+    def test_configures_dhcp_for_master_nodegroup_existing_master(self):
         management = NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS
         master = factory.make_node_group(name='master', management=management)
         settings = make_dhcp_settings()
         call_command('config_master_dhcp', **settings)
-        master = NodeGroup.objects.get(name='master')
+        master = NodeGroup.objects.ensure_master()
         interface = master.get_managed_interface()
-        self.assertThat(interface, MatchesStructure.byEquality(**settings))
-        # master's management has been preserved.
-        self.assertEqual(management, interface.management)
+        self.assertThat(
+            interface, MatchesStructure.byEquality(
+                management=interface.management, **settings))
 
     def test_clears_dhcp_settings(self):
         master = NodeGroup.objects.ensure_master()
