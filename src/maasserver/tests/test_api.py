@@ -2634,7 +2634,7 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
         self.assertTrue(
             BootImage.objects.have_image(**image))
@@ -2650,7 +2650,7 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([image], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
 
 

@@ -1161,7 +1161,7 @@ class BootImagesHandler(BaseHandler):
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],
                 purpose=image['purpose'])
-        return HttpResponse("Images noted.")
+        return HttpResponse("OK")
 
 
 def describe(request):
