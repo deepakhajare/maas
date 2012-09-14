@@ -133,14 +133,15 @@ def drill_down(directory, paths):
 
 
 def extract_image_params(path):
-    """Represent a list of TFTP path elements as a boot-image dict."""
-    [arch, subarch, release, purpose] = path
-    return {
-        'architecture': arch,
-        'subarchitecture': subarch,
-        'release': release,
-        'purpose': purpose,
-    }
+    """Represent a list of TFTP path elements as a boot-image dict.
+
+    The path must consist of a full [architecture, subarchitecture, release,
+    purpose] that identify a kind of boot that we may need an image for.
+    """
+    arch, subarch, release, purpose = path
+    return dict(
+        architecture=arch, subarchitecture=subarch, release=release,
+        purpose=purpose)
 
 
 def list_boot_images(tftproot):
