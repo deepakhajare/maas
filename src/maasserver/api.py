@@ -54,20 +54,20 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "AccountHandler",
+    "AnonNodesHandler",
     "api_doc",
     "api_doc_title",
     "BootImagesHandler",
-    "generate_api_doc",
-    "get_oauth_token",
-    "AccountHandler",
-    "AnonNodesHandler",
     "FilesHandler",
+    "get_oauth_token",
     "NodeGroupsHandler",
     "NodeHandler",
-    "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
+    "NodesHandler",
     "pxeconfig",
+    "render_api_docs",
     ]
 
 from base64 import b64decode
@@ -105,6 +105,11 @@ from maasserver.components import (
     discard_persistent_error,
     register_persistent_error,
     )
+from maasserver.apidoc import (
+    describe_handler,
+    find_api_handlers,
+    generate_api_docs,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
@@ -137,11 +142,9 @@ from maasserver.preseed import (
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils.orm import get_one
-from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
-    HandlerMetaClass,
     )
 from piston.models import Token
 from piston.resource import Resource
@@ -877,7 +880,7 @@ class NodeGroupsHandler(BaseHandler):
     def read(self, request):
         """Index of node groups."""
         return HttpResponse(sorted(
-            [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
+            [nodegroup.uuid for nodegroup in NodeGroup.objects.all()]))
 
     @classmethod
     def resource_uri(cls):
@@ -898,14 +901,14 @@ class NodeGroupsHandler(BaseHandler):
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
 
-def get_nodegroup_for_worker(request, nodegroup_name):
-    """Get :class:`NodeGroup` by name, for access by its worker.
+def get_nodegroup_for_worker(request, uuid):
+    """Get :class:`NodeGroup` by uuid, for access by its worker.
 
     This supports a nodegroup worker accessing its nodegroup object on
-    the API.  If the request is done by ayone but the worker for this
+    the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
-    nodegroup = get_object_or_404(NodeGroup, name=nodegroup_name)
+    nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
     try:
         key = extract_oauth_key(request)
     except Unauthorized as e:
@@ -913,7 +916,7 @@ def get_nodegroup_for_worker(request, nodegroup_name):
 
     if key != nodegroup.api_key:
         raise PermissionDenied(
-            "Only allowed for the %r worker." % nodegroup.name)
+            "Only allowed for the %r worker." % nodegroup.uuid)
 
     return nodegroup
 
@@ -923,24 +926,24 @@ class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
     allowed_methods = ('GET', 'POST')
-    fields = ('name', )
+    fields = ('name', 'uuid')
 
-    def read(self, request, name):
+    def read(self, request, uuid):
         """GET a node group."""
-        return get_object_or_404(NodeGroup, name=name)
+        return get_object_or_404(NodeGroup, uuid=uuid)
 
     @classmethod
     def resource_uri(cls, nodegroup=None):
         if nodegroup is None:
-            name = 'name'
+            uuid = 'uuid'
         else:
-            name = nodegroup.name
-        return ('nodegroup_handler', [name])
+            uuid = nodegroup.uuid
+        return ('nodegroup_handler', [uuid])
 
     @api_exported('POST')
-    def update_leases(self, request, name):
+    def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
-        nodegroup = get_nodegroup_for_worker(request, name)
+        nodegroup = get_nodegroup_for_worker(request, uuid)
         leases = json.loads(leases)
         new_leases = DHCPLease.objects.update_leases(nodegroup, leases)
         if len(new_leases) > 0:
@@ -1022,7 +1025,7 @@ class MAASHandler(BaseHandler):
 
 
 # Title section for the API documentation.  Matches in style, format,
-# etc. whatever generate_api_doc() produces, so that you can concatenate
+# etc. whatever render_api_docs() produces, so that you can concatenate
 # the two.
 api_doc_title = dedent("""
     ========
@@ -1031,8 +1034,8 @@ api_doc_title = dedent("""
     """.lstrip('\n'))
 
 
-def generate_api_doc():
-    """Generate ReST documentation for the REST API.
+def render_api_docs():
+    """Render ReST documentation for the REST API.
 
     This module's docstring forms the head of the documentation; details of
     the API methods follow.
@@ -1040,24 +1043,7 @@ def generate_api_doc():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
-
-    # Fetch all the API Handlers (objects with the class
-    # HandlerMetaClass).
     module = sys.modules[__name__]
-
-    all = [getattr(module, name) for name in module.__all__]
-    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
-
-    # Make sure each handler defines a 'resource_uri' method (this is
-    # easily forgotten and essential to have a proper documentation).
-    for handler in handlers:
-        sentinel = object()
-        resource_uri = getattr(handler, "resource_uri", sentinel)
-        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
-            handler.__name__)
-
-    docs = [generate_doc(handler) for handler in handlers]
-
     messages = [
         __doc__.strip(),
         '',
@@ -1066,7 +1052,8 @@ def generate_api_doc():
         '----------',
         '',
         ]
-    for doc in docs:
+    handlers = find_api_handlers(module)
+    for doc in generate_api_docs(handlers):
         for method in doc.get_methods():
             messages.append(
                 "%s %s\n  %s\n" % (
@@ -1080,20 +1067,14 @@ def reST_to_html_fragment(a_str):
     return parts['body_pre_docinfo'] + parts['fragment']
 
 
-_API_DOC = None
-
-
 def api_doc(request):
     """Get ReST documentation for the REST API."""
     # Generate the documentation and keep it cached.  Note that we can't do
     # that at the module level because the API doc generation needs Django
     # fully initialized.
-    global _API_DOC
-    if _API_DOC is None:
-        _API_DOC = generate_api_doc()
     return render_to_response(
         'maasserver/api_doc.html',
-        {'doc': reST_to_html_fragment(generate_api_doc())},
+        {'doc': reST_to_html_fragment(render_api_docs())},
         context_instance=RequestContext(request))
 
 
@@ -1202,3 +1183,21 @@ class BootImagesHandler(BaseHandler):
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
 
         return HttpResponse("Images noted.")
+
+
+def describe(request):
+    """Return a description of the whole MAAS API.
+
+    Returns a JSON object describing the whole MAAS API.
+    """
+    module = sys.modules[__name__]
+    description = {
+        "doc": "MAAS API",
+        "handlers": [
+            describe_handler(handler)
+            for handler in find_api_handlers(module)
+            ],
+        }
+    return HttpResponse(
+        json.dumps(description),
+        content_type="application/json")
