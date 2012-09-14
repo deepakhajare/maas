@@ -140,6 +140,10 @@ class APICommand(Command):
 
     This is used as a base for creating more specific commands; see
     `gen_profile_commands`.
+
+    **Note** that this class conflates two things: CLI exposure and API
+    client. The client in apiclient.maas_client is not quite suitable yet, but
+    it should be iterated upon to make it suitable.
     """
 
     # See `cmd_login` and `cmd_logout`.
