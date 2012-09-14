@@ -146,30 +146,12 @@ class APICommand(Command):
     it should be iterated upon to make it suitable.
     """
 
-    # See `cmd_login` and `cmd_logout`.
-    profile = None
-
     # Override these in subclasses; see `gen_profile_commands`.
-    actions = []
-    takes_args = ["action", "...", "data*"]
+    action = None
+    profile = None
+    takes_args = ["...", "data*"]
 
-    def get_action(self, action):
-        """Return the action specification for the given name.
-
-        :raises LookupError: if the named action is not found.
-        """
-        try:
-            return next(
-                act for act in self.actions
-                if act.get("name") == action)
-        except StopIteration:
-            raise LookupError(
-                "%s: cannot '%s'" % (self.name(), action))
-
-    def run(self, action, data_list, **params):
-        # Look for the action first.
-        action = self.get_action(action)
-
+    def run(self, data_list, **params):
         # TODO: this is el-cheapo URI Template
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
         # <https://github.com/uri-templates/uritemplate-py> here?
@@ -180,12 +162,12 @@ class APICommand(Command):
         else:
             data = dict(item.split("=", 1) for item in data_list)
 
-        op = action["op"]
+        op = self.action["op"]
         if op is not None:
             data["op"] = op
 
-        method = action["method"]
-        restful = action["restful"]
+        method = self.action["method"]
+        restful = self.action["restful"]
 
         if method == "POST" and not restful:
             # Encode the data as multipart for non-ReSTful POST requests; all
@@ -255,15 +237,18 @@ def gen_profile_commands(profile):
         command_name = b"cmd_%s_%s" % (
             prefix, handler_command_name(handler["name"]))
         command_bases = (APICommand,)
-        command_ns = {
-            "__doc__": handler["doc"],
-            "actions": handler["actions"],
-            "profile": profile,
-            "takes_args": ["action"] + handler["params"] + ["data*"],
-            "uri": handler["uri"],
-            }
-        yield command_name, type(
-            command_name, command_bases, command_ns)
+        for action in handler["actions"]:
+            command_ns = {
+                "__doc__": action["doc"],
+                "action": action,
+                "profile": profile,
+                "takes_args": handler["params"] + ["data*"],
+                "uri": handler["uri"],
+                }
+            command_action_name = b"%s_%s" % (
+                command_name, action["name"].encode("ascii"))
+            yield command_action_name, type(
+                command_action_name, command_bases, command_ns)
 
 
 def gen_profiles():
