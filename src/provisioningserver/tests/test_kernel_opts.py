@@ -37,14 +37,14 @@ from testtools.matchers import (
     )
 
 
-def make_kernel_parameters(content=None):
+def make_kernel_parameters(extra_parameters=None):
     """Make a randomly populated `KernelParameters` instance."""
     parms = {
             field: factory.make_name(field)
             for field in KernelParameters._fields
             }
-    if content is not None:
-        parms.update(content)
+    if extra_parameters is not None:
+        parms.update(extra_parameters)
     return KernelParameters(**parms)
 
 
@@ -119,9 +119,30 @@ class TestKernelOpts(TestCase):
                    "get_ephemeral_name").return_value = "RELEASE-ARCH"
         params = make_kernel_parameters({"purpose": "commissioning"})
         cmdline = compose_kernel_command_line_new(params)
-        self.assertIn("root=LABEL=cloudimg-rootfs", cmdline)
-        self.assertIn("iscsi_initiator=", cmdline)
-        self.assertIn("overlayroot=", cmdline)
+        self.assertThat(
+            cmdline,
+            ContainsAll([
+                "root=LABEL=cloudimg-rootfs",
+                "iscsi_initiator=",
+                "overlayroot=tmpfs",
+                "ip=::::%s" % params.hostname]))
+
+    def test_compose_kernel_command_line_inc_common_opts(self):
+        # Test that some kernel arguments appear on both commissioning
+        # and install command lines.
+        self.patch(kernel_opts,
+                   "get_ephemeral_name").return_value = "RELEASE-ARCH"
+        expected = ["console=tty1", "console=ttyS0", "nomodeset"]
+
+        params = make_kernel_parameters({
+            "purpose": "commissioning", "arch": "i386" })
+        cmdline = compose_kernel_command_line_new(params)
+        self.assertThat(cmdline, ContainsAll(expected))
+
+        params = make_kernel_parameters({
+            "purpose": "install", "arch": "i386" })
+        cmdline = compose_kernel_command_line_new(params)
+        self.assertThat(cmdline, ContainsAll(expected))
 
     def create_ephemeral_info(self, name, arch, release):
         """Create a pseudo-real ephemeral info file."""

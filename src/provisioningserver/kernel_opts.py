@@ -47,11 +47,6 @@ class KernelParameters(KernelParametersBase):
     __call__ = KernelParametersBase._replace
 
 
-def compose_initrd_opt(arch, subarch, release, purpose):
-    path = "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
-    return "initrd=%s" % path
-
-
 def compose_preseed_opt(preseed_url):
     """Compose a kernel option for preseed URL.
 
