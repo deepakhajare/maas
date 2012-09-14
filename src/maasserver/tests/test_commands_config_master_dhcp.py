@@ -71,7 +71,7 @@ class TestConfigMasterDHCP(TestCase):
         interface = master.get_managed_interface()
         self.assertThat(
             master,
-            MatchesStructure.fromExample(make_master_constants()))
+            MatchesStructure.byEquality(**make_master_constants()))
         self.assertThat(
             interface, MatchesStructure.byEquality(
                 management=NODEGROUPINTERFACE_MANAGEMENT.DHCP, **settings))
@@ -121,9 +121,8 @@ class TestConfigMasterDHCP(TestCase):
 
     def test_ensure_creates_master_nodegroup_without_dhcp_settings(self):
         call_command('config_master_dhcp', ensure=True)
-        self.assertThat(
-            NodeGroup.objects.get(name='master'),
-            MatchesStructure.fromExample(make_cleared_dhcp_settings()))
+        self.assertIsNone(
+            NodeGroup.objects.get(name='master').get_managed_interface())
 
     def test_ensure_leaves_cleared_settings_cleared(self):
         call_command('config_master_dhcp', clear=True)
@@ -136,8 +135,8 @@ class TestConfigMasterDHCP(TestCase):
         call_command('config_master_dhcp', **settings)
         call_command('config_master_dhcp', ensure=True)
         self.assertThat(
-            NodeGroup.objects.get(name='master'),
-            MatchesStructure.fromExample(settings))
+            NodeGroup.objects.get(name='master').get_managed_interface(),
+            MatchesStructure.byEquality(**settings))
 
     def test_name_option_turns_dhcp_setting_name_into_option(self):
         self.assertEqual('--subnet-mask', name_option('subnet_mask'))
