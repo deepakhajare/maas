@@ -28,6 +28,7 @@ from os.path import (
     join,
     )
 import re
+import sqlite3
 import sys
 from urllib import urlencode
 from urlparse import (
@@ -85,6 +86,22 @@ class ProfileConfig:
             cursor.execute(
                 "DELETE FROM profiles"
                 " WHERE name = ?", (name,))
+
+    @classmethod
+    def open(cls, dbpath=expanduser("~/.maascli.db")):
+        """Load a profiles database.
+
+        Called without arguments this will open (and create) a database in the
+        user's home directory.
+        """
+        return cls(sqlite3.connect(dbpath))
+
+    def close(self):
+        """Close the database.
+
+        This object is no longer useful once this method has returned.
+        """
+        self.database.close()
 
 
 dotdir = expanduser("~/.maascli")

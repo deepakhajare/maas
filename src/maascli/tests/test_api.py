@@ -58,3 +58,12 @@ class TestProfileConfig(TestCase):
         config["alice"] = {"abc": 123}
         del config["alice"]
         self.assertEqual(set(), set(config))
+
+    def test_open_and_close(self):
+        config = api.ProfileConfig.open(":memory:")
+        self.assertIsInstance(config, api.ProfileConfig)
+        with config.cursor() as cursor:
+            self.assertEqual(
+                (1,), cursor.execute("SELECT 1").fetchone())
+        config.close()
+        self.assertRaises(sqlite3.ProgrammingError, config.cursor)
