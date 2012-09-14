@@ -896,14 +896,13 @@ class NodeGroupsHandler(BaseHandler):
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
 
-def get_nodegroup_for_worker(request, uuid):
-    """Get :class:`NodeGroup` by uuid, for access by its worker.
+def check_nodegroup_access(request, nodegroup):
+    """Validate API access by worker for `nodegroup`.
 
     This supports a nodegroup worker accessing its nodegroup object on
     the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
-    nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
     try:
         key = extract_oauth_key(request)
     except Unauthorized as e:
@@ -911,9 +910,7 @@ def get_nodegroup_for_worker(request, uuid):
 
     if key != nodegroup.api_key:
         raise PermissionDenied(
-            "Only allowed for the %r worker." % nodegroup.uuid)
-
-    return nodegroup
+            "Only allowed for the %r worker." % nodegroup.name)
 
 
 @api_operations
@@ -938,7 +935,8 @@ class NodeGroupHandler(BaseHandler):
     @api_exported('POST')
     def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
-        nodegroup = get_nodegroup_for_worker(request, uuid)
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        check_nodegroup_access(request, nodegroup)
         leases = json.loads(leases)
         new_leases = DHCPLease.objects.update_leases(nodegroup, leases)
         if len(new_leases) > 0:
@@ -1155,7 +1153,7 @@ class BootImagesHandler(BaseHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
-        get_nodegroup_for_worker(request, 'master')
+        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
         images = json.loads(get_mandatory_param(request.data, 'images'))
         for image in images:
             BootImage.objects.register_image(
