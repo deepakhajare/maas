@@ -2761,7 +2761,7 @@ class TestBootImagesAPI(APITestCase):
 
         response = self.report_images([], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
 
         self.assertIn(
@@ -2776,7 +2776,7 @@ class TestBootImagesAPI(APITestCase):
         response = self.report_images(
             [self.make_boot_image_params()], client=client)
         self.assertEqual(
-            (httplib.OK, "Images noted."),
+            (httplib.OK, "OK"),
             (response.status_code, response.content))
 
         self.assertItemsEqual(
