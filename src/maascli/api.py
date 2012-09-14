@@ -14,6 +14,7 @@ __all__ = [
     "command_module",
     ]
 
+from contextlib import closing
 from getpass import getpass
 from glob import iglob
 import httplib
@@ -43,6 +44,47 @@ from commandant.commands import Command
 import httplib2
 import lockfile
 import yaml
+
+
+class ProfileConfig:
+    """Store profile configurations in an sqlite3 database."""
+
+    def __init__(self, database):
+        self.database = database
+        with self.cursor() as cursor:
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS profiles "
+                "(id INTEGER PRIMARY KEY,"
+                " name TEXT NOT NULL UNIQUE,"
+                " data BLOB)")
+
+    def cursor(self):
+        return closing(self.database.cursor())
+
+    def __iter__(self):
+        with self.cursor() as cursor:
+            results = cursor.execute(
+                "SELECT name FROM profiles").fetchall()
+        return (name for (name,) in results)
+
+    def __getitem__(self, name):
+        with self.cursor() as cursor:
+            [data] = cursor.execute(
+                "SELECT data FROM profiles"
+                " WHERE name = ?", (name,)).fetchone()
+        return json.loads(data)
+
+    def __setitem__(self, name, data):
+        with self.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO profiles (name, data) "
+                "VALUES (?, ?)", (name, json.dumps(data)))
+
+    def __delitem__(self, name):
+        with self.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM profiles"
+                " WHERE name = ?", (name,))
 
 
 dotdir = expanduser("~/.maascli")

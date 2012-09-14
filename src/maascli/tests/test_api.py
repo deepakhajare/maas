@@ -12,8 +12,49 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import sqlite3
+
+from maascli import api
 from maastesting.testcase import TestCase
 
 
-class TestAPICommand(TestCase):
-    """Tests for `APICommand`."""
+class TestProfileConfig(TestCase):
+    """Tests for `ProfileConfig`."""
+
+    def test_init(self):
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        with config.cursor() as cursor:
+            # The profiles table has been created.
+            self.assertEqual(
+                cursor.execute(
+                    "SELECT COUNT(*) FROM sqlite_master"
+                    " WHERE type = 'table'"
+                    "   AND name = 'profiles'").fetchone(),
+                (1,))
+
+    def test_profiles_pristine(self):
+        # A pristine configuration has no profiles.
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        self.assertSetEqual(set(), set(config))
+
+    def test_adding_profile(self):
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        config["alice"] = {"abc": 123}
+        self.assertEqual({"alice"}, set(config))
+        self.assertEqual({"abc": 123}, config["alice"])
+
+    def test_getting_profile(self):
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        config["alice"] = {"abc": 123}
+        self.assertEqual({"abc": 123}, config["alice"])
+
+    def test_removing_profile(self):
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        config["alice"] = {"abc": 123}
+        del config["alice"]
+        self.assertEqual(set(), set(config))
