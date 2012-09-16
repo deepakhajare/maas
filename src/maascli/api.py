@@ -43,7 +43,6 @@ from maascli.utils import (
     parse_docstring,
     safe_name,
     )
-import yaml
 
 
 def try_getpass(prompt):
@@ -241,21 +240,24 @@ class Action(Command):
         response, content = http.request(
             uri, method, body=body, headers=headers)
 
-        # TODO: parse the content type with a little more elegance.
-        if (response["content-type"] == "application/json" or
-            response["content-type"].startswith("application/json;")):
-            content = json.loads(content)
+        # Function to change "transfer-encoding" into "Transfer-Encoding".
+        cap = lambda header: "-".join(
+            part.capitalize() for part in header.split("-"))
+        # Format string to prettify reporting of response headers.
+        form = "%%%ds: %%s" % (
+            max(len(header) for header in response) + 2)
 
-        self.report(
-            {"response": vars(response),
-             "headers": dict(response),
-             "content": content})
+        # Print the response.
+        print(response.status, response.reason)
+        print()
+        for header in sorted(response):
+            print(form % (cap(header), response[header]))
+        print()
+        print(content)
 
-        if response.status != httplib.OK:
+        # 2xx status codes are all okay.
+        if response.status // 100 != 2:
             raise CommandError(2)
-
-    def report(self, contents):
-        yaml.safe_dump(contents, stream=sys.stdout)
 
 
 def register_actions(profile, handler, parser):
