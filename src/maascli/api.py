@@ -117,6 +117,19 @@ def safe_name(string):
     return "-".join(re_camelcase.findall(string))
 
 
+def handler_command_name(string):
+    """Create a handler command name from an arbitrary string.
+
+    Camel-case parts of string will be extracted, converted to lowercase,
+    joined with underscores, and the rest discarded. The term "handler" will
+    also be removed if discovered amongst the aforementioned parts.
+    """
+    parts = re_camelcase.findall(string)
+    parts = (part.lower().encode("ascii") for part in parts)
+    parts = (part for part in parts if part != b"handler")
+    return b"_".join(parts)
+
+
 def ensure_trailing_slash(string):
     """Ensure that `string` has a trailing forward-slash."""
     slash = b"/" if isinstance(string, bytes) else u"/"
@@ -262,19 +275,6 @@ class APICommand(Command):
 
     def report(self, contents):
         yaml.safe_dump(contents, stream=self.outf)
-
-
-def handler_command_name(string):
-    """Create a handler command name from an arbitrary string.
-
-    Camel-case parts of string will be extracted, converted to lowercase,
-    joined with underscores, and the rest discarded. The term "handler" will
-    also be removed if discovered amongst the aforementioned parts.
-    """
-    parts = re_camelcase.findall(string)
-    parts = (part.lower().encode("ascii") for part in parts)
-    parts = (part for part in parts if part != b"handler")
-    return b"_".join(parts)
 
 
 def gen_profile_commands(profile):
