@@ -166,7 +166,6 @@ class Action(Command):
 
     def __init__(self, parser):
         super(Action, self).__init__(parser)
-        # Register command-line arguments.
         for param in self.handler["params"]:
             parser.add_argument(param)
         parser.add_argument("data", nargs="*")
@@ -176,6 +175,8 @@ class Action(Command):
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
         # <https://github.com/uri-templates/uritemplate-py> here?
         uri = self.handler["uri"].format(**vars(options))
+
+        # Parse data out of the positional arguments.
         data = dict(item.split("=", 1) for item in options.data)
 
         op = self.action["op"]
@@ -226,7 +227,7 @@ class Action(Command):
              "content": content})
 
         if response.status != httplib.OK:
-            raise SystemExit(2)
+            raise CommandError(2)
 
     def report(self, contents):
         yaml.safe_dump(contents, stream=sys.stdout)

@@ -20,7 +20,10 @@ import locale
 import sys
 
 from bzrlib import osutils
-from maascli.utils import parse_docstring
+from maascli.utils import (
+    parse_docstring,
+    safe_name,
+    )
 
 
 modules = {
@@ -96,14 +99,13 @@ def register(module, parser):
     """
     # Register commands.
     commands = {
-        name: command for name, command in vars(module).items()
+        name[4:]: command for name, command in vars(module).items()
         if name.startswith("cmd_") and callable(command)
         }
     for name, command in commands.items():
-        command_name = "-".join(name.split("_")[1:])
         help_title, help_body = parse_docstring(command)
         command_parser = parser.subparsers.add_parser(
-            command_name, help=help_title, description=help_body)
+            safe_name(name), help=help_title, description=help_body)
         command_parser.set_defaults(execute=command(command_parser))
     # Extra subparser registration.
     register_module = getattr(module, "register", None)
