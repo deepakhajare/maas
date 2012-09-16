@@ -113,6 +113,7 @@ from provisioningserver.pxe import tftppath
 from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
 from testtools.matchers import (
+    AllMatch,
     Contains,
     Equals,
     MatchesListwise,
@@ -2650,48 +2651,56 @@ class TestNodeGroupAPI(APITestCase):
             nodegroup_path, 'update_leases', leases=json.dumps(leases))
 
     def test_accept_accepts_nodegroup(self):
-        nodegroup = factory.make_node_group()
+        nodegroups = [factory.make_node_group() for i in range(3)]
+        uuids = [nodegroup.uuid for nodegroup in nodegroups]
         self.become_admin()
         response = self.client.post(
-            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            reverse('nodegroups_handler'),
             {
                 'op': 'accept',
+                'uuid': uuids,
             })
         self.assertEqual(
-            (httplib.OK, "Nodegroup accepted."),
+            (httplib.OK, "Nodegroup(s) accepted."),
             (response.status_code, response.content))
-        self.assertEqual(
-            NODEGROUP_STATUS.ACCEPTED, reload_object(nodegroup).status)
+        self.assertThat(
+            [nodegroup.status for nodegroup in
+             reload_objects(NodeGroup, nodegroups)],
+            AllMatch(Equals(NODEGROUP_STATUS.ACCEPTED)))
 
     def test_accept_reserved_to_admin(self):
-        nodegroup = factory.make_node_group()
         response = self.client.post(
-            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            reverse('nodegroups_handler'),
             {
                 'op': 'accept',
+                'uuid': factory.getRandomString(),
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_reject_rejects_nodegroup(self):
-        nodegroup = factory.make_node_group()
+        nodegroups = [factory.make_node_group() for i in range(3)]
+        uuids = [nodegroup.uuid for nodegroup in nodegroups]
         self.become_admin()
         response = self.client.post(
-            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            reverse('nodegroups_handler'),
             {
                 'op': 'reject',
+                'uuid': uuids,
             })
         self.assertEqual(
-            (httplib.OK, "Nodegroup rejected."),
+            (httplib.OK, "Nodegroup(s) rejected."),
             (response.status_code, response.content))
-        self.assertEqual(
-            NODEGROUP_STATUS.REJECTED, reload_object(nodegroup).status)
+        self.assertThat(
+            [nodegroup.status for nodegroup in
+             reload_objects(NodeGroup, nodegroups)],
+            AllMatch(Equals(NODEGROUP_STATUS.REJECTED)))
 
     def test_reject_reserved_to_admin(self):
-        nodegroup = factory.make_node_group()
         response = self.client.post(
-            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            reverse('nodegroups_handler'),
             {
                 'op': 'reject',
+                'uuid': factory.getRandomString(),
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 

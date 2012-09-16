@@ -55,6 +55,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "AccountHandler",
+    "AnonNodeGroupsHandler",
     "AnonNodesHandler",
     "api_doc",
     "api_doc_title",
@@ -871,11 +872,8 @@ class FilesHandler(BaseHandler):
 
 
 @api_operations
-class NodeGroupsHandler(BaseHandler):
-    """Node-groups API.  Lists the registered node groups.
-
-    BE VERY CAREFUL in this view: it is accessible anonymously, even for POST.
-    """
+class AnonNodeGroupsHandler(AnonymousBaseHandler):
+    """Anon Node-groups API."""
 
     allowed_methods = ('GET', 'POST')
 
@@ -960,6 +958,50 @@ class NodeGroupsHandler(BaseHandler):
                     "Awaiting admin approval.", status=httplib.ACCEPTED)
 
 
+@api_operations
+class NodeGroupsHandler(BaseHandler):
+    """Node-groups API."""
+    anonymous = AnonNodeGroupsHandler
+    allowed_methods = ('GET', 'POST')
+
+    @api_exported('POST')
+    def accept(self, request):
+        """Accept this nodegroup's enlistment.
+
+        :param uuid: The UUID of the nodegroup to accept.
+        :type name: basestring
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            uuids = request.data.getlist('uuid')
+            for uuid in uuids:
+                nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+                nodegroup.accept()
+            return HttpResponse("Nodegroup(s) accepted.", status=httplib.OK)
+        else:
+            raise PermissionDenied("That method is reserved to admin users.")
+
+    @api_exported('POST')
+    def reject(self, request):
+        """Reject this nodegroup's enlistment.
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            uuids = request.data.getlist('uuid')
+            for uuid in uuids:
+                nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+                nodegroup.reject()
+            return HttpResponse("Nodegroup(s) rejected.", status=httplib.OK)
+        else:
+            raise PermissionDenied("That method is reserved to admin users.")
+
+    @classmethod
+    def resource_uri(cls):
+        return ('nodegroups_handler', [])
+
+
 def check_nodegroup_access(request, nodegroup):
     """Validate API access by worker for `nodegroup`.
 
@@ -995,32 +1037,6 @@ class NodeGroupHandler(BaseHandler):
         else:
             uuid = nodegroup.uuid
         return ('nodegroup_handler', [uuid])
-
-    @api_exported('POST')
-    def accept(self, request, uuid):
-        """Accept this nodegroup's enlistment.
-
-        This method is reserved to admin users.
-        """
-        if request.user.is_superuser:
-            nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
-            nodegroup.accept()
-            return HttpResponse("Nodegroup accepted.", status=httplib.OK)
-        else:
-            raise PermissionDenied("That method is reserved to admin users.")
-
-    @api_exported('POST')
-    def reject(self, request, uuid):
-        """Reject this nodegroup's enlistment.
-
-        This method is reserved to admin users.
-        """
-        if request.user.is_superuser:
-            nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
-            nodegroup.reject()
-            return HttpResponse("Nodegroup rejected.", status=httplib.OK)
-        else:
-            raise PermissionDenied("That method is reserved to admin users.")
 
     @api_exported('POST')
     def update_leases(self, request, uuid):
