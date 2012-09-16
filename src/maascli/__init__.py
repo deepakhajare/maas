@@ -66,7 +66,7 @@ def main(argv=None):
 
     # Create the base argument parser.
     parser = ArgumentParser(
-        description="Control MAAS using its API from the command-line.",
+        description="Control MAAS from the command-line.",
         prog=argv[0], epilog="http://maas.ubuntu.com/")
 
     # Register declared modules.
