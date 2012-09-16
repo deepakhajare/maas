@@ -135,7 +135,7 @@ class Factory(maastesting.factory.Factory):
         addresses if they are not provided.
         """
         if status is None:
-            factory.getRandomEnum(NODEGROUP_STATUS)
+            status = factory.getRandomEnum(NODEGROUP_STATUS)
         if management is None:
             management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
         if name is None:
@@ -170,6 +170,7 @@ class Factory(maastesting.factory.Factory):
             router_ip=router_ip, ip_range_low=ip_range_low,
             ip_range_high=ip_range_high, interface=interface,
             management=management, **kwargs)
+        ng.status = status
         ng.save()
         return ng
 
