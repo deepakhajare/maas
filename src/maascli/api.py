@@ -137,9 +137,21 @@ class cmd_login(Command):
 
     def __init__(self, parser):
         super(cmd_login, self).__init__(parser)
-        parser.add_argument("profile_name")
-        parser.add_argument("url")
-        parser.add_argument("credentials", nargs="?", default=None)
+        parser.add_argument(
+            "profile_name", metavar="profile-name", help=(
+                "The name with which you will later refer to this remote "
+                "server and credentials within this tool."
+                ))
+        parser.add_argument(
+            "url", help=(
+                "The URL of the remote API, e.g. "
+                "http://example.com/api/1.0/"))
+        parser.add_argument(
+            "credentials", nargs="?", default=None, help=(
+                "The credentials, also known as the API key, for the "
+                "remote MAAS server. These can be found in the user "
+                "preferences page in the web UI."
+                ))
         parser.set_defaults(credentials=None)
 
     def __call__(self, options):
@@ -189,7 +201,11 @@ class cmd_logout(Command):
 
     def __init__(self, parser):
         super(cmd_logout, self).__init__(parser)
-        parser.add_argument("profile_name")
+        parser.add_argument(
+            "profile_name", metavar="profile-name", help=(
+                "The name with which a remote server and its credentials "
+                "are referred to within this tool."
+                ))
 
     def __call__(self, options):
         with ProfileConfig.open() as config:
