@@ -198,19 +198,48 @@ class Action(Command):
         # TODO: this is el-cheapo URI Template
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
         # <https://github.com/uri-templates/uritemplate-py> here?
-        uri = self.handler["uri"].format(**vars(options))
+        uri = self.uri.format(**vars(options))
 
         # Parse data out of the positional arguments.
         data = dict(item.split("=", 1) for item in options.data)
+        if self.op is not None:
+            data["op"] = self.op
 
-        op = self.action["op"]
-        if op is not None:
-            data["op"] = op
+        # Bundle things up ready to throw over the wire.
+        uri, body, headers = self.prepare_payload(uri, data)
 
-        method = self.action["method"]
-        restful = self.action["restful"]
+        # Sign request if credentials have been provided.
+        self.maybe_sign(uri, headers)
 
-        if method == "POST" and not restful:
+        # Use httplib2 instead of urllib2 (or MAASDispatcher, which is based
+        # on urllib2) so that we get full control over HTTP method. TODO:
+        # create custom MAASDispatcher to use httplib2 so that MAASClient can
+        # be used.
+        http = httplib2.Http()
+        response, content = http.request(
+            uri, self.method, body=body, headers=headers)
+
+        # TODO: decide on how to display responses to users.
+        self.print_response(response, content)
+
+        # 2xx status codes are all okay.
+        if response.status // 100 != 2:
+            raise CommandError(2)
+
+    uri = property(lambda self: self.handler["uri"])
+    method = property(lambda self: self.action["method"])
+    restful = property(lambda self: self.action["restful"])
+    op = property(lambda self: self.action["op"])
+
+    def prepare_payload(self, uri, data):
+        """Return the URI (modified perhaps) and body and headers.
+
+        :param method: The HTTP method.
+        :param uri: The URI of the action.
+        :param data: A dict or iterable of name=value pairs to pack into the
+            body or headers, depending on the type of request.
+        """
+        if self.method == "POST" and not self.restful:
             # Encode the data as multipart for non-ReSTful POST requests; all
             # others should use query parameters. TODO: encode_multipart_data
             # insists on a dict for the data, which prevents specifying
@@ -226,20 +255,18 @@ class Action(Command):
             # TODO: smarter merging of data with query.
             uri = urlparse(uri)._replace(query=urlencode(data)).geturl()
 
-        # Sign request if credentials have been provided.
+        return uri, body, headers
+
+    def maybe_sign(self, uri, headers):
+        """Sign the URI and headers, if possible."""
         credentials = self.profile["credentials"]
         if credentials is not None:
             auth = MAASOAuth(*credentials)
             auth.sign_request(uri, headers)
 
-        # Use httplib2 instead of urllib2 (or MAASDispatcher, which is based
-        # on urllib2) so that we get full control over HTTP method. TODO:
-        # create custom MAASDispatcher to use httplib2 so that MAASClient can
-        # be used.
-        http = httplib2.Http()
-        response, content = http.request(
-            uri, method, body=body, headers=headers)
-
+    @staticmethod
+    def print_response(response, content):
+        """Show an HTTP response in a human-friendly way."""
         # Function to change "transfer-encoding" into "Transfer-Encoding".
         cap = lambda header: "-".join(
             part.capitalize() for part in header.split("-"))
@@ -254,10 +281,6 @@ class Action(Command):
             print(form % (cap(header), response[header]))
         print()
         print(content)
-
-        # 2xx status codes are all okay.
-        if response.status // 100 != 2:
-            raise CommandError(2)
 
 
 def register_actions(profile, handler, parser):
