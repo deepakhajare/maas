@@ -99,10 +99,36 @@ class TestFunctions(TestCase):
 
     maxDiff = TestCase.maxDiff * 2
 
+    def test_safe_name(self):
+        # safe_name attempts to discriminate parts of a vaguely camel-cased
+        # string, and rejoins them using a hyphen.
+        expected = {
+            "NodeHandler": "Node-Handler",
+            "SpadeDiggingHandler": "Spade-Digging-Handler",
+            "SPADE_Digging_Handler": "SPADE-Digging-Handler",
+            "SpadeHandlerForDigging": "Spade-Handler-For-Digging",
+            "JamesBond007": "James-Bond007",
+            "JamesBOND": "James-BOND",
+            "James-BOND-007": "James-BOND-007",
+            }
+        observed = {
+            name_in: api.safe_name(name_in)
+            for name_in in expected
+            }
+        self.assertItemsEqual(
+            expected.items(), observed.items())
+
+    def test_safe_name_non_ASCII(self):
+        # safe_name will not break if passed a string with non-ASCII
+        # characters. However, those characters will not be present in the
+        # returned name.
+        self.assertEqual(
+            "a-b-c", api.safe_name(u"a\u1234_b\u5432_c\u9876"))
+
     def test_handler_command_name(self):
-        # handler_command_name attempts to disciminates parts of a vaguely
-        # camel-cased string, removes any "handler" parts, and joins again
-        # with underscrores.
+        # handler_command_name attempts to discriminate parts of a vaguely
+        # camel-cased string, removes any "handler" parts, joins again with
+        # underscrores, and returns the whole lot in lower case.
         expected = {
             "NodeHandler": "node",
             "SpadeDiggingHandler": "spade_digging",
