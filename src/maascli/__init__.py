@@ -84,11 +84,19 @@ def main(argv=None):
 
 
 def register(module, parser):
-    """Register commands in `module` with the given argument parser."""
-    subparsers = parser.add_subparsers(title="actions")
+    """Register commands in `module` with the given argument parser.
+
+    This looks for callable objects named `cmd_*`, calls them with a new
+    subparser, and registers them as the default value for `execute` in the
+    namespace.
+
+    If the module also has a `register` function, this is also called, passing
+    in the module being scanned, and the parser given to this function.
+    """
+    # Register commands.
     commands = {
         name: command for name, command in vars(module).items()
-        if name.startswith("cmd_")
+        if name.startswith("cmd_") and callable(command)
         }
     for name, command in commands.items():
         command_name = "-".join(name.split("_")[1:])
@@ -96,6 +104,10 @@ def register(module, parser):
         command_parser = parser.subparsers.add_parser(
             command_name, help=help_title, description=help_body)
         command_parser.set_defaults(execute=command(command_parser))
+    # Extra subparser registration.
+    register_module = getattr(module, "register", None)
+    if callable(register_module):
+        register_module(module, parser)
 
 
 CommandError = SystemExit
