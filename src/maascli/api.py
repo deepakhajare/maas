@@ -18,16 +18,9 @@ from abc import (
     ABCMeta,
     abstractmethod,
     )
-from contextlib import (
-    closing,
-    contextmanager,
-    )
 from getpass import getpass
 import httplib
 import json
-import os
-from os.path import expanduser
-import sqlite3
 import sys
 from urllib import urlencode
 from urlparse import (
@@ -41,6 +34,7 @@ from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
 import httplib2
 from maascli import CommandError
+from maascli.config import ProfileConfig
 from maascli.utils import (
     ensure_trailing_slash,
     handler_command_name,
@@ -48,71 +42,6 @@ from maascli.utils import (
     safe_name,
     )
 import yaml
-
-
-class ProfileConfig:
-    """Store profile configurations in an sqlite3 database."""
-
-    def __init__(self, database):
-        self.database = database
-        with self.cursor() as cursor:
-            cursor.execute(
-                "CREATE TABLE IF NOT EXISTS profiles "
-                "(id INTEGER PRIMARY KEY,"
-                " name TEXT NOT NULL UNIQUE,"
-                " data BLOB)")
-
-    def cursor(self):
-        return closing(self.database.cursor())
-
-    def __iter__(self):
-        with self.cursor() as cursor:
-            results = cursor.execute(
-                "SELECT name FROM profiles").fetchall()
-        return (name for (name,) in results)
-
-    def __getitem__(self, name):
-        with self.cursor() as cursor:
-            [data] = cursor.execute(
-                "SELECT data FROM profiles"
-                " WHERE name = ?", (name,)).fetchone()
-        return json.loads(data)
-
-    def __setitem__(self, name, data):
-        with self.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO profiles (name, data) "
-                "VALUES (?, ?)", (name, json.dumps(data)))
-
-    def __delitem__(self, name):
-        with self.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM profiles"
-                " WHERE name = ?", (name,))
-
-    @classmethod
-    @contextmanager
-    def open(cls, dbpath=expanduser("~/.maascli.db")):
-        """Load a profiles database.
-
-        Called without arguments this will open (and create) a database in the
-        user's home directory.
-
-        **Note** that this returns a context manager which will close the
-        database on exit, saving if the exit is clean.
-        """
-        # Initialise filename with restrictive permissions...
-        os.close(os.open(dbpath, os.O_CREAT | os.O_APPEND, 0600))
-        # before opening it with sqlite.
-        database = sqlite3.connect(dbpath)
-        try:
-            yield cls(database)
-        except:
-            raise
-        else:
-            database.commit()
-        finally:
-            database.close()
 
 
 class Command:
