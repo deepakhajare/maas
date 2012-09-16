@@ -133,15 +133,15 @@ class TestFunctions(TestCase):
     def test_handler_command_name(self):
         # handler_command_name attempts to discriminate parts of a vaguely
         # camel-cased string, removes any "handler" parts, joins again with
-        # underscrores, and returns the whole lot in lower case.
+        # hyphens, and returns the whole lot in lower case.
         expected = {
             "NodeHandler": "node",
-            "SpadeDiggingHandler": "spade_digging",
-            "SPADE_Digging_Handler": "spade_digging",
-            "SpadeHandlerForDigging": "spade_for_digging",
-            "JamesBond007": "james_bond007",
-            "JamesBOND": "james_bond",
-            "James-BOND-007": "james_bond_007",
+            "SpadeDiggingHandler": "spade-digging",
+            "SPADE_Digging_Handler": "spade-digging",
+            "SpadeHandlerForDigging": "spade-for-digging",
+            "JamesBond007": "james-bond007",
+            "JamesBOND": "james-bond",
+            "James-BOND-007": "james-bond-007",
             }
         observed = {
             name_in: utils.handler_command_name(name_in)
@@ -167,7 +167,7 @@ class TestFunctions(TestCase):
         # non-ASCII characters. However, those characters will not be present
         # in the returned name.
         self.assertEqual(
-            "a_b_c", utils.handler_command_name(u"a\u1234_b\u5432_c\u9876"))
+            "a-b-c", utils.handler_command_name(u"a\u1234_b\u5432_c\u9876"))
 
     def test_ensure_trailing_slash(self):
         # ensure_trailing_slash ensures that the given string - typically a

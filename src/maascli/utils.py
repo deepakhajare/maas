@@ -72,13 +72,13 @@ def handler_command_name(string):
     """Create a handler command name from an arbitrary string.
 
     Camel-case parts of string will be extracted, converted to lowercase,
-    joined with underscores, and the rest discarded. The term "handler" will
-    also be removed if discovered amongst the aforementioned parts.
+    joined with hyphens, and the rest discarded. The term "handler" will also
+    be removed if discovered amongst the aforementioned parts.
     """
     parts = re_camelcase.findall(string)
     parts = (part.lower().encode("ascii") for part in parts)
     parts = (part for part in parts if part != b"handler")
-    return b"_".join(parts)
+    return b"-".join(parts)
 
 
 def ensure_trailing_slash(string):
