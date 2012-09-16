@@ -28,7 +28,10 @@ from urlparse import (
     urlparse,
     )
 
-from apiclient.creds import convert_string_to_tuple
+from apiclient.creds import (
+    convert_string_to_tuple,
+    convert_tuple_to_string,
+    )
 from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
@@ -147,7 +150,14 @@ class cmd_list(Command):
     def __call__(self, options):
         with ProfileConfig.open() as config:
             for profile_name in config:
-                print(profile_name)
+                profile = config[profile_name]
+                url = profile["url"]
+                creds = profile["credentials"]
+                if creds is None:
+                    print(profile_name, url)
+                else:
+                    creds = convert_tuple_to_string(creds)
+                    print(profile_name, url, creds)
 
 
 class Action(Command):
