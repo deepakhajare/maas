@@ -85,11 +85,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         raise SystemExit(1)
     except StandardError as error:
-        if __debug__:
-            raise
-        else:
-            sys.stderr.write("%s\n" % error)
-            raise SystemExit(2)
+        parser.error("%s" % error)
 
 
 class Command:
