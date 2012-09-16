@@ -163,3 +163,16 @@ class TestFunctions(TestCase):
         # in the returned name.
         self.assertEqual(
             "a_b_c", api.handler_command_name(u"a\u1234_b\u5432_c\u9876"))
+
+    def test_ensure_trailing_slash(self):
+        # ensure_trailing_slash ensures that the given string - typically a
+        # URL or path - has a trailing forward slash.
+        self.assertEqual("fred/", api.ensure_trailing_slash("fred"))
+        self.assertEqual("fred/", api.ensure_trailing_slash("fred/"))
+
+    def test_ensure_trailing_slash_string_type(self):
+        # Given a unicode string, ensure_trailing_slash will always return a
+        # unicode string, and given a byte string it will always return a byte
+        # string.
+        self.assertIsInstance(api.ensure_trailing_slash(u"fred"), unicode)
+        self.assertIsInstance(api.ensure_trailing_slash(b"fred"), bytes)
