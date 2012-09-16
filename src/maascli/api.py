@@ -109,7 +109,7 @@ class ProfileConfig:
 
 
 re_camelcase = re.compile(
-    r"([A-Z]*[a-z0-9]+)(?:(?=[^a-z0-9])|\Z)")
+    r"([A-Z]*[a-z0-9]+|[A-Z]+)(?:(?=[^a-z0-9])|\Z)")
 
 
 def safe_name(string):

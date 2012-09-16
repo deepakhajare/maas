@@ -92,3 +92,48 @@ class TestProfileConfig(TestCase):
         with api.ProfileConfig.open(config_file):
             perms = FilePath(config_file).getPermissions()
             self.assertEqual("rw-r--r--", perms.shorthand())
+
+
+class TestFunctions(TestCase):
+    """Tests for miscellaneous functions in `maascli.api`."""
+
+    maxDiff = TestCase.maxDiff * 2
+
+    def test_handler_command_name(self):
+        # handler_command_name attempts to disciminates parts of a vaguely
+        # camel-cased string, removes any "handler" parts, and joins again
+        # with underscrores.
+        expected = {
+            "NodeHandler": "node",
+            "SpadeDiggingHandler": "spade_digging",
+            "SPADE_Digging_Handler": "spade_digging",
+            "SpadeHandlerForDigging": "spade_for_digging",
+            "JamesBond007": "james_bond007",
+            "JamesBOND": "james_bond",
+            "James-BOND-007": "james_bond_007",
+            }
+        observed = {
+            name_in: api.handler_command_name(name_in)
+            for name_in in expected
+            }
+        self.assertItemsEqual(
+            expected.items(), observed.items())
+        # handler_command_name also ensures that all names are encoded into
+        # byte strings.
+        expected_types = {
+            name_out: bytes
+            for name_out in observed.values()
+            }
+        observed_types = {
+            name_out: type(name_out)
+            for name_out in observed.values()
+            }
+        self.assertItemsEqual(
+            expected_types.items(), observed_types.items())
+
+    def test_handler_command_name_non_ASCII(self):
+        # handler_command_name will not break if passed a string with
+        # non-ASCII characters. However, those characters will not be present
+        # in the returned name.
+        self.assertEqual(
+            "a_b_c", api.handler_command_name(u"a\u1234_b\u5432_c\u9876"))
