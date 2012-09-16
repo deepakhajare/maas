@@ -261,5 +261,5 @@ class TestNodeGroup(TestCase):
     def test_reject_node_changes_status(self):
         nodegroup = factory.make_node_group(
             status=factory.getRandomEnum(NODEGROUP_STATUS))
-        nodegroup.accept()
+        nodegroup.reject()
         self.assertEqual(nodegroup.status, NODEGROUP_STATUS.REJECTED)
