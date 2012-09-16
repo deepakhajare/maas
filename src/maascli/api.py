@@ -11,7 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "command_module",
+    "register",
     ]
 
 from abc import (
@@ -25,7 +25,6 @@ from contextlib import (
 from getpass import getpass
 import httplib
 import json
-import new
 import os
 from os.path import expanduser
 import sqlite3
@@ -45,6 +44,8 @@ from maascli import CommandError
 from maascli.utils import (
     ensure_trailing_slash,
     handler_command_name,
+    parse_docstring,
+    safe_name,
     )
 import yaml
 
@@ -138,7 +139,7 @@ class cmd_login(Command):
         super(cmd_login, self).__init__(parser)
         parser.add_argument("profile_name")
         parser.add_argument("url")
-        parser.add_argument("credentials")
+        parser.add_argument("credentials", nargs="?", default=None)
         parser.set_defaults(credentials=None)
 
     def __call__(self, options):
@@ -148,7 +149,7 @@ class cmd_login(Command):
         if credentials is None and sys.stdin.isatty():
             prompt = "API key (leave empty for anonymous access): "
             try:
-                credentials = getpass(prompt, stream=self.outf)
+                credentials = getpass(prompt, stream=sys.stdout)
             except EOFError:
                 credentials = None
         elif credentials == "-":
@@ -204,7 +205,7 @@ class cmd_list(Command):
                 print(profile_name)
 
 
-class APICommand:
+class APICommand(Command):
     """A generic MAAS API command.
 
     This is used as a base for creating more specific commands; see
@@ -215,21 +216,22 @@ class APICommand:
     it should be iterated upon to make it suitable.
     """
 
-    # Override these in subclasses; see `gen_profile_commands`.
-    action = None
-    profile = None
-    takes_args = ["...", "data*"]
+    # Override these in subclasses; see `register_actions`.
+    profile = handler = action = None
 
-    def run(self, data_list, **params):
+    def __init__(self, parser):
+        super(APICommand, self).__init__(parser)
+        # Register command-line arguments.
+        for param in self.handler["params"]:
+            parser.add_argument(param)
+        parser.add_argument("data", nargs="*")
+
+    def __call__(self, options):
         # TODO: this is el-cheapo URI Template
         # <http://tools.ietf.org/html/rfc6570> support; use uritemplate-py
         # <https://github.com/uri-templates/uritemplate-py> here?
-        uri = self.uri.format(**params)
-
-        if data_list is None:
-            data = dict()
-        else:
-            data = dict(item.split("=", 1) for item in data_list)
+        uri = self.handler["uri"].format(**vars(options))
+        data = dict(item.split("=", 1) for item in options.data)
 
         op = self.action["op"]
         if op is not None:
@@ -282,40 +284,41 @@ class APICommand:
             raise SystemExit(2)
 
     def report(self, contents):
-        yaml.safe_dump(contents, stream=self.outf)
+        yaml.safe_dump(contents, stream=sys.stdout)
 
 
-def gen_profile_commands(profile):
-    """Manufacture command classes based on an API profile."""
-    prefix = profile["name"].encode("ascii")
+def register_actions(profile, handler, parser):
+    command_bases = (APICommand,)
+    for action in handler["actions"]:
+        help_title, help_body = parse_docstring(action["doc"])
+        command_ns = {
+            "action": action,
+            "handler": handler,
+            "profile": profile,
+            }
+        command_name = safe_name(action["name"]).encode("ascii")
+        command_class = type(command_name, command_bases, command_ns)
+        command_parser = parser.subparsers.add_parser(
+            command_name, help=help_title, description=help_body)
+        command_parser.set_defaults(
+            execute=command_class(command_parser))
+
+
+def register_handlers(profile, parser):
     description = profile["description"]
     for handler in description["handlers"]:
-        command_name = b"cmd_%s_%s" % (
-            prefix, handler_command_name(handler["name"]))
-        command_bases = (APICommand,)
-        for action in handler["actions"]:
-            command_ns = {
-                "__doc__": action["doc"],
-                "action": action,
-                "profile": profile,
-                "takes_args": handler["params"] + ["data*"],
-                "uri": handler["uri"],
-                }
-            command_action_name = b"%s_%s" % (
-                command_name, action["name"].encode("ascii"))
-            yield command_action_name, type(
-                command_action_name, command_bases, command_ns)
+        help_title, help_body = parse_docstring(handler["doc"])
+        handler_name = handler_command_name(handler["name"])
+        handler_parser = parser.subparsers.add_parser(
+            handler_name, help=help_title, description=help_body)
+        register_actions(profile, handler, handler_parser)
 
 
-def command_module():
-    """Return a module populated with command classes.
-
-    This is then ready to be passed to `CommandController.load_module`.
-    """
-    module = new.module(b"%s.commands" % __name__)
+def register(module, parser):
+    """Register profile commands."""
     with ProfileConfig.open() as config:
         for profile_name in config:
             profile = config[profile_name]
-            commands = gen_profile_commands(profile)
-            vars(module).update(commands)
-    return module
+            profile_parser = parser.subparsers.add_parser(
+                profile["name"], help="Interact with %(url)s" % profile)
+            register_handlers(profile, profile_parser)
