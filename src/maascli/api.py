@@ -28,7 +28,6 @@ import json
 import new
 import os
 from os.path import expanduser
-import re
 import sqlite3
 import sys
 from urllib import urlencode
@@ -43,6 +42,10 @@ from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
 import httplib2
 from maascli import CommandError
+from maascli.utils import (
+    ensure_trailing_slash,
+    handler_command_name,
+    )
 import yaml
 
 
@@ -109,34 +112,6 @@ class ProfileConfig:
             database.commit()
         finally:
             database.close()
-
-
-re_camelcase = re.compile(
-    r"([A-Z]*[a-z0-9]+|[A-Z]+)(?:(?=[^a-z0-9])|\Z)")
-
-
-def safe_name(string):
-    """Return a munged version of string, suitable as an ASCII filename."""
-    return "-".join(re_camelcase.findall(string))
-
-
-def handler_command_name(string):
-    """Create a handler command name from an arbitrary string.
-
-    Camel-case parts of string will be extracted, converted to lowercase,
-    joined with underscores, and the rest discarded. The term "handler" will
-    also be removed if discovered amongst the aforementioned parts.
-    """
-    parts = re_camelcase.findall(string)
-    parts = (part.lower().encode("ascii") for part in parts)
-    parts = (part for part in parts if part != b"handler")
-    return b"_".join(parts)
-
-
-def ensure_trailing_slash(string):
-    """Ensure that `string` has a trailing forward-slash."""
-    slash = b"/" if isinstance(string, bytes) else u"/"
-    return (string + slash) if not string.endswith(slash) else string
 
 
 class Command:

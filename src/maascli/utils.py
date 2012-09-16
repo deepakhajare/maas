@@ -11,7 +11,10 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "ensure_trailing_slash",
+    "handler_command_name",
     "parse_docstring",
+    "safe_name",
     ]
 
 from functools import partial
@@ -54,3 +57,31 @@ def parse_docstring(thing):
         paragraph.replace("\r\n", newline).replace("\r", newline)
         for paragraph in paragraphs)
     return title, body
+
+
+re_camelcase = re.compile(
+    r"([A-Z]*[a-z0-9]+|[A-Z]+)(?:(?=[^a-z0-9])|\Z)")
+
+
+def safe_name(string):
+    """Return a munged version of string, suitable as an ASCII filename."""
+    return "-".join(re_camelcase.findall(string))
+
+
+def handler_command_name(string):
+    """Create a handler command name from an arbitrary string.
+
+    Camel-case parts of string will be extracted, converted to lowercase,
+    joined with underscores, and the rest discarded. The term "handler" will
+    also be removed if discovered amongst the aforementioned parts.
+    """
+    parts = re_camelcase.findall(string)
+    parts = (part.lower().encode("ascii") for part in parts)
+    parts = (part for part in parts if part != b"handler")
+    return b"_".join(parts)
+
+
+def ensure_trailing_slash(string):
+    """Ensure that `string` has a trailing forward-slash."""
+    slash = b"/" if isinstance(string, bytes) else u"/"
+    return (string + slash) if not string.endswith(slash) else string

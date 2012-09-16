@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Tests for `maascli.api`."""
+"""Tests for `maascli.utils`."""
 
 from __future__ import (
     absolute_import,
@@ -97,3 +97,87 @@ class TestDocstringParsing(TestCase):
         self.assertEqual(
             ("title", "body1\n\nbody2"),
             utils.parse_docstring("title\n\nbody1\r\rbody2"))
+
+
+class TestFunctions(TestCase):
+    """Tests for miscellaneous functions in `maascli.utils`."""
+
+    maxDiff = TestCase.maxDiff * 2
+
+    def test_safe_name(self):
+        # safe_name attempts to discriminate parts of a vaguely camel-cased
+        # string, and rejoins them using a hyphen.
+        expected = {
+            "NodeHandler": "Node-Handler",
+            "SpadeDiggingHandler": "Spade-Digging-Handler",
+            "SPADE_Digging_Handler": "SPADE-Digging-Handler",
+            "SpadeHandlerForDigging": "Spade-Handler-For-Digging",
+            "JamesBond007": "James-Bond007",
+            "JamesBOND": "James-BOND",
+            "James-BOND-007": "James-BOND-007",
+            }
+        observed = {
+            name_in: utils.safe_name(name_in)
+            for name_in in expected
+            }
+        self.assertItemsEqual(
+            expected.items(), observed.items())
+
+    def test_safe_name_non_ASCII(self):
+        # safe_name will not break if passed a string with non-ASCII
+        # characters. However, those characters will not be present in the
+        # returned name.
+        self.assertEqual(
+            "a-b-c", utils.safe_name(u"a\u1234_b\u5432_c\u9876"))
+
+    def test_handler_command_name(self):
+        # handler_command_name attempts to discriminate parts of a vaguely
+        # camel-cased string, removes any "handler" parts, joins again with
+        # underscrores, and returns the whole lot in lower case.
+        expected = {
+            "NodeHandler": "node",
+            "SpadeDiggingHandler": "spade_digging",
+            "SPADE_Digging_Handler": "spade_digging",
+            "SpadeHandlerForDigging": "spade_for_digging",
+            "JamesBond007": "james_bond007",
+            "JamesBOND": "james_bond",
+            "James-BOND-007": "james_bond_007",
+            }
+        observed = {
+            name_in: utils.handler_command_name(name_in)
+            for name_in in expected
+            }
+        self.assertItemsEqual(
+            expected.items(), observed.items())
+        # handler_command_name also ensures that all names are encoded into
+        # byte strings.
+        expected_types = {
+            name_out: bytes
+            for name_out in observed.values()
+            }
+        observed_types = {
+            name_out: type(name_out)
+            for name_out in observed.values()
+            }
+        self.assertItemsEqual(
+            expected_types.items(), observed_types.items())
+
+    def test_handler_command_name_non_ASCII(self):
+        # handler_command_name will not break if passed a string with
+        # non-ASCII characters. However, those characters will not be present
+        # in the returned name.
+        self.assertEqual(
+            "a_b_c", utils.handler_command_name(u"a\u1234_b\u5432_c\u9876"))
+
+    def test_ensure_trailing_slash(self):
+        # ensure_trailing_slash ensures that the given string - typically a
+        # URL or path - has a trailing forward slash.
+        self.assertEqual("fred/", utils.ensure_trailing_slash("fred"))
+        self.assertEqual("fred/", utils.ensure_trailing_slash("fred/"))
+
+    def test_ensure_trailing_slash_string_type(self):
+        # Given a unicode string, ensure_trailing_slash will always return a
+        # unicode string, and given a byte string it will always return a byte
+        # string.
+        self.assertIsInstance(utils.ensure_trailing_slash(u"fred"), unicode)
+        self.assertIsInstance(utils.ensure_trailing_slash(b"fred"), bytes)
