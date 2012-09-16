@@ -205,11 +205,11 @@ class cmd_list(Command):
                 print(profile_name)
 
 
-class APICommand(Command):
-    """A generic MAAS API command.
+class Action(Command):
+    """A generic MAAS API action.
 
     This is used as a base for creating more specific commands; see
-    `gen_profile_commands`.
+    `register_actions`.
 
     **Note** that this class conflates two things: CLI exposure and API
     client. The client in apiclient.maas_client is not quite suitable yet, but
@@ -220,7 +220,7 @@ class APICommand(Command):
     profile = handler = action = None
 
     def __init__(self, parser):
-        super(APICommand, self).__init__(parser)
+        super(Action, self).__init__(parser)
         # Register command-line arguments.
         for param in self.handler["params"]:
             parser.add_argument(param)
@@ -288,23 +288,25 @@ class APICommand(Command):
 
 
 def register_actions(profile, handler, parser):
-    command_bases = (APICommand,)
+    """Register a handler's actions."""
     for action in handler["actions"]:
         help_title, help_body = parse_docstring(action["doc"])
-        command_ns = {
+        action_name = safe_name(action["name"]).encode("ascii")
+        action_bases = (Action,)
+        action_ns = {
             "action": action,
             "handler": handler,
             "profile": profile,
             }
-        command_name = safe_name(action["name"]).encode("ascii")
-        command_class = type(command_name, command_bases, command_ns)
-        command_parser = parser.subparsers.add_parser(
-            command_name, help=help_title, description=help_body)
-        command_parser.set_defaults(
-            execute=command_class(command_parser))
+        action_class = type(action_name, action_bases, action_ns)
+        action_parser = parser.subparsers.add_parser(
+            action_name, help=help_title, description=help_body)
+        action_parser.set_defaults(
+            execute=action_class(action_parser))
 
 
 def register_handlers(profile, parser):
+    """Register a profile's handlers."""
     description = profile["description"]
     for handler in description["handlers"]:
         help_title, help_body = parse_docstring(handler["doc"])
@@ -315,7 +317,7 @@ def register_handlers(profile, parser):
 
 
 def register(module, parser):
-    """Register profile commands."""
+    """Register profiles."""
     with ProfileConfig.open() as config:
         for profile_name in config:
             profile = config[profile_name]
