@@ -15,8 +15,12 @@ __all__ = [
     ]
 
 import argparse
+from functools import partial
+from inspect import getdoc
 import locale
+import re
 import sys
+from textwrap import dedent
 
 from bzrlib import osutils
 
@@ -75,3 +79,41 @@ def register(module, parser):
 
 
 CommandError = SystemExit
+
+
+re_paragraph_splitter = re.compile(
+    r"(?:\r\n|\r|\n){2,}", re.MULTILINE)
+
+paragraph_split = re_paragraph_splitter.split
+docstring_split = partial(paragraph_split, maxsplit=1)
+remove_line_breaks = lambda string: (
+    " ".join(line.strip() for line in string.splitlines()))
+
+newline = "\n"
+empty = ""
+
+
+def parse_docstring(thing):
+    doc = getdoc(thing)
+    doc = empty if doc is None else doc.expandtabs()
+    # Break the docstring into two parts: title and body.
+    parts = docstring_split(doc)
+    if len(parts) == 2:
+        title, body = parts[0], dedent(parts[1])
+    else:
+        title, body = parts[0], empty
+    # Remove line breaks from the title line.
+    title = remove_line_breaks(title)
+    # Remove line breaks from non-indented paragraphs in the body.
+    paragraphs = []
+    for paragraph in paragraph_split(body):
+        if not paragraph[:1].isspace():
+            paragraph = remove_line_breaks(paragraph)
+        paragraphs.append(paragraph)
+    # Rejoin the paragraphs, normalising on newline.
+    body = newline.join(
+        paragraph.replace("\r\n", newline).replace("\r", newline)
+        for paragraph in paragraphs)
+    return (
+        (None if len(title) == 0 else title),
+        (None if len(body) == 0 else body))
