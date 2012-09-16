@@ -49,6 +49,14 @@ class TestProfileConfig(TestCase):
         self.assertEqual({"alice"}, set(config))
         self.assertEqual({"abc": 123}, config["alice"])
 
+    def test_replacing_profile(self):
+        database = sqlite3.connect(":memory:")
+        config = api.ProfileConfig(database)
+        config["alice"] = {"abc": 123}
+        config["alice"] = {"def": 456}
+        self.assertEqual({"alice"}, set(config))
+        self.assertEqual({"def": 456}, config["alice"])
+
     def test_getting_profile(self):
         database = sqlite3.connect(":memory:")
         config = api.ProfileConfig(database)

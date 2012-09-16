@@ -55,7 +55,7 @@ class ProfileConfig:
     def __setitem__(self, name, data):
         with self.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO profiles (name, data) "
+                "INSERT OR REPLACE INTO profiles (name, data) "
                 "VALUES (?, ?)", (name, json.dumps(data)))
 
     def __delitem__(self, name):
