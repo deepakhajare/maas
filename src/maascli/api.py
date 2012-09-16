@@ -60,6 +60,31 @@ class Command:
         """Execute this command."""
 
 
+def try_getpass(prompt):
+    try:
+        return getpass(prompt)
+    except EOFError:
+        return None
+
+
+def obtain_credentials(credentials):
+    """Prompt for credentials if possible.
+
+    If the credentials are "-" then read from stdin without interactive
+    prompting.
+    """
+    if credentials == "-":
+        credentials = sys.stdin.readline().strip()
+    elif credentials is None:
+        credentials = try_getpass(
+            "API key (leave empty for anonymous access): ")
+    # Ensure that the credentials have a valid form.
+    if credentials and not credentials.isspace():
+        return convert_string_to_tuple(credentials)
+    else:
+        return None
+
+
 def fetch_api_description(url):
     """Obtain the description of remote API given its base URL."""
     url_describe = urljoin(url, "describe/")
@@ -104,20 +129,7 @@ class cmd_login(Command):
     def __call__(self, options):
         # Try and obtain credentials interactively if they're not given, or
         # read them from stdin if they're specified as "-".
-        credentials = options.credentials
-        if credentials is None and sys.stdin.isatty():
-            prompt = "API key (leave empty for anonymous access): "
-            try:
-                credentials = getpass(prompt, stream=sys.stdout)
-            except EOFError:
-                credentials = None
-        elif credentials == "-":
-            credentials = sys.stdin.readline()
-        # Ensure that the credentials have a valid form.
-        if credentials and not credentials.isspace():
-            credentials = convert_string_to_tuple(credentials)
-        else:
-            credentials = None
+        credentials = obtain_credentials(options.credentials)
         # Normalise the remote service's URL.
         url = ensure_trailing_slash(options.url)
         # Get description of remote API.
