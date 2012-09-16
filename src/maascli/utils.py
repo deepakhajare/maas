@@ -65,7 +65,8 @@ re_camelcase = re.compile(
 
 def safe_name(string):
     """Return a munged version of string, suitable as an ASCII filename."""
-    return "-".join(re_camelcase.findall(string))
+    hyphen = "-" if isinstance(string, unicode) else b"-"
+    return hyphen.join(re_camelcase.findall(string))
 
 
 def handler_command_name(string):

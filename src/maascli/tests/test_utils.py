@@ -130,6 +130,12 @@ class TestFunctions(TestCase):
         self.assertEqual(
             "a-b-c", utils.safe_name(u"a\u1234_b\u5432_c\u9876"))
 
+    def test_safe_name_string_type(self):
+        # Given a unicode string, safe_name will always return a unicode
+        # string, and given a byte string it will always return a byte string.
+        self.assertIsInstance(utils.safe_name(u"fred"), unicode)
+        self.assertIsInstance(utils.safe_name(b"fred"), bytes)
+
     def test_handler_command_name(self):
         # handler_command_name attempts to discriminate parts of a vaguely
         # camel-cased string, removes any "handler" parts, joins again with
