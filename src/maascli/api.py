@@ -14,6 +14,10 @@ __all__ = [
     "command_module",
     ]
 
+from abc import (
+    ABCMeta,
+    abstractmethod,
+    )
 from contextlib import (
     closing,
     contextmanager,
@@ -37,9 +41,8 @@ from apiclient.creds import convert_string_to_tuple
 from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
-from bzrlib.errors import BzrCommandError
-from commandant.commands import Command
 import httplib2
+from maascli import CommandError
 import yaml
 
 
@@ -136,6 +139,19 @@ def ensure_trailing_slash(string):
     return (string + slash) if not string.endswith(slash) else string
 
 
+class Command:
+
+    __metaclass__ = ABCMeta
+
+    def __init__(self, parser):
+        super(Command, self).__init__()
+        self.parser = parser
+
+    @abstractmethod
+    def __call__(self, options):
+        """Execute this command."""
+
+
 class cmd_login(Command):
     """Log-in to a remote API, storing its description and credentials.
 
@@ -143,12 +159,17 @@ class cmd_login(Command):
     for interactively.
     """
 
-    # TODO: rename credentials api_key or something.
-    takes_args = ("profile_name", "url", "credentials?")
+    def __init__(self, parser):
+        super(cmd_login, self).__init__(parser)
+        parser.add_argument("profile_name")
+        parser.add_argument("url")
+        parser.add_argument("credentials")
+        parser.set_defaults(credentials=None)
 
-    def run(self, profile_name, url, credentials=None):
+    def __call__(self, options):
         # Try and obtain credentials interactively if they're not given, or
         # read them from stdin if they're specified as "-".
+        credentials = options.credentials
         if credentials is None and sys.stdin.isatty():
             prompt = "API key (leave empty for anonymous access): "
             try:
@@ -163,20 +184,21 @@ class cmd_login(Command):
         else:
             credentials = None
         # Normalise the remote service's URL.
-        url = ensure_trailing_slash(url)
+        url = ensure_trailing_slash(options.url)
         # Get description of remote API.
         url_describe = urljoin(url, "describe/")
         http = httplib2.Http()
         response, content = http.request(
             ascii_url(url_describe), "GET")
         if response.status != httplib.OK:
-            raise BzrCommandError(
+            raise CommandError(
                 "{0.status} {0.reason}:\n{1}".format(response, content))
         if response["content-type"] != "application/json":
-            raise BzrCommandError(
+            raise CommandError(
                 "Expected application/json, got: %(content-type)s" % response)
         description = json.loads(content)
         # Save the config.
+        profile_name = options.profile_name
         with ProfileConfig.open() as config:
             config[profile_name] = {
                 "credentials": credentials,
@@ -189,14 +211,25 @@ class cmd_login(Command):
 class cmd_logout(Command):
     """Log-out of a remote API, purging any stored credentials."""
 
-    takes_args = ["profile_name"]
+    def __init__(self, parser):
+        super(cmd_logout, self).__init__(parser)
+        parser.add_argument("profile_name")
 
-    def run(self, profile_name):
+    def __call__(self, options):
         with ProfileConfig.open() as config:
-            del config[profile_name]
+            del config[options.profile_name]
 
 
-class APICommand(Command):
+class cmd_list(Command):
+    """List remote APIs that have been logged-in to."""
+
+    def __call__(self, options):
+        with ProfileConfig.open() as config:
+            for profile_name in config:
+                print(profile_name)
+
+
+class APICommand:
     """A generic MAAS API command.
 
     This is used as a base for creating more specific commands; see

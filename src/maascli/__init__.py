@@ -10,23 +10,20 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = []
+__all__ = [
+    "CommandError",
+    ]
 
+import argparse
 import locale
-from os.path import (
-    dirname,
-    join,
-    )
 import sys
 
 from bzrlib import osutils
 
-# Add `lib` in this package's directory to sys.path.
-sys.path.insert(0, join(dirname(__file__), "lib"))
 
-from commandant import builtins
-from commandant.controller import CommandController
-import maascli.api
+modules = {
+    "api": "maascli.api",
+    }
 
 
 def main(argv=None):
@@ -35,21 +32,22 @@ def main(argv=None):
     locale.setlocale(locale.LC_ALL, "")
     if argv is None:
         argv = sys.argv[:1] + osutils.get_unicode_argv()
-    controller = CommandController(
-        program_name=argv[0],
-        program_version="1.0",
-        program_summary="Control MAAS using its API from the command-line.",
-        program_url="http://maas.ubuntu.com/")
-    # At this point controller.load_path(...) can be used to load commands
-    # from a pre-agreed location on the filesystem, so that the command set
-    # will grow and shrink with the installed packages.
-    controller.load_module(maascli.api)
-    controller.load_module(maascli.api.command_module())
-    controller.load_module(builtins)
-    controller.install_bzrlib_hooks()
+
+    # Create the base argument parser.
+    parser = argparse.ArgumentParser(
+        description="Control MAAS using its API from the command-line.",
+        prog=argv[0], epilog="http://maas.ubuntu.com/")
+    subparsers = parser.add_subparsers(title="modules")
+
+    # Register declared modules.
+    for name, module in sorted(modules.items()):
+        subparser = subparsers.add_parser(name, help=module.__doc__)
+        register(module, subparser)
+
     # Run, doing polite things with exceptions.
     try:
-        controller.run(argv[1:])
+        options = parser.parse_args(argv[1:])
+        options.execute(options)
     except KeyboardInterrupt:
         raise SystemExit(1)
     except StandardError as error:
@@ -58,3 +56,22 @@ def main(argv=None):
         else:
             sys.stderr.write("%s\n" % error)
             raise SystemExit(2)
+
+
+def register(module, parser):
+    """Register commands here with the given argument parser."""
+    if isinstance(module, (str, unicode)):
+        module = __import__(module, fromlist=True)
+    subparsers = parser.add_subparsers(title="actions")
+    commands = {
+        name: command for name, command in vars(module).items()
+        if name.startswith("cmd_")
+        }
+    for name, command in commands.items():
+        command_name = "-".join(name.split("_")[1:])
+        parser = subparsers.add_parser(command_name, help=command.__doc__)
+        execute = command(parser)
+        parser.set_defaults(execute=execute)
+
+
+CommandError = SystemExit
