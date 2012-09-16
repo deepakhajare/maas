@@ -27,6 +27,27 @@ modules = {
     }
 
 
+class ArgumentParser(argparse.ArgumentParser):
+    """Specialisation of argparse's parser with better support for subparsers.
+
+    Specifically, the one-shot `add_subparsers` call is disabled, replaced by
+    a lazily evaluated `subparsers` property.
+    """
+
+    def add_subparsers(self):
+        raise NotImplementedError(
+            "add_subparsers has been disabled")
+
+    @property
+    def subparsers(self):
+        try:
+            return self.__subparsers
+        except AttributeError:
+            parent = super(ArgumentParser, self)
+            self.__subparsers = parent.add_subparsers(title="commands")
+            return self.__subparsers
+
+
 def main(argv=None):
     # Set up the process's locale; this helps bzrlib decode command-line
     # arguments in the next step.
@@ -35,19 +56,18 @@ def main(argv=None):
         argv = sys.argv[:1] + osutils.get_unicode_argv()
 
     # Create the base argument parser.
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Control MAAS using its API from the command-line.",
         prog=argv[0], epilog="http://maas.ubuntu.com/")
-    subparsers = parser.add_subparsers(title="modules")
 
     # Register declared modules.
     for name, module in sorted(modules.items()):
         if isinstance(module, (str, unicode)):
             module = __import__(module, fromlist=True)
         help_title, help_body = parse_docstring(module)
-        subparser = subparsers.add_parser(
+        module_parser = parser.subparsers.add_parser(
             name, help=help_title, description=help_body)
-        register(module, subparser)
+        register(module, module_parser)
 
     # Run, doing polite things with exceptions.
     try:
@@ -73,9 +93,9 @@ def register(module, parser):
     for name, command in commands.items():
         command_name = "-".join(name.split("_")[1:])
         help_title, help_body = parse_docstring(command)
-        parser = subparsers.add_parser(
+        command_parser = parser.subparsers.add_parser(
             command_name, help=help_title, description=help_body)
-        parser.set_defaults(execute=command(parser))
+        command_parser.set_defaults(execute=command(command_parser))
 
 
 CommandError = SystemExit
