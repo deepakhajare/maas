@@ -64,7 +64,7 @@ def main(argv=None):
 
 
 def register(module, parser):
-    """Register commands here with the given argument parser."""
+    """Register commands in `module` with the given argument parser."""
     subparsers = parser.add_subparsers(title="actions")
     commands = {
         name: command for name, command in vars(module).items()
@@ -75,8 +75,7 @@ def register(module, parser):
         help_title, help_body = parse_docstring(command)
         parser = subparsers.add_parser(
             command_name, help=help_title, description=help_body)
-        execute = command(parser)
-        parser.set_defaults(execute=execute)
+        parser.set_defaults(execute=command(parser))
 
 
 CommandError = SystemExit
