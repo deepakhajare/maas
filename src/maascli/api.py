@@ -60,6 +60,21 @@ class Command:
         """Execute this command."""
 
 
+def fetch_api_description(url):
+    """Obtain the description of remote API given its base URL."""
+    url_describe = urljoin(url, "describe/")
+    http = httplib2.Http()
+    response, content = http.request(
+        ascii_url(url_describe), "GET")
+    if response.status != httplib.OK:
+        raise CommandError(
+            "{0.status} {0.reason}:\n{1}".format(response, content))
+    if response["content-type"] != "application/json":
+        raise CommandError(
+            "Expected application/json, got: %(content-type)s" % response)
+    return json.loads(content)
+
+
 class cmd_login(Command):
     """Log-in to a remote API, storing its description and credentials.
 
@@ -106,17 +121,7 @@ class cmd_login(Command):
         # Normalise the remote service's URL.
         url = ensure_trailing_slash(options.url)
         # Get description of remote API.
-        url_describe = urljoin(url, "describe/")
-        http = httplib2.Http()
-        response, content = http.request(
-            ascii_url(url_describe), "GET")
-        if response.status != httplib.OK:
-            raise CommandError(
-                "{0.status} {0.reason}:\n{1}".format(response, content))
-        if response["content-type"] != "application/json":
-            raise CommandError(
-                "Expected application/json, got: %(content-type)s" % response)
-        description = json.loads(content)
+        description = fetch_api_description(url)
         # Save the config.
         profile_name = options.profile_name
         with ProfileConfig.open() as config:
@@ -126,6 +131,18 @@ class cmd_login(Command):
                 "name": profile_name,
                 "url": url,
                 }
+
+
+class cmd_refresh(Command):
+    """Refresh the API descriptions of all profiles."""
+
+    def __call__(self, options):
+        with ProfileConfig.open() as config:
+            for profile_name in config:
+                profile = config[profile_name]
+                url = profile["url"]
+                profile["description"] = fetch_api_description(url)
+                config[profile_name] = profile
 
 
 class cmd_logout(Command):
