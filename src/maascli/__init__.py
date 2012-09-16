@@ -11,10 +11,15 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "Command",
     "CommandError",
     "register",
     ]
 
+from abc import (
+    ABCMeta,
+    abstractmethod,
+    )
 import argparse
 import locale
 import sys
@@ -87,6 +92,26 @@ def main(argv=None):
             raise SystemExit(2)
 
 
+class Command:
+    """A base class for composing commands.
+
+    This adheres to the expectations of `register`.
+    """
+
+    __metaclass__ = ABCMeta
+
+    def __init__(self, parser):
+        super(Command, self).__init__()
+        self.parser = parser
+
+    @abstractmethod
+    def __call__(self, options):
+        """Execute this command."""
+
+
+CommandError = SystemExit
+
+
 def register(module, parser):
     """Register commands in `module` with the given argument parser.
 
@@ -111,6 +136,3 @@ def register(module, parser):
     register_module = getattr(module, "register", None)
     if callable(register_module):
         register_module(module, parser)
-
-
-CommandError = SystemExit

@@ -14,10 +14,6 @@ __all__ = [
     "register",
     ]
 
-from abc import (
-    ABCMeta,
-    abstractmethod,
-    )
 from getpass import getpass
 import httplib
 import json
@@ -36,7 +32,10 @@ from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
 import httplib2
-from maascli import CommandError
+from maascli import (
+    Command,
+    CommandError,
+    )
 from maascli.config import ProfileConfig
 from maascli.utils import (
     ensure_trailing_slash,
@@ -45,19 +44,6 @@ from maascli.utils import (
     safe_name,
     )
 import yaml
-
-
-class Command:
-
-    __metaclass__ = ABCMeta
-
-    def __init__(self, parser):
-        super(Command, self).__init__()
-        self.parser = parser
-
-    @abstractmethod
-    def __call__(self, options):
-        """Execute this command."""
 
 
 def try_getpass(prompt):
