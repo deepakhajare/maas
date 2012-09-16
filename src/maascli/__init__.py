@@ -15,14 +15,11 @@ __all__ = [
     ]
 
 import argparse
-from functools import partial
-from inspect import getdoc
 import locale
-import re
 import sys
-from textwrap import dedent
 
 from bzrlib import osutils
+from maascli.utils import parse_docstring
 
 
 modules = {
@@ -45,7 +42,11 @@ def main(argv=None):
 
     # Register declared modules.
     for name, module in sorted(modules.items()):
-        subparser = subparsers.add_parser(name, help=module.__doc__)
+        if isinstance(module, (str, unicode)):
+            module = __import__(module, fromlist=True)
+        help_title, help_body = parse_docstring(module)
+        subparser = subparsers.add_parser(
+            name, help=help_title, description=help_body)
         register(module, subparser)
 
     # Run, doing polite things with exceptions.
@@ -64,8 +65,6 @@ def main(argv=None):
 
 def register(module, parser):
     """Register commands here with the given argument parser."""
-    if isinstance(module, (str, unicode)):
-        module = __import__(module, fromlist=True)
     subparsers = parser.add_subparsers(title="actions")
     commands = {
         name: command for name, command in vars(module).items()
@@ -73,47 +72,11 @@ def register(module, parser):
         }
     for name, command in commands.items():
         command_name = "-".join(name.split("_")[1:])
-        parser = subparsers.add_parser(command_name, help=command.__doc__)
+        help_title, help_body = parse_docstring(command)
+        parser = subparsers.add_parser(
+            command_name, help=help_title, description=help_body)
         execute = command(parser)
         parser.set_defaults(execute=execute)
 
 
 CommandError = SystemExit
-
-
-re_paragraph_splitter = re.compile(
-    r"(?:\r\n|\r|\n){2,}", re.MULTILINE)
-
-paragraph_split = re_paragraph_splitter.split
-docstring_split = partial(paragraph_split, maxsplit=1)
-remove_line_breaks = lambda string: (
-    " ".join(line.strip() for line in string.splitlines()))
-
-newline = "\n"
-empty = ""
-
-
-def parse_docstring(thing):
-    doc = getdoc(thing)
-    doc = empty if doc is None else doc.expandtabs()
-    # Break the docstring into two parts: title and body.
-    parts = docstring_split(doc)
-    if len(parts) == 2:
-        title, body = parts[0], dedent(parts[1])
-    else:
-        title, body = parts[0], empty
-    # Remove line breaks from the title line.
-    title = remove_line_breaks(title)
-    # Remove line breaks from non-indented paragraphs in the body.
-    paragraphs = []
-    for paragraph in paragraph_split(body):
-        if not paragraph[:1].isspace():
-            paragraph = remove_line_breaks(paragraph)
-        paragraphs.append(paragraph)
-    # Rejoin the paragraphs, normalising on newline.
-    body = newline.join(
-        paragraph.replace("\r\n", newline).replace("\r", newline)
-        for paragraph in paragraphs)
-    return (
-        (None if len(title) == 0 else title),
-        (None if len(body) == 0 else body))
