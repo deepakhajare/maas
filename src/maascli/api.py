@@ -46,6 +46,7 @@ from maascli.utils import (
 
 
 def try_getpass(prompt):
+    """Call `getpass`, ignoring EOF errors."""
     try:
         return getpass(prompt)
     except EOFError:
