@@ -188,6 +188,12 @@ class Action(Command):
     # Override these in subclasses; see `register_actions`.
     profile = handler = action = None
 
+    uri = property(lambda self: self.handler["uri"])
+    method = property(lambda self: self.action["method"])
+    restful = property(lambda self: self.action["restful"])
+    credentials = property(lambda self: self.profile["credentials"])
+    op = property(lambda self: self.action["op"])
+
     def __init__(self, parser):
         super(Action, self).__init__(parser)
         for param in self.handler["params"]:
@@ -226,12 +232,6 @@ class Action(Command):
         # 2xx status codes are all okay.
         if response.status // 100 != 2:
             raise CommandError(2)
-
-    uri = property(lambda self: self.handler["uri"])
-    method = property(lambda self: self.action["method"])
-    restful = property(lambda self: self.action["restful"])
-    credentials = property(lambda self: self.profile["credentials"])
-    op = property(lambda self: self.action["op"])
 
     @staticmethod
     def name_value_pair(string):
