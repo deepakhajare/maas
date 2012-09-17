@@ -19,13 +19,25 @@ from django.db.models import (
     CharField,
     Model,
     )
-from maasserver.fields import JSONObjectField
+from maasserver.fields import (
+    JSONObjectField,
+    XmlField,
+    )
 from maasserver.models.timestampedmodel import TimestampedModel
 
 
 class JSONFieldModel(Model):
     name = CharField(max_length=255, unique=False)
     value = JSONObjectField(null=True)
+
+
+class XmlFieldModel(Model):
+
+    class Meta:
+        db_table = "docs"
+
+    name = CharField(max_length=255, unique=False)
+    value = XmlField(null=True)
 
 
 class MessagesTestModel(Model):
