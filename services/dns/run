@@ -27,10 +27,9 @@ bin/py -m maastesting.bindfixture -- \
 ./bin/maas get_named_conf --edit --config_path \
     `pwd`/run/named/named.conf
 # Run named.
-if [ -x /usr/bin/authbind ]; then
-    authbind="/usr/bin/authbind --deep"
-else
-    authbind=
+authbind=""
+if command -v authbind >/dev/null 2>&1; then
+    authbind="authbind --deep"
 fi
 exec $authbind bin/py -m maastesting.bindfixture -- \
     --homedir $homedir \
