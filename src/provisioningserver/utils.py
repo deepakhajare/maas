@@ -18,6 +18,7 @@ __all__ = [
     "MainScript",
     "parse_key_value_file",
     "ShellTemplate",
+    "sudo_write_file",
     "write_custom_config_section",
     ]
 
@@ -28,7 +29,11 @@ import os
 from os import fdopen
 from pipes import quote
 import signal
-from subprocess import CalledProcessError
+from subprocess import (
+    CalledProcessError,
+    PIPE,
+    Popen,
+    )
 import sys
 import tempfile
 from time import time
@@ -260,6 +265,17 @@ def write_custom_config_section(original_text, custom_section):
             lines[footer_index:])
 
     return '\n'.join(lines) + '\n'
+
+
+def sudo_write_file(filename, contents, encoding='utf-8', mode=0744):
+    """Write (or overwrite) file as root.  USE WITH EXTREME CARE."""
+    raw_contents = contents.encode(encoding)
+    proc = Popen([
+        'sudo', 'maas-provision', 'atomic-write',
+        '--filename', filename,
+        '--mode', oct(mode),
+        ], stdin=PIPE)
+    proc.communicate(raw_contents)
 
 
 class Safe:
