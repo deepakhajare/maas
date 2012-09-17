@@ -230,6 +230,7 @@ class Action(Command):
     uri = property(lambda self: self.handler["uri"])
     method = property(lambda self: self.action["method"])
     restful = property(lambda self: self.action["restful"])
+    credentials = property(lambda self: self.profile["credentials"])
     op = property(lambda self: self.action["op"])
 
     @staticmethod
@@ -269,21 +270,20 @@ class Action(Command):
 
     def maybe_sign(self, uri, headers):
         """Sign the URI and headers, if possible."""
-        credentials = self.profile["credentials"]
-        if credentials is not None:
-            auth = MAASOAuth(*credentials)
+        if self.credentials is not None:
+            auth = MAASOAuth(*self.credentials)
             auth.sign_request(uri, headers)
 
     @staticmethod
     def print_response(response, content):
         """Show an HTTP response in a human-friendly way."""
-        # Function to change "transfer-encoding" into "Transfer-Encoding".
+        # Function to change headers like "transfer-encoding" into
+        # "Transfer-Encoding".
         cap = lambda header: "-".join(
             part.capitalize() for part in header.split("-"))
         # Format string to prettify reporting of response headers.
         form = "%%%ds: %%s" % (
             max(len(header) for header in response) + 2)
-
         # Print the response.
         print(response.status, response.reason)
         print()
