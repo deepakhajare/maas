@@ -268,14 +268,21 @@ def write_custom_config_section(original_text, custom_section):
 
 
 def sudo_write_file(filename, contents, encoding='utf-8', mode=0744):
-    """Write (or overwrite) file as root.  USE WITH EXTREME CARE."""
+    """Write (or overwrite) file as root.  USE WITH EXTREME CARE.
+
+    Runs an atomic update using non-interactive `sudo`.  This will fail if
+    it needs to prompt for a password.
+    """
     raw_contents = contents.encode(encoding)
-    proc = Popen([
-        'sudo', 'maas-provision', 'atomic-write',
+    command = [
+        'sudo', '-n', 'maas-provision', 'atomic-write',
         '--filename', filename,
         '--mode', oct(mode),
-        ], stdin=PIPE)
-    proc.communicate(raw_contents)
+        ]
+    proc = Popen(command, stdin=PIPE)
+    stdout, stderr = proc.communicate(raw_contents)
+    if proc.returncode != 0:
+        raise CalledProcessError(proc.returncode, command, stderr)
 
 
 class Safe:

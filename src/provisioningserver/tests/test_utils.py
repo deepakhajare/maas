@@ -392,27 +392,39 @@ class WriteCustomConfigSectionTest(TestCase):
 class SudoWriteFileTest(TestCase):
     """Testing for `sudo_write_file`."""
 
+    def patch_popen(self, return_value=0):
+        process = Mock()
+        process.returncode = return_value
+        process.communicate = Mock(return_value=('output', 'error output'))
+        self.patch(
+            provisioningserver.utils, 'Popen', Mock(return_value=process))
+        return process
+
     def test_calls_atomic_write(self):
-        self.patch(provisioningserver.utils, 'Popen')
+        self.patch_popen()
         path = os.path.join(self.make_dir(), factory.make_name('file'))
         contents = factory.getRandomString()
 
         sudo_write_file(path, contents)
 
         provisioningserver.utils.Popen.assert_called_once_with([
-            'sudo', 'maas-provision', 'atomic-write',
+            'sudo', '-n', 'maas-provision', 'atomic-write',
             '--filename', path, '--mode', '0744',
             ],
             stdin=PIPE)
 
     def test_encodes_contents(self):
-        process = Mock()
-        self.patch(
-            provisioningserver.utils, 'Popen', Mock(return_value=process))
+        process = self.patch_popen()
         contents = factory.getRandomString()
         encoding = 'utf-16'
         sudo_write_file(self.make_file(), contents, encoding=encoding)
         process.communicate.assert_called_once_with(contents.encode(encoding))
+
+    def test_catches_failures(self):
+        self.patch_popen(1)
+        self.assertRaises(
+            CalledProcessError,
+            sudo_write_file, self.make_file(), factory.getRandomString())
 
 
 class ParseConfigTest(TestCase):

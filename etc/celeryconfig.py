@@ -43,6 +43,9 @@ DHCP_CONFIG_FILE = '/etc/dhcp/dhcpd.conf'
 # List of interfaces that the dhcpd should service (if managed by MAAS).
 DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
 
+# Broken connection information.
+# Format: transport://userid:password@hostname:port/virtual_host
+BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
 try:
     import user_maasceleryconfig
