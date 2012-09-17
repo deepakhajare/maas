@@ -51,6 +51,7 @@ def compose_preseed_opt(preseed_url):
 
     :param preseed_url: The URL from which a preseed can be fetched.
     """
+    # Is the "auto" a cargo-cult from Cobbler?
     return "auto url=%s" % preseed_url
 
 
@@ -108,37 +109,35 @@ def get_ephemeral_name(release, arch):
 def compose_purpose_opts(params):
     """Return the list of the purpose-specific kernel options."""
     if params.purpose == "commissioning":
-        # these are kernel parameters read by ephemeral
-        # read by open-iscsi initramfs code
+        # These are kernel parameters read by the ephemeral environment.
         return [
-            # read by open-iscsi initramfs code
+            # Read by Open-iSCSI initramfs code.
             "iscsi_target_name=%s:%s" % (
                 ISCSI_TARGET_NAME_PREFIX,
                 get_ephemeral_name(params.release, params.arch)),
             "iscsi_target_ip=%s" % params.fs_host,
             "iscsi_target_port=3260",
             "iscsi_initiator=%s" % params.hostname,
-            # read by klibc 'ipconfig' in initramfs
+            # Read by klibc 'ipconfig' in initramfs.
             "ip=::::%s" % params.hostname,
-            # cloud-images have this filesystem label
+            # cloud-images have this filesystem label.
             "ro root=LABEL=cloudimg-rootfs",
-            # read by overlayroot package
+            # Read by overlayroot package.
             "overlayroot=tmpfs",
-            # read by cloud-init
+            # Read by cloud-init.
             "cloud-config-url=%s" % params.preseed_url,
             ]
     else:
-        # these are options used by the debian installer
+        # These are options used by the Debian Installer.
         return [
-            # read by debian installer
             "netcfg/choose_interface=auto",
             "hostname=%s" % params.hostname,
             "domain=%s" % params.domain,
-            "text priority=%s" % "critical",
-            "auto",
-            "url=%s" % params.preseed_url,
+            # Use the text installer, display only critical messages.
+            "text priority=critical",
+            compose_preseed_opt(params.preseed_url),
             compose_locale_opt(),
-        ]
+            ]
 
 
 def compose_arch_opts(params):
@@ -146,8 +145,8 @@ def compose_arch_opts(params):
     if (params.arch, params.subarch) == ("armhf", "highbank"):
         return ["console=ttyAMA0"]
     else:
-        # on intel, send kernel output to both console and ttyS0
-        return ["console=tty1 console=ttyS0"]
+        # On Intel send kernel output to both console and ttyS0.
+        return ["console=tty1", "console=ttyS0"]
 
 
 def compose_kernel_command_line_new(params):
@@ -155,7 +154,9 @@ def compose_kernel_command_line_new(params):
 
     :type params: `KernelParameters`.
     """
-    options = ["nomodeset"]
+    options = []
+    # nomodeset prevents video mode switching.
+    options += ["nomodeset"]
     options += compose_purpose_opts(params)
     # Note: logging opts are not respected by ephemeral images, so
     #       these are actually "purpose_opts" but were left generic
