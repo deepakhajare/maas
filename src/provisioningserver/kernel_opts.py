@@ -11,7 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'compose_kernel_command_line_new',
+    'compose_kernel_command_line',
     'KernelParameters',
     ]
 
@@ -149,7 +149,7 @@ def compose_arch_opts(params):
         return ["console=tty1", "console=ttyS0"]
 
 
-def compose_kernel_command_line_new(params):
+def compose_kernel_command_line(params):
     """Generate a line of kernel options for booting `node`.
 
     :type params: `KernelParameters`.

@@ -21,7 +21,7 @@ from maastesting.matchers import ContainsAll
 from maastesting.testcase import TestCase
 from provisioningserver import kernel_opts
 from provisioningserver.kernel_opts import (
-    compose_kernel_command_line_new,
+    compose_kernel_command_line,
     compose_preseed_opt,
     EphemeralImagesDirectoryNotFound,
     get_last_directory,
@@ -69,12 +69,12 @@ class TestKernelOpts(TestCase):
         params = make_kernel_parameters()
         self.assertIn(
             "auto url=%s" % params.preseed_url,
-            compose_kernel_command_line_new(params))
+            compose_kernel_command_line(params))
 
     def test_install_compose_kernel_command_line_includes_name_domain(self):
         params = make_kernel_parameters()(purpose="install")
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             ContainsAll([
                 "hostname=%s" % params.hostname,
                 "domain=%s" % params.domain,
@@ -85,14 +85,14 @@ class TestKernelOpts(TestCase):
         locale = "en_US"
         self.assertIn(
             "locale=%s" % locale,
-            compose_kernel_command_line_new(params))
+            compose_kernel_command_line(params))
 
     def test_install_compose_kernel_command_line_includes_log_settings(self):
         params = make_kernel_parameters()(purpose="install")
         # Port 514 (UDP) is syslog.
         log_port = "514"
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             ContainsAll([
                 "log_host=%s" % params.log_host,
                 "log_port=%s" % log_port,
@@ -101,7 +101,7 @@ class TestKernelOpts(TestCase):
     def test_install_compose_kernel_command_line_includes_di_settings(self):
         params = make_kernel_parameters()(purpose="install")
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             Contains("text priority=critical"))
 
     def test_install_compose_kernel_command_line_inc_purpose_opts(self):
@@ -110,7 +110,7 @@ class TestKernelOpts(TestCase):
         params = make_kernel_parameters()(purpose="install")
         self.assertIn(
             "netcfg/choose_interface=auto",
-            compose_kernel_command_line_new(params))
+            compose_kernel_command_line(params))
 
     def test_commissioning_compose_kernel_command_line_inc_purpose_opts(self):
         # The result of compose_kernel_command_line includes the purpose
@@ -118,7 +118,7 @@ class TestKernelOpts(TestCase):
         get_ephemeral_name = self.patch(kernel_opts, "get_ephemeral_name")
         get_ephemeral_name.return_value = "RELEASE-ARCH"
         params = make_kernel_parameters()(purpose="commissioning")
-        cmdline = compose_kernel_command_line_new(params)
+        cmdline = compose_kernel_command_line(params)
         self.assertThat(
             cmdline,
             ContainsAll([
@@ -136,12 +136,12 @@ class TestKernelOpts(TestCase):
 
         params = make_kernel_parameters()(
             purpose="commissioning", arch="i386")
-        cmdline = compose_kernel_command_line_new(params)
+        cmdline = compose_kernel_command_line(params)
         self.assertThat(cmdline, ContainsAll(expected))
 
         params = make_kernel_parameters()(
             purpose="install", arch="i386")
-        cmdline = compose_kernel_command_line_new(params)
+        cmdline = compose_kernel_command_line(params)
         self.assertThat(cmdline, ContainsAll(expected))
 
     def create_ephemeral_info(self, name, arch, release):
@@ -171,7 +171,7 @@ class TestKernelOpts(TestCase):
         self.create_ephemeral_info(
             ephemeral_name, params.arch, params.release)
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             ContainsAll([
                 "iscsi_target_name=%s:%s" % (
                     ISCSI_TARGET_NAME_PREFIX, ephemeral_name),
@@ -186,7 +186,7 @@ class TestKernelOpts(TestCase):
         self.useFixture(ConfigFixture(config))
         self.assertRaises(
             EphemeralImagesDirectoryNotFound,
-            compose_kernel_command_line_new, params)
+            compose_kernel_command_line, params)
 
     def test_compose_preseed_kernel_opt_returns_kernel_option(self):
         dummy_preseed_url = factory.make_name("url")
@@ -197,11 +197,11 @@ class TestKernelOpts(TestCase):
     def test_compose_kernel_command_line_inc_arm_specific_option(self):
         params = make_kernel_parameters()(arch="armhf", subarch="highbank")
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             Contains("console=ttyAMA0"))
 
     def test_compose_kernel_command_line_not_inc_arm_specific_option(self):
         params = make_kernel_parameters()(arch="i386")
         self.assertThat(
-            compose_kernel_command_line_new(params),
+            compose_kernel_command_line(params),
             Not(Contains("console=ttyAMA0")))
