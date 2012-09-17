@@ -27,6 +27,11 @@ bin/py -m maastesting.bindfixture -- \
 ./bin/maas get_named_conf --edit --config_path \
     `pwd`/run/named/named.conf
 # Run named.
-exec bin/py -m maastesting.bindfixture -- \
+if [ -x /usr/bin/authbind ]; then
+    authbind="/usr/bin/authbind --deep"
+else
+    authbind=
+fi
+exec $authbind bin/py -m maastesting.bindfixture -- \
     --homedir $homedir \
     --port $port --rndc-port $rndc_port

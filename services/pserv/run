@@ -17,4 +17,9 @@ cd "$(dirname "$0")/../.."
 # Exec the Provisioning Server.
 script="$(readlink -f bin/twistd.pserv)"
 config="$(readlink -f etc/pserv.yaml)"
-exec "${script}" --nodaemon --pidfile="" maas-pserv --config-file "${config}"
+if [ -x /usr/bin/authbind ]; then
+    authbind="/usr/bin/authbind --deep"
+else
+    authbind=
+fi
+exec $authbind "${script}" --nodaemon --pidfile="" maas-pserv --config-file "${config}"
