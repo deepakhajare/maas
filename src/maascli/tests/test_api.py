@@ -12,10 +12,16 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import httplib
+import json
 import sys
 
 from apiclient.creds import convert_tuple_to_string
-from maascli import api
+import httplib2
+from maascli import (
+    api,
+    CommandError,
+    )
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mock import sentinel
@@ -70,3 +76,47 @@ class TestFunctions(TestCase):
         getpass.return_value = None
         self.assertEqual(None, api.obtain_credentials(None))
         getpass.assert_called_once()
+
+    def test_fetch_api_description(self):
+        content = factory.make_name("content")
+        request = self.patch(httplib2.Http, "request")
+        response = httplib2.Response({})
+        response.status = httplib.OK
+        response["content-type"] = "application/json"
+        request.return_value = response, json.dumps(content)
+        self.assertEqual(
+            content, api.fetch_api_description("http://example.com/api/1.0/"))
+        request.assert_called_once_with(
+            b"http://example.com/api/1.0/describe/", "GET")
+
+    def test_fetch_api_description_not_okay(self):
+        # If the response is not 200 OK, fetch_api_description throws toys.
+        content = factory.make_name("content")
+        request = self.patch(httplib2.Http, "request")
+        response = httplib2.Response({})
+        response.status = httplib.BAD_REQUEST
+        response.reason = httplib.responses[httplib.BAD_REQUEST]
+        request.return_value = response, json.dumps(content)
+        error = self.assertRaises(
+            CommandError, api.fetch_api_description,
+            "http://example.com/api/1.0/")
+        error_expected = "%d %s:\n%s" % (
+            httplib.BAD_REQUEST, httplib.responses[httplib.BAD_REQUEST],
+            json.dumps(content))
+        self.assertEqual(error_expected, "%s" % error)
+
+    def test_fetch_api_description_wrong_content_type(self):
+        # If the response's content type is not application/json,
+        # fetch_api_description throws toys again.
+        content = factory.make_name("content")
+        request = self.patch(httplib2.Http, "request")
+        response = httplib2.Response({})
+        response.status = httplib.OK
+        response["content-type"] = "text/css"
+        request.return_value = response, json.dumps(content)
+        error = self.assertRaises(
+            CommandError, api.fetch_api_description,
+            "http://example.com/api/1.0/")
+        self.assertEqual(
+            "Expected application/json, got: text/css",
+            "%s" % error)
