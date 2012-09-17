@@ -51,7 +51,8 @@ def compose_preseed_opt(preseed_url):
 
     :param preseed_url: The URL from which a preseed can be fetched.
     """
-    # Is the "auto" a cargo-cult from Cobbler?
+    # See https://help.ubuntu.com/12.04/installation-guide
+    #   /i386/preseed-using.html#preseed-auto
     return "auto url=%s" % preseed_url
 
 
@@ -111,7 +112,7 @@ def compose_purpose_opts(params):
     if params.purpose == "commissioning":
         # These are kernel parameters read by the ephemeral environment.
         return [
-            # Read by Open-iSCSI initramfs code.
+            # Read by the open-iscsi initramfs code.
             "iscsi_target_name=%s:%s" % (
                 ISCSI_TARGET_NAME_PREFIX,
                 get_ephemeral_name(params.release, params.arch)),
