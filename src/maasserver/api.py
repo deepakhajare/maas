@@ -966,10 +966,10 @@ class NodeGroupsHandler(BaseHandler):
 
     @api_exported('POST')
     def accept(self, request):
-        """Accept this nodegroup's enlistment.
+        """Accept nodegroup enlistment(s).
 
-        :param uuid: The UUID of the nodegroup to accept.
-        :type name: basestring
+        :param uuid: The UUID (or list of UUIDs) of the nodegroup(s) to accept.
+        :type name: basestring (or list of basestrings)
 
         This method is reserved to admin users.
         """
@@ -984,7 +984,10 @@ class NodeGroupsHandler(BaseHandler):
 
     @api_exported('POST')
     def reject(self, request):
-        """Reject this nodegroup's enlistment.
+        """Reject nodegroup enlistment(s).
+
+        :param uuid: The UUID (or list of UUIDs) of the nodegroup(s) to reject.
+        :type name: basestring (or list of basestrings)
 
         This method is reserved to admin users.
         """
