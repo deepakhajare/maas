@@ -192,7 +192,8 @@ class Action(Command):
         super(Action, self).__init__(parser)
         for param in self.handler["params"]:
             parser.add_argument(param)
-        parser.add_argument("data", nargs="*")
+        parser.add_argument(
+            "data", type=self.name_value_pair, nargs="*")
 
     def __call__(self, options):
         # TODO: this is el-cheapo URI Template
@@ -201,7 +202,7 @@ class Action(Command):
         uri = self.uri.format(**vars(options))
 
         # Parse data out of the positional arguments.
-        data = dict(item.split("=", 1) for item in options.data)
+        data = dict(options.data)
         if self.op is not None:
             data["op"] = self.op
 
@@ -230,6 +231,15 @@ class Action(Command):
     method = property(lambda self: self.action["method"])
     restful = property(lambda self: self.action["restful"])
     op = property(lambda self: self.action["op"])
+
+    @staticmethod
+    def name_value_pair(string):
+        parts = string.split("=", 1)
+        if len(parts) == 2:
+            return parts
+        else:
+            raise CommandError(
+                "%r is not a name=value pair" % string)
 
     def prepare_payload(self, uri, data):
         """Return the URI (modified perhaps) and body and headers.
