@@ -40,6 +40,9 @@ DHCP_LEASES_FILE = '/var/lib/dhcp/dhcpd.leases'
 # ISC dhcpd configuration file.
 DHCP_CONFIG_FILE = '/etc/dhcp/dhcpd.conf'
 
+# List of interfaces that the dhcpd should service (if managed by MAAS).
+DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
+
 
 try:
     import user_maasceleryconfig

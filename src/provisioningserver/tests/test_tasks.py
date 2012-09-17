@@ -257,14 +257,14 @@ class TestDHCPTasks(PservTestCase):
         check_call_args = mocked_check_call.call_args
         self.assertEqual(
             check_call_args[0][0],
-            ['sudo', 'service', 'isc-dhcp-server', 'restart'])
+            ['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
         self.patch(tasks, 'check_call', recorder)
         restart_dhcp_server()
         self.assertEqual(
-            (1, (['sudo', 'service', 'isc-dhcp-server', 'restart'],)),
+            (1, (['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'],)),
             (recorder.call_count, recorder.extract_args()[0]))
 
 

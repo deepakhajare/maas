@@ -186,7 +186,8 @@ class NodeGroup(TimestampedModel):
             router_ip=interface.router_ip,
             dns_servers=get_dns_server_address(),
             ip_range_low=interface.ip_range_low,
-            ip_range_high=interface.ip_range_high)
+            ip_range_high=interface.ip_range_high,
+            dhcp_interfaces=interface.interface)
 
     def add_dhcp_host_maps(self, new_leases):
         if self.is_dhcp_enabled() and len(new_leases) > 0:
