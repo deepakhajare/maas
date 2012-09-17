@@ -26,8 +26,8 @@ class TestFunctions(TestCase):
 
     def test_try_getpass(self):
         getpass = self.patch(api, "getpass")
-        getpass.return_value = sentinel.password
-        self.assertIs(sentinel.password, api.try_getpass(sentinel.prompt))
+        getpass.return_value = sentinel.credentials
+        self.assertIs(sentinel.credentials, api.try_getpass(sentinel.prompt))
         getpass.assert_called_once_with(sentinel.prompt)
 
     def test_try_getpass_eof(self):
