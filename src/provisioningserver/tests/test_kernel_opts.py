@@ -91,15 +91,18 @@ class TestKernelOpts(TestCase):
         params = make_kernel_parameters()(purpose="install")
         # Port 514 (UDP) is syslog.
         log_port = "514"
-        text_priority = "critical"
         self.assertThat(
             compose_kernel_command_line_new(params),
             ContainsAll([
                 "log_host=%s" % params.log_host,
                 "log_port=%s" % log_port,
-                # TODO: not a logging option; move to another test.
-                "text priority=%s" % text_priority,
                 ]))
+
+    def test_install_compose_kernel_command_line_includes_di_settings(self):
+        params = make_kernel_parameters()(purpose="install")
+        self.assertThat(
+            compose_kernel_command_line_new(params),
+            Contains("text priority=critical"))
 
     def test_install_compose_kernel_command_line_inc_purpose_opts(self):
         # The result of compose_kernel_command_line includes the purpose
