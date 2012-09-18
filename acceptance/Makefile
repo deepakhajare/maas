@@ -23,6 +23,10 @@ define ephexec-make
 $(ephexec) $(abspath with-make) make -C $(abspath .)
 endef
 
+define check-service
+test $(2) = $(wordlist 2,2,$(shell service $(1) status))  # $(1)
+endef
+
 ##
 
 test: services sudo build image
@@ -33,19 +37,13 @@ build: services sudo source source/debian
 
 image: /var/lib/lxc/$(image)
 
-lxc:
-	@service $@ status
-
-lxc-net:
-	@service $@ status
-
-services: lxc lxc-net
+services:
+	$(call check-service,lxc,start/running)
+	$(call check-service,lxc-net,start/running)
 
 define phony-outer-targets
   build
   image
-  lxc
-  lxc-net
   services
   test
 endef
