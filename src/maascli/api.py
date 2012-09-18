@@ -219,7 +219,8 @@ class Action(Command):
         uri, body, headers = self.prepare_payload(uri, data)
 
         # Sign request if credentials have been provided.
-        self.maybe_sign(uri, headers)
+        if self.credentials is not None:
+            self.sign(uri, headers, self.credentials)
 
         # Use httplib2 instead of urllib2 (or MAASDispatcher, which is based
         # on urllib2) so that we get full control over HTTP method. TODO:
@@ -271,11 +272,11 @@ class Action(Command):
 
         return uri, body, headers
 
-    def maybe_sign(self, uri, headers):
-        """Sign the URI and headers, if possible."""
-        if self.credentials is not None:
-            auth = MAASOAuth(*self.credentials)
-            auth.sign_request(uri, headers)
+    @staticmethod
+    def sign(uri, headers, credentials):
+        """Sign the URI and headers."""
+        auth = MAASOAuth(*credentials)
+        auth.sign_request(uri, headers)
 
     @staticmethod
     def print_response(response, content):
