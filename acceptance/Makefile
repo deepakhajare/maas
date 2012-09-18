@@ -28,16 +28,8 @@ endef
 test: services sudo build image
 	$(ephexec-make) $@-inner
 
-test-inner: upgrade-inner
-	sudo -AE dpkg --install -- $(packages)
-	sudo -AE apt-get --fix-broken --assume-yes install
-
 build: services sudo source source/debian
 	$(ephexec-make) $@-inner
-
-build-inner: upgrade-inner
-	sudo -AE apt-get --assume-yes install devscripts debhelper dh-apport
-	cd source && debuild -i -us -uc -b
 
 image: /var/lib/lxc/$(image)
 
@@ -49,9 +41,34 @@ lxc-net:
 
 services: lxc lxc-net
 
+define phony-outer-targets
+  build
+  image
+  lxc
+  lxc-net
+  services
+  test
+endef
+
+##
+
+test-inner: upgrade-inner
+	sudo -AE dpkg --install -- $(packages)
+	sudo -AE apt-get --fix-broken --assume-yes install
+
+build-inner: upgrade-inner
+	sudo -AE apt-get --assume-yes install devscripts debhelper dh-apport
+	cd source && debuild -i -us -uc -b
+
 upgrade-inner:
 	sudo -AE apt-get --assume-yes update
 	sudo -AE apt-get --assume-yes upgrade
+
+define phony-inner-targets
+  build-inner
+  test-inner
+  upgrade-inner
+endef
 
 ##
 
@@ -72,17 +89,17 @@ sudo:
 clean:
 	$(RM) -r source *.build *.changes *.deb
 
+define phony-misc-targets
+  clean
+  sudo
+endef
+
 ##
 
 define phony
-  build
-  clean
-  image
-  lxc
-  lxc-net
-  services
-  sudo
-  test
+  $(phony-inner-targets)
+  $(phony-misc-targets)
+  $(phony-outer-targets)
 endef
 
 phony := $(sort $(strip $(phony)))
