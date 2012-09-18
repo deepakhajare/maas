@@ -108,7 +108,9 @@ class cmd_login(Command):
             "credentials", nargs="?", default=None, help=(
                 "The credentials, also known as the API key, for the "
                 "remote MAAS server. These can be found in the user "
-                "preferences page in the web UI."
+                "preferences page in the web UI; they take the form of "
+                "a long random-looking string composed of three parts, "
+                "separated by colons."
                 ))
         parser.set_defaults(credentials=None)
 
