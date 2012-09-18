@@ -108,20 +108,21 @@ class Command:
 CommandError = SystemExit
 
 
-def register(module, parser):
+def register(module, parser, prefix="cmd_"):
     """Register commands in `module` with the given argument parser.
 
-    This looks for callable objects named `cmd_*`, calls them with a new
-    subparser, and registers them as the default value for `execute` in the
-    namespace.
+    This looks for callable objects named `cmd_*` by default, calls them with
+    a new subparser, and registers them as the default value for `execute` in
+    the namespace.
 
     If the module also has a `register` function, this is also called, passing
     in the module being scanned, and the parser given to this function.
     """
     # Register commands.
+    trim = slice(len(prefix), None)
     commands = {
-        name[4:]: command for name, command in vars(module).items()
-        if name.startswith("cmd_") and callable(command)
+        name[trim]: command for name, command in vars(module).items()
+        if name.startswith(prefix) and callable(command)
         }
     for name, command in commands.items():
         help_title, help_body = parse_docstring(command)
