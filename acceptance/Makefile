@@ -1,10 +1,10 @@
 include /etc/lsb-release
 
-packaging := lp:~maas-maintainers/maas/packaging.$(DISTRIB_CODENAME)
-
-# Special-case Quantal.
-ifeq ($(DISTRIB_CODENAME),quantal)
 packaging := lp:~maas-maintainers/maas/packaging
+
+# Special-case Precise.
+ifeq ($(DISTRIB_CODENAME),precise)
+packaging := $(packaging).precise
 endif
 
 upstream := $(abspath ..)
