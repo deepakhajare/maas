@@ -65,9 +65,6 @@ source/debian: | source
 sudo:
 	@sudo -v
 
-install-missing-packages:
-	sudo apt-get install dh-apport
-
 clean:
 	$(RM) -r source *.build *.changes *.deb
 
@@ -77,7 +74,6 @@ define phony
   build
   clean
   image
-  install-missing-packages
   lxc
   lxc-net
   services
