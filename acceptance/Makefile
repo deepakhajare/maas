@@ -13,24 +13,30 @@ image := maas-$(DISTRIB_CODENAME)
 
 ##
 
+define ephexec
+sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
+    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
+    DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass)
+endef
+
+define ephexec-make
+$(ephexec) $(abspath with-make) make -C $(abspath .)
+endef
+
+##
+
 test: services sudo build image
-	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
-	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
-	    DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass) \
-	    $(abspath with-make) make -C $(abspath .) test-inner
+	$(ephexec-make) $@-inner
 
 test-inner:
-	sudo -A dpkg --install -- $(packages)
-	sudo -A apt-get --fix-broken --assume-yes install
+	sudo -AE dpkg --install -- $(packages)
+	sudo -AE apt-get --fix-broken --assume-yes install
 
 build: services sudo source source/debian
-	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
-	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
-	    DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass) \
-	    $(abspath with-make) make -C $(abspath .) build-inner
+	$(ephexec-make) $@-inner
 
 build-inner:
-	sudo -A apt-get --assume-yes install devscripts debhelper dh-apport
+	sudo -AE apt-get --assume-yes install devscripts debhelper dh-apport
 	cd source && debuild -i -us -uc -b
 
 image: /var/lib/lxc/$(image)
@@ -40,7 +46,7 @@ lxc:
 
 lxc-net:
 	@service $@ status
- 
+
 services: lxc lxc-net
 
 ##
