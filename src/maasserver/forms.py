@@ -60,6 +60,7 @@ from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
+    NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
 from maasserver.fields import MACAddressFormField
 from maasserver.models import (
@@ -610,6 +611,10 @@ class AddArchiveForm(ConfigForm):
 
 class NodeGroupInterfaceForm(ModelForm):
 
+    management = forms.TypedChoiceField(
+        choices=NODEGROUPINTERFACE_MANAGEMENT_CHOICES, required=False,
+        coerce=int, empty_value=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT)
+
     class Meta:
         model = NodeGroupInterface
         fields = (
@@ -620,12 +625,32 @@ class NodeGroupInterfaceForm(ModelForm):
             'router_ip',
             'ip_range_low',
             'ip_range_high',
+            'management',
             )
 
-    def save(self, nodegroup, management, *args, **kwargs):
+    def clean_management(self):
+        # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
+        # is supported per NodeGroup.
+        management = self.cleaned_data['management']
+        if management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
+            nodegroup_interfaces = NodeGroupInterface.objects.all()
+            if self.instance and self.instance.id is not None:
+                nodegroup_interfaces = nodegroup_interfaces.exclude(
+                    id=self.instance.id)
+            exist_other_managed_interface = (
+                nodegroup_interfaces.exclude(
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED).exists())
+            if exist_other_managed_interface:
+                raise ValidationError(
+                    {'management': [
+                        "Another managed interface already exists for this "
+                        "nodegroup."]})
+        return management
+
+    def save(self, nodegroup=None, *args, **kwargs):
         interface = super(NodeGroupInterfaceForm, self).save(commit=False)
-        interface.nodegroup = nodegroup
-        interface.management = management
+        if nodegroup is not None:
+            interface.nodegroup = nodegroup
         if kwargs.get('commit', True):
             interface.save(*args, **kwargs)
         return interface
@@ -658,6 +683,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
         except ValueError:
             raise forms.ValidationError("Invalid json value.")
         else:
+            managed = []
             # Raise an exception if the interfaces json object is not a list.
             if not isinstance(interfaces, collections.Iterable):
                 raise forms.ValidationError(
@@ -672,16 +698,23 @@ class NodeGroupWithInterfacesForm(ModelForm):
                     raise forms.ValidationError(
                         "Invalid interface: %r (%r)." % (
                             interface, form._errors))
+                management = interface.get('management', '')
+                if management not in (
+                    '', NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED):
+                    managed.append(management)
+            # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
+            # is supported per NodeGroup.
+            if len(managed) > 1:
+                raise ValidationError(
+                    "Only one managed interface can be configured for this "
+                    "nodegroup")
         return interfaces
 
     def save(self):
         nodegroup = super(NodeGroupWithInterfacesForm, self).save()
         for interface in self.cleaned_data['interfaces']:
-            # Create an unmanaged interface.
             form = NodeGroupInterfaceForm(data=interface)
-            form.save(
-                nodegroup=nodegroup,
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+            form.save(nodegroup=nodegroup)
         # Set the nodegroup to be 'PENDING'.
         nodegroup.status = NODEGROUP_STATUS.PENDING
         nodegroup.save()
