@@ -103,7 +103,7 @@ class cmd_login(Command):
         parser.add_argument(
             "url", help=(
                 "The URL of the remote API, e.g. "
-                "http://example.com/api/1.0/"))
+                "http://example.com/MAAS/api/1.0/"))
         parser.add_argument(
             "credentials", nargs="?", default=None, help=(
                 "The credentials, also known as the API key, for the "
