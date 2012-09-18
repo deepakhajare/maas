@@ -41,7 +41,7 @@ mac_error_msg = "Enter a valid MAC address (e.g. AA:BB:CC:DD:EE:FF)."
 validate_mac = RegexValidator(regex=mac_re, message=mac_error_msg)
 
 
-# The MACAddressField, JSONObjectField and XmlField don't introduce any new
+# The MACAddressField, JSONObjectField and XMLField don't introduce any new
 # parameters compared to their parent's constructors so South will handle
 # them just fine.
 # See http://south.aeracode.org/docs/customfields.html#extending-introspection
@@ -50,7 +50,7 @@ add_introspection_rules(
     [], [
         "^maasserver\.fields\.MACAddressField",
         "^maasserver\.fields\.JSONObjectField",
-        "^maasserver\.fields\.XmlField",
+        "^maasserver\.fields\.XMLField",
     ])
 
 
@@ -126,7 +126,7 @@ class JSONObjectField(Field):
             lookup_type, value)
 
 
-class XmlField(Field):
+class XMLField(Field):
     """A field for storing xml natively.
 
     This is not like the removed Django XMLField which just added basic python
@@ -149,4 +149,4 @@ class XmlField(Field):
         """
         if lookup_type != 'isnull':
             raise TypeError("Lookup type %s is not supported." % lookup_type)
-        return super(XmlField, self).get_db_prep_lookup(lookup_type, value)
+        return super(XMLField, self).get_db_prep_lookup(lookup_type, value)

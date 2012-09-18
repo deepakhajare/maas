@@ -23,7 +23,7 @@ from maasserver.testing.testcase import (
     )
 from maasserver.tests.models import (
     JSONFieldModel,
-    XmlFieldModel,
+    XMLFieldModel,
     )
 
 
@@ -109,43 +109,43 @@ class TestJSONObjectField(TestModelTestCase):
         self.assertRaises(TypeError, JSONFieldModel.objects.get, value__gte=3)
 
 
-class TestXmlField(TestModelTestCase):
+class TestXMLField(TestModelTestCase):
 
     app = 'maasserver.tests'
 
     def test_loads_string(self):
         name = factory.getRandomString()
         value = "<test/>"
-        XmlFieldModel.objects.create(name=name, value=value)
-        instance = XmlFieldModel.objects.get(name=name)
+        XMLFieldModel.objects.create(name=name, value=value)
+        instance = XMLFieldModel.objects.get(name=name)
         self.assertEqual(value, instance.value)
 
     def test_lookup_xpath_exists_result(self):
         name = factory.getRandomString()
-        XmlFieldModel.objects.create(name=name, value="<test/>")
-        result = XmlFieldModel.objects.raw(
+        XMLFieldModel.objects.create(name=name, value="<test/>")
+        result = XMLFieldModel.objects.raw(
             "SELECT * FROM docs WHERE xpath_exists(%s, value)", ["//test"])
         self.assertEqual(name, result[0].name)
 
     def test_lookup_xpath_exists_no_result(self):
         name = factory.getRandomString()
-        XmlFieldModel.objects.create(name=name, value="<test/>")
-        result = XmlFieldModel.objects.raw(
+        XMLFieldModel.objects.create(name=name, value="<test/>")
+        result = XMLFieldModel.objects.raw(
             "SELECT * FROM docs WHERE xpath_exists(%s, value)", ["//miss"])
         self.assertEqual([], list(result))
 
     def test_save_empty_rejected(self):
-        self.assertRaises(DatabaseError, XmlFieldModel.objects.create,
+        self.assertRaises(DatabaseError, XMLFieldModel.objects.create,
             value="")
 
     def test_save_non_wellformed_rejected(self):
-        self.assertRaises(DatabaseError, XmlFieldModel.objects.create,
+        self.assertRaises(DatabaseError, XMLFieldModel.objects.create,
             value="<bad>")
 
     def test_lookup_none(self):
-        XmlFieldModel.objects.create(value=None)
-        test_instance = XmlFieldModel.objects.get(value__isnull=True)
+        XMLFieldModel.objects.create(value=None)
+        test_instance = XMLFieldModel.objects.get(value__isnull=True)
         self.assertIsNone(test_instance.value)
 
     def test_lookup_exact_unsupported(self):
-        self.assertRaises(TypeError, XmlFieldModel.objects.get, value="")
+        self.assertRaises(TypeError, XMLFieldModel.objects.get, value="")

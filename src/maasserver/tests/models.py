@@ -21,7 +21,7 @@ from django.db.models import (
     )
 from maasserver.fields import (
     JSONObjectField,
-    XmlField,
+    XMLField,
     )
 from maasserver.models.timestampedmodel import TimestampedModel
 
@@ -31,13 +31,13 @@ class JSONFieldModel(Model):
     value = JSONObjectField(null=True)
 
 
-class XmlFieldModel(Model):
+class XMLFieldModel(Model):
 
     class Meta:
         db_table = "docs"
 
     name = CharField(max_length=255, unique=False)
-    value = XmlField(null=True)
+    value = XMLField(null=True)
 
 
 class MessagesTestModel(Model):
