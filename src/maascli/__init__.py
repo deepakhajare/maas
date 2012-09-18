@@ -71,7 +71,7 @@ def main(argv=None):
 
     # Register declared modules.
     for name, module in sorted(modules.items()):
-        if isinstance(module, (str, unicode)):
+        if isinstance(module, basestring):
             module = __import__(module, fromlist=True)
         help_title, help_body = parse_docstring(module)
         module_parser = parser.subparsers.add_parser(
