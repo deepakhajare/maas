@@ -13,30 +13,35 @@ image := maas-$(DISTRIB_CODENAME)
 
 ##
 
-test: sudo build image
+test: services sudo build image
 	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
 	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
-	    SUDO_ASKPASS=$(abspath ubuntupass) $(abspath with-make) \
-	    make -C $(abspath .) test-inner
+	    DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass) \
+	    $(abspath with-make) make -C $(abspath .) test-inner
 
 test-inner:
 	sudo -A dpkg --install -- $(packages)
 	sudo -A apt-get --fix-broken --assume-yes install
 
-build: sudo source source/debian
+build: services sudo source source/debian
 	sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
 	    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
-	    SUDO_ASKPASS=$(abspath ubuntupass) $(abspath with-make) \
-	    make -C $(abspath .) build-inner
+	    DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass) \
+	    $(abspath with-make) make -C $(abspath .) build-inner
 
 build-inner:
 	sudo -A apt-get --assume-yes install devscripts debhelper dh-apport
 	cd source && debuild -i -us -uc -b
 
-image:
-ifeq ($(filter $(image),$(shell lxc-ls)),)
-	sudo lxc-create -n $(image) -t ubuntu
-endif
+image: /var/lib/lxc/$(image)
+
+lxc:
+	@service $@ status
+
+lxc-net:
+	@service $@ status
+ 
+services: lxc lxc-net
 
 ##
 
@@ -45,6 +50,9 @@ source:
 
 source/debian: | source
 	bzr export $@ $(packaging)/debian
+
+/var/lib/lxc/$(image):
+	sudo lxc-create -n $(image) -t ubuntu
 
 ##
 
@@ -64,6 +72,9 @@ define phony
   clean
   image
   install-missing-packages
+  lxc
+  lxc-net
+  services
   sudo
   test
 endef
