@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'add_zone',
     'change_dns_zones',
+    'is_dns_enabled',
     'next_zone_serial',
     'write_full_dns_config',
     ]
@@ -23,6 +24,7 @@ import logging
 import socket
 
 from django.conf import settings
+from maasserver.enum import DNS_DHCP_MANAGEMENT
 from maasserver.exceptions import MAASException
 from maasserver.models import (
     Config,
@@ -53,7 +55,15 @@ def next_zone_serial():
 
 
 def is_dns_enabled():
-    return settings.DNS_CONNECT and Config.objects.get_config('enable_dns')
+    """Is MAAS configured to manage DNS?
+
+    This status is controlled by the `dns_dhcp_management` configuration item.
+    """
+    dns_dhcp_config = Config.objects.get_config('dns_dhcp_management')
+    return (
+        settings.DNS_CONNECT and
+        dns_dhcp_config == DNS_DHCP_MANAGEMENT.DNS_AND_DHCP
+        )
 
 
 class DNSException(MAASException):
@@ -105,15 +115,19 @@ def get_zone(nodegroup, serial=None):
     if not nodegroup.is_dhcp_enabled():
         return None
 
+    interface = nodegroup.get_managed_interface()
+    if interface is None:
+        return None
+
     if serial is None:
         serial = next_zone_serial()
     dns_ip = get_dns_server_address()
     return DNSZoneConfig(
         zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
-        subnet_mask=nodegroup.subnet_mask,
-        broadcast_ip=nodegroup.broadcast_ip,
-        ip_range_low=nodegroup.ip_range_low,
-        ip_range_high=nodegroup.ip_range_high,
+        subnet_mask=interface.subnet_mask,
+        broadcast_ip=interface.broadcast_ip,
+        ip_range_low=interface.ip_range_low,
+        ip_range_high=interface.ip_range_high,
         mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
 
 

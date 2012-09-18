@@ -22,8 +22,10 @@ from django.contrib.auth.models import User
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.models import (
+    BootImage,
     DHCPLease,
     FileStorage,
     MACAddress,
@@ -51,13 +53,19 @@ ALL_NODE_STATES = map_enum(NODE_STATUS).values()
 
 class Factory(maastesting.factory.Factory):
 
-    def getRandomEnum(self, enum):
+    def getRandomEnum(self, enum, but_not=None):
         """Pick a random item from an enumeration class.
 
         :param enum: An enumeration class such as `NODE_STATUS`.
         :return: The value of one of its items.
+        :param but_not: A list of choices' IDs to exclude.
+        :type but_not: Sequence.
         """
-        return random.choice(list(map_enum(enum).values()))
+        if but_not is None:
+            but_not = ()
+        return random.choice([
+            value for value in list(map_enum(enum).values())
+            if value not in but_not])
 
     def getRandomChoice(self, choices, but_not=None):
         """Pick a random item from `choices`.
@@ -110,10 +118,11 @@ class Factory(maastesting.factory.Factory):
             Node.objects.filter(id=node.id).update(created=created)
         return reload_object(node)
 
-    def make_node_group(self, name=None, worker_ip=None, router_ip=None,
-                        network=None, subnet_mask=None, broadcast_ip=None,
-                        ip_range_low=None, ip_range_high=None,
-                        dhcp_interface=None, **kwargs):
+    def make_node_group(self, name=None, uuid=None, ip=None,
+                        router_ip=None, network=None, subnet_mask=None,
+                        broadcast_ip=None, ip_range_low=None,
+                        ip_range_high=None, interface=None, management=None,
+                        **kwargs):
         """Create a :class:`NodeGroup`.
 
         If network (an instance of IPNetwork) is provided, use it to populate
@@ -124,15 +133,19 @@ class Factory(maastesting.factory.Factory):
         Otherwise, use the provided values for these values or use random IP
         addresses if they are not provided.
         """
+        if management is None:
+            management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
         if name is None:
             name = self.make_name('nodegroup')
+        if uuid is None:
+            uuid = factory.getRandomUUID()
         if network is not None:
             subnet_mask = str(network.netmask)
             broadcast_ip = str(network.broadcast)
             ip_range_low = str(IPAddress(network.first))
             ip_range_high = str(IPAddress(network.last))
             router_ip = factory.getRandomIPInNetwork(network)
-            worker_ip = factory.getRandomIPInNetwork(network)
+            ip = factory.getRandomIPInNetwork(network)
         else:
             if subnet_mask is None:
                 subnet_mask = self.getRandomIPAddress()
@@ -144,15 +157,16 @@ class Factory(maastesting.factory.Factory):
                 ip_range_high = self.getRandomIPAddress()
             if router_ip is None:
                 router_ip = self.getRandomIPAddress()
-            if worker_ip is None:
-                worker_ip = self.getRandomIPAddress()
-        if dhcp_interface is None:
-            dhcp_interface = self.make_name('interface')
+            if ip is None:
+                ip = self.getRandomIPAddress()
+        if interface is None:
+            interface = self.make_name('interface')
         ng = NodeGroup.objects.new(
-            name=name, worker_ip=worker_ip, subnet_mask=subnet_mask,
-            broadcast_ip=broadcast_ip, router_ip=router_ip,
-            ip_range_low=ip_range_low, ip_range_high=ip_range_high,
-            dhcp_interface=dhcp_interface, **kwargs)
+            name=name, uuid=uuid, ip=ip,
+            subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
+            router_ip=router_ip, ip_range_low=ip_range_low,
+            ip_range_high=ip_range_high, interface=interface,
+            management=management, **kwargs)
         ng.save()
         return ng
 
@@ -261,6 +275,22 @@ class Factory(maastesting.factory.Factory):
         items.update(kwargs)
         return "OAuth " + ", ".join([
             '%s="%s"' % (key, value) for key, value in items.items()])
+
+    def make_boot_image(self, architecture=None, subarchitecture=None,
+                        release=None, purpose=None):
+        if architecture is None:
+            architecture = self.make_name('architecture')
+        if subarchitecture is None:
+            subarchitecture = self.make_name('subarchitecture')
+        if release is None:
+            release = self.make_name('release')
+        if purpose is None:
+            purpose = self.make_name('purpose')
+        return BootImage.objects.create(
+            architecture=architecture,
+            subarchitecture=subarchitecture,
+            release=release,
+            purpose=purpose)
 
 
 # Create factory singleton.

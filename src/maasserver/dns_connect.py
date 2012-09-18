@@ -19,10 +19,12 @@ from django.db.models.signals import (
     post_save,
     )
 from django.dispatch import receiver
+from maasserver.enum import DNS_DHCP_MANAGEMENT
 from maasserver.models import (
     Config,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.signals import connect_to_field_change
 
@@ -30,18 +32,33 @@ from maasserver.signals import connect_to_field_change
 def dns_config_changed(sender, config, created, **kwargs):
     """Signal callback called when the DNS config has changed."""
     from maasserver.dns import write_full_dns_config
-    write_full_dns_config(active=config.value)
+    dns_enabled = (config.value == DNS_DHCP_MANAGEMENT.DNS_AND_DHCP)
+    write_full_dns_config(active=dns_enabled)
 
 
-Config.objects.config_changed_connect('enable_dns', dns_config_changed)
+Config.objects.config_changed_connect(
+    'dns_dhcp_management', dns_config_changed)
 
 
 @receiver(post_save, sender=NodeGroup)
 def dns_post_save_NodeGroup(sender, instance, created, **kwargs):
-    """Create or update DNS zones related to the new nodegroup."""
+    """Create or update DNS zones related to the saved nodegroup."""
     from maasserver.dns import write_full_dns_config, add_zone
     if created:
         add_zone(instance)
+    else:
+        write_full_dns_config()
+
+
+# XXX rvb 2012-09-12: This is only needed because we use that
+# information to pre-populate the zone file.  Once we stop doing that,
+# this can be removed.
+@receiver(post_save, sender=NodeGroupInterface)
+def dns_post_save_NodeGroupInterface(sender, instance, created, **kwargs):
+    """Create or update DNS zones related to the saved nodegroupinterface."""
+    from maasserver.dns import write_full_dns_config, add_zone
+    if created:
+        add_zone(instance.nodegroup)
     else:
         write_full_dns_config()
 

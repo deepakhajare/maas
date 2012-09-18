@@ -11,7 +11,7 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    'compose_kernel_command_line_new',
+    'compose_kernel_command_line',
     'KernelParameters',
     ]
 
@@ -19,7 +19,6 @@ from collections import namedtuple
 import os
 
 from provisioningserver.config import Config
-from provisioningserver.pxe.tftppath import compose_image_path
 from provisioningserver.utils import parse_key_value_file
 
 
@@ -47,29 +46,14 @@ class KernelParameters(KernelParametersBase):
     __call__ = KernelParametersBase._replace
 
 
-def compose_initrd_opt(arch, subarch, release, purpose):
-    path = "%s/initrd.gz" % compose_image_path(arch, subarch, release, purpose)
-    return "initrd=%s" % path
-
-
 def compose_preseed_opt(preseed_url):
     """Compose a kernel option for preseed URL.
 
     :param preseed_url: The URL from which a preseed can be fetched.
     """
+    # See https://help.ubuntu.com/12.04/installation-guide
+    #   /i386/preseed-using.html#preseed-auto
     return "auto url=%s" % preseed_url
-
-
-def compose_suite_opt(release):
-    return "suite=%s" % release
-
-
-def compose_hostname_opt(hostname):
-    return "hostname=%s" % hostname
-
-
-def compose_domain_opt(domain):
-    return "domain=%s" % domain
 
 
 def compose_locale_opt():
@@ -81,7 +65,6 @@ def compose_logging_opts(log_host):
     return [
         'log_host=%s' % log_host,
         'log_port=%d' % 514,
-        'text priority=%s' % 'critical',
         ]
 
 
@@ -127,18 +110,34 @@ def get_ephemeral_name(release, arch):
 def compose_purpose_opts(params):
     """Return the list of the purpose-specific kernel options."""
     if params.purpose == "commissioning":
+        # These are kernel parameters read by the ephemeral environment.
         return [
+            # Read by the open-iscsi initramfs code.
             "iscsi_target_name=%s:%s" % (
                 ISCSI_TARGET_NAME_PREFIX,
                 get_ephemeral_name(params.release, params.arch)),
-            "ip=dhcp",
-            "ro root=LABEL=cloudimg-rootfs",
             "iscsi_target_ip=%s" % params.fs_host,
             "iscsi_target_port=3260",
+            "iscsi_initiator=%s" % params.hostname,
+            # Read by klibc 'ipconfig' in initramfs.
+            "ip=::::%s" % params.hostname,
+            # cloud-images have this filesystem label.
+            "ro root=LABEL=cloudimg-rootfs",
+            # Read by overlayroot package.
+            "overlayroot=tmpfs",
+            # Read by cloud-init.
+            "cloud-config-url=%s" % params.preseed_url,
             ]
     else:
+        # These are options used by the Debian Installer.
         return [
-            "netcfg/choose_interface=auto"
+            "netcfg/choose_interface=auto",
+            "hostname=%s" % params.hostname,
+            "domain=%s" % params.domain,
+            # Use the text installer, display only critical messages.
+            "text priority=critical",
+            compose_preseed_opt(params.preseed_url),
+            compose_locale_opt(),
             ]
 
 
@@ -147,25 +146,22 @@ def compose_arch_opts(params):
     if (params.arch, params.subarch) == ("armhf", "highbank"):
         return ["console=ttyAMA0"]
     else:
-        return []
+        # On Intel send kernel output to both console and ttyS0.
+        return ["console=tty1", "console=ttyS0"]
 
 
-def compose_kernel_command_line_new(params):
+def compose_kernel_command_line(params):
     """Generate a line of kernel options for booting `node`.
 
     :type params: `KernelParameters`.
     """
-    options = [
-        compose_initrd_opt(
-            params.arch, params.subarch,
-            params.release, params.purpose),
-        compose_preseed_opt(params.preseed_url),
-        compose_suite_opt(params.release),
-        compose_hostname_opt(params.hostname),
-        compose_domain_opt(params.domain),
-        compose_locale_opt(),
-        ]
+    options = []
+    # nomodeset prevents video mode switching.
+    options += ["nomodeset"]
     options += compose_purpose_opts(params)
+    # Note: logging opts are not respected by ephemeral images, so
+    #       these are actually "purpose_opts" but were left generic
+    #       as it would be nice to have.
     options += compose_logging_opts(params.log_host)
     options += compose_arch_opts(params)
     return ' '.join(options)

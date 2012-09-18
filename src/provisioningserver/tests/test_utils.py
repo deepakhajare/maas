@@ -22,10 +22,12 @@ import stat
 import StringIO
 from subprocess import (
     CalledProcessError,
+    PIPE,
     Popen,
     )
 import sys
 import tempfile
+from textwrap import dedent
 import time
 import types
 
@@ -40,13 +42,17 @@ from provisioningserver.utils import (
     AtomicWriteScript,
     get_mtime,
     incremental_write,
+    maas_custom_config_markers,
     MainScript,
     parse_key_value_file,
     pick_new_mtime,
     Safe,
     ShellTemplate,
+    sudo_write_file,
+    write_custom_config_section,
     )
 from testtools.matchers import (
+    EndsWith,
     FileContains,
     MatchesStructure,
     )
@@ -175,6 +181,12 @@ class TestIncrementalWrite(TestCase):
         self.assertAlmostEqual(
             os.stat(filename).st_mtime, old_mtime + 1, delta=0.01)
 
+    def test_incremental_write_sets_permissions(self):
+        atomic_file = self.make_file()
+        mode = 0323
+        incremental_write(factory.getRandomString(), atomic_file, mode=mode)
+        self.assertEqual(mode, stat.S_IMODE(os.stat(atomic_file).st_mode))
+
 
 class TestGetMTime(TestCase):
     """Test `get_mtime`."""
@@ -224,8 +236,199 @@ class TestPickNewMTime(TestCase):
         self.assertEqual(now, pick_new_mtime(now))
 
 
+class WriteCustomConfigSectionTest(TestCase):
+    """Test `write_custom_config_section`."""
+
+    def test_appends_custom_section_initially(self):
+        original = factory.make_name('Original-text')
+        custom_text = factory.make_name('Custom-text')
+        header, footer = maas_custom_config_markers
+        self.assertEqual(
+            [original, header, custom_text, footer],
+            write_custom_config_section(original, custom_text).splitlines())
+
+    def test_custom_section_ends_with_newline(self):
+        self.assertThat(write_custom_config_section("x", "y"), EndsWith('\n'))
+
+    def test_replaces_custom_section_only(self):
+        header, footer = maas_custom_config_markers
+        original = [
+            "Text before custom section.",
+            header,
+            "Old custom section.",
+            footer,
+            "Text after custom section.",
+            ]
+        expected = [
+            "Text before custom section.",
+            header,
+            "New custom section.",
+            footer,
+            "Text after custom section.",
+            ]
+        self.assertEqual(
+            expected,
+            write_custom_config_section(
+                '\n'.join(original), "New custom section.").splitlines())
+
+    def test_ignores_header_without_footer(self):
+        # If the footer of the custom config section is not found,
+        # write_custom_config_section will pretend that the header is not
+        # there and append a new custom section.  This does mean that there
+        # will be two headers and one footer; a subsequent rewrite will
+        # replace everything from the first header to the footer.
+        header, footer = maas_custom_config_markers
+        original = [
+            header,
+            "Old custom section (probably).",
+            ]
+        expected = [
+            header,
+            "Old custom section (probably).",
+            header,
+            "New custom section.",
+            footer,
+            ]
+        self.assertEqual(
+            expected,
+            write_custom_config_section(
+                '\n'.join(original), "New custom section.").splitlines())
+
+    def test_ignores_second_header(self):
+        # If there are two custom-config headers but only one footer,
+        # write_custom_config_section will treat everything between the
+        # first header and the footer as custom config section, which it
+        # will overwrite.
+        header, footer = maas_custom_config_markers
+        original = [
+            header,
+            "Old custom section (probably).",
+            header,
+            "More custom section.",
+            footer,
+            ]
+        expected = [
+            header,
+            "New custom section.",
+            footer,
+            ]
+        self.assertEqual(
+            expected,
+            write_custom_config_section(
+                '\n'.join(original), "New custom section.").splitlines())
+
+    def test_ignores_footer_before_header(self):
+        # Custom-section footers before the custom-section header are
+        # ignored.  You might see this if there was an older custom
+        # config section whose header has been changed or deleted.
+        header, footer = maas_custom_config_markers
+        original = [
+            footer,
+            "Possible old custom section.",
+            ]
+        expected = [
+            footer,
+            "Possible old custom section.",
+            header,
+            "New custom section.",
+            footer,
+            ]
+        self.assertEqual(
+            expected,
+            write_custom_config_section(
+                '\n'.join(original), "New custom section.").splitlines())
+
+    def test_preserves_indentation_in_original(self):
+        indented_text = "   text."
+        self.assertIn(
+            indented_text,
+            write_custom_config_section(indented_text, "Custom section."))
+
+    def test_preserves_indentation_in_custom_section(self):
+        indented_text = "   custom section."
+        self.assertIn(
+            indented_text,
+            write_custom_config_section("Original.", indented_text))
+
+    def test_produces_sensible_text(self):
+        # The other tests mostly operate on lists of lines, because it
+        # eliminates problems with line endings.  This test here
+        # verifies that the actual text you get is sensible, preserves
+        # newlines, and generally looks normal.
+        header, footer = maas_custom_config_markers
+        original = dedent("""\
+            Top.
+
+
+            More.
+            %s
+            Old custom section.
+            %s
+            End.
+
+            """) % (header, footer)
+        new_custom_section = dedent("""\
+            New custom section.
+
+            With blank lines.""")
+        expected = dedent("""\
+            Top.
+
+
+            More.
+            %s
+            New custom section.
+
+            With blank lines.
+            %s
+            End.
+
+            """) % (header, footer)
+        self.assertEqual(
+            expected,
+            write_custom_config_section(original, new_custom_section))
+
+
+class SudoWriteFileTest(TestCase):
+    """Testing for `sudo_write_file`."""
+
+    def patch_popen(self, return_value=0):
+        process = Mock()
+        process.returncode = return_value
+        process.communicate = Mock(return_value=('output', 'error output'))
+        self.patch(
+            provisioningserver.utils, 'Popen', Mock(return_value=process))
+        return process
+
+    def test_calls_atomic_write(self):
+        self.patch_popen()
+        path = os.path.join(self.make_dir(), factory.make_name('file'))
+        contents = factory.getRandomString()
+
+        sudo_write_file(path, contents)
+
+        provisioningserver.utils.Popen.assert_called_once_with([
+            'sudo', '-n', 'maas-provision', 'atomic-write',
+            '--filename', path, '--mode', '0744',
+            ],
+            stdin=PIPE)
+
+    def test_encodes_contents(self):
+        process = self.patch_popen()
+        contents = factory.getRandomString()
+        encoding = 'utf-16'
+        sudo_write_file(self.make_file(), contents, encoding=encoding)
+        process.communicate.assert_called_once_with(contents.encode(encoding))
+
+    def test_catches_failures(self):
+        self.patch_popen(1)
+        self.assertRaises(
+            CalledProcessError,
+            sudo_write_file, self.make_file(), factory.getRandomString())
+
+
 class ParseConfigTest(TestCase):
-    """Testing for the method `parse_key_value_file`."""
+    """Testing for `parse_key_value_file`."""
 
     def test_parse_key_value_file_parses_config_file(self):
         contents = """
@@ -439,16 +642,27 @@ class TestAtomicWriteScript(TestCase):
         AtomicWriteScript.add_arguments(parser)
         return parser
 
+    def get_and_run_mocked_script(self, content, filename, *args):
+        self.patch(sys, "stdin", StringIO.StringIO(content))
+        parser = self.get_parser()
+        parsed_args = parser.parse_args(*args)
+        mocked_atomic_write = self.patch(
+            provisioningserver.utils, 'atomic_write')
+        AtomicWriteScript.run(parsed_args)
+        return mocked_atomic_write
+
     def test_arg_setup(self):
         parser = self.get_parser()
         filename = factory.getRandomString()
         args = parser.parse_args((
             '--no-overwrite',
-            '--filename', filename))
+            '--filename', filename,
+            '--mode', "111"))
         self.assertThat(
             args, MatchesStructure.byEquality(
                 no_overwrite=True,
-                filename=filename))
+                filename=filename,
+                mode="111"))
 
     def test_filename_arg_required(self):
         parser = self.get_parser()
@@ -465,26 +679,42 @@ class TestAtomicWriteScript(TestCase):
             os.path.dirname(provisioningserver.__file__),
             os.pardir, os.pardir)
         content = factory.getRandomString()
-        test_data_file = self.make_file(contents=content)
         script = ["%s/bin/maas-provision" % dev_root, 'atomic-write']
         target_file = self.make_file()
-        script.extend(('--filename', target_file))
-        with open(test_data_file, "rb") as stdin:
-            cmd = Popen(
-                script, stdin=stdin,
-                env=dict(PYTHONPATH=":".join(sys.path)))
-            cmd.communicate()
+        script.extend(('--filename', target_file, '--mode', '615'))
+        cmd = Popen(
+            script, stdin=PIPE,
+            env=dict(PYTHONPATH=":".join(sys.path)))
+        cmd.communicate(content)
         self.assertThat(target_file, FileContains(content))
+        self.assertEqual(0615, stat.S_IMODE(os.stat(target_file).st_mode))
 
     def test_passes_overwrite_flag(self):
         content = factory.getRandomString()
-        self.patch(sys, "stdin", StringIO.StringIO(content))
-        parser = self.get_parser()
         filename = factory.getRandomString()
-        args = parser.parse_args(('--filename', filename, '--no-overwrite'))
-        mocked_atomic_write = self.patch(
-            provisioningserver.utils, 'atomic_write')
-        AtomicWriteScript.run(args)
+        mocked_atomic_write = self.get_and_run_mocked_script(
+            content, filename,
+            ('--filename', filename, '--no-overwrite'))
 
         mocked_atomic_write.assert_called_once_with(
-            content, filename, overwrite=False)
+            content, filename, mode=0600, overwrite=False)
+
+    def test_passes_mode_flag(self):
+        content = factory.getRandomString()
+        filename = factory.getRandomString()
+        mocked_atomic_write = self.get_and_run_mocked_script(
+            content, filename,
+            ('--filename', filename, '--mode', "744"))
+
+        mocked_atomic_write.assert_called_once_with(
+            content, filename, mode=0744, overwrite=True)
+
+    def test_default_mode(self):
+        content = factory.getRandomString()
+        filename = factory.getRandomString()
+        mocked_atomic_write = self.get_and_run_mocked_script(
+            content, filename,
+            ('--filename', filename))
+
+        mocked_atomic_write.assert_called_once_with(
+            content, filename, mode=0600, overwrite=True)

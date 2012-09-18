@@ -40,6 +40,9 @@ DHCP_LEASES_FILE = '/var/lib/dhcp/dhcpd.leases'
 # ISC dhcpd configuration file.
 DHCP_CONFIG_FILE = '/etc/dhcp/dhcpd.conf'
 
+# Broken connection information.
+# Format: transport://userid:password@hostname:port/virtual_host
+BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
 try:
     import user_maasceleryconfig
@@ -71,5 +74,12 @@ CELERYBEAT_SCHEDULE = {
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
+    },
+
+    # XXX JeroenVermeulen 2012-09-12, bug=1039366: this task should run
+    # only on the master worker.
+    'report-boot-images': {
+        'task': 'provisioningserver.tasks.report_boot_images',
+        'schedule': timedelta(minutes=5),
     },
 }

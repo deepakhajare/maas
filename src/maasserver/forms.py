@@ -19,11 +19,16 @@ __all__ = [
     "HostnameFormField",
     "MACAddressForm",
     "MAASAndNetworkForm",
+    "NodeGroupInterfaceForm",
+    "NodeGroupWithInterfacesForm",
     "NodeWithMACAddressesForm",
     "SSHKeyForm",
     "UbuntuForm",
     "AdminNodeForm",
     ]
+
+import collections
+import json
 
 from django import forms
 from django.contrib import messages
@@ -45,12 +50,16 @@ from django.forms import (
     Form,
     ModelForm,
     )
+from django.utils.safestring import mark_safe
 from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DNS_DHCP_MANAGEMENT_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.fields import MACAddressFormField
 from maasserver.models import (
@@ -58,6 +67,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     SSHKey,
     )
 from maasserver.node_action import compile_node_actions
@@ -518,17 +528,19 @@ class MAASAndNetworkForm(ConfigForm):
         label="Default domain for new nodes", required=False, help_text=(
             "If 'local' is chosen, nodes must be using mDNS. Leave empty to "
             "use hostnames without a domain for newly enlisted nodes."))
-    enable_dns = forms.BooleanField(
-        label="Enable DNS", required=False, help_text=(
-            "When enabled, MAAS will use the machine's BIND server to "
-            "publish its DNS zones."))
-    manage_dhcp = forms.BooleanField(
-        label="Manage DHCP", required=False, help_text=(
-            "When enabled, MAAS workers will work with ISC DHCP servers, "
-            "if suitably configured, to give each DHCP client its own host "
-            "map.  Unlike normal leases, these host maps never expire.  "
-            "Thus enabling DHCP management ensures that a node will never "
-            "change its IP address."))
+    dns_dhcp_management = forms.ChoiceField(
+        label="DNS and DHCP servers management",
+        choices=DNS_DHCP_MANAGEMENT_CHOICES,
+        help_text=mark_safe(
+            "If MAAS manages the DHCP server, MAAS workers will work with ISC "
+            "DHCP servers, if suitably configured, to give each DHCP client "
+            "its own host map.  Unlike normal leases, these host maps never "
+            "expire.  Thus enabling DHCP management ensures that a node will "
+            "never change its IP address. <br />"
+            "If MAAS manages the DNS server, it will use the machine's BIND "
+            "server to publish its DNS zones.  Note that this can be enabled "
+            "only if MAAS also manages the DHCP server as MAAS needs the "
+            "lease information in order to populate the DNS zones."))
 
 
 class CommissioningForm(ConfigForm):
@@ -594,3 +606,83 @@ class AddArchiveForm(ConfigForm):
         archives = Config.objects.get_config('update_from_choice')
         archives.append([archive_name, archive_name])
         Config.objects.set_config('update_from_choice', archives)
+
+
+class NodeGroupInterfaceForm(ModelForm):
+
+    class Meta:
+        model = NodeGroupInterface
+        fields = (
+            'ip',
+            'interface',
+            'subnet_mask',
+            'broadcast_ip',
+            'router_ip',
+            'ip_range_low',
+            'ip_range_high',
+            )
+
+    def save(self, nodegroup, management, *args, **kwargs):
+        interface = super(NodeGroupInterfaceForm, self).save(commit=False)
+        interface.nodegroup = nodegroup
+        interface.management = management
+        if kwargs.get('commit', True):
+            interface.save(*args, **kwargs)
+        return interface
+
+
+INTERFACES_VALIDATION_ERROR_MESSAGE = (
+    "Invalid json value: should be a list of dictionaries, each containing "
+    "the information needed to initialize an interface.")
+
+
+class NodeGroupWithInterfacesForm(ModelForm):
+    """Create a pending NodeGroup with unmanaged interfaces."""
+
+    interfaces = forms.CharField(required=False)
+
+    class Meta:
+        model = NodeGroup
+        fields = (
+            'name',
+            'uuid',
+            )
+
+    def clean_interfaces(self):
+        data = self.cleaned_data['interfaces']
+        # Stop here if the data is empty.
+        if data == '':
+            return data
+        try:
+            interfaces = json.loads(data)
+        except ValueError:
+            raise forms.ValidationError("Invalid json value.")
+        else:
+            # Raise an exception if the interfaces json object is not a list.
+            if not isinstance(interfaces, collections.Iterable):
+                raise forms.ValidationError(
+                    INTERFACES_VALIDATION_ERROR_MESSAGE)
+            for interface in interfaces:
+                # Raise an exception if the interface object is not a dict.
+                if not isinstance(interface, dict):
+                    raise forms.ValidationError(
+                        INTERFACES_VALIDATION_ERROR_MESSAGE)
+                form = NodeGroupInterfaceForm(data=interface)
+                if not form.is_valid():
+                    raise forms.ValidationError(
+                        "Invalid interface: %r (%r)." % (
+                            interface, form._errors))
+        return interfaces
+
+    def save(self):
+        nodegroup = super(NodeGroupWithInterfacesForm, self).save()
+        for interface in self.cleaned_data['interfaces']:
+            # Create an unmanaged interface.
+            form = NodeGroupInterfaceForm(data=interface)
+            form.save(
+                nodegroup=nodegroup,
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+        # Set the nodegroup to be 'PENDING'.
+        nodegroup.status = NODEGROUP_STATUS.PENDING
+        nodegroup.save()
+        return nodegroup

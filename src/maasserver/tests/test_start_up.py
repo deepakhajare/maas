@@ -21,8 +21,15 @@ from lockfile import (
     FileLock,
     LockTimeout,
     )
-from maasserver import start_up
-from maasserver.models.nodegroup import NodeGroup
+from maasserver import (
+    components,
+    start_up,
+    )
+from maasserver.models import (
+    BootImage,
+    NodeGroup,
+    )
+from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
@@ -64,11 +71,11 @@ class TestStartUp(TestCase):
 
     def test_start_up_refreshes_workers(self):
         patched_handlers = tasks.refresh_functions.copy()
-        patched_handlers['nodegroup_name'] = Mock()
+        patched_handlers['nodegroup_uuid'] = Mock()
         self.patch(tasks, 'refresh_functions', patched_handlers)
         start_up.start_up()
-        patched_handlers['nodegroup_name'].assert_called_once_with(
-            NodeGroup.objects.ensure_master().name)
+        patched_handlers['nodegroup_uuid'].assert_called_once_with(
+            NodeGroup.objects.ensure_master().uuid)
 
     def test_start_up_runs_in_exclusion(self):
         called = Value('b', False)
@@ -97,3 +104,29 @@ class TestStartUp(TestCase):
 
         self.assertRaises(LockTimeout, start_up.start_up)
         self.assertEqual(0, recorder.call_count)
+
+    def test_start_up_warns_about_missing_boot_images(self):
+        # If no boot images have been registered yet, that may mean that
+        # the import script has not been successfully run yet, or that
+        # the master worker is having trouble reporting its images.  And
+        # so start_up registers a persistent warning about this.
+        BootImage.objects.all().delete()
+        recorder = self.patch(start_up, 'register_persistent_error')
+
+        start_up.start_up()
+
+        self.assertIn(
+            components.COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+
+    def test_start_up_does_not_warn_if_boot_images_are_known(self):
+        # If boot images are known, there is no warning about the import
+        # script.
+        factory.make_boot_image()
+        recorder = self.patch(start_up, 'register_persistent_error')
+
+        start_up.start_up()
+
+        self.assertNotIn(
+            components.COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])

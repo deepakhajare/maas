@@ -54,19 +54,20 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "api_doc",
-    "api_doc_title",
-    "generate_api_doc",
-    "get_oauth_token",
     "AccountHandler",
     "AnonNodesHandler",
+    "api_doc",
+    "api_doc_title",
+    "BootImagesHandler",
     "FilesHandler",
+    "get_oauth_token",
     "NodeGroupsHandler",
     "NodeHandler",
-    "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
+    "NodesHandler",
     "pxeconfig",
+    "render_api_docs",
     ]
 
 from base64 import b64decode
@@ -80,6 +81,7 @@ import sys
 from textwrap import dedent
 import types
 
+from celery.app import app_or_default
 from django.conf import settings
 from django.core.exceptions import (
     PermissionDenied,
@@ -99,10 +101,21 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
+from maasserver.apidoc import (
+    describe_handler,
+    find_api_handlers,
+    generate_api_docs,
+    )
+from maasserver.components import (
+    COMPONENT,
+    discard_persistent_error,
+    register_persistent_error,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
+    NODEGROUP_STATUS,
     )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
@@ -115,8 +128,10 @@ from maasserver.fields import validate_mac
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
+    NodeGroupWithInterfacesForm,
     )
 from maasserver.models import (
+    BootImage,
     Config,
     DHCPLease,
     FileStorage,
@@ -130,11 +145,9 @@ from maasserver.preseed import (
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils.orm import get_one
-from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
-    HandlerMetaClass,
     )
 from piston.models import Token
 from piston.resource import Resource
@@ -870,7 +883,7 @@ class NodeGroupsHandler(BaseHandler):
     def read(self, request):
         """Index of node groups."""
         return HttpResponse(sorted(
-            [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
+            [nodegroup.uuid for nodegroup in NodeGroup.objects.all()]))
 
     @classmethod
     def resource_uri(cls):
@@ -890,15 +903,69 @@ class NodeGroupsHandler(BaseHandler):
         NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
+    @api_exported('POST')
+    def register(self, request):
+        """Register a new `NodeGroup`.
 
-def get_nodegroup_for_worker(request, nodegroup_name):
-    """Get :class:`NodeGroup` by name, for access by its worker.
+        This method will use HTTP return codes to indicate the success of the
+        call:
+
+        - 200 (OK): the nodegroup has been accepted, the response will
+          contain the RabbitMQ credentials in JSON format: e.g.:
+          '{"BROKER_URL" = "amqp://guest:guest@localhost:5672//"}'
+        - 202 (Accepted): the registration of the nodegroup has been accepted,
+          it now needs to be validated by an administrator.  Please issue
+          the same request later.
+        - 403 (Forbidden): this nodegroup has been rejected.
+
+        :param uuid: The UUID of the nodegroup.
+        :type name: basestring
+        :param name: The name of the nodegroup.
+        :type name: basestring
+        :param interfaces: The list of the interfaces' data.
+        :type interface: json string containing a list of dictionaries with
+            the data to initialize the interfaces.
+            e.g.: '[{"ip_range_high": "192.168.168.254",
+            "ip_range_low": "192.168.168.1", "broadcast_ip":
+            "192.168.168.255", "ip": "192.168.168.18", "subnet_mask":
+            "255.255.255.0", "router_ip": "192.168.168.1", "interface":
+            "eth0"}]'
+        """
+        uuid = get_mandatory_param(request.data, 'uuid')
+        existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+        if existing_nodegroup is None:
+            # This nodegroup (identified by its uuid), does not exist yet,
+            # create it if the data validates.
+            form = NodeGroupWithInterfacesForm(request.data)
+            if form.is_valid():
+                form.save()
+                return HttpResponse(
+                    "Cluster registered.  Awaiting admin approval.",
+                    status=httplib.ACCEPTED)
+            else:
+                raise ValidationError(form.errors)
+        else:
+            if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
+                # The nodegroup exists and is validated, return the RabbitMQ
+                # credentials as JSON.
+                celery_conf = app_or_default().conf
+                return {
+                    'BROKER_URL': celery_conf.BROKER_URL,
+                }
+            elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
+                raise PermissionDenied('Rejected cluster.')
+            elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
+                return HttpResponse(
+                    "Awaiting admin approval.", status=httplib.ACCEPTED)
+
+
+def check_nodegroup_access(request, nodegroup):
+    """Validate API access by worker for `nodegroup`.
 
     This supports a nodegroup worker accessing its nodegroup object on
-    the API.  If the request is done by ayone but the worker for this
+    the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
-    nodegroup = get_object_or_404(NodeGroup, name=nodegroup_name)
     try:
         key = extract_oauth_key(request)
     except Unauthorized as e:
@@ -908,32 +975,31 @@ def get_nodegroup_for_worker(request, nodegroup_name):
         raise PermissionDenied(
             "Only allowed for the %r worker." % nodegroup.name)
 
-    return nodegroup
-
 
 @api_operations
 class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
     allowed_methods = ('GET', 'POST')
-    fields = ('name', )
+    fields = ('name', 'uuid')
 
-    def read(self, request, name):
+    def read(self, request, uuid):
         """GET a node group."""
-        return get_object_or_404(NodeGroup, name=name)
+        return get_object_or_404(NodeGroup, uuid=uuid)
 
     @classmethod
     def resource_uri(cls, nodegroup=None):
         if nodegroup is None:
-            name = 'name'
+            uuid = 'uuid'
         else:
-            name = nodegroup.name
-        return ('nodegroup_handler', [name])
+            uuid = nodegroup.uuid
+        return ('nodegroup_handler', [uuid])
 
     @api_exported('POST')
-    def update_leases(self, request, name):
+    def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
-        nodegroup = get_nodegroup_for_worker(request, name)
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        check_nodegroup_access(request, nodegroup)
         leases = json.loads(leases)
         new_leases = DHCPLease.objects.update_leases(nodegroup, leases)
         if len(new_leases) > 0:
@@ -1015,7 +1081,7 @@ class MAASHandler(BaseHandler):
 
 
 # Title section for the API documentation.  Matches in style, format,
-# etc. whatever generate_api_doc() produces, so that you can concatenate
+# etc. whatever render_api_docs() produces, so that you can concatenate
 # the two.
 api_doc_title = dedent("""
     ========
@@ -1024,8 +1090,8 @@ api_doc_title = dedent("""
     """.lstrip('\n'))
 
 
-def generate_api_doc():
-    """Generate ReST documentation for the REST API.
+def render_api_docs():
+    """Render ReST documentation for the REST API.
 
     This module's docstring forms the head of the documentation; details of
     the API methods follow.
@@ -1033,24 +1099,7 @@ def generate_api_doc():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
-
-    # Fetch all the API Handlers (objects with the class
-    # HandlerMetaClass).
     module = sys.modules[__name__]
-
-    all = [getattr(module, name) for name in module.__all__]
-    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
-
-    # Make sure each handler defines a 'resource_uri' method (this is
-    # easily forgotten and essential to have a proper documentation).
-    for handler in handlers:
-        sentinel = object()
-        resource_uri = getattr(handler, "resource_uri", sentinel)
-        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
-            handler.__name__)
-
-    docs = [generate_doc(handler) for handler in handlers]
-
     messages = [
         __doc__.strip(),
         '',
@@ -1059,7 +1108,8 @@ def generate_api_doc():
         '----------',
         '',
         ]
-    for doc in docs:
+    handlers = find_api_handlers(module)
+    for doc in generate_api_docs(handlers):
         for method in doc.get_methods():
             messages.append(
                 "%s %s\n  %s\n" % (
@@ -1073,20 +1123,14 @@ def reST_to_html_fragment(a_str):
     return parts['body_pre_docinfo'] + parts['fragment']
 
 
-_API_DOC = None
-
-
 def api_doc(request):
     """Get ReST documentation for the REST API."""
     # Generate the documentation and keep it cached.  Note that we can't do
     # that at the module level because the API doc generation needs Django
     # fully initialized.
-    global _API_DOC
-    if _API_DOC is None:
-        _API_DOC = generate_api_doc()
     return render_to_response(
         'maasserver/api_doc.html',
-        {'doc': reST_to_html_fragment(generate_api_doc())},
+        {'doc': reST_to_html_fragment(render_api_docs())},
         context_instance=RequestContext(request))
 
 
@@ -1153,4 +1197,63 @@ def pxeconfig(request):
 
     return HttpResponse(
         json.dumps(params._asdict()),
+        content_type="application/json")
+
+
+@api_operations
+class BootImagesHandler(BaseHandler):
+
+    @classmethod
+    def resource_uri(cls):
+        return ('boot_images_handler', [])
+
+    @api_exported('POST')
+    def report_boot_images(self, request):
+        """Report images available to net-boot nodes from.
+
+        :param images: A list of dicts, each describing a boot image with
+            these properties: `architecture`, `subarchitecture`, `release`,
+            `purpose`, all as in the code that determines TFTP paths for
+            these images.
+        """
+        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
+        images = json.loads(get_mandatory_param(request.data, 'images'))
+
+        for image in images:
+            BootImage.objects.register_image(
+                architecture=image['architecture'],
+                subarchitecture=image.get('subarchitecture', 'generic'),
+                release=image['release'],
+                purpose=image['purpose'])
+
+        if len(images) == 0:
+            warning = dedent("""\
+                No boot images have been imported yet.  Either the
+                maas-import-pxe-files script has not run yet, or it failed.
+
+                Try running it manually.  If it succeeds, this message will
+                go away within 5 minutes.
+                """)
+            register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
+        else:
+            discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
+
+        return HttpResponse("OK")
+
+
+def describe(request):
+    """Return a description of the whole MAAS API.
+
+    Returns a JSON object describing the whole MAAS API.
+    """
+    module = sys.modules[__name__]
+    description = {
+        "doc": "MAAS API",
+        "handlers": [
+            describe_handler(handler)
+            for handler in find_api_handlers(module)
+            ],
+        }
+    return HttpResponse(
+        json.dumps(description),
         content_type="application/json")

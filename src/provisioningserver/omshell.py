@@ -111,6 +111,8 @@ class Omshell:
         return proc.returncode, stdout
 
     def create(self, ip_address, mac_address):
+        # The "name" is not a host name; it's an identifier used within
+        # the DHCP server.  We just happen to use the IP address.
         stdin = dedent("""\
             server {self.server_address}
             key omapi_key {self.shared_key}
@@ -118,7 +120,8 @@ class Omshell:
             new host
             set ip-address = {ip_address}
             set hardware-address = {mac_address}
-            set name = {ip_address}
+            set hardware-type = 1
+            set name = "{ip_address}"
             create
             """)
         stdin = stdin.format(
@@ -130,16 +133,24 @@ class Omshell:
         # that the 'create' command failed.  Unfortunately there's no
         # other output like "successful" to check so this is the best we
         # can do.
-        if "hardware-type" not in output:
+        if "hardware-type" in output:
+            # Success.
+            pass
+        elif "can't open object: I/O error" in output:
+            # Host map already existed.  Treat as success.
+            pass
+        else:
             raise CalledProcessError(returncode, "omshell", output)
 
     def remove(self, ip_address):
+        # The "name" is not a host name; it's an identifier used within
+        # the DHCP server.  We just happen to use the IP address.
         stdin = dedent("""\
             server {self.server_address}
             key omapi_key {self.shared_key}
             connect
             new host
-            set name = {ip_address}
+            set name = "{ip_address}"
             open
             remove
             """)

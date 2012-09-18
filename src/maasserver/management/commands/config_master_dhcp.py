@@ -25,28 +25,26 @@ from optparse import (
     )
 
 from django.core.management.base import BaseCommand
+from maasserver.enum import (
+    DNS_DHCP_MANAGEMENT,
+    NODEGROUPINTERFACE_MANAGEMENT,
+    )
 from maasserver.models import (
     Config,
     NodeGroup,
+    NodeGroupInterface,
     )
 
 
 dhcp_items = {
-    'dhcp_interface': "Network interface that should service DHCP requests.",
-    'subnet_mask': "Subnet mask, e.g. 255.0.0.0",
-    'broadcast_ip': "Broadcast address for this subnet, e.g. 10.255.255.255",
+    'interface': "The network interface that should service DHCP requests.",
+    'ip': "The IP address at which nodes can reach the DHCP server.",
+    'subnet_mask': "Subnet mask, e.g. 255.0.0.0.",
+    'broadcast_ip': "Broadcast address for this subnet, e.g. 10.255.255.255.",
     'router_ip': "Address of default gateway.",
     'ip_range_low': "Lowest IP address to assign to clients.",
     'ip_range_high': "Highest IP address to assign to clients.",
     }
-
-
-# DHCP settings when disabled.
-clear_settings = {item: None for item in dhcp_items}
-
-# Django is weird with null strings.  Not all settings use None as the
-# not-set value.
-clear_settings['dhcp_interface'] = ''
 
 
 def get_settings(options):
@@ -97,14 +95,26 @@ class Command(BaseCommand):
         master_nodegroup = NodeGroup.objects.ensure_master()
         if not options.get('ensure'):
             if options.get('clear'):
-                settings = clear_settings
-            else:
-                settings = get_settings(options)
-            for item, value in settings.items():
-                setattr(master_nodegroup, item, value)
-            master_nodegroup.save()
+                master_nodegroup.nodegroupinterface_set.all().delete()
+                return
 
-            # If DHCP management is enabled, create a Task that will
-            # write the config out.
-            if Config.objects.get_config('manage_dhcp'):
-                master_nodegroup.set_up_dhcp()
+            settings = get_settings(options)
+            interface = master_nodegroup.get_managed_interface()
+            if interface is None:
+                interface = NodeGroupInterface(
+                    nodegroup=master_nodegroup,
+                    management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+            # That kind of manipulation should really be done via a form
+            # rather than with 'setattr'.
+            for item, value in settings.items():
+                setattr(interface, item, value)
+            interface.save()
+
+            # Enable DHCP management if it was previously disabled.
+            dns_dhcp_management = Config.objects.get_config(
+                'dns_dhcp_management')
+            if dns_dhcp_management == DNS_DHCP_MANAGEMENT.NONE:
+                Config.objects.set_config(
+                    'dns_dhcp_management', DNS_DHCP_MANAGEMENT.DHCP_ONLY)
+            # Create a Task that will write the config out.
+            master_nodegroup.set_up_dhcp()
