@@ -27,6 +27,7 @@ from django.db.models import (
 from django.db.models.signals import post_save
 from maasserver import DefaultMeta
 from maasserver.enum import (
+    DISTRO_SERIES,
     DNS_DHCP_MANAGEMENT,
     NODE_AFTER_COMMISSIONING_ACTION,
     )
@@ -53,6 +54,8 @@ def get_default_config():
         'enlistment_domain': b'local',
         'dns_dhcp_management': DNS_DHCP_MANAGEMENT.NONE,
         ## /settings
+        'default_distro_series': DISTRO_SERIES.precise,
+        'commissioning_distro_series': DISTRO_SERIES.precise,
         }
 
 
