@@ -633,14 +633,15 @@ class NodeGroupInterfaceForm(ModelForm):
         # is supported per NodeGroup.
         management = self.cleaned_data['management']
         if management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
-            nodegroup_interfaces = NodeGroupInterface.objects.all()
+            other_interfaces = NodeGroupInterface.objects.all()
+            # Exclude context if it's already in the database.
             if self.instance and self.instance.id is not None:
-                nodegroup_interfaces = nodegroup_interfaces.exclude(
-                    id=self.instance.id)
-            exist_other_managed_interface = (
-                nodegroup_interfaces.exclude(
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED).exists())
-            if exist_other_managed_interface:
+                other_interfaces = (
+                    other_interfaces.exclude(id=self.instance.id))
+            # Narrow down to the those that are managed.
+            other_managed_interfaces = other_interfaces.exclude(
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+            if other_managed_interfaces.exists():
                 raise ValidationError(
                     {'management': [
                         "Another managed interface already exists for this "
@@ -698,9 +699,9 @@ class NodeGroupWithInterfacesForm(ModelForm):
                     raise forms.ValidationError(
                         "Invalid interface: %r (%r)." % (
                             interface, form._errors))
-                management = interface.get('management', '')
+                management = interface.get('management', None)
                 if management not in (
-                    '', NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED):
+                    None, NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED):
                     managed.append(management)
             # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
             # is supported per NodeGroup.

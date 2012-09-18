@@ -35,6 +35,7 @@ from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
+from itertools import izip
 from maasserver.api import (
     DISPLAYED_NODEGROUP_FIELDS,
     extract_constraints,
@@ -2554,12 +2555,14 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         self.assertEqual({'test': 'test'}, parsed_result)
 
 
-def get_dict(object, fields):
+def dict_subset(obj, fields):
     """Return a dict of a subset of the fields/values of an object."""
+    undefined = object()
+    values = (getattr(obj, field, undefined) for field in fields)
     return {
-        field: value for field, value in object.__dict__.items()
-        if field in fields
-    }
+        field: value for field, value in izip(fields, values)
+        if value is not undefined
+     }
 
 
 class TestNodeGroupInterfacesAPI(APITestCase):
@@ -2573,7 +2576,7 @@ class TestNodeGroupInterfacesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
             [
-                get_dict(interface, DISPLAYED_NODEGROUP_FIELDS)
+                dict_subset(interface, DISPLAYED_NODEGROUP_FIELDS)
                 for interface in nodegroup.nodegroupinterface_set.all()
             ],
             json.loads(response.content))
@@ -2591,13 +2594,12 @@ class TestNodeGroupInterfacesAPI(APITestCase):
             management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
 
         settings = make_interface_settings()
-        query_data = settings.copy()
-        query_data['op'] = 'new'
+        query_data = dict(settings, op="new")
         response = self.client.post(
             reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
             query_data)
         self.assertEqual(httplib.OK, response.status_code, response.content)
-        expected_result = settings.copy()
+        expected_result = settings
         new_interface = NodeGroupInterface.objects.get(
             nodegroup=nodegroup, interface=settings['interface'])
         self.assertThat(
@@ -2607,10 +2609,15 @@ class TestNodeGroupInterfacesAPI(APITestCase):
     def test_new_validates_data(self):
         self.become_admin()
         nodegroup = factory.make_node_group()
-        response = self.client.get(
+        response = self.client.post(
             reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
             {'op': 'new', 'ip': 'invalid ip'})
-        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'ip': ["Enter a valid IPv4 address."]},
+            ),
+            (response.status_code, json.loads(response.content)))
 
     def test_new_only_available_to_admin(self):
         nodegroup = factory.make_node_group()
@@ -2632,7 +2639,7 @@ class TestNodeGroupInterfaceAPI(APITestCase):
                 args=[nodegroup.uuid, interface.interface]))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            get_dict(interface, DISPLAYED_NODEGROUP_FIELDS),
+            dict_subset(interface, DISPLAYED_NODEGROUP_FIELDS),
             json.loads(response.content))
 
     def test_update_interface(self):
