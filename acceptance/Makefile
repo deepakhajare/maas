@@ -28,14 +28,14 @@ endef
 test: services sudo build image
 	$(ephexec-make) $@-inner
 
-test-inner:
+test-inner: upgrade-inner
 	sudo -AE dpkg --install -- $(packages)
 	sudo -AE apt-get --fix-broken --assume-yes install
 
 build: services sudo source source/debian
 	$(ephexec-make) $@-inner
 
-build-inner:
+build-inner: upgrade-inner
 	sudo -AE apt-get --assume-yes install devscripts debhelper dh-apport
 	cd source && debuild -i -us -uc -b
 
@@ -48,6 +48,10 @@ lxc-net:
 	@service $@ status
 
 services: lxc lxc-net
+
+upgrade-inner:
+	sudo -AE apt-get --assume-yes update
+	sudo -AE apt-get --assume-yes upgrade
 
 ##
 
