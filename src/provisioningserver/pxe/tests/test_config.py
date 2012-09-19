@@ -147,7 +147,7 @@ class TestParsePXEConfig(TestCase):
         self.assertEqual({}, config)
 
 
-class TestRenderPXEConfig(TestCase):
+class TestRenderPXEConfigWithPurposes(TestCase):
     """Purpose tests for `provisioningserver.pxe.config.render_pxe_config`"""
 
     scenarios = (
