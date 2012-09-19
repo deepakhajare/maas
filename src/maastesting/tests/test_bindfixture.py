@@ -71,10 +71,7 @@ class TestBINDFixture(TestCase):
                 # responsible for propagating fixture details.
                 gather_details(fixture.getDetails(), self.getDetails())
                 raise
-        error = self.assertRaises(
-            CalledProcessError, dig_call, fixture.config.port)
-        self.assertEqual(9, error.returncode)
-        # return code 9 means timeout.
+        self.assertFalse(fixture.runner.is_running())
 
     def test_config(self):
         # The configuration can be passed in.
