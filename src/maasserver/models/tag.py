@@ -18,17 +18,17 @@ from django.db.models import (
     CharField,
     TextField,
     Manager,
+    ManyToManyField,
     )
 from maasserver import DefaultMeta
 from maasserver.models.cleansave import CleanSave
-from maasserver.models.config import Config
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.models.node import Node
 
 
 class TagManager(Manager):
     """A utility to manage the collection of Tags."""
-    pass # I don't know what I'm doing
+    pass
 
 
 class Tag(CleanSave, TimestampedModel):
@@ -51,8 +51,8 @@ class Tag(CleanSave, TimestampedModel):
     definition = TextField()
     comment = TextField(blank=True)
 
+    nodes = ManyToManyField(Node)
     objects = TagManager()
 
     def __unicode__(self):
         return self.name
-
