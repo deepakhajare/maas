@@ -96,15 +96,19 @@ class NodeWithMACAddressesFormTest(TestCase):
                 query_dict[k] = v
         return query_dict
 
-    def make_params(self, mac_addresses=None, architecture=None):
+    def make_params(self, mac_addresses=None, architecture=None,
+                    nodegroup=None):
         if mac_addresses is None:
             mac_addresses = [factory.getRandomMACAddress()]
         if architecture is None:
             architecture = factory.getRandomEnum(ARCHITECTURE)
-        return self.get_QueryDict({
+        params = {
             'mac_addresses': mac_addresses,
             'architecture': architecture,
-        })
+        }
+        if nodegroup is not None:
+            params['nodegroup'] = nodegroup
+        return self.get_QueryDict(params)
 
     def test_NodeWithMACAddressesForm_valid(self):
         architecture = factory.getRandomEnum(ARCHITECTURE)
@@ -167,6 +171,13 @@ class NodeWithMACAddressesFormTest(TestCase):
         self.assertEqual(
             NodeGroup.objects.ensure_master(),
             NodeWithMACAddressesForm(self.make_params()).save().nodegroup)
+
+    def test_accepts_nodegroup_uuid(self):
+        nodegroup = factory.make_node_group()
+        form = NodeWithMACAddressesForm(
+            self.make_params(nodegroup=nodegroup.uuid))
+        node = form.save()
+        self.assertEqual(nodegroup, node.nodegroup)
 
 
 class TestOptionForm(ConfigForm):

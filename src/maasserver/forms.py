@@ -152,10 +152,7 @@ class AdminNodeForm(APIEditMixin, NodeForm):
 
     class Meta:
         model = Node
-        fields = (
-            'hostname',
-            'after_commissioning_action',
-            'architecture',
+        fields = NodeForm.Meta.fields + (
             'power_type',
             'power_parameters',
             )
