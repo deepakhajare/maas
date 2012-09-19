@@ -40,7 +40,6 @@ def is_dhcp_disabled_until_task_routing_in_place(nodegroup):
 
 
 def is_dhcp_managed(nodegroup):
-
     interface = nodegroup.get_managed_interface()
     return (
         settings.DHCP_CONNECT and
