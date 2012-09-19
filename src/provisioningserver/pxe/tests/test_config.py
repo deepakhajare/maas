@@ -147,19 +147,13 @@ class TestParsePXEConfig(TestCase):
         self.assertEqual({}, config)
 
 
-class TestRenderPXEConfigWithPurposes(TestCase):
-    """Purpose tests for `provisioningserver.pxe.config.render_pxe_config`"""
-
-    scenarios = (
-        ("commissioning", dict(purpose="commissioning")),
-        ("install", dict(purpose="install")),
-        ("local", dict(purpose="local")),
-        )
+class TestRenderPXEConfig(TestCase):
+    """Tests for `provisioningserver.pxe.config.render_pxe_config`."""
 
     def test_render(self):
         # Given the right configuration options, the PXE configuration is
         # correctly rendered.
-        params = make_kernel_parameters(purpose=self.purpose)
+        params = make_kernel_parameters(purpose="install")
         output = render_pxe_config(kernel_params=params)
         # The output is always a Unicode string.
         self.assertThat(output, IsInstance(unicode))
@@ -185,7 +179,7 @@ class TestRenderPXEConfigWithPurposes(TestCase):
     def test_render_with_extra_arguments_does_not_affect_output(self):
         # render_pxe_config() allows any keyword arguments as a safety valve.
         options = {"kernel_params":
-                        make_kernel_parameters(purpose=self.purpose)}
+                        make_kernel_parameters(purpose="install")}
         # Capture the output before sprinking in some random options.
         output_before = render_pxe_config(**options)
         # Sprinkle some magic in.
@@ -197,8 +191,6 @@ class TestRenderPXEConfigWithPurposes(TestCase):
         # The generated template is the same.
         self.assertEqual(output_before, output_after)
 
-class TestRenderPXEConfig(TestCase):
-    """Tests for `provisioningserver.pxe.config.render_pxe_config`."""
     def test_render_pxe_config_with_local_purpose(self):
         # If purpose is "local", the config.localboot.template should be
         # used.
