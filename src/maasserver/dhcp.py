@@ -74,9 +74,8 @@ def configure_dhcp(nodegroup):
         IPAddress(interface.ip_range_low) &
         IPAddress(interface.subnet_mask))
     # XXX: rvb 2012-09-19 bug=1039366: Tasks are not routed yet.
-    # When adding task routing, the method
-    # is_dhcp_disabled_until_task_routing_in_place should be removed (don't
-    # forget to remove its patching in tests).
+    # Once task routing is in place, the method
+    # is_dhcp_disabled_until_task_routing_in_place should be removed.
     write_dhcp_config.delay(
         subnet=subnet, next_server=next_server, omapi_key=nodegroup.dhcp_key,
         subnet_mask=interface.subnet_mask,
