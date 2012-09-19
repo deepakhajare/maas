@@ -26,7 +26,8 @@ from provisioningserver.tasks import write_dhcp_config
 
 
 def is_dhcp_disabled_until_task_routing_in_place(nodegroup):
-    """Until proper task routing is in place, disable DHCP.
+    """Until proper task routing is in place, disable DHCP for non-master
+    nodegroups.
 
     # XXX: rvb 2012-09-19 bug=1039366: Tasks are not routed yet.
     Until proper task routing is in place, the only DHCP config which can be
