@@ -40,6 +40,7 @@ def is_dhcp_disabled_until_task_routing_in_place(nodegroup):
 
 
 def is_dhcp_managed(nodegroup):
+    """Does MAAS manage the DHCP server for this Nodegroup?"""
     interface = nodegroup.get_managed_interface()
     return (
         settings.DHCP_CONNECT and
@@ -55,6 +56,7 @@ def configure_dhcp(nodegroup):
     if not is_dhcp_managed(nodegroup):
         return
 
+    # XXX: rvb 2012-09-19 bug=1039366: Tasks are not routed yet.
     if is_dhcp_disabled_until_task_routing_in_place(nodegroup):
         return
 
