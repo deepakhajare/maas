@@ -24,6 +24,8 @@ __all__ = [
     'NODE_STATUS_CHOICES',
     'NODE_STATUS_CHOICES_DICT',
     'PRESEED_TYPE',
+    'DISTRO_SERIES',
+    'DISTRO_SERIES_CHOICES',
     ]
 
 from collections import OrderedDict
@@ -107,12 +109,31 @@ class ARCHITECTURE:
     i386 = 'i386'
     #:
     amd64 = 'amd64'
+    #:
+    armhf = 'armhf'
 
 
 # Architecture names.
 ARCHITECTURE_CHOICES = (
     (ARCHITECTURE.i386, "i386"),
     (ARCHITECTURE.amd64, "amd64"),
+    (ARCHITECTURE.armhf, "armhf"),
+)
+
+
+class DISTRO_SERIES:
+    """List of supported ubuntu releases."""
+    #:
+    default = ''
+    #:
+    precise = 'precise'
+    #:
+    quantal = 'quantal'
+
+DISTRO_SERIES_CHOICES = (
+    (DISTRO_SERIES.default, 'Default Ubuntu Release'),
+    (DISTRO_SERIES.precise, 'Ubuntu 12.04 LTS "Precise Pangolin"'),
+    (DISTRO_SERIES.quantal, 'Ubuntu 12.10 "Quantal Quetzal"'),
 )
 
 
@@ -167,7 +188,7 @@ NODEGROUP_STATUS_CHOICES = (
 class NODEGROUPINTERFACE_MANAGEMENT:
     """The vocabulary of a `NodeGroupInterface`'s possible statuses."""
     # A nodegroupinterface starts out as UNMANAGED.
-    DEFAULT_STATUS = 0
+    DEFAULT = 0
 
     # Do not manage DHCP or DNS for this interface.
     UNMANAGED = 0

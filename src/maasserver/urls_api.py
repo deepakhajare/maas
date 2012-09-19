@@ -25,6 +25,8 @@ from maasserver.api import (
     FilesHandler,
     MAASHandler,
     NodeGroupHandler,
+    NodeGroupInterfaceHandler,
+    NodeGroupInterfacesHandler,
     NodeGroupsHandler,
     NodeHandler,
     NodeMacHandler,
@@ -34,7 +36,6 @@ from maasserver.api import (
     RestrictedResource,
     )
 from maasserver.api_auth import api_auth
-from piston.resource import Resource
 
 
 account_handler = RestrictedResource(AccountHandler, authentication=api_auth)
@@ -46,23 +47,23 @@ node_macs_handler = RestrictedResource(
     NodeMacsHandler, authentication=api_auth)
 nodegroup_handler = RestrictedResource(
     NodeGroupHandler, authentication=api_auth)
+nodegroups_handler = RestrictedResource(
+    NodeGroupsHandler, authentication=api_auth)
 boot_images_handler = RestrictedResource(
     BootImagesHandler, authentication=api_auth)
-
-# The nodegroups view is anonymously accessible, but anonymous users
-# can't drill down into individual nodegruops.
-nodegroups_handler = Resource(NodeGroupsHandler)
 
 
 # Admin handlers.
 maas_handler = AdminRestrictedResource(MAASHandler, authentication=api_auth)
-
+nodegroupinterface_handler = AdminRestrictedResource(
+    NodeGroupInterfaceHandler, authentication=api_auth)
+nodegroupinterfaces_handler = AdminRestrictedResource(
+    NodeGroupInterfacesHandler, authentication=api_auth)
 
 # API URLs accessible to anonymous users.
 urlpatterns = patterns('',
     url(r'doc/$', api_doc, name='api-doc'),
     url(r'describe/$', describe, name='describe'),
-    url(r'nodegroups/$', nodegroups_handler, name='nodegroups_handler'),
     url(r'pxeconfig/$', pxeconfig, name='pxeconfig'),
 )
 
@@ -83,6 +84,11 @@ urlpatterns += patterns('',
     url(
         r'nodegroups/(?P<uuid>[^/]+)/$',
         nodegroup_handler, name='nodegroup_handler'),
+    url(r'nodegroups/$', nodegroups_handler, name='nodegroups_handler'),
+    url(r'nodegroups/(?P<uuid>[^/]+)/interfaces/$',
+        nodegroupinterfaces_handler, name='nodegroupinterfaces_handler'),
+    url(r'nodegroups/(?P<uuid>[^/]+)/interfaces/(?P<interface>[^/]+)/$',
+        nodegroupinterface_handler, name='nodegroupinterface_handler'),
     url(r'files/$', files_handler, name='files_handler'),
     url(r'account/$', account_handler, name='account_handler'),
     url(r'boot-images/$', boot_images_handler, name='boot_images_handler'),

@@ -55,7 +55,7 @@ class NodeGroupManager(Manager):
     def new(self, name, uuid, ip, subnet_mask=None,
             broadcast_ip=None, router_ip=None, ip_range_low=None,
             ip_range_high=None, dhcp_key='', interface='',
-            management=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT_STATUS):
+            management=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT):
         """Create a :class:`NodeGroup` with the given parameters.
 
         This method will:
@@ -141,6 +141,16 @@ class NodeGroup(TimestampedModel):
 
     def __repr__(self):
         return "<NodeGroup %r>" % self.name
+
+    def accept(self):
+        """Accept this nodegroup's enlistment."""
+        self.status = NODEGROUP_STATUS.ACCEPTED
+        self.save()
+
+    def reject(self):
+        """Reject this nodegroup's enlistment."""
+        self.status = NODEGROUP_STATUS.REJECTED
+        self.save()
 
     def save(self, *args, **kwargs):
         if self.api_token_id is None:

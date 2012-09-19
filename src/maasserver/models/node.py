@@ -38,6 +38,8 @@ from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DISTRO_SERIES,
+    DISTRO_SERIES_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODE_PERMISSION,
@@ -353,6 +355,10 @@ class Node(CleanSave, TimestampedModel):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
+    distro_series = CharField(
+        max_length=10, choices=DISTRO_SERIES_CHOICES, null=True,
+        blank=True, default='')
+
     architecture = CharField(
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
@@ -559,18 +565,11 @@ class Node(CleanSave, TimestampedModel):
             power_params = {}
 
         power_params.setdefault('system_id', self.system_id)
-        power_params.setdefault('virsh', '/usr/bin/virsh')
-        power_params.setdefault('ipmitool', '/usr/bin/ipmitool')
+        power_params.setdefault('virsh', '/usr/sbin/virsh')
+        power_params.setdefault('ipmipower', '/usr/bin/ipmipower')
         power_params.setdefault('power_address', 'qemu://localhost/system')
         power_params.setdefault('username', '')
         power_params.setdefault('power_id', self.system_id)
-
-        # Set the default ipmi interface based on the IPMI/IPMI_LAN
-        # POWER_TYPE selected
-        if self.power_type == POWER_TYPE.IPMI:
-            power_params.setdefault('power_ipmi_interface', 'lan')
-        if self.power_type == POWER_TYPE.IPMI_LAN:
-            power_params.setdefault('power_ipmi_interface', 'lanplus')
 
         # The "mac" parameter defaults to the node's primary MAC
         # address, but only if no power parameters were set at all.
