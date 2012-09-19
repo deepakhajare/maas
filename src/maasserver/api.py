@@ -518,7 +518,7 @@ class NodeHandler(BaseHandler):
         The user_data parameter, if set in the POST data, is taken as
         base64-encoded binary data.
 
-        The ubuntu_series parameter, if set in the POST data, is taken as
+        The distro_series parameter, if set in the POST data, is taken as
         clear text. This parameter specifies the Ubuntu Release the node
         will use.
 
@@ -528,7 +528,7 @@ class NodeHandler(BaseHandler):
         encoding instead.
         """
         user_data = request.POST.get('user_data', None)
-        series = request.POST.get('ubuntu_series', None)
+        series = request.POST.get('distro_series', None)
         if user_data is not None:
             user_data = b64decode(user_data)
         if series is not None:
