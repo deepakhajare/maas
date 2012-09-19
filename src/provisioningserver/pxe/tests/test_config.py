@@ -71,8 +71,9 @@ class TestFunctions(TestCase):
         from_filename.assert_called_once_with(
             path.join(config.template_dir, filename), encoding="UTF-8")
 
-    @unittest.skipUnless(path.exists(path.join(config.template_dir,
-                                               "config.template")),
+    config_template_path = path.join(config.template_dir, "config.template")
+
+    @unittest.skipUnless(path.exists(config_template_path),
                          "no default template in use")
     def test_get_pxe_template_gets_default(self):
         # There will not be a template matching the following purpose, arch,
