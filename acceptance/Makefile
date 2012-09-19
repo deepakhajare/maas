@@ -29,10 +29,10 @@ endef
 
 ##
 
-test: services sudo build image
+test: services sudo image build
 	$(ephexec-make) $@-inner
 
-build: services sudo source source/debian
+build: services sudo image source source/debian
 	$(ephexec-make) $@-inner
 
 image: /var/lib/lxc/$(image)
@@ -76,7 +76,7 @@ source:
 source/debian: | source
 	bzr export $@ $(packaging)/debian
 
-/var/lib/lxc/$(image):
+/var/lib/lxc/$(image): sudo
 	sudo lxc-create -n $(image) -t ubuntu
 
 ##
