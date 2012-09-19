@@ -12,50 +12,94 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'encode_multipart_data',
+    'encode_multipart_message',
+    'prepare_multipart_message',
     ]
 
+from collections import Mapping
+from email.generator import Generator
+from email.message import Message
+from io import (
+    BytesIO,
+    IOBase,
+    )
+from itertools import chain
 import mimetypes
-import random
-import string
 
 
-def make_random_boundary(length=30):
-    """Create a random string for use in MIME boundary lines."""
-    return b''.join(random.choice(string.letters) for ii in range(length))
-
-
-def get_content_type(filename):
+def get_content_type(*names):
     """Return the MIME content type for the file with the given name."""
-    return mimetypes.guess_type(filename)[0] or b'application/octet-stream'
+    for name in names:
+        if name is not None:
+            mimetype, encoding = mimetypes.guess_type(name)
+            if mimetype is not None:
+                return mimetype
+    else:
+        return "application/octet-stream"
 
 
-def encode_field(field_name, data, boundary):
-    """MIME-encode a form field."""
-    field_name = field_name.encode('ascii')
-    return (
-        b'--' + boundary,
-        b'Content-Disposition: form-data; name="%s"' % field_name,
-        b'',
-        bytes(data),
-        )
+def attach_bytes(payload, name, content):
+    payload.add_header("Content-Disposition", "form-data", name=name)
+    payload.set_payload(content)
+    payload.set_type("application/octet-stream")
 
 
-def encode_file(name, fileObj, boundary):
-    """MIME-encode a file upload."""
-    content_type = get_content_type(name)
-    name = name.encode('ascii')
-    return (
-        b'--' + boundary,
-        b'Content-Disposition: form-data; name="%s"; filename="%s"' %
-            (name, name),
-        b'Content-Type: %s' % content_type,
-        b'',
-        fileObj.read(),
-        )
+def attach_string(payload, name, content):
+    payload.add_header("Content-Disposition", "form-data", name=name)
+    payload.set_payload(content.encode("utf-8"))
+    payload.set_type("text/plain")
+    payload.set_charset("utf-8")
+
+
+def attach_file(payload, name, content):
+    payload.add_header(
+        "Content-Disposition", "form-data", name=name, filename=name)
+    payload.set_payload(content.read())
+    names = name, getattr(content, "name", None)
+    payload.set_type(get_content_type(*names))
+
+
+def attach(payload, name, content):
+    if isinstance(content, bytes):
+        attach_bytes(payload, name, content)
+    elif isinstance(content, unicode):
+        attach_string(payload, name, content)
+    elif isinstance(content, IOBase):
+        attach_file(payload, name, content)
+    elif callable(content):
+        with content() as content:
+            attach(payload, name, content)
+    else:
+        raise AssertionError(
+            "%r is unrecognised: %r" % (name, content))
+
+
+def prepare_multipart_message(data):
+    payload = Message()
+    payload.set_type("multipart/form-data")
+
+    for name, content in data:
+        data_payload = Message()
+        attach(data_payload, name, content)
+        payload.attach(data_payload)
+
+    return payload
+
+
+def encode_multipart_message(payload):
+    buf = BytesIO()
+    generator = Generator(buf, False)
+    generator._write_headers = lambda self: None  # Ignore.
+    generator.flatten(payload)
+    payload.add_header("Content-Length", "%d" % buf.tell())
+    return payload.items(), buf.getvalue()
 
 
 def encode_multipart_data(data, files):
     """Create a MIME multipart payload from L{data} and L{files}.
+
+    **Note** that this function is deprecated. Use `prepare_multipart_message`
+    and `encode_multipart_message` instead.
 
     @param data: A mapping of names (ASCII strings) to data (byte string).
     @param files: A mapping of names (ASCII strings) to file objects ready to
@@ -64,19 +108,10 @@ def encode_multipart_data(data, files):
         and C{headers} is a dict of headers to add to the enclosing request in
         which this payload will travel.
     """
-    boundary = make_random_boundary()
-
-    lines = []
-    for name, content in data.items():
-        lines.extend(encode_field(name, content, boundary))
-    for name, file_obj in files.items():
-        lines.extend(encode_file(name, file_obj, boundary))
-    lines.extend((b'--%s--' % boundary, b''))
-    body = b'\r\n'.join(lines)
-
-    headers = {
-        b'content-type': b'multipart/form-data; boundary=' + boundary,
-        b'content-length': b'%s' % (len(body)),
-        }
-
-    return body, headers
+    if isinstance(data, Mapping):
+        data = data.items()
+    if isinstance(files, Mapping):
+        files = files.items()
+    payload = prepare_multipart_message(chain(data, files))
+    headers, body = encode_multipart_message(payload)
+    return body, dict(headers)
