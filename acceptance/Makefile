@@ -1,5 +1,7 @@
 include /etc/lsb-release
-series := $(DISTRIB_CODENAME)
+
+# Default to the newer of Quantal or the local series.
+series := $(lastword $(sort quantal $(DISTRIB_CODENAME)))
 
 packaging := lp:~maas-maintainers/maas/packaging
 
