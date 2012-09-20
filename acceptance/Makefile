@@ -41,7 +41,7 @@ test: services sudo container build
 build: services sudo container source source/debian
 	@$(RM) *.deb
 	$(ephexec-make) $@-inner
-	@set -- *.deb && test $$# -gt 0
+	@ls -1 *.deb
 
 container: $(containerdir)
 
