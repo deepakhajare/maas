@@ -77,7 +77,7 @@ source:
 source/debian: | source
 	bzr export $@ $(packaging)/debian
 
-$(imagedir): sudo
+$(imagedir): | sudo
 	sudo lxc-create -n $(image) -t ubuntu
 
 ##
