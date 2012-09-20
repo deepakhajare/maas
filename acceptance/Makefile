@@ -1,14 +1,15 @@
 include /etc/lsb-release
+series := $(DISTRIB_CODENAME)
 
 packaging := lp:~maas-maintainers/maas/packaging
 
 # Special-case Precise.
-ifeq ($(DISTRIB_CODENAME),precise)
+ifeq ($(series),precise)
 packaging := $(packaging).precise
 endif
 
 upstream := $(abspath ..)
-container := maas-$(DISTRIB_CODENAME)
+container := maas-$(series)
 containerdir := /var/lib/lxc/$(container)
 
 ## Convenience definitions.
@@ -97,7 +98,8 @@ source/debian: | source
 	bzr export $@ $(packaging)/debian
 
 $(containerdir): | sudo
-	sudo lxc-create -n $(container) -t ubuntu
+	sudo lxc-create -n $(container) \
+	    -t ubuntu -- --release $(series)
 
 ## Miscellaneous.
 
