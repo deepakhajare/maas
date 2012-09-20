@@ -67,7 +67,7 @@ endef
 
 test-inner: upgrade-inner
 	sudo -AE apt-get --assume-yes install $(strip $(missing-packages))
-	sudo -AE dpkg --install --force-depends -- *.deb
+	sudo -AE dpkg --unpack --force-depends -- *.deb
 	sudo -AE apt-get --fix-broken --assume-yes install
 
 define build-packages
