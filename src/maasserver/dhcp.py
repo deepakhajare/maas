@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'configure_dhcp',
+    'is_dhcp_managed',
     ]
 
 from django.conf import settings
