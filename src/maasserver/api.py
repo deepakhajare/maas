@@ -135,6 +135,7 @@ from maasserver.forms import (
     get_node_edit_form,
     NodeGroupInterfaceForm,
     NodeGroupWithInterfacesForm,
+    TagForm,
     )
 from maasserver.models import (
     BootImage,
@@ -1243,7 +1244,19 @@ class TagHandler(BaseHandler):
 
     def read(self, request, name):
         """Read a specific Node."""
-        return Tag.objects.get_tag_or_404(name=name)
+        return Tag.objects.get_tag_or_404(name=name, user=request.user)
+
+    def update(self, request, name):
+        """Update a specific `Tag`.
+        """
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
+            to_edit=True)
+        data = get_overrided_query_dict(model_to_dict(tag), request.data)
+        form = TagForm(data, instance=tag)
+        if form.is_valid():
+            return form.save()
+        else:
+            raise ValidationError(form.errors)
 
     @classmethod
     def resource_uri(cls, tag=None):
@@ -1260,6 +1273,12 @@ class TagsHandler(BaseHandler):
     """Manage collection of Tags."""
     allowed_methods = ('GET', 'POST')
 
+    @api_exported('POST')
+    def new(self, request):
+        """Create a new `Tag`.
+        """
+        return create_tag(request)
+
     @api_exported('GET')
     def list(self, request):
         """List Tags.
@@ -1270,6 +1289,22 @@ class TagsHandler(BaseHandler):
     def resource_uri(cls, *args, **kwargs):
         return ('tags_handler', [])
 
+
+def create_tag(request):
+    """Service an http request to create a tag.
+
+    :param request: The http request for this node to be created.
+    :return: A `Tag`.
+    :rtype: :class:`maasserver.models.Tag`.
+    :raises: ValidationError
+    """
+    if not request.user.is_superuser:
+        raise PermissionDenied()
+    form = TagForm(request.data)
+    if form.is_valid():
+        return form.save()
+    else:
+        raise ValidationError(form.errors)
 
 
 @api_operations

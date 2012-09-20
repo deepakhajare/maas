@@ -65,6 +65,7 @@ from maasserver.models import (
     Node,
     NodeGroup,
     NodeGroupInterface,
+    Tag,
     )
 from maasserver.models.user import (
     create_auth_token,
@@ -2114,12 +2115,72 @@ class TestTagAPI(APITestCase):
         self.assertEqual(tag.definition, parsed_result['definition'])
         self.assertEqual(tag.comment, parsed_result['comment'])
 
+    def test_GET_refuses_to_access_nonexistent_node(self):
+        # When fetching a Tag, the api returns a 'Not Found' (404) error
+        # if no node is found.
+        response = self.client.get(self.get_uri('tags/no-such-tag/'))
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_PUT_refuses_non_superuser(self):
+        tag = factory.make_tag()
+        response = self.client.put(self.get_tag_uri(tag),
+                                   {'comment': 'A special comment'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_PUT_updates_tag(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        response = self.client.put(self.get_tag_uri(tag),
+            {'name': 'new-tag-name', 'comment': 'A random comment'})
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual('new-tag-name', parsed_result['name'])
+        self.assertEqual('A random comment', parsed_result['comment'])
+        self.assertEqual(tag.definition, parsed_result['definition'])
+        self.assertEqual(0, Tag.objects.filter(name=tag.name).count())
+        self.assertEqual(1, Tag.objects.filter(name='new-tag-name').count())
+
 
 class TestTagsAPI(APITestCase):
 
     def test_GET_list_without_tags_returns_empty_list(self):
         response = self.client.get(self.get_uri('tags/'), {'op': 'list'})
         self.assertItemsEqual([], json.loads(response.content))
+
+    def test_POST_new_refuses_non_admin(self):
+        name = factory.getRandomString()
+        definition = '//node'
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': comment,
+                'definition': definition,
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(0, Tag.objects.filter(name=name).count())
+
+    def test_POST_new_creates_tag(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        definition = '//node'
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': comment,
+                'definition': definition,
+            })
+        parsed_result = json.loads(response.content)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(name, parsed_result['name'])
+        self.assertEqual(comment, parsed_result['comment'])
+        self.assertEqual(definition, parsed_result['definition'])
 
 
 class MAASAPIAnonTest(APIv10TestMixin, TestCase):

@@ -14,6 +14,9 @@ __all__ = [
     "Tag",
     ]
 
+from django.core.exceptions import (
+    PermissionDenied,
+    )
 from django.db.models import (
     CharField,
     TextField,
@@ -30,12 +33,16 @@ from maasserver.models.timestampedmodel import TimestampedModel
 class TagManager(Manager):
     """A utility to manage the collection of Tags."""
 
-    def get_tag_or_404(self, name):
+    def get_tag_or_404(self, name, user, to_edit=False):
         """Fetch a `Tag` by name.  Raise exceptions if no `Tag` with
         this name exist.
 
         :param name: The Tag.name.
         :type name: str
+        :param user: The user that should be used in the permission check.
+        :type user: django.contrib.auth.models.User
+        :param to_edit: Are we going to edit this tag, or just view it?
+        :type to_edit: bool
         :raises: django.http.Http404_,
             :class:`maasserver.exceptions.PermissionDenied`.
 
@@ -43,6 +50,8 @@ class TagManager(Manager):
            docs.djangoproject.com/en/dev/topics/http/views/
            #the-http404-exception
         """
+        if to_edit and not user.is_superuser:
+            raise PermissionDenied()
         tag = get_object_or_404(Tag, name=name)
         return tag
 

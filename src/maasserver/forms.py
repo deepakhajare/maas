@@ -25,6 +25,7 @@ __all__ = [
     "SSHKeyForm",
     "UbuntuForm",
     "AdminNodeForm",
+    "AdminTagForm",
     ]
 
 import collections
@@ -70,6 +71,7 @@ from maasserver.models import (
     NodeGroup,
     NodeGroupInterface,
     SSHKey,
+    Tag,
     )
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
@@ -718,3 +720,14 @@ class NodeGroupWithInterfacesForm(ModelForm):
         nodegroup.status = NODEGROUP_STATUS.PENDING
         nodegroup.save()
         return nodegroup
+
+
+class TagForm(ModelForm):
+
+    class Meta:
+        model = Tag
+        fields = (
+            'name',
+            'comment',
+            'definition',
+            )
