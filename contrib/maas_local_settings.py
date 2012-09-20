@@ -29,10 +29,6 @@ RABBITMQ_USERID = 'maas_longpoll'
 RABBITMQ_PASSWORD = ''
 RABBITMQ_VIRTUAL_HOST = '/maas_longpoll'
 
-# Broken connection information.
-# Format: transport://userid:password@hostname:port/virtual_host
-BROKER_URL = ''
-
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize the logging configuration.
 LOGGING = {
