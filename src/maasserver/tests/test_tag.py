@@ -41,9 +41,3 @@ class TagTest(TestCase):
         node.tags.add(tag)
         self.assertEqual([tag.id], [t.id for t in node.tags.all()])
         self.assertEqual([node.id], [n.id for n in tag.node_set.all()])
-
-    def test_get_tags(self):
-        tag1 = factory.make_tag()
-        tag2 = factory.make_tag()
-        self.assertEqual(sorted([tag1.id, tag2.id]),
-                         sorted([t.id for t in Tag.objects.get_tags()]))

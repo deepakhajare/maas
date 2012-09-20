@@ -32,6 +32,7 @@ from maasserver.api import (
     NodeMacHandler,
     NodeMacsHandler,
     NodesHandler,
+    TagsHandler,
     pxeconfig,
     RestrictedResource,
     )
@@ -51,6 +52,7 @@ nodegroups_handler = RestrictedResource(
     NodeGroupsHandler, authentication=api_auth)
 boot_images_handler = RestrictedResource(
     BootImagesHandler, authentication=api_auth)
+tags_handler = RestrictedResource(TagsHandler, authentication=api_auth)
 
 
 # Admin handlers.
@@ -92,6 +94,7 @@ urlpatterns += patterns('',
     url(r'files/$', files_handler, name='files_handler'),
     url(r'account/$', account_handler, name='account_handler'),
     url(r'boot-images/$', boot_images_handler, name='boot_images_handler'),
+    url(r'tags/$', tags_handler, name='tags_handler'),
 )
 
 

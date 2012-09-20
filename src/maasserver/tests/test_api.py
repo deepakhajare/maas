@@ -2096,6 +2096,13 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
         self.assertEqual("File not found", response.content)
 
 
+class TestTagsAPI(APITestCase):
+
+    def test_GET_list_without_tags_returns_empty_list(self):
+        response = self.client.get(self.get_uri('tags/'), {'op': 'list'})
+        self.assertItemsEqual([], json.loads(response.content))
+
+
 class MAASAPIAnonTest(APIv10TestMixin, TestCase):
     # The MAAS' handler is not accessible to anon users.
 

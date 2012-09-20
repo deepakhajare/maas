@@ -24,11 +24,11 @@ from maasserver.models.cleansave import CleanSave
 from maasserver.models.timestampedmodel import TimestampedModel
 
 
+# Permission model for tags. Everyone can see all tags, but only superusers can
+# edit tags.
 class TagManager(Manager):
     """A utility to manage the collection of Tags."""
-
-    def get_tags(self):
-        return self.all()
+    pass
 
 
 class Tag(CleanSave, TimestampedModel):

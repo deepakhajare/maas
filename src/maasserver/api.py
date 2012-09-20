@@ -69,6 +69,9 @@ __all__ = [
     "NodeMacHandler",
     "NodeMacsHandler",
     "NodesHandler",
+    #"AnonTagHandler",
+    #"TagHandler",
+    "TagsHandler",
     "pxeconfig",
     "render_api_docs",
     ]
@@ -143,6 +146,7 @@ from maasserver.models import (
     Node,
     NodeGroup,
     NodeGroupInterface,
+    Tag,
     )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
@@ -1226,18 +1230,37 @@ class AccountHandler(BaseHandler):
     def resource_uri(cls, *args, **kwargs):
         return ('account_handler', [])
 
+
+# @api_operations
+# class TagHandler(BaseHandler):
+# 
+#     allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+#     model = Tag
+#     fields = (
+#         'name',
+#         'definition',
+#         'comment',
+#         )
+# 
+
+# TODO: Add TagHandler and AnonTagsHandler/AnonTagHandler?
 @api_operations
-class TagHandler(BaseHandler):
+class TagsHandler(BaseHandler):
+
+    allowed_methods = ('GET', 'POST')
+    # fields = DISPLAYED_NODE_FIELDS
 
     @api_exported('GET')
     def list(self, request):
-        """List Tags visible to the user.
+        """List Tags.
         """
-        tags = Tag.objects.get_tags(
-            request.user, NODE_PERMISSION.VIEW)
-        if match_macs is not None:
-            nodes = nodes.filter(macaddress__mac_address__in=match_macs)
-        return nodes.order_by('id')
+        return Tag.objects.all()
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('tags_handler', [])
+
+
 
 @api_operations
 class MAASHandler(BaseHandler):
