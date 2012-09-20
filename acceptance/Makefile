@@ -34,7 +34,9 @@ test: services sudo container build
 	$(ephexec-make) $@-inner
 
 build: services sudo container source source/debian
+	@$(RM) $(packages)
 	$(ephexec-make) $@-inner
+	@set -- $(packages) && test $$# -gt 0
 
 container: $(containerdir)
 
