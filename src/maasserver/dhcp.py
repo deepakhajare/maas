@@ -53,15 +53,15 @@ def is_dhcp_managed(nodegroup):
 
 def configure_dhcp(nodegroup):
     """Write the DHCP configuration file and restart the DHCP server."""
+    # Circular imports.
+    from maasserver.dns import get_dns_server_address
+
     if not is_dhcp_managed(nodegroup):
         return
 
     # XXX: rvb 2012-09-19 bug=1039366: Tasks are not routed yet.
     if is_dhcp_disabled_until_task_routing_in_place(nodegroup):
         return
-
-    # Circular imports.
-    from maasserver.dns import get_dns_server_address
 
     # Use the server's address (which is where the central TFTP
     # server is) for the next_server setting.  We'll want to proxy
@@ -73,9 +73,6 @@ def configure_dhcp(nodegroup):
     subnet = str(
         IPAddress(interface.ip_range_low) &
         IPAddress(interface.subnet_mask))
-    # XXX: rvb 2012-09-19 bug=1039366: Tasks are not routed yet.
-    # Once task routing is in place, the method
-    # is_dhcp_disabled_until_task_routing_in_place should be removed.
     write_dhcp_config.delay(
         subnet=subnet, next_server=next_server, omapi_key=nodegroup.dhcp_key,
         subnet_mask=interface.subnet_mask,

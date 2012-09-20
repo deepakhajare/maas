@@ -19,11 +19,7 @@ from maasserver.dhcp import (
     is_dhcp_managed,
     )
 from maasserver.dns import get_dns_server_address
-from maasserver.enum import (
-    NODEGROUP_STATUS,
-    NODEGROUPINTERFACE_MANAGEMENT,
-    )
-from maasserver.models import NodeGroup
+from maasserver.enum import NODEGROUP_STATUS
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -47,15 +43,22 @@ class TestDHCP(TestCase):
             dhcp, 'is_dhcp_disabled_until_task_routing_in_place',
             Mock(return_value=False))
 
-    def test_is_dhcp_managed_returns_False_for_pending_nodegroup(self):
-        nodegroup = factory.make_node_group(
-            status=NODEGROUP_STATUS.PENDING)
-        self.assertFalse(is_dhcp_managed(nodegroup))
-
-    def test_is_dhcp_managed_returns_False_for_rejected_nodegroup(self):
-        nodegroup = factory.make_node_group(
-            status=NODEGROUP_STATUS.REJECTED)
-        self.assertFalse(is_dhcp_managed(nodegroup))
+    def test_is_dhcp_managed_follows_nodegroup_status(self):
+        expected_results = {
+            NODEGROUP_STATUS.PENDING: False,
+            NODEGROUP_STATUS.REJECTED: False,
+            NODEGROUP_STATUS.ACCEPTED: True,
+        }
+        nodegroups = {
+            factory.make_node_group(status=status): value
+            for status, value in expected_results.items()
+        }
+        self.patch(settings, "DHCP_CONNECT", True)
+        results = {
+            nodegroup.status: is_dhcp_managed(nodegroup)
+            for nodegroup, value in nodegroups.items()
+        }
+        self.assertEquals(expected_results, results)
 
     def test_configure_dhcp_writes_dhcp_config(self):
         mocked_task = self.patch(dhcp, 'write_dhcp_config')
@@ -127,12 +130,10 @@ class TestDHCPDisabledMultipleNodegroup(TestCase):
         self.assertEqual(0, dhcp.write_dhcp_config.delay.call_count)
 
     def test_dhcp_config_gets_written_for_master_nodegroup(self):
-        nodegroup = NodeGroup.objects.ensure_master()
-        interface = nodegroup.nodegroupinterface_set.all()[0]
+        # Create a fake master nodegroup with a configured interface.
+        nodegroup = factory.make_node_group(
+            name='master', uuid='master', status=NODEGROUP_STATUS.PENDING)
         self.patch(settings, "DHCP_CONNECT", True)
         self.patch(dhcp, 'write_dhcp_config')
-        interface.management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
-        interface.ip_range_low = factory.getRandomIPAddress()
-        interface.subnet_mask = factory.getRandomIPAddress()
-        interface.save()
+        nodegroup.accept()
         self.assertEqual(1, dhcp.write_dhcp_config.delay.call_count)
