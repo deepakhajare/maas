@@ -10,6 +10,7 @@ endif
 upstream := $(abspath ..)
 packages = $(abspath $(wildcard *.deb))
 image := maas-$(DISTRIB_CODENAME)
+imagedir := /var/lib/lxc/$(image)
 
 ##
 
@@ -35,7 +36,7 @@ test: services sudo image build
 build: services sudo image source source/debian
 	$(ephexec-make) $@-inner
 
-image: /var/lib/lxc/$(image)
+image: $(imagedir)
 
 services:
 	$(call check-service,lxc,start/running)
@@ -76,7 +77,7 @@ source:
 source/debian: | source
 	bzr export $@ $(packaging)/debian
 
-/var/lib/lxc/$(image): sudo
+$(imagedir): sudo
 	sudo lxc-create -n $(image) -t ubuntu
 
 ##
