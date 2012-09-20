@@ -60,8 +60,14 @@ test-inner: upgrade-inner
 	sudo -AE dpkg --install -- $(packages)
 	sudo -AE apt-get --fix-broken --assume-yes install
 
-build-inner: upgrade-inner
-	sudo -AE apt-get --assume-yes install devscripts debhelper dh-apport
+define build-packages
+  debhelper
+  devscripts
+  dh-apport
+endef
+
+build-inner: #upgrade-inner
+	sudo -AE apt-get --assume-yes install $(strip $(build-packages))
 	cd source && debuild -i -us -uc -b
 
 upgrade-inner:
