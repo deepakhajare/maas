@@ -37,9 +37,9 @@ test: services sudo container build
 # runs, so we delete any existing packages before building and check
 # for their presence afterwards instead.
 build: services sudo container source source/debian
-	@$(RM) $(packages)
+	@$(RM) $(call packages)
 	$(ephexec-make) $@-inner
-	@set -- $(packages) && test $$# -gt 0
+	@set -- $(call packages) && test $$# -gt 0
 
 container: $(containerdir)
 
