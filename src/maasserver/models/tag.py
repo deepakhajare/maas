@@ -34,14 +34,13 @@ class TagManager(Manager):
 class Tag(CleanSave, TimestampedModel):
     """A `Tag` is a label applied to a `Node`.
 
-    :ivar owner: This `Node`'s owner if it's in use, None otherwise.
-    :ivar after_commissioning_action: The action to perform after
-        commissioning. See vocabulary
-        :class:`NODE_AFTER_COMMISSIONING_ACTION`.
-    :ivar power_type: The :class:`POWER_TYPE` that determines how this
-        node will be powered on.  If not given, the default will be used as
-        configured in the `node_power_type` setting.
-    :ivar objects: The :class:`NodeManager`.
+    :ivar name: The short-human-identifiable name for this tag.
+    :ivar definition: The XPATH string identifying what nodes should match this
+        tag.
+    :ivar comment: A long-form description for humans about what this tag is
+        trying to accomplish.
+    :ivar nodes: A list of the Nodes that are labled by this particular tag.
+    :ivar objects: The :class:`TagManager`.
     """
 
     class Meta(DefaultMeta):
