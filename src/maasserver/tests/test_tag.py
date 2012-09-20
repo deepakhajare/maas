@@ -32,3 +32,11 @@ class TagTest(TestCase):
         self.assertEqual('', tag.comment)
         self.assertIsNot(None, tag.updated)
         self.assertIsNot(None, tag.created)
+
+    def test_add_tag_to_node(self):
+        node = factory.make_node()
+        tag = factory.make_tag('tag-name')
+        tag.save()
+        node.tags.add(tag)
+        self.assertEqual([tag.id], [t.id for t in node.tags.all()])
+        self.assertEqual([node.id], [n.id for n in tag.node_set.all()])

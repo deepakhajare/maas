@@ -225,8 +225,11 @@ class Factory(maastesting.factory.Factory):
         key.save()
         return key
 
-    def make_tag(self, name, definition, comment='', created=None,
+    def make_tag(self, name, definition=None, comment='', created=None,
                  updated=None):
+        if definition is None:
+            # Is there a 'node' in this xml?
+            definition = '//node'
         tag = Tag(name=name, definition=definition, comment=comment)
         self._save_node_unchecked(tag)
         # Update the 'updated'/'created' fields with a call to 'update'
