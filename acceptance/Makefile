@@ -66,7 +66,16 @@ define build-packages
   dh-apport
 endef
 
-build-inner: #upgrade-inner
+# XXX: These packages appear to be missing from the dependencies
+# declared in the packaging branch.
+define build-packages-extra
+  python-distribute
+  python-django
+endef
+
+build-packages := $(build-packages) $(build-packages-extra)
+
+build-inner: upgrade-inner
 	sudo -AE apt-get --assume-yes install $(strip $(build-packages))
 	cd source && debuild -i -us -uc -b
 
