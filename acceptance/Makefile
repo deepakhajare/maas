@@ -8,7 +8,6 @@ packaging := $(packaging).precise
 endif
 
 upstream := $(abspath ..)
-packages = $(abspath $(wildcard *.deb))
 container := maas-$(DISTRIB_CODENAME)
 containerdir := /var/lib/lxc/$(container)
 
@@ -37,9 +36,9 @@ test: services sudo container build
 # runs, so we delete any existing packages before building and check
 # for their presence afterwards instead.
 build: services sudo container source source/debian
-	@$(RM) $(call packages)
+	@$(RM) *.deb
 	$(ephexec-make) $@-inner
-	@set -- $(call packages) && test $$# -gt 0
+	@set -- *.deb && test $$# -gt 0
 
 container: $(containerdir)
 
@@ -56,8 +55,16 @@ endef
 
 ## Targets that run within an LXC container.
 
+# XXX: These packages appear to be missing from the dependencies
+# declared in the packaging branch.
+define missing-packages
+  python-distribute
+  python-django
+endef
+
 test-inner: upgrade-inner
-	sudo -AE dpkg --install -- $(packages)
+	sudo -AE apt-get --assume-yes install $(strip $(missing-packages))
+	sudo -AE dpkg --install --force-depends -- *.deb
 	sudo -AE apt-get --fix-broken --assume-yes install
 
 define build-packages
@@ -66,16 +73,8 @@ define build-packages
   dh-apport
 endef
 
-# XXX: These packages appear to be missing from the dependencies
-# declared in the packaging branch.
-define build-packages-extra
-  python-distribute
-  python-django
-endef
-
-build-packages := $(build-packages) $(build-packages-extra)
-
 build-inner: upgrade-inner
+	sudo -AE apt-get --assume-yes install $(strip $(missing-packages))
 	sudo -AE apt-get --assume-yes install $(strip $(build-packages))
 	cd source && debuild -i -us -uc -b
 
