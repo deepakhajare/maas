@@ -9,14 +9,14 @@ endif
 
 upstream := $(abspath ..)
 packages = $(abspath $(wildcard *.deb))
-image := maas-$(DISTRIB_CODENAME)
-imagedir := /var/lib/lxc/$(image)
+container := maas-$(DISTRIB_CODENAME)
+containerdir := /var/lib/lxc/$(container)
 
 ##
 
 define ephexec
 sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
-    lxc-start-ephemeral -b $(abspath .) -o $(image) -u ubuntu -- \
+    lxc-start-ephemeral -b $(abspath .) -o $(container) -u ubuntu -- \
     DEBIAN_FRONTEND=noninteractive SUDO_ASKPASS=$(abspath ubuntupass)
 endef
 
@@ -30,13 +30,13 @@ endef
 
 ##
 
-test: services sudo image build
+test: services sudo container build
 	$(ephexec-make) $@-inner
 
-build: services sudo image source source/debian
+build: services sudo container source source/debian
 	$(ephexec-make) $@-inner
 
-image: $(imagedir)
+container: $(containerdir)
 
 services:
 	$(call check-service,lxc,start/running)
@@ -44,7 +44,7 @@ services:
 
 define phony-outer-targets
   build
-  image
+  container
   services
   test
 endef
@@ -77,8 +77,8 @@ source:
 source/debian: | source
 	bzr export $@ $(packaging)/debian
 
-$(imagedir): | sudo
-	sudo lxc-create -n $(image) -t ubuntu
+$(containerdir): | sudo
+	sudo lxc-create -n $(container) -t ubuntu
 
 ##
 
