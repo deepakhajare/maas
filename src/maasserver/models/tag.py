@@ -18,12 +18,10 @@ from django.db.models import (
     CharField,
     TextField,
     Manager,
-    ManyToManyField,
     )
 from maasserver import DefaultMeta
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.timestampedmodel import TimestampedModel
-from maasserver.models.node import Node
 
 
 class TagManager(Manager):
@@ -39,7 +37,6 @@ class Tag(CleanSave, TimestampedModel):
         tag.
     :ivar comment: A long-form description for humans about what this tag is
         trying to accomplish.
-    :ivar nodes: A list of the Nodes that are labled by this particular tag.
     :ivar objects: The :class:`TagManager`.
     """
 
@@ -50,7 +47,6 @@ class Tag(CleanSave, TimestampedModel):
     definition = TextField()
     comment = TextField(blank=True)
 
-    nodes = ManyToManyField(Node)
     objects = TagManager()
 
     def __unicode__(self):

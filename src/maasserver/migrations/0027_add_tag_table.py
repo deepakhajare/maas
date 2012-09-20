@@ -19,13 +19,13 @@ class Migration(SchemaMigration):
         ))
         db.send_create_signal(u'maasserver', ['Tag'])
 
-        # Adding M2M table for field nodes on 'Tag'
-        db.create_table(u'maasserver_tag_nodes', (
+        # Adding M2M table for field tags on 'Node'
+        db.create_table(u'maasserver_node_tags', (
             ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('tag', models.ForeignKey(orm[u'maasserver.tag'], null=False)),
-            ('node', models.ForeignKey(orm[u'maasserver.node'], null=False))
+            ('node', models.ForeignKey(orm[u'maasserver.node'], null=False)),
+            ('tag', models.ForeignKey(orm[u'maasserver.tag'], null=False))
         ))
-        db.create_unique(u'maasserver_tag_nodes', ['tag_id', 'node_id'])
+        db.create_unique(u'maasserver_node_tags', ['node_id', 'tag_id'])
 
 
     def backwards(self, orm):
@@ -33,8 +33,8 @@ class Migration(SchemaMigration):
         # Deleting model 'Tag'
         db.delete_table(u'maasserver_tag')
 
-        # Removing M2M table for field nodes on 'Tag'
-        db.delete_table('maasserver_tag_nodes')
+        # Removing M2M table for field tags on 'Node'
+        db.delete_table('maasserver_node_tags')
 
 
     models = {
@@ -124,7 +124,8 @@ class Migration(SchemaMigration):
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-2495ef48-025a-11e2-b94c-00163e9c8bf7'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-1b9ca6e2-0323-11e2-8516-00163e9c8bf7'", 'unique': 'True', 'max_length': '41'}),
+            'tags': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Tag']", 'symmetrical': 'False'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
@@ -170,7 +171,6 @@ class Migration(SchemaMigration):
             'definition': ('django.db.models.fields.TextField', [], {}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '256'}),
-            'nodes': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Node']", 'symmetrical': 'False'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
         u'maasserver.userprofile': {
@@ -197,7 +197,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1348059695L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1348146009L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
