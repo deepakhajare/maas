@@ -14,6 +14,7 @@ __all__ = []
 
 from maasserver.models import (
     Node,
+    Tag,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -35,8 +36,14 @@ class TagTest(TestCase):
 
     def test_add_tag_to_node(self):
         node = factory.make_node()
-        tag = factory.make_tag('tag-name')
+        tag = factory.make_tag()
         tag.save()
         node.tags.add(tag)
         self.assertEqual([tag.id], [t.id for t in node.tags.all()])
         self.assertEqual([node.id], [n.id for n in tag.node_set.all()])
+
+    def test_get_tags(self):
+        tag1 = factory.make_tag()
+        tag2 = factory.make_tag()
+        self.assertEqual(sorted([tag1.id, tag2.id]),
+                         sorted([t.id for t in Tag.objects.get_tags()]))

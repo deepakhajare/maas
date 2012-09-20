@@ -1226,6 +1226,18 @@ class AccountHandler(BaseHandler):
     def resource_uri(cls, *args, **kwargs):
         return ('account_handler', [])
 
+@api_operations
+class TagHandler(BaseHandler):
+
+    @api_exported('GET')
+    def list(self, request):
+        """List Tags visible to the user.
+        """
+        tags = Tag.objects.get_tags(
+            request.user, NODE_PERMISSION.VIEW)
+        if match_macs is not None:
+            nodes = nodes.filter(macaddress__mac_address__in=match_macs)
+        return nodes.order_by('id')
 
 @api_operations
 class MAASHandler(BaseHandler):

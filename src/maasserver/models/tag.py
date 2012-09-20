@@ -26,7 +26,9 @@ from maasserver.models.timestampedmodel import TimestampedModel
 
 class TagManager(Manager):
     """A utility to manage the collection of Tags."""
-    pass
+
+    def get_tags(self):
+        return self.all()
 
 
 class Tag(CleanSave, TimestampedModel):
