@@ -12,7 +12,7 @@ packages = $(abspath $(wildcard *.deb))
 container := maas-$(DISTRIB_CODENAME)
 containerdir := /var/lib/lxc/$(container)
 
-##
+## Convenience definitions.
 
 define ephexec
 sudo LC_ALL=C SSH_ASKPASS=$(abspath ubuntupass) setsid \
@@ -28,11 +28,14 @@ define check-service
 test $(2) = $(wordlist 2,2,$(shell service $(1) status))  # $(1)
 endef
 
-##
+## Top-level targets.
 
 test: services sudo container build
 	$(ephexec-make) $@-inner
 
+# lxc-start-ephemeral does not return the exit code of any command it
+# runs, so we delete any existing packages before building and check
+# for their presence afterwards instead.
 build: services sudo container source source/debian
 	@$(RM) $(packages)
 	$(ephexec-make) $@-inner
@@ -51,7 +54,7 @@ define phony-outer-targets
   test
 endef
 
-##
+## Targets that run within an LXC container.
 
 test-inner: upgrade-inner
 	sudo -AE dpkg --install -- $(packages)
@@ -71,7 +74,7 @@ define phony-inner-targets
   upgrade-inner
 endef
 
-##
+## Dependencies.
 
 source:
 	bzr export --uncommitted $@ $(upstream)
@@ -82,7 +85,7 @@ source/debian: | source
 $(containerdir): | sudo
 	sudo lxc-create -n $(container) -t ubuntu
 
-##
+## Miscellaneous.
 
 sudo:
 	@sudo -v
@@ -95,7 +98,7 @@ define phony-misc-targets
   sudo
 endef
 
-##
+## Phony.
 
 define phony
   $(phony-inner-targets)
