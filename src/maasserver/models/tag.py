@@ -19,6 +19,7 @@ from django.db.models import (
     TextField,
     Manager,
     )
+from django.shortcuts import get_object_or_404
 from maasserver import DefaultMeta
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.timestampedmodel import TimestampedModel
@@ -28,7 +29,22 @@ from maasserver.models.timestampedmodel import TimestampedModel
 # edit tags.
 class TagManager(Manager):
     """A utility to manage the collection of Tags."""
-    pass
+
+    def get_tag_or_404(self, name):
+        """Fetch a `Tag` by name.  Raise exceptions if no `Tag` with
+        this name exist.
+
+        :param name: The Tag.name.
+        :type name: str
+        :raises: django.http.Http404_,
+            :class:`maasserver.exceptions.PermissionDenied`.
+
+        .. _django.http.Http404: https://
+           docs.djangoproject.com/en/dev/topics/http/views/
+           #the-http404-exception
+        """
+        tag = get_object_or_404(Tag, name=name)
+        return tag
 
 
 class Tag(CleanSave, TimestampedModel):
@@ -53,3 +69,4 @@ class Tag(CleanSave, TimestampedModel):
 
     def __unicode__(self):
         return self.name
+

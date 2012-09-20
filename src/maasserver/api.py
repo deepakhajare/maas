@@ -69,8 +69,7 @@ __all__ = [
     "NodeMacHandler",
     "NodeMacsHandler",
     "NodesHandler",
-    #"AnonTagHandler",
-    #"TagHandler",
+    "TagHandler",
     "TagsHandler",
     "pxeconfig",
     "render_api_docs",
@@ -1231,24 +1230,35 @@ class AccountHandler(BaseHandler):
         return ('account_handler', [])
 
 
-# @api_operations
-# class TagHandler(BaseHandler):
-# 
-#     allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
-#     model = Tag
-#     fields = (
-#         'name',
-#         'definition',
-#         'comment',
-#         )
-# 
+@api_operations
+class TagHandler(BaseHandler):
+    """Manage individual Tags."""
+    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+    model = Tag
+    fields = (
+        'name',
+        'definition',
+        'comment',
+        )
 
-# TODO: Add TagHandler and AnonTagsHandler/AnonTagHandler?
+    def read(self, request, name):
+        """Read a specific Node."""
+        return Tag.objects.get_tag_or_404(name=name)
+
+    @classmethod
+    def resource_uri(cls, tag=None):
+        # See the comment in NodeHandler.resource_uri
+        tag_name = 'tag_name'
+        if tag is not None:
+            tag_name = tag.name
+        return ('tag_handler', (tag_name, ))
+
+
+# TODO: Add AnonTagsHandler/AnonTagHandler?
 @api_operations
 class TagsHandler(BaseHandler):
-
+    """Manage collection of Tags."""
     allowed_methods = ('GET', 'POST')
-    # fields = DISPLAYED_NODE_FIELDS
 
     @api_exported('GET')
     def list(self, request):

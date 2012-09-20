@@ -2096,6 +2096,25 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
         self.assertEqual("File not found", response.content)
 
 
+class TestTagAPI(APITestCase):
+    """Tests for /api/1.0/tags/<node>/."""
+
+    def get_tag_uri(self, tag):
+        """Get the API URI for `tag`."""
+        return self.get_uri('tags/%s/') % tag.name
+
+    def test_GET_returns_tag(self):
+        # The api allows for fetching a single Node (using system_id).
+        tag = factory.make_tag('tag-name')
+        response = self.client.get(self.get_uri('tags/tag-name/'))
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(tag.name, parsed_result['name'])
+        self.assertEqual(tag.definition, parsed_result['definition'])
+        self.assertEqual(tag.comment, parsed_result['comment'])
+
+
 class TestTagsAPI(APITestCase):
 
     def test_GET_list_without_tags_returns_empty_list(self):
