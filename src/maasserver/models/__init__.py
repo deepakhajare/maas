@@ -74,6 +74,7 @@ User._meta.get_field('email')._unique = True
 
 # Monkey patch piston's usage of Django's get_resolver to be compatible
 # with Django 1.4.
+# XXX: rvb 2012-09-21 bug=1054040
 # See https://bitbucket.org/jespern/django-piston/issue/218 for details.
 def get_resource_uri_template(self):
     """
