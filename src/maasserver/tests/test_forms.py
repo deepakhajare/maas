@@ -260,6 +260,7 @@ class NodeEditForms(TestCase):
                 'hostname',
                 'after_commissioning_action',
                 'architecture',
+                'distro_series',
                 'nodegroup',
             ], list(form.fields))
 
@@ -291,6 +292,7 @@ class NodeEditForms(TestCase):
                 'hostname',
                 'after_commissioning_action',
                 'architecture',
+                'distro_series',
                 'power_type',
                 'power_parameters',
             ],

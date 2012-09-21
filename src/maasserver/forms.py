@@ -50,12 +50,12 @@ from django.forms import (
     Form,
     ModelForm,
     )
-from django.utils.safestring import mark_safe
 from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
-    DNS_DHCP_MANAGEMENT_CHOICES,
+    DISTRO_SERIES,
+    DISTRO_SERIES_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODEGROUP_STATUS,
@@ -102,6 +102,9 @@ def compose_invalid_choice_text(choice_of_what, valid_choices):
 INVALID_ARCHITECTURE_MESSAGE = compose_invalid_choice_text(
     'architecture', ARCHITECTURE_CHOICES)
 
+INVALID_DISTRO_SERIES_MESSAGE = compose_invalid_choice_text(
+    'distro_series', DISTRO_SERIES_CHOICES)
+
 
 class NodeForm(ModelForm):
 
@@ -117,6 +120,12 @@ class NodeForm(ModelForm):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
+    distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        initial=DISTRO_SERIES.default,
+        label="Release",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
+
     architecture = forms.ChoiceField(
         choices=ARCHITECTURE_CHOICES, required=True,
         initial=ARCHITECTURE.i386,
@@ -128,6 +137,7 @@ class NodeForm(ModelForm):
             'hostname',
             'after_commissioning_action',
             'architecture',
+            'distro_series',
             )
 
 
@@ -549,19 +559,6 @@ class MAASAndNetworkForm(ConfigForm):
         label="Default domain for new nodes", required=False, help_text=(
             "If 'local' is chosen, nodes must be using mDNS. Leave empty to "
             "use hostnames without a domain for newly enlisted nodes."))
-    dns_dhcp_management = forms.ChoiceField(
-        label="DNS and DHCP servers management",
-        choices=DNS_DHCP_MANAGEMENT_CHOICES,
-        help_text=mark_safe(
-            "If MAAS manages the DHCP server, MAAS workers will work with ISC "
-            "DHCP servers, if suitably configured, to give each DHCP client "
-            "its own host map.  Unlike normal leases, these host maps never "
-            "expire.  Thus enabling DHCP management ensures that a node will "
-            "never change its IP address. <br />"
-            "If MAAS manages the DNS server, it will use the machine's BIND "
-            "server to publish its DNS zones.  Note that this can be enabled "
-            "only if MAAS also manages the DHCP server as MAAS needs the "
-            "lease information in order to populate the DNS zones."))
 
 
 class CommissioningForm(ConfigForm):
