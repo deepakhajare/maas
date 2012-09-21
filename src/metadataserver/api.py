@@ -180,8 +180,11 @@ class VersionIndexHandler(MetadataViewHandler):
     def _store_commissioning_results(self, node, request):
         """Store commissioning result files for `node`."""
         for name, uploaded_file in request.FILES.items():
-            contents = uploaded_file.read().decode('utf-8')
-            NodeCommissionResult.objects.store_data(node, name, contents)
+            if name == "01-lshw.out":
+                node.set_hardware_details(uploaded_file.read())
+            else:
+                contents = uploaded_file.read().decode('utf-8')
+                NodeCommissionResult.objects.store_data(node, name, contents)
 
     @api_exported('POST')
     def signal(self, request, version=None, mac=None):
