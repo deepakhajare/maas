@@ -90,7 +90,7 @@ class TestNodeGroupFormField(TestCase):
 
     def test_find_nodegroup_reports_if_not_found(self):
         self.assertRaises(
-            NodeGroup.DoesNotExist,
+            ValidationError,
             NodeGroupFormField().clean,
             factory.getRandomIPAddress())
 

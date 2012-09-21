@@ -133,6 +133,9 @@ class NodeForm(ModelForm):
 
     class Meta:
         model = Node
+
+        # Fields that the form should generate automatically from the
+        # model:
         fields = (
             'hostname',
             'after_commissioning_action',
@@ -173,6 +176,9 @@ class AdminNodeForm(APIEditMixin, NodeForm):
 
     class Meta:
         model = Node
+
+        # Fields that the form should generate automatically from the
+        # model:
         fields = NodeForm.Meta.fields + (
             'power_type',
             'power_parameters',

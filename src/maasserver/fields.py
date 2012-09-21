@@ -22,6 +22,7 @@ from json import (
     )
 import re
 
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db.models import (
     Field,
@@ -127,7 +128,7 @@ class NodeGroupFormField(ModelChoiceField):
         else:
             nodegroup = self.find_nodegroup(value)
             if nodegroup is None:
-                raise NodeGroup.DoesNotExist(
+                raise ValidationError(
                     "No known subnet contains %s." % value)
             nodegroup_id = nodegroup.id
         return super(NodeGroupFormField, self).clean(nodegroup_id)
