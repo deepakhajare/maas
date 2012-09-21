@@ -347,7 +347,6 @@ def update_hardware_details(node, xmlbytes):
     cpu_count, memory = cursor.fetchone()
     node.cpu_count = cpu_count or 0
     node.memory = memory or 0
-    node.save()
     for tag in Tag.objects.all():
         cursor.execute(
             "SELECT xpath_exists(%s, hardware_details)"
@@ -358,6 +357,7 @@ def update_hardware_details(node, xmlbytes):
             node.tags.add(tag)
         else:
             node.tags.remove(tag)
+    node.save()
 
 
 class Node(CleanSave, TimestampedModel):
