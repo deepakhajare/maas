@@ -47,7 +47,7 @@ def compose_download_dir(archive, arch, release):
     :return: Full absolute path to the directory holding the requisite files
         for this archive, arch, and release.
     """
-    if arch[0] in ['amd64', 'i386']:
+    if arch[0] in {'amd64', 'i386'}:
         return os.path.join(
             archive, 'dists', release, 'main', 'installer-%s' % arch[0],
             'current', 'images', 'netboot', 'ubuntu-installer', arch[0])
@@ -67,7 +67,7 @@ def compose_download_kernel_name(arch, release):
     :param arch: Architecture.
     :return: the kernel name string, eg. "vmlinuz" or "linux" as appropriate
     """
-    if arch[0] in ['amd64', 'i386']:
+    if arch[0] in {'amd64', 'i386'}:
         return 'linux'
     elif arch[0] == 'armhf':
         return 'vmlinuz'
