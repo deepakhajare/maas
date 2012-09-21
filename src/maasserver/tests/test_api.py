@@ -496,6 +496,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'netboot',
                 'power_type',
                 'power_parameters',
+                'tags',
             ],
             list(parsed_result))
 
@@ -557,6 +558,7 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
+                'tags',
             ],
             list(parsed_result))
 
@@ -697,6 +699,7 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
+                'tags',
             ],
             list(parsed_result))
 
@@ -825,11 +828,21 @@ class TestNodeAPI(APITestCase):
         # The api allows for fetching a single Node (using system_id).
         node = factory.make_node(set_hostname=True)
         response = self.client.get(self.get_node_uri(node))
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertEqual(node.hostname, parsed_result['hostname'])
         self.assertEqual(node.system_id, parsed_result['system_id'])
+
+    def test_GET_returns_associated_tag(self):
+        node = factory.make_node(set_hostname=True)
+        tag = factory.make_tag()
+        node.tags.add(tag)
+        response = self.client.get(self.get_node_uri(node))
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([], parsed_result['tags'])
 
     def test_GET_refuses_to_access_invisible_node(self):
         # The request to fetch a single node is denied if the node isn't
@@ -2098,7 +2111,7 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
 
 
 class TestTagAPI(APITestCase):
-    """Tests for /api/1.0/tags/<node>/."""
+    """Tests for /api/1.0/tags/<tagname>/."""
 
     def get_tag_uri(self, tag):
         """Get the API URI for `tag`."""
@@ -2135,7 +2148,7 @@ class TestTagAPI(APITestCase):
 
     def test_GET_refuses_to_access_nonexistent_node(self):
         # When fetching a Tag, the api returns a 'Not Found' (404) error
-        # if no node is found.
+        # if no tag is found.
         response = self.client.get(self.get_uri('tags/no-such-tag/'))
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
@@ -2158,14 +2171,34 @@ class TestTagAPI(APITestCase):
         # Note that 'definition' is not being sent
         response = self.client.put(self.get_tag_uri(tag),
             {'name': 'new-tag-name', 'comment': 'A random comment'})
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertEqual('new-tag-name', parsed_result['name'])
         self.assertEqual('A random comment', parsed_result['comment'])
         self.assertEqual(tag.definition, parsed_result['definition'])
         self.assertEqual(0, Tag.objects.filter(name=tag.name).count())
         self.assertEqual(1, Tag.objects.filter(name='new-tag-name').count())
+
+    def test_POST_nodes_with_no_nodes(self):
+        tag = factory.make_tag()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([], parsed_result)
+
+    def test_POST_nodes_returns_nodes(self):
+        tag = factory.make_tag()
+        node1 = factory.make_node()
+        node2 = factory.make_node()
+        node1.tags.add(tag)
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([node1.system_id],
+                         [r['system_id'] for r in parsed_result])
 
 
 class TestTagsAPI(APITestCase):
