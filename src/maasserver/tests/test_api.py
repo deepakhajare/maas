@@ -2104,6 +2104,24 @@ class TestTagAPI(APITestCase):
         """Get the API URI for `tag`."""
         return self.get_uri('tags/%s/') % tag.name
 
+    def test_DELETE_requires_admin(self):
+        tag = factory.make_tag()
+        response = self.client.delete(self.get_tag_uri(tag))
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(1, Tag.objects.filter(id=tag.id).count())
+
+    def test_DELETE_removes_tag(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        response = self.client.delete(self.get_tag_uri(tag))
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+        self.assertEqual(0, Tag.objects.filter(id=tag.id).count())
+
+    def test_DELETE_404(self):
+        self.become_admin()
+        response = self.client.delete(self.get_uri('tags/no-tag/'))
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
     def test_GET_returns_tag(self):
         # The api allows for fetching a single Node (using system_id).
         tag = factory.make_tag('tag-name')
@@ -2127,9 +2145,17 @@ class TestTagAPI(APITestCase):
                                    {'comment': 'A special comment'})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def test_PUT_invalid_field(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        response = self.client.put(self.get_tag_uri(tag),
+            {'not-a-field': 'content'})
+        self.assertEqual(httplib.OK, response.status_code)
+
     def test_PUT_updates_tag(self):
         self.become_admin()
         tag = factory.make_tag()
+        # Note that 'definition' is not being sent
         response = self.client.put(self.get_tag_uri(tag),
             {'name': 'new-tag-name', 'comment': 'A random comment'})
         parsed_result = json.loads(response.content)

@@ -1258,6 +1258,13 @@ class TagHandler(BaseHandler):
         else:
             raise ValidationError(form.errors)
 
+    def delete(self, request, name):
+        """Delete a specific Node."""
+        tag = Tag.objects.get_tag_or_404(name=name,
+            user=request.user, to_edit=True)
+        tag.delete()
+        return rc.DELETED
+
     @classmethod
     def resource_uri(cls, tag=None):
         # See the comment in NodeHandler.resource_uri
