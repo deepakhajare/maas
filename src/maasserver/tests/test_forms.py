@@ -62,6 +62,7 @@ from maasserver.node_action import (
     AcceptAndCommission,
     Delete,
     )
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
@@ -71,18 +72,26 @@ from testtools.testcase import ExpectedException
 
 class TestHelpers(TestCase):
 
-    def test_initialize_node_group_initializes_nodegroup_to_master(self):
-        node = Node(
-            NODE_STATUS.DECLARED,
-            architecture=factory.getRandomEnum(ARCHITECTURE))
-        initialize_node_group(node)
-        self.assertEqual(NodeGroup.objects.ensure_master(), node.nodegroup)
-
     def test_initialize_node_group_leaves_nodegroup_reference_intact(self):
         preselected_nodegroup = factory.make_node_group()
         node = factory.make_node(nodegroup=preselected_nodegroup)
         initialize_node_group(node)
         self.assertEqual(preselected_nodegroup, node.nodegroup)
+
+    def test_initialize_node_group_initializes_nodegroup_to_form_value(self):
+        node = Node(
+            NODE_STATUS.DECLARED,
+            architecture=factory.getRandomEnum(ARCHITECTURE))
+        nodegroup = factory.make_node_group()
+        initialize_node_group(node, nodegroup)
+        self.assertEqual(nodegroup, node.nodegroup)
+
+    def test_initialize_node_group_defaults_to_master(self):
+        node = Node(
+            NODE_STATUS.DECLARED,
+            architecture=factory.getRandomEnum(ARCHITECTURE))
+        initialize_node_group(node)
+        self.assertEqual(NodeGroup.objects.ensure_master(), node.nodegroup)
 
 
 class NodeWithMACAddressesFormTest(TestCase):
@@ -172,12 +181,26 @@ class NodeWithMACAddressesFormTest(TestCase):
             NodeGroup.objects.ensure_master(),
             NodeWithMACAddressesForm(self.make_params()).save().nodegroup)
 
-    def test_accepts_nodegroup_uuid(self):
-        nodegroup = factory.make_node_group()
+    def test_sets_nodegroup_on_new_node_if_requested(self):
+        nodegroup = factory.make_node_group(
+            ip_range_low='192.168.14.2', ip_range_high='192.168.14.254',
+            ip='192.168.14.1', subnet_mask='255.255.255.0')
         form = NodeWithMACAddressesForm(
-            self.make_params(nodegroup=nodegroup.uuid))
-        node = form.save()
-        self.assertEqual(nodegroup, node.nodegroup)
+            self.make_params(nodegroup=nodegroup.get_managed_interface().ip))
+        self.assertEqual(nodegroup, form.save().nodegroup)
+
+    def test_leaves_nodegroup_alone_if_unset_on_existing_node(self):
+        # Selecting a node group for a node is only supported on new
+        # nodes.  You can't change it later.
+        original_nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=original_nodegroup)
+        factory.make_node_group(
+            ip_range_low='10.0.0.1', ip_range_high='10.0.0.2',
+            ip='10.0.0.1', subnet_mask='255.0.0.0')
+        form = NodeWithMACAddressesForm(
+            self.make_params(nodegroup='10.0.0.1'), instance=node)
+        form.save()
+        self.assertEqual(original_nodegroup, reload_object(node).nodegroup)
 
 
 class TestOptionForm(ConfigForm):
@@ -237,6 +260,7 @@ class NodeEditForms(TestCase):
                 'hostname',
                 'after_commissioning_action',
                 'architecture',
+                'nodegroup',
             ], list(form.fields))
 
     def test_NodeForm_changes_node(self):

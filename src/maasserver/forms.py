@@ -62,7 +62,10 @@ from maasserver.enum import (
     NODEGROUPINTERFACE_MANAGEMENT,
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
-from maasserver.fields import MACAddressFormField
+from maasserver.fields import (
+    MACAddressFormField,
+    NodeGroupFormField,
+    )
 from maasserver.models import (
     Config,
     MACAddress,
@@ -101,6 +104,14 @@ INVALID_ARCHITECTURE_MESSAGE = compose_invalid_choice_text(
 
 
 class NodeForm(ModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super(NodeForm, self).__init__(*args, **kwargs)
+        if kwargs.get('instance') is None:
+            # Creating a new node.  Offer choice of nodegroup.
+            self.fields['nodegroup'] = NodeGroupFormField(
+                required=False, empty_label="Default (master)")
+
     after_commissioning_action = forms.TypedChoiceField(
         label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
@@ -274,10 +285,18 @@ class MultipleMACAddressField(forms.MultiValueField):
         return []
 
 
-def initialize_node_group(node):
-    """If `node` is not in a node group yet, enroll it in the master group."""
-    if node.nodegroup_id is None:
+def initialize_node_group(node, form_value=None):
+    """If `node` is not in a node group yet, initialize it.
+
+    The initial value is `form_value` if given, or the master nodegroup
+    otherwise.
+    """
+    if node.nodegroup_id is not None:
+        return
+    if form_value is None:
         node.nodegroup = NodeGroup.objects.ensure_master()
+    else:
+        node.nodegroup = form_value
 
 
 class WithMACAddressesMixin:
@@ -327,7 +346,11 @@ class WithMACAddressesMixin:
         # We have to save this node in order to attach MACAddress
         # records to it.  But its nodegroup must be initialized before
         # we can do that.
-        initialize_node_group(node)
+        # As a side effect, this prevents editing of the node group on
+        # an existing node.  It's all horribly dependent on the order of
+        # calls in this class family, but Django doesn't seem to give us
+        # a good way around it.
+        initialize_node_group(node, self.cleaned_data.get('nodegroup'))
         node.save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
