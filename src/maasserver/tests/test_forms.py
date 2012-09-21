@@ -176,6 +176,18 @@ class NodeWithMACAddressesFormTest(TestCase):
             macs,
             [mac.mac_address for mac in node.macaddress_set.all()])
 
+    def test_includes_nodegroup_field_for_new_node(self):
+        self.assertIn(
+            'nodegroup',
+            NodeWithMACAddressesForm(self.make_params()).fields)
+
+    def test_does_not_include_nodegroup_field_for_existing_node(self):
+        params = self.make_params()
+        node = factory.make_node()
+        self.assertNotIn(
+            'nodegroup',
+            NodeWithMACAddressesForm(params, instance=node).fields)
+
     def test_sets_nodegroup_to_master_by_default(self):
         self.assertEqual(
             NodeGroup.objects.ensure_master(),
