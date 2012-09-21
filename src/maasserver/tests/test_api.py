@@ -842,7 +842,8 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
-        self.assertEqual([], parsed_result['tags'])
+        self.assertEqual([tag.name],
+                         [t['name'] for t in parsed_result['tags']])
 
     def test_GET_refuses_to_access_invisible_node(self):
         # The request to fetch a single node is denied if the node isn't
