@@ -408,6 +408,9 @@ class Node(CleanSave, TimestampedModel):
         else:
             return self.system_id
 
+    def tag_names(self):
+        return self.tags.values_list('name')
+
     def clean_status(self):
         """Check a node's status transition against the node-status FSM."""
         old_status = get_db_state(self, 'status')

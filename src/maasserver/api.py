@@ -433,7 +433,7 @@ DISPLAYED_NODE_FIELDS = (
     'netboot',
     'power_type',
     'power_parameters',
-    ('tags', ('name',)),
+    'tag_names',
     )
 
 
