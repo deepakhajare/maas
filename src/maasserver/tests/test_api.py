@@ -1737,17 +1737,6 @@ class TestNodesAPI(APITestCase):
             (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
             (response.status_code, response.content))
 
-    def test_POST_accept_fails_if_not_admin(self):
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {'op': 'accept', 'nodes': [node.system_id]})
-        self.assertEqual(
-            (httplib.FORBIDDEN,
-                "You don't have the required permission to accept the "
-                "following node(s): %s." % node.system_id),
-            (response.status_code, response.content))
-
     def test_POST_accept_accepts_multiple_nodes(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
