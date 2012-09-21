@@ -2149,11 +2149,12 @@ class TestTagsAPI(APITestCase):
         self.assertItemsEqual([], json.loads(response.content))
 
     def test_POST_new_refuses_non_admin(self):
+        name = factory.getRandomString()
         response = self.client.post(
             self.get_uri('tags/'),
             {
                 'op': 'new',
-                'name': factory.getRandomString(),
+                'name': name,
                 'comment': factory.getRandomString(),
                 'definition': factory.getRandomString(),
             })
@@ -2178,6 +2179,7 @@ class TestTagsAPI(APITestCase):
         self.assertEqual(name, parsed_result['name'])
         self.assertEqual(comment, parsed_result['comment'])
         self.assertEqual(definition, parsed_result['definition'])
+        self.assertEqual(1, Tag.objects.filter(name=name).count())
 
 
 class MAASAPIAnonTest(APIv10TestMixin, TestCase):
