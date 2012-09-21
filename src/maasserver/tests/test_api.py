@@ -496,7 +496,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'netboot',
                 'power_type',
                 'power_parameters',
-                'tags',
+                'tag_names',
             ],
             list(parsed_result))
 
@@ -558,7 +558,7 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
-                'tags',
+                'tag_names',
             ],
             list(parsed_result))
 
@@ -699,7 +699,7 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
-                'tags',
+                'tag_names',
             ],
             list(parsed_result))
 
@@ -842,10 +842,7 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
-        # XXX: Ideally only tag.name (and maybe resource_uri) would be exposed.
-        #      However currently all fields are getting exposed
-        self.assertEqual([tag.name],
-                         [t['name'] for t in parsed_result['tags']])
+        self.assertEqual([tag.name], parsed_result['tag_names'])
 
     def test_GET_refuses_to_access_invisible_node(self):
         # The request to fetch a single node is denied if the node isn't

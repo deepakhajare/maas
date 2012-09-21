@@ -409,7 +409,7 @@ class Node(CleanSave, TimestampedModel):
             return self.system_id
 
     def tag_names(self):
-        return self.tags.values_list('name')
+        return [v[0] for v in self.tags.values_list('name')]
 
     def clean_status(self):
         """Check a node's status transition against the node-status FSM."""
