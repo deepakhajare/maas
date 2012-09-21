@@ -109,11 +109,15 @@ def get_resource_uri_template(self):
                     return _convert(result, params)
     except:
         return None
+
+
 HandlerDocumentation.get_resource_uri_template = get_resource_uri_template
+
 # Monkey patch the property resource_uri_template: it hold a reference to
 # get_resource_uri_template.
 HandlerDocumentation.resource_uri_template = (
     property(get_resource_uri_template))
+
 
 # Register the models in the admin site.
 admin.site.register(BootImage)
