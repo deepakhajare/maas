@@ -53,16 +53,17 @@ endef
 
 ## Top-level targets.
 
-test: services sudo container build
+test: build | services sudo container
 	$(ephexec-make) $@-inner
 
 # lxc-start-ephemeral does not return the exit code of any command it
 # runs, so we delete any existing packages before building and check
 # for their presence afterwards instead.
-build: services sudo container source source/debian
+build: source source/debian | services sudo container
 	@$(RM) *.deb
 	$(ephexec-make) $@-inner
 	@ls -1 *.deb
+	@touch $@
 
 container: $(containerdir)
 
@@ -71,7 +72,6 @@ services:
 	$(call check-service,lxc-net,start/running)
 
 define phony-outer-targets
-  build
   container
   services
   test
@@ -130,7 +130,7 @@ sudo:
 	@sudo -v
 
 clean:
-	$(RM) -r source *.build *.changes *.deb
+	$(RM) -r source build *.build *.changes *.deb
 
 define phony-misc-targets
   clean
