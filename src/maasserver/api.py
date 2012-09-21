@@ -721,14 +721,11 @@ class NodesHandler(BaseHandler):
             by this call.  Thus, nodes that were already accepted are excluded
             from the result.
         """
-        # Make sure that the user has the required permission.
-        if not request.user.is_superuser:
-            raise PermissionDenied(
-                "You don't have the required permission "
-                "to accept all nodes.")
-        nodes = Node.objects.filter(status=NODE_STATUS.DECLARED)
-        return filter(
-            None, [node.accept_enlistment(request.user) for node in nodes])
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN)
+        nodes = nodes.filter(status=NODE_STATUS.DECLARED)
+        nodes = [node.accept_enlistment(request.user) for node in nodes]
+        return filter(None, nodes)
 
     @api_exported('GET')
     def list(self, request):
