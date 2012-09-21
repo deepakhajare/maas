@@ -151,7 +151,7 @@ update_install_files() {
     popd >/dev/null
 
     maas-provision install-pxe-image \
-        --arch=${arch%%/*} --subarch=${arch#*/} \
+        --arch="${arch%%/*}" --subarch="${arch#*/}" \
         --release=$release --purpose="install" \
         --image="install"
 }
