@@ -516,6 +516,16 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 "following node(s): %s." % node_id),
             (response.status_code, response.content))
 
+    def test_POST_accept_all_not_allowed(self):
+        # An non-admin user cannot accept all anonymously enlisted nodes.
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+             "You don't have the required permission "
+             "to accept all nodes."),
+            (response.status_code, response.content))
+
     def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
@@ -699,6 +709,20 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'resource_uri',
             ],
             list(parsed_result))
+
+    def test_POST_accept_all(self):
+        # An admin user can accept all anonymously enlisted nodes.
+        nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            ]
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertSetEqual(
+            {node.system_id for node in nodes},
+            {node["system_id"] for node in nodes_returned})
 
 
 class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
