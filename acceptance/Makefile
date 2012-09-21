@@ -1,16 +1,37 @@
+#
+# Build and test everything in ephemeral containers:
+#
+#   $ make
+#
+# Use a different packaging branch:
+#
+#   $ make packaging=/path/to/branch
+#
+# Note: /path/to/branch can be anything that bzr recognises, so an lp:
+# link, or bzr+ssh, and so on.
+#
+# Build and test with a different Ubuntu series:
+#
+#   $ make series=randy
+#
+
 include /etc/lsb-release
 
 # Default to the newer of Quantal or the local series.
 series := $(lastword $(sort quantal $(DISTRIB_CODENAME)))
 
-packaging := lp:~maas-maintainers/maas/packaging
-
-# Special-case Precise.
+# Default to the main packaging branch on Launchpad, but treat Precise
+# specially.
 ifeq ($(series),precise)
-packaging := $(packaging).precise
+packaging := lp:~maas-maintainers/maas/packaging.precise
+else
+packaging := lp:~maas-maintainers/maas/packaging
 endif
 
+# Assume we're testing this branch.
 upstream := $(abspath ..)
+
+# The container on which to base ephemerals.
 container := maas-$(series)
 containerdir := /var/lib/lxc/$(container)
 
