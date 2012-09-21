@@ -74,6 +74,7 @@ User._meta.get_field('email')._unique = True
 
 # Monkey patch piston's usage of Django's get_resolver to be compatible
 # with Django 1.4.
+# See https://bitbucket.org/jespern/django-piston/issue/218 for details.
 def get_resource_uri_template(self):
     """
     URI template processor.
@@ -93,7 +94,8 @@ def get_resource_uri_template(self):
         lookup_view = get_callable(lookup_view, True)
 
         possibilities = get_resolver(None).reverse_dict.getlist(lookup_view)
-        # Monkey patch here!
+        # The monkey patch is right here: we need to cope with 'possibilities'
+        # being a list of tuples with 2 or 3 elements.
         for possibility_data in possibilities:
             possibility = possibility_data[0]
             for result, params in possibility:
