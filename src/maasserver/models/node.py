@@ -348,7 +348,16 @@ def update_hardware_details(node, xmlbytes):
     node.cpu_count = cpu_count or 0
     node.memory = memory or 0
     node.save()
-    # TODO: update node-tag links
+    for tag in Tag.objects.all():
+        cursor.execute(
+            "SELECT xpath_exists(%s, hardware_details)"
+            " FROM maasserver_node WHERE id = %s",
+            [tag.definition,  node.id])
+        has_tag, = cursor.fetchone()
+        if has_tag:
+            node.tags.add(tag)
+        else:
+            node.tags.remove(tag)
 
 
 class Node(CleanSave, TimestampedModel):
