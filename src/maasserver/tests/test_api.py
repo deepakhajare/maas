@@ -2149,16 +2149,13 @@ class TestTagsAPI(APITestCase):
         self.assertItemsEqual([], json.loads(response.content))
 
     def test_POST_new_refuses_non_admin(self):
-        name = factory.getRandomString()
-        definition = '//node'
-        comment = factory.getRandomString()
         response = self.client.post(
             self.get_uri('tags/'),
             {
                 'op': 'new',
-                'name': name,
-                'comment': comment,
-                'definition': definition,
+                'name': factory.getRandomString(),
+                'comment': factory.getRandomString(),
+                'definition': factory.getRandomString(),
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
         self.assertEqual(0, Tag.objects.filter(name=name).count())
