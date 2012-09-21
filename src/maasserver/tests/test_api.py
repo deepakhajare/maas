@@ -842,6 +842,8 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
+        # XXX: Ideally only tag.name (and maybe resource_uri) would be exposed.
+        #      However currently all fields are getting exposed
         self.assertEqual([tag.name],
                          [t['name'] for t in parsed_result['tags']])
 
