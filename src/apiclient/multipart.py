@@ -18,7 +18,8 @@ __all__ = [
 
 from collections import Mapping
 from email.generator import Generator
-from email.message import Message
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
 from io import (
     BytesIO,
     IOBase,
@@ -38,61 +39,75 @@ def get_content_type(*names):
         return "application/octet-stream"
 
 
-def attach_bytes(payload, name, content):
+def attach_bytes(name, content):
+    payload = MIMEApplication(content)
     payload.add_header("Content-Disposition", "form-data", name=name)
-    payload.set_payload(content)
-    payload.set_type("application/octet-stream")
+    return payload
 
 
-def attach_string(payload, name, content):
+def attach_string(name, content):
+    payload = MIMEApplication(content.encode("utf-8"), charset="utf-8")
     payload.add_header("Content-Disposition", "form-data", name=name)
-    payload.set_payload(content.encode("utf-8"))
     payload.set_type("text/plain")
-    payload.set_charset("utf-8")
+    return payload
 
 
-def attach_file(payload, name, content):
+def attach_file(name, content):
+    payload = MIMEApplication(content.read())
     payload.add_header(
         "Content-Disposition", "form-data", name=name, filename=name)
-    payload.set_payload(content.read())
     names = name, getattr(content, "name", None)
     payload.set_type(get_content_type(*names))
+    return payload
 
 
-def attach(payload, name, content):
+def attach(name, content):
     if isinstance(content, bytes):
-        attach_bytes(payload, name, content)
+        return attach_bytes(name, content)
     elif isinstance(content, unicode):
-        attach_string(payload, name, content)
+        return attach_string(name, content)
     elif isinstance(content, IOBase):
-        attach_file(payload, name, content)
+        return attach_file(name, content)
     elif callable(content):
         with content() as content:
-            attach(payload, name, content)
+            return attach(name, content)
     else:
         raise AssertionError(
             "%r is unrecognised: %r" % (name, content))
 
 
 def prepare_multipart_message(data):
-    payload = Message()
-    payload.set_type("multipart/form-data")
+    payload = MIMEMultipart("form-data")
 
     for name, content in data:
-        data_payload = Message()
-        attach(data_payload, name, content)
+        data_payload = attach(name, content)
         payload.attach(data_payload)
 
     return payload
 
 
 def encode_multipart_message(payload):
+    # The message must be multipart.
+    assert payload.is_multipart()
+    # The body length cannot yet be known.
+    assert "Content-Length" not in payload
+    # So line-endings can be fixed-up later on, component payloads must have
+    # no Content-Length and their Content-Transfer-Encoding must be base64
+    # (and not quoted-printable, which Django doesn't appear to understand).
+    for part in payload.get_payload():
+        assert "Content-Length" not in part
+        assert part["Content-Transfer-Encoding"] == "base64"
+    # Flatten the message without headers.
     buf = BytesIO()
-    generator = Generator(buf, False)
+    generator = Generator(buf, False)  # Don't mangle "^From".
     generator._write_headers = lambda self: None  # Ignore.
     generator.flatten(payload)
-    payload.add_header("Content-Length", "%d" % buf.tell())
-    return payload.items(), buf.getvalue()
+    # Ensure the body has CRLF-delimited lines. See
+    # http://bugs.python.org/issue1349106.
+    body = b"\r\n".join(buf.getvalue().splitlines())
+    # Only now is it safe to set the content length.
+    payload.add_header("Content-Length", "%d" % len(body))
+    return payload.items(), body
 
 
 def encode_multipart_data(data, files):
