@@ -515,8 +515,12 @@ class NodeHandler(BaseHandler):
     def start(self, request, system_id):
         """Power up a node.
 
-        The user_data parameter, if set in the POST data, is taken as
-        base64-encoded binary data.
+        :param user_data: If present, this blob of user-data to be made
+            available to the nodes through the metadata service.
+        :type user_data: base64-encoded basestring
+        :param distro_series: If present, this parameter specifies the
+            Ubuntu Release the node will use.
+        :type distro_series: basestring
 
         Ideally we'd have MIME multipart and content-transfer-encoding etc.
         deal with the encapsulation of binary data, but couldn't make it work
@@ -524,8 +528,14 @@ class NodeHandler(BaseHandler):
         encoding instead.
         """
         user_data = request.POST.get('user_data', None)
+        series = request.POST.get('distro_series', None)
         if user_data is not None:
             user_data = b64decode(user_data)
+        if series is not None:
+            node = Node.objects.get_node_or_404(
+                system_id=system_id, user=request.user,
+                perm=NODE_PERMISSION.EDIT)
+            node.set_distro_series(series=series)
         nodes = Node.objects.start_nodes(
             [system_id], request.user, user_data=user_data)
         if len(nodes) == 0:
@@ -538,6 +548,7 @@ class NodeHandler(BaseHandler):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
+        node.set_distro_series(series='')
         if node.status == NODE_STATUS.READY:
             # Nothing to do.  This may be a redundant retry, and the
             # postcondition is achieved, so call this success.
@@ -1353,14 +1364,17 @@ def pxeconfig(request):
         preseed_url = compose_preseed_url(node)
         hostname = node.hostname
 
-    # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
-    release = 'precise'
+    if node is None or node.status == NODE_STATUS.COMMISSIONING:
+        series = Config.objects.get_config('commissioning_distro_series')
+    else:
+        series = node.get_distro_series()
+
     purpose = get_boot_purpose(node)
     domain = 'local.lan'  # TODO: This is probably not enough!
     server_address = get_maas_facing_server_address()
 
     params = KernelParameters(
-        arch=arch, subarch=subarch, release=release, purpose=purpose,
+        arch=arch, subarch=subarch, release=series, purpose=purpose,
         hostname=hostname, domain=domain, preseed_url=preseed_url,
         log_host=server_address, fs_host=server_address)
 
