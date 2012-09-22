@@ -19,8 +19,7 @@ from apiclient.multipart import (
     encode_multipart_data,
     get_content_type,
     )
-from django.core.files.uploadhandler import MemoryFileUploadHandler
-from django.http.multipartparser import MultiPartParser
+from apiclient.testing.django import parse_headers_and_body_with_django
 from django.utils.datastructures import MultiValueDict
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
@@ -28,36 +27,6 @@ from testtools.matchers import (
     EndsWith,
     StartsWith,
     )
-
-
-def parse_headers_and_body_with_django(headers, body):
-    """Parse `headers` and `body` with Django's :class:`MultiPartParser`.
-
-    `MultiPartParser` is a curiously ugly and RFC non-compliant concoction.
-
-    Amongst other things, it coerces all field names, field data, and
-    filenames into Unicode strings using the "replace" error strategy, so be
-    warned that your data may be silently mangled.
-
-    It also, in 1.3.1 at least, does not recognise any transfer encodings at
-    *all* because its header parsing code was broken.
-
-    I'm also fairly sure that it'll fall over on headers than span more than
-    one line.
-
-    In short, it's a piece of code that inspires little confidence, yet we
-    must work with it, hence we need to round-trip test multipart handling
-    with it.
-    """
-    handler = MemoryFileUploadHandler()
-    meta = {
-        "HTTP_CONTENT_TYPE": headers["Content-Type"],
-        "HTTP_CONTENT_LENGTH": headers["Content-Length"],
-        }
-    parser = MultiPartParser(
-        META=meta, input_data=BytesIO(body),
-        upload_handlers=[handler])
-    return parser.parse()
 
 
 ahem_django_ahem = (
