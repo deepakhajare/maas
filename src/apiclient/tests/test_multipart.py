@@ -102,7 +102,8 @@ class TestMultiPart(TestCase):
             headers["Content-Type"],
             StartsWith("multipart/form-data; boundary="))
         # Round-trip through Django's multipart code.
-        params_out, files_out = parse_headers_and_body_with_django(headers, body)
+        params_out, files_out = (
+            parse_headers_and_body_with_django(headers, body))
         params_out_expected = MultiValueDict()
         for name, value in params_in:
             params_out_expected.appendlist(name, value)
