@@ -108,7 +108,7 @@ def encode_multipart_message(payload):
     return payload.items(), body
 
 
-def encode_multipart_data(data, files):
+def encode_multipart_data(data=(), files=()):
     """Create a MIME multipart payload from L{data} and L{files}.
 
     **Note** that this function is deprecated. Use `prepare_multipart_message`
