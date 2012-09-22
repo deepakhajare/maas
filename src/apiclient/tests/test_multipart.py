@@ -29,32 +29,6 @@ from testtools.matchers import (
     )
 
 
-class SpewingUploadHandler(MemoryFileUploadHandler):
-
-    def handle_raw_input(
-        self, input_data, META, content_length, boundary, encoding=None):
-        print("handle_raw_input", locals())
-        return super(SpewingUploadHandler, self).handle_raw_input(
-            input_data, META, content_length, boundary, encoding)
-
-    def new_file(self, *args, **kwargs):
-        print("new_file", locals())
-        return super(SpewingUploadHandler, self).new_file(*args, **kwargs)
-
-    def receive_data_chunk(self, raw_data, start):
-        print("receive_data_chunk", locals())
-        return super(SpewingUploadHandler, self).receive_data_chunk(
-            raw_data, start)
-
-    def file_complete(self, file_size):
-        print("file_complete", locals())
-        return super(SpewingUploadHandler, self).file_complete(file_size)
-
-
-# TODO: only pass base64 encoded field data; Django doesn't appear to
-# understand quoted-printable.
-
-
 def parse_headers_and_body_with_django(headers, body):
     """Parse `headers` and `body` with Django's :class:`MultiPartParser`.
 
