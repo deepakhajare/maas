@@ -21,6 +21,7 @@ from apiclient.multipart import (
     )
 from django.core.files.uploadhandler import MemoryFileUploadHandler
 from django.http.multipartparser import MultiPartParser
+from django.utils.datastructures import MultiValueDict
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from testtools.matchers import (
@@ -57,6 +58,12 @@ def parse_headers_and_body_with_django(headers, body):
         META=meta, input_data=BytesIO(body),
         upload_handlers=[handler])
     return parser.parse()
+
+
+ahem_django_ahem = (
+    "If the mismatch appears to be because the parsed values "
+    "are base64 encoded, then check you're using a >=1.4 release "
+    "of Django.")
 
 
 class TestMultiPart(TestCase):
@@ -100,8 +107,42 @@ class TestMultiPart(TestCase):
         post, files = parse_headers_and_body_with_django(headers, body)
         self.assertEqual(
             {name: [value] for name, value in params.items()}, post,
-            "If the mismatch appears to be because the parsed strings "
-            "are base64 encoded, then check you're using a >=1.4 release "
-            "of Django.")
+            ahem_django_ahem)
         self.assertSetEqual({"baz"}, set(files))
-        self.assertEqual(random_data, files["baz"].read())
+        self.assertEqual(
+            random_data, files["baz"].read(),
+            ahem_django_ahem)
+
+    def test_encode_multipart_data_multiple_params(self):
+        # Sequences of parameters and files can be passed to
+        # encode_multipart_data() so that multiple parameters/files with the
+        # same name can be provided.
+        params_in = [
+            ("one", "ABC"),
+            ("one", "XYZ"),
+            ("two", "DEF"),
+            ("two", "UVW"),
+            ]
+        files_in = [
+            ("f-one", BytesIO(urandom(32))),
+            ("f-two", BytesIO(urandom(32))),
+            ]
+        body, headers = encode_multipart_data(params_in, files_in)
+        self.assertEqual("%s" % len(body), headers["Content-Length"])
+        self.assertThat(
+            headers["Content-Type"],
+            StartsWith("multipart/form-data; boundary="))
+        # Round-trip through Django's multipart code.
+        params_out, files_out = parse_headers_and_body_with_django(headers, body)
+        params_out_expected = MultiValueDict()
+        for name, value in params_in:
+            params_out_expected.appendlist(name, value)
+        self.assertEqual(
+            params_out_expected, params_out,
+            ahem_django_ahem)
+        self.assertSetEqual({"f-one", "f-two"}, set(files_out))
+        files_expected = {name: buf.getvalue() for name, buf in files_in}
+        files_observed = {name: buf.read() for name, buf in files_out.items()}
+        self.assertEqual(
+            files_expected, files_observed,
+            ahem_django_ahem)

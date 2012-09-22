@@ -12,8 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'encode_multipart_data',
-    'encode_multipart_message',
-    'prepare_multipart_message',
     ]
 
 from collections import Mapping
