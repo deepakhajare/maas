@@ -37,20 +37,20 @@ def get_content_type(*names):
         return "application/octet-stream"
 
 
-def attach_bytes(name, content):
+def make_bytes_payload(name, content):
     payload = MIMEApplication(content)
     payload.add_header("Content-Disposition", "form-data", name=name)
     return payload
 
 
-def attach_string(name, content):
+def make_string_payload(name, content):
     payload = MIMEApplication(content.encode("utf-8"), charset="utf-8")
     payload.add_header("Content-Disposition", "form-data", name=name)
     payload.set_type("text/plain")
     return payload
 
 
-def attach_file(name, content):
+def make_file_payload(name, content):
     payload = MIMEApplication(content.read())
     payload.add_header(
         "Content-Disposition", "form-data", name=name, filename=name)
@@ -59,53 +59,51 @@ def attach_file(name, content):
     return payload
 
 
-def attach(name, content):
+def make_payload(name, content):
     if isinstance(content, bytes):
-        return attach_bytes(name, content)
+        return make_bytes_payload(name, content)
     elif isinstance(content, unicode):
-        return attach_string(name, content)
+        return make_string_payload(name, content)
     elif isinstance(content, IOBase):
-        return attach_file(name, content)
+        return make_file_payload(name, content)
     elif callable(content):
         with content() as content:
-            return attach(name, content)
+            return make_payload(name, content)
     else:
         raise AssertionError(
             "%r is unrecognised: %r" % (name, content))
 
 
-def prepare_multipart_message(data):
-    payload = MIMEMultipart("form-data")
-
+def build_multipart_message(data):
+    message = MIMEMultipart("form-data")
     for name, content in data:
-        data_payload = attach(name, content)
-        payload.attach(data_payload)
+        payload = make_payload(name, content)
+        message.attach(payload)
+    return message
 
-    return payload
 
-
-def encode_multipart_message(payload):
+def encode_multipart_message(message):
     # The message must be multipart.
-    assert payload.is_multipart()
+    assert message.is_multipart()
     # The body length cannot yet be known.
-    assert "Content-Length" not in payload
+    assert "Content-Length" not in message
     # So line-endings can be fixed-up later on, component payloads must have
     # no Content-Length and their Content-Transfer-Encoding must be base64
     # (and not quoted-printable, which Django doesn't appear to understand).
-    for part in payload.get_payload():
+    for part in message.get_payload():
         assert "Content-Length" not in part
         assert part["Content-Transfer-Encoding"] == "base64"
     # Flatten the message without headers.
     buf = BytesIO()
     generator = Generator(buf, False)  # Don't mangle "^From".
     generator._write_headers = lambda self: None  # Ignore.
-    generator.flatten(payload)
+    generator.flatten(message)
     # Ensure the body has CRLF-delimited lines. See
     # http://bugs.python.org/issue1349106.
     body = b"\r\n".join(buf.getvalue().splitlines())
     # Only now is it safe to set the content length.
-    payload.add_header("Content-Length", "%d" % len(body))
-    return payload.items(), body
+    message.add_header("Content-Length", "%d" % len(body))
+    return message.items(), body
 
 
 def encode_multipart_data(data=(), files=()):
@@ -125,6 +123,6 @@ def encode_multipart_data(data=(), files=()):
         data = data.items()
     if isinstance(files, Mapping):
         files = files.items()
-    payload = prepare_multipart_message(chain(data, files))
-    headers, body = encode_multipart_message(payload)
+    message = build_multipart_message(chain(data, files))
+    headers, body = encode_multipart_message(message)
     return body, dict(headers)
