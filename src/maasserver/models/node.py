@@ -31,6 +31,7 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     Manager,
+    ManyToManyField,
     Q,
     )
 from django.shortcuts import get_object_or_404
@@ -51,6 +52,7 @@ from maasserver.exceptions import NodeStateViolation
 from maasserver.fields import JSONObjectField
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
+from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.utils import get_db_state
 from maasserver.utils.orm import get_first
@@ -331,6 +333,7 @@ class Node(CleanSave, TimestampedModel):
     :ivar power_type: The :class:`POWER_TYPE` that determines how this
         node will be powered on.  If not given, the default will be used as
         configured in the `node_power_type` setting.
+    :ivar tags: The list of :class:`Tag`s associated with this `Node`.
     :ivar objects: The :class:`NodeManager`.
 
     """
@@ -394,6 +397,8 @@ class Node(CleanSave, TimestampedModel):
     # form) validation.
     nodegroup = ForeignKey(
         'maasserver.NodeGroup', editable=True, null=True, blank=False)
+
+    tags = ManyToManyField(Tag)
 
     objects = NodeManager()
 
@@ -562,7 +567,10 @@ class Node(CleanSave, TimestampedModel):
 
     def get_distro_series(self):
         """Return the distro series to install that node."""
-        if not self.distro_series or self.distro_series == DISTRO_SERIES.default:
+        use_default_distro_series = (
+            not self.distro_series or
+            self.distro_series == DISTRO_SERIES.default)
+        if use_default_distro_series:
             return Config.objects.get_config('default_distro_series')
         else:
             return self.distro_series
