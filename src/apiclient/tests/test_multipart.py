@@ -55,6 +55,36 @@ class SpewingUploadHandler(MemoryFileUploadHandler):
 # understand quoted-printable.
 
 
+def parse_headers_and_body_with_django(headers, body):
+    """Parse `headers` and `body` with Django's :class:`MultiPartParser`.
+
+    `MultiPartParser` is a curiously ugly and RFC non-compliant concoction.
+
+    Amongst other things, it coerces all field names, field data, and
+    filenames into Unicode strings using the "replace" error strategy, so be
+    warned that your data may be silently mangled.
+
+    It also, in 1.3.1 at least, does not recognise any transfer encodings at
+    *all* because its header parsing code was broken.
+
+    I'm also fairly sure that it'll fall over on headers than span more than
+    one line.
+
+    In short, it's a piece of code that inspires little confidence, yet we
+    must work with it, hence we need to round-trip test multipart handling
+    with it.
+    """
+    handler = MemoryFileUploadHandler()
+    meta = {
+        "HTTP_CONTENT_TYPE": headers["Content-Type"],
+        "HTTP_CONTENT_LENGTH": headers["Content-Length"],
+        }
+    parser = MultiPartParser(
+        META=meta, input_data=BytesIO(body),
+        upload_handlers=[handler])
+    return parser.parse()
+
+
 class TestMultiPart(TestCase):
 
     def test_get_content_type_guesses_type(self):
@@ -88,28 +118,16 @@ class TestMultiPart(TestCase):
         random_data = urandom(32)
         files = {"baz": BytesIO(random_data)}
         body, headers = encode_multipart_data(params, files)
-
-        # Parse it with Django's MultiPartParser, a curiously ugly and RFC
-        # non-compliant concoction. It also coerces all field names, field
-        # data, and filenames into Unicode strings using the "replace" error
-        # strategy, so be warned that your data may be silently mangled.
-        handler = MemoryFileUploadHandler()
-        meta = {
-            "HTTP_CONTENT_TYPE": headers["Content-Type"],
-            "HTTP_CONTENT_LENGTH": headers["Content-Length"],
-            }
-        parser = MultiPartParser(
-            META=meta, input_data=BytesIO(body),
-            upload_handlers=[handler])
-        post, files = parser.parse()
-
-        self.assertEqual(
-            {name: [value] for name, value in params.items()},
-            post)
-        self.assertSetEqual({"baz"}, set(files))
-        self.assertEqual(random_data, files["baz"].read())
-
         self.assertEqual("%s" % len(body), headers["Content-Length"])
         self.assertThat(
             headers["Content-Type"],
             StartsWith("multipart/form-data; boundary="))
+        # Round-trip through Django's multipart code.
+        post, files = parse_headers_and_body_with_django(headers, body)
+        self.assertEqual(
+            {name: [value] for name, value in params.items()}, post,
+            "If the mismatch appears to be because the parsed strings "
+            "are base64 encoded, then check you're using a >=1.4 release "
+            "of Django.")
+        self.assertSetEqual({"baz"}, set(files))
+        self.assertEqual(random_data, files["baz"].read())
