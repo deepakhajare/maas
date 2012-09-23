@@ -12,10 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maasserver.models import (
-    Node,
-    Tag,
-    )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 

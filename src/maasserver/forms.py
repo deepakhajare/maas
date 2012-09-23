@@ -25,7 +25,7 @@ __all__ = [
     "SSHKeyForm",
     "UbuntuForm",
     "AdminNodeForm",
-    "AdminTagForm",
+    "TagForm",
     ]
 
 import collections

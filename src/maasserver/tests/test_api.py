@@ -2191,7 +2191,8 @@ class TestTagAPI(APITestCase):
     def test_POST_nodes_returns_nodes(self):
         tag = factory.make_tag()
         node1 = factory.make_node()
-        node2 = factory.make_node()
+        # Create a second node that isn't tagged.
+        factory.make_node()
         node1.tags.add(tag)
         response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
 

@@ -538,7 +538,8 @@ class NodeHandler(BaseHandler):
             user_data = b64decode(user_data)
         if series is not None:
             node = Node.objects.get_node_or_404(
-                system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
+                system_id=system_id, user=request.user,
+                perm=NODE_PERMISSION.EDIT)
             node.set_distro_series(series=series)
         nodes = Node.objects.start_nodes(
             [system_id], request.user, user_data=user_data)
