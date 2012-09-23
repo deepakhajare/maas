@@ -28,9 +28,9 @@ from maasserver.enum import (
     NODE_STATUS,
     PRESEED_TYPE,
     )
+from maasserver.models import Config
 from maasserver.server_address import get_maas_facing_server_host
 from maasserver.utils import absolute_reverse
-from maasserver.models import Config
 import tempita
 
 
@@ -67,7 +67,7 @@ def get_preseed(node):
     """
     if node.status == NODE_STATUS.COMMISSIONING:
         return render_preseed(
-            node, PRESEED_TYPE.COMMISSIONING, 
+            node, PRESEED_TYPE.COMMISSIONING,
             release=Config.objects.get_config('commissioning_distro_series'))
     else:
         return render_preseed(node, PRESEED_TYPE.DEFAULT,

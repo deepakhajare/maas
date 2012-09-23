@@ -19,8 +19,8 @@ from django.core.exceptions import (
     )
 from django.db.models import (
     CharField,
-    TextField,
     Manager,
+    TextField,
     )
 from django.shortcuts import get_object_or_404
 from maasserver import DefaultMeta

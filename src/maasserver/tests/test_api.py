@@ -49,6 +49,7 @@ from maasserver.components import COMPONENT
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DISTRO_SERIES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
@@ -517,6 +518,19 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 "following node(s): %s." % node_id),
             (response.status_code, response.content))
 
+    def test_POST_accept_all_does_not_accept_anything(self):
+        # It is not an error for a non-admin user to attempt to accept all
+        # anonymously enlisted nodes, but only those for which he/she has
+        # admin privs will be accepted, which currently equates to none of
+        # them.
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertEqual([], nodes_returned)
+
     def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
@@ -702,6 +716,20 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'tag_names',
             ],
             list(parsed_result))
+
+    def test_POST_accept_all(self):
+        # An admin user can accept all anonymously enlisted nodes.
+        nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            ]
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertSetEqual(
+            {node.system_id for node in nodes},
+            {node["system_id"] for node in nodes_returned})
 
 
 class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
@@ -895,6 +923,36 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(
             node.system_id, json.loads(response.content)['system_id'])
 
+    def test_POST_start_sets_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        distro_series = factory.getRandomEnum(DISTRO_SERIES)
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': distro_series})
+        self.assertEqual(
+            (httplib.OK, node.system_id),
+            (response.status_code, json.loads(response.content)['system_id']))
+        self.assertEqual(
+            distro_series, reload_object(node).distro_series)
+
+    def test_POST_start_validates_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        invalid_distro_series = factory.getRandomString()
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': invalid_distro_series})
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'distro_series': ["Value u'%s' is not a valid choice." %
+                    invalid_distro_series]}
+            ),
+            (response.status_code, json.loads(response.content)))
+
     def test_POST_start_may_be_repeated(self):
         node = factory.make_node(
             owner=self.logged_in_user, mac=True,
@@ -942,6 +1000,13 @@ class TestNodeAPI(APITestCase):
         node.set_netboot(on=False)
         self.client.post(self.get_node_uri(node), {'op': 'release'})
         self.assertTrue(reload_object(node).netboot)
+
+    def test_POST_release_resets_distro_series(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
+            distro_series=factory.getRandomEnum(DISTRO_SERIES))
+        self.client.post(self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual('', reload_object(node).distro_series)
 
     def test_POST_release_removes_token_and_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -1711,17 +1776,6 @@ class TestNodesAPI(APITestCase):
             self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
         self.assertEqual(
             (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
-            (response.status_code, response.content))
-
-    def test_POST_accept_fails_if_not_admin(self):
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {'op': 'accept', 'nodes': [node.system_id]})
-        self.assertEqual(
-            (httplib.FORBIDDEN,
-                "You don't have the required permission to accept the "
-                "following node(s): %s." % node.system_id),
             (response.status_code, response.content))
 
     def test_POST_accept_accepts_multiple_nodes(self):

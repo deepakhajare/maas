@@ -520,12 +520,12 @@ class NodeHandler(BaseHandler):
     def start(self, request, system_id):
         """Power up a node.
 
-        The user_data parameter, if set in the POST data, is taken as
-        base64-encoded binary data.
-
-        The distro_series parameter, if set in the POST data, is taken as
-        clear text. This parameter specifies the Ubuntu Release the node
-        will use.
+        :param user_data: If present, this blob of user-data to be made
+            available to the nodes through the metadata service.
+        :type user_data: base64-encoded basestring
+        :param distro_series: If present, this parameter specifies the
+            Ubuntu Release the node will use.
+        :type distro_series: basestring
 
         Ideally we'd have MIME multipart and content-transfer-encoding etc.
         deal with the encapsulation of binary data, but couldn't make it work
@@ -712,6 +712,25 @@ class NodesHandler(BaseHandler):
                     ', '.join(system_ids - ids)))
         return filter(
             None, [node.accept_enlistment(request.user) for node in nodes])
+
+    @api_exported('POST')
+    def accept_all(self, request):
+        """Accept all declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
+
+        :return: Representations of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are excluded
+            from the result.
+        """
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN)
+        nodes = nodes.filter(status=NODE_STATUS.DECLARED)
+        nodes = [node.accept_enlistment(request.user) for node in nodes]
+        return filter(None, nodes)
 
     @api_exported('GET')
     def list(self, request):
