@@ -12,9 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maasserver.testing import (
-    reload_object,
-    )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 

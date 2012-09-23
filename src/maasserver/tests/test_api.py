@@ -2246,8 +2246,7 @@ class TestTagAPI(APITestCase):
         self.become_admin()
         response = self.client.put(self.get_tag_uri(tag),
             {'definition': '/node/bar'})
-        node1 = reload_object(node1)
-        node2 = reload_object(node2)
+        self.assertEqual(httplib.OK, response.status_code)
         self.assertItemsEqual([], node1.tag_names())
         self.assertItemsEqual([tag.name], node2.tag_names())
 
