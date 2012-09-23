@@ -1336,7 +1336,11 @@ def create_tag(request):
         raise PermissionDenied()
     form = TagForm(request.data)
     if form.is_valid():
-        return form.save()
+        new_tag = form.save(commit=False)
+        new_tag.save()
+        new_tag.populate_nodes()
+        form.save_m2m()
+        return new_tag
     else:
         raise ValidationError(form.errors)
 

@@ -2295,6 +2295,30 @@ class TestTagsAPI(APITestCase):
         self.assertEqual(definition, parsed_result['definition'])
         self.assertEqual(1, Tag.objects.filter(name=name).count())
 
+    def test_POST_new_populates_nodes(self):
+        self.become_admin()
+        node1 = factory.make_node()
+        node1.set_hardware_details('<node><child /></node>')
+        # Create another node that doesn't have a 'child'
+        node2 = factory.make_node()
+        node2.set_hardware_details('<node />')
+        self.assertItemsEqual([], node1.tag_names())
+        self.assertItemsEqual([], node2.tag_names())
+        name = factory.getRandomString()
+        definition = '/node/child'
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': comment,
+                'definition': definition,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertItemsEqual([name], node1.tag_names())
+        self.assertItemsEqual([], node2.tag_names())
+
 
 class MAASAPIAnonTest(APIv10TestMixin, TestCase):
     # The MAAS' handler is not accessible to anon users.
