@@ -2234,6 +2234,23 @@ class TestTagAPI(APITestCase):
         self.assertEqual(0, Tag.objects.filter(name=tag.name).count())
         self.assertEqual(1, Tag.objects.filter(name='new-tag-name').count())
 
+    def test_PUT_updates_node_associations(self):
+        node1 = factory.make_node()
+        node1.set_hardware_details('<node><foo /></node>')
+        node2 = factory.make_node()
+        node2.set_hardware_details('<node><bar /></node>')
+        tag = factory.make_tag(definition='/node/foo')
+        tag.populate_nodes()
+        self.assertItemsEqual([tag.name], node1.tag_names())
+        self.assertItemsEqual([], node2.tag_names())
+        self.become_admin()
+        response = self.client.put(self.get_tag_uri(tag),
+            {'definition': '/node/bar'})
+        node1 = reload_object(node1)
+        node2 = reload_object(node2)
+        self.assertItemsEqual([], node1.tag_names())
+        self.assertItemsEqual([tag.name], node2.tag_names())
+
     def test_POST_nodes_with_no_nodes(self):
         tag = factory.make_tag()
         response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})

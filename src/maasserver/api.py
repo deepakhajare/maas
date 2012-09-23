@@ -1272,10 +1272,17 @@ class TagHandler(BaseHandler):
         """
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
             to_edit=True)
-        data = get_overrided_query_dict(model_to_dict(tag), request.data)
+        model_dict = model_to_dict(tag)
+        old_definition = model_dict['definition']
+        data = get_overrided_query_dict(model_dict, request.data)
         form = TagForm(data, instance=tag)
         if form.is_valid():
-            return form.save()
+            new_tag = form.save(commit=False)
+            new_tag.save()
+            if new_tag.definition != old_definition:
+                new_tag.populate_nodes()
+            form.save_m2m()
+            return new_tag
         else:
             raise ValidationError(form.errors)
 

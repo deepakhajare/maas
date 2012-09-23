@@ -90,4 +90,6 @@ class Tag(CleanSave, TimestampedModel):
                 'SELECT id FROM maasserver_node'
                 ' WHERE xpath_exists(%s, hardware_details)',
                 [self.definition]):
-            self.node_set.add(node)
+            # Is there an efficiency difference between doing
+            # 'node.tags.add(self)' and 'self.node_set.add(node)' ?
+            node.tags.add(self)
