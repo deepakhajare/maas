@@ -109,7 +109,7 @@ def encode_multipart_message(message):
 def encode_multipart_data(data=(), files=()):
     """Create a MIME multipart payload from L{data} and L{files}.
 
-    **Note** that this function is deprecated. Use `prepare_multipart_message`
+    **Note** that this function is deprecated. Use `build_multipart_message`
     and `encode_multipart_message` instead.
 
     @param data: A mapping of names (ASCII strings) to data (byte string).
