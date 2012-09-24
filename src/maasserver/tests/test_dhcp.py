@@ -96,7 +96,7 @@ class TestDHCP(TestCase):
         configure_dhcp(nodegroup)
         self.assertEqual(
             mocked_check_call.call_args[0][0],
-            ['sudo', '-n', 'service', 'isc-dhcp-server', 'restart'])
+            ['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
 
     def test_dhcp_config_gets_written_when_nodegroup_becomes_active(self):
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
