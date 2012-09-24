@@ -15,7 +15,9 @@ __all__ = []
 from argparse import ArgumentParser
 from collections import namedtuple
 import httplib
+from io import BytesIO
 import json
+from urllib2 import HTTPError
 
 from apiclient.maas_client import MAASDispatcher
 from maastesting.factory import factory
@@ -114,6 +116,18 @@ class TestStartClusterController(PservTestCase):
     def test_polls_while_pending(self):
         self.patch(start_cluster_controller, 'start_up')
         self.prepare_pending_response()
+        self.assertRaises(
+            Sleeping,
+            start_cluster_controller.run, FakeArgs(make_url()))
+        self.assertItemsEqual([], start_cluster_controller.start_up.calls_list)
+
+    def test_polls_on_unexpected_errors(self):
+        self.patch(start_cluster_controller, 'start_up')
+        self.patch(
+            MAASDispatcher, 'dispatch_query',
+            Mock(side_effect=HTTPError(
+                make_url(), httplib.REQUEST_TIMEOUT, "Timeout.", '',
+                BytesIO())))
         self.assertRaises(
             Sleeping,
             start_cluster_controller.run, FakeArgs(make_url()))
