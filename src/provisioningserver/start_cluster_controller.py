@@ -70,20 +70,25 @@ def register(server_url):
         status_code = e.code
         if e.code not in known_responses:
             log_error(e)
+            # Unknown error.  Keep trying.
             return None
     except URLError as e:
         log_error(e)
+        # Unknown error.  Keep trying.
         return None
     else:
         status_code = response.getcode()
 
     if status_code == httplib.OK:
+        # Our application has been approved.  Proceed.
         return json.loads(response.read())
+    elif status_code == httplib.ACCEPTED:
+        # Our application is still waiting for approval.  Keep trying.
+        return None
     elif status_code == httplib.FORBIDDEN:
+        # Our application has been rejected.  Give up.
         raise ClusterControllerRejected(
             "This system has been rejected as a cluster controller.")
-    elif status_code == httplib.ACCEPTED:
-        return None
     else:
         raise AssertionError("Unexpected return code: %r" % status_code)
 
