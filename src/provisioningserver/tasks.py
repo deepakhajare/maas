@@ -26,16 +26,18 @@ __all__ = [
 from subprocess import (
     CalledProcessError,
     check_call,
-    PIPE,
-    Popen,
     )
 
 from celery.task import task
-from celeryconfig import DHCP_CONFIG_FILE
+from celeryconfig import (
+    DHCP_CONFIG_FILE,
+    DHCP_INTERFACES_FILE,
+    )
+from provisioningserver import boot_images
 from provisioningserver.auth import (
     record_api_credentials,
     record_maas_url,
-    record_nodegroup_name,
+    record_nodegroup_uuid,
     )
 from provisioningserver.dhcp import config
 from provisioningserver.dhcp.leases import upload_leases
@@ -49,12 +51,13 @@ from provisioningserver.power.poweraction import (
     PowerAction,
     PowerActionFail,
     )
+from provisioningserver.utils import sudo_write_file
 
 # For each item passed to refresh_secrets, a refresh function to give it to.
 refresh_functions = {
     'api_credentials': record_api_credentials,
     'maas_url': record_maas_url,
-    'nodegroup_name': record_nodegroup_name,
+    'nodegroup_uuid': record_nodegroup_uuid,
 }
 
 
@@ -92,7 +95,7 @@ def refresh_secrets(**kwargs):
     :param api_credentials: A colon separated string containing this
         worker's credentials for accessing the MAAS API: consumer key,
         resource token, resource secret.
-    :param nodegroup_name: The name of the node group that this worker
+    :param nodegroup_uuid: The uuid of the node group that this worker
         manages.
     """
     for key, value in kwargs.items():
@@ -306,17 +309,27 @@ def remove_dhcp_host_map(ip_address, server_address, omapi_key):
 def write_dhcp_config(**kwargs):
     """Write out the DHCP configuration file and restart the DHCP server.
 
+    :param dhcp_interfaces: Space-separated list of interfaces that the
+        DHCP server should listen on.
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
-    output = config.get_config(**kwargs).encode("ascii")
-    proc = Popen(
-        ["sudo", "maas-provision", "atomic-write", "--filename",
-        DHCP_CONFIG_FILE, "--mode", "744"], stdin=PIPE)
-    proc.communicate(output)
+    sudo_write_file(DHCP_CONFIG_FILE, config.get_config(**kwargs))
+    sudo_write_file(DHCP_INTERFACES_FILE, kwargs.get('dhcp_interfaces', ''))
     restart_dhcp_server()
 
 
 @task
 def restart_dhcp_server():
     """Restart the DHCP server."""
-    check_call(['sudo', 'service', 'isc-dhcp-server', 'restart'])
+    check_call(['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
+
+
+# =====================================================================
+# Boot images-related tasks
+# =====================================================================
+
+
+@task
+def report_boot_images():
+    """For master worker only: report available netboot images."""
+    boot_images.report_to_server()

@@ -18,6 +18,7 @@ __all__ = [
     "MainScript",
     "parse_key_value_file",
     "ShellTemplate",
+    "sudo_write_file",
     "write_custom_config_section",
     ]
 
@@ -28,7 +29,11 @@ import os
 from os import fdopen
 from pipes import quote
 import signal
-from subprocess import CalledProcessError
+from subprocess import (
+    CalledProcessError,
+    PIPE,
+    Popen,
+    )
 import sys
 import tempfile
 from time import time
@@ -262,6 +267,24 @@ def write_custom_config_section(original_text, custom_section):
     return '\n'.join(lines) + '\n'
 
 
+def sudo_write_file(filename, contents, encoding='utf-8', mode=0744):
+    """Write (or overwrite) file as root.  USE WITH EXTREME CARE.
+
+    Runs an atomic update using non-interactive `sudo`.  This will fail if
+    it needs to prompt for a password.
+    """
+    raw_contents = contents.encode(encoding)
+    command = [
+        'sudo', '-n', 'maas-provision', 'atomic-write',
+        '--filename', filename,
+        '--mode', oct(mode),
+        ]
+    proc = Popen(command, stdin=PIPE)
+    stdout, stderr = proc.communicate(raw_contents)
+    if proc.returncode != 0:
+        raise CalledProcessError(proc.returncode, command, stderr)
+
+
 class Safe:
     """An object that is safe to render as-is."""
 
@@ -303,14 +326,7 @@ class ShellTemplate(tempita.Template):
 
 
 class ActionScript:
-    """A command-line script that follows a command+verb pattern.
-
-    It is probably worth replacing this with Commandant_ or something similar
-    - just bzrlib.commands for example - in the future, so we don't have to
-    maintain this.
-
-    .. _Commandant: https://launchpad.net/commandant
-    """
+    """A command-line script that follows a command+verb pattern."""
 
     def __init__(self, description):
         super(ActionScript, self).__init__()

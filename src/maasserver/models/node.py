@@ -31,6 +31,7 @@ from django.db.models import (
     ForeignKey,
     IntegerField,
     Manager,
+    ManyToManyField,
     Q,
     )
 from django.shortcuts import get_object_or_404
@@ -38,6 +39,8 @@ from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DISTRO_SERIES,
+    DISTRO_SERIES_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODE_PERMISSION,
@@ -46,9 +49,10 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.exceptions import NodeStateViolation
-from maasserver.fields import JSONObjectField
+from maasserver.fields import JSONObjectField, XMLField
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
+from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.utils import get_db_state
 from maasserver.utils.orm import get_first
@@ -334,6 +338,7 @@ class Node(CleanSave, TimestampedModel):
     :ivar power_type: The :class:`POWER_TYPE` that determines how this
         node will be powered on.  If not given, the default will be used as
         configured in the `node_power_type` setting.
+    :ivar tags: The list of :class:`Tag`s associated with this `Node`.
     :ivar objects: The :class:`NodeManager`.
 
     """
@@ -358,9 +363,24 @@ class Node(CleanSave, TimestampedModel):
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         default=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
 
+    distro_series = CharField(
+        max_length=10, choices=DISTRO_SERIES_CHOICES, null=True,
+        blank=True, default='')
+
+    distro_series = CharField(
+        max_length=10, choices=DISTRO_SERIES_CHOICES, null=True,
+        blank=True, default=None)
+
     architecture = CharField(
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
+
+    # Juju expects the following standard constraints, which are stored here
+    # as a basic optimisation over querying the hardware_details field.
+    cpu_count = IntegerField(default=0)
+    memory = IntegerField(default=0)
+
+    hardware_details = XMLField(default=None, blank=True, null=True)
 
     # For strings, Django insists on abusing the empty string ("blank")
     # to mean "none."
@@ -389,6 +409,8 @@ class Node(CleanSave, TimestampedModel):
     # form) validation.
     nodegroup = ForeignKey(
         'maasserver.NodeGroup', editable=True, null=True, blank=False)
+
+    tags = ManyToManyField(Tag)
 
     objects = NodeManager()
 
@@ -555,6 +577,21 @@ class Node(CleanSave, TimestampedModel):
         else:
             return None
 
+    def get_distro_series(self):
+        """Return the distro series to install that node."""
+        use_default_distro_series = (
+            not self.distro_series or
+            self.distro_series == DISTRO_SERIES.default)
+        if use_default_distro_series:
+            return Config.objects.get_config('default_distro_series')
+        else:
+            return self.distro_series
+
+    def set_distro_series(self, series=''):
+        """Set the distro series to install that node."""
+        self.distro_series = series
+        self.save()
+
     def get_effective_power_parameters(self):
         """Return effective power parameters, including any defaults."""
         if self.power_parameters:
@@ -565,17 +602,10 @@ class Node(CleanSave, TimestampedModel):
 
         power_params.setdefault('system_id', self.system_id)
         power_params.setdefault('virsh', '/usr/bin/virsh')
-        power_params.setdefault('ipmitool', '/usr/bin/ipmitool')
+        power_params.setdefault('ipmipower', '/usr/sbin/ipmipower')
         power_params.setdefault('power_address', 'qemu://localhost/system')
         power_params.setdefault('username', '')
         power_params.setdefault('power_id', self.system_id)
-
-        # Set the default ipmi interface based on the IPMI/IPMI_LAN
-        # POWER_TYPE selected
-        if self.power_type == POWER_TYPE.IPMI:
-            power_params.setdefault('power_ipmi_interface', 'lan')
-        if self.power_type == POWER_TYPE.IPMI_LAN:
-            power_params.setdefault('power_ipmi_interface', 'lanplus')
 
         # The "mac" parameter defaults to the node's primary MAC
         # address, but only if no power parameters were set at all.
@@ -606,4 +636,9 @@ class Node(CleanSave, TimestampedModel):
     def set_netboot(self, on=True):
         """Set netboot on or off."""
         self.netboot = on
+        self.save()
+
+    def set_hardware_details(self, xmlbytes):
+        """Set the `lshw -xml` output"""
+        self.hardware_details = xmlbytes
         self.save()

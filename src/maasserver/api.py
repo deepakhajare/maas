@@ -54,19 +54,23 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "AccountHandler",
+    "AnonNodeGroupsHandler",
+    "AnonNodesHandler",
     "api_doc",
     "api_doc_title",
-    "generate_api_doc",
-    "get_oauth_token",
-    "AccountHandler",
-    "AnonNodesHandler",
+    "BootImagesHandler",
     "FilesHandler",
+    "get_oauth_token",
     "NodeGroupsHandler",
+    "NodeGroupInterfaceHandler",
+    "NodeGroupInterfacesHandler",
     "NodeHandler",
-    "NodesHandler",
     "NodeMacHandler",
     "NodeMacsHandler",
+    "NodesHandler",
     "pxeconfig",
+    "render_api_docs",
     ]
 
 from base64 import b64decode
@@ -80,6 +84,7 @@ import sys
 from textwrap import dedent
 import types
 
+from celery.app import app_or_default
 from django.conf import settings
 from django.core.exceptions import (
     PermissionDenied,
@@ -99,10 +104,21 @@ from django.template import RequestContext
 from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
+from maasserver.apidoc import (
+    describe_handler,
+    find_api_handlers,
+    generate_api_docs,
+    )
+from maasserver.components import (
+    COMPONENT,
+    discard_persistent_error,
+    register_persistent_error,
+    )
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_PERMISSION,
     NODE_STATUS,
+    NODEGROUP_STATUS,
     )
 from maasserver.exceptions import (
     MAASAPIBadRequest,
@@ -115,14 +131,18 @@ from maasserver.fields import validate_mac
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
+    NodeGroupInterfaceForm,
+    NodeGroupWithInterfacesForm,
     )
 from maasserver.models import (
+    BootImage,
     Config,
     DHCPLease,
     FileStorage,
     MACAddress,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
@@ -130,11 +150,9 @@ from maasserver.preseed import (
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils.orm import get_one
-from piston.doc import generate_doc
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
-    HandlerMetaClass,
     )
 from piston.models import Token
 from piston.resource import Resource
@@ -497,8 +515,12 @@ class NodeHandler(BaseHandler):
     def start(self, request, system_id):
         """Power up a node.
 
-        The user_data parameter, if set in the POST data, is taken as
-        base64-encoded binary data.
+        :param user_data: If present, this blob of user-data to be made
+            available to the nodes through the metadata service.
+        :type user_data: base64-encoded basestring
+        :param distro_series: If present, this parameter specifies the
+            Ubuntu Release the node will use.
+        :type distro_series: basestring
 
         Ideally we'd have MIME multipart and content-transfer-encoding etc.
         deal with the encapsulation of binary data, but couldn't make it work
@@ -506,8 +528,14 @@ class NodeHandler(BaseHandler):
         encoding instead.
         """
         user_data = request.POST.get('user_data', None)
+        series = request.POST.get('distro_series', None)
         if user_data is not None:
             user_data = b64decode(user_data)
+        if series is not None:
+            node = Node.objects.get_node_or_404(
+                system_id=system_id, user=request.user,
+                perm=NODE_PERMISSION.EDIT)
+            node.set_distro_series(series=series)
         nodes = Node.objects.start_nodes(
             [system_id], request.user, user_data=user_data)
         if len(nodes) == 0:
@@ -520,6 +548,7 @@ class NodeHandler(BaseHandler):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
+        node.set_distro_series(series='')
         if node.status == NODE_STATUS.READY:
             # Nothing to do.  This may be a redundant retry, and the
             # postcondition is achieved, so call this success.
@@ -677,6 +706,25 @@ class NodesHandler(BaseHandler):
                     ', '.join(system_ids - ids)))
         return filter(
             None, [node.accept_enlistment(request.user) for node in nodes])
+
+    @api_exported('POST')
+    def accept_all(self, request):
+        """Accept all declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
+
+        :return: Representations of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are excluded
+            from the result.
+        """
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN)
+        nodes = nodes.filter(status=NODE_STATUS.DECLARED)
+        nodes = [node.accept_enlistment(request.user) for node in nodes]
+        return filter(None, nodes)
 
     @api_exported('GET')
     def list(self, request):
@@ -857,19 +905,19 @@ class FilesHandler(BaseHandler):
         return ('files_handler', [])
 
 
+DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
+
+
 @api_operations
-class NodeGroupsHandler(BaseHandler):
-    """Node-groups API.  Lists the registered node groups.
-
-    BE VERY CAREFUL in this view: it is accessible anonymously, even for POST.
-    """
-
+class AnonNodeGroupsHandler(AnonymousBaseHandler):
+    """Anon Node-groups API."""
     allowed_methods = ('GET', 'POST')
+    fields = DISPLAYED_NODEGROUP_FIELDS
 
-    def read(self, request):
-        """Index of node groups."""
-        return HttpResponse(sorted(
-            [nodegroup.name for nodegroup in NodeGroup.objects.all()]))
+    @api_exported('GET')
+    def list(self, request):
+        """List of node groups."""
+        return NodeGroup.objects.all()
 
     @classmethod
     def resource_uri(cls):
@@ -889,15 +937,122 @@ class NodeGroupsHandler(BaseHandler):
         NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
+    @api_exported('POST')
+    def register(self, request):
+        """Register a new `NodeGroup`.
 
-def get_nodegroup_for_worker(request, nodegroup_name):
-    """Get :class:`NodeGroup` by name, for access by its worker.
+        This method will use HTTP return codes to indicate the success of the
+        call:
+
+        - 200 (OK): the nodegroup has been accepted, the response will
+          contain the RabbitMQ credentials in JSON format: e.g.:
+          '{"BROKER_URL" = "amqp://guest:guest@localhost:5672//"}'
+        - 202 (Accepted): the registration of the nodegroup has been accepted,
+          it now needs to be validated by an administrator.  Please issue
+          the same request later.
+        - 403 (Forbidden): this nodegroup has been rejected.
+
+        :param uuid: The UUID of the nodegroup.
+        :type name: basestring
+        :param name: The name of the nodegroup.
+        :type name: basestring
+        :param interfaces: The list of the interfaces' data.
+        :type interface: json string containing a list of dictionaries with
+            the data to initialize the interfaces.
+            e.g.: '[{"ip_range_high": "192.168.168.254",
+            "ip_range_low": "192.168.168.1", "broadcast_ip":
+            "192.168.168.255", "ip": "192.168.168.18", "subnet_mask":
+            "255.255.255.0", "router_ip": "192.168.168.1", "interface":
+            "eth0"}]'
+        """
+        uuid = get_mandatory_param(request.data, 'uuid')
+        existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+        if existing_nodegroup is None:
+            # This nodegroup (identified by its uuid), does not exist yet,
+            # create it if the data validates.
+            form = NodeGroupWithInterfacesForm(request.data)
+            if form.is_valid():
+                form.save()
+                return HttpResponse(
+                    "Cluster registered.  Awaiting admin approval.",
+                    status=httplib.ACCEPTED)
+            else:
+                raise ValidationError(form.errors)
+        else:
+            if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
+                # The nodegroup exists and is validated, return the RabbitMQ
+                # credentials as JSON.
+                celery_conf = app_or_default().conf
+                return {
+                    'BROKER_URL': celery_conf.BROKER_URL,
+                }
+            elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
+                raise PermissionDenied('Rejected cluster.')
+            elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
+                return HttpResponse(
+                    "Awaiting admin approval.", status=httplib.ACCEPTED)
+
+
+@api_operations
+class NodeGroupsHandler(BaseHandler):
+    """Node-groups API."""
+    anonymous = AnonNodeGroupsHandler
+    allowed_methods = ('GET', 'POST')
+    fields = DISPLAYED_NODEGROUP_FIELDS
+
+    @api_exported('GET')
+    def list(self, request):
+        """List of node groups."""
+        return NodeGroup.objects.all()
+
+    @api_exported('POST')
+    def accept(self, request):
+        """Accept nodegroup enlistment(s).
+
+        :param uuid: The UUID (or list of UUIDs) of the nodegroup(s) to accept.
+        :type name: basestring (or list of basestrings)
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            uuids = request.data.getlist('uuid')
+            for uuid in uuids:
+                nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+                nodegroup.accept()
+            return HttpResponse("Nodegroup(s) accepted.", status=httplib.OK)
+        else:
+            raise PermissionDenied("That method is reserved to admin users.")
+
+    @api_exported('POST')
+    def reject(self, request):
+        """Reject nodegroup enlistment(s).
+
+        :param uuid: The UUID (or list of UUIDs) of the nodegroup(s) to reject.
+        :type name: basestring (or list of basestrings)
+
+        This method is reserved to admin users.
+        """
+        if request.user.is_superuser:
+            uuids = request.data.getlist('uuid')
+            for uuid in uuids:
+                nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+                nodegroup.reject()
+            return HttpResponse("Nodegroup(s) rejected.", status=httplib.OK)
+        else:
+            raise PermissionDenied("That method is reserved to admin users.")
+
+    @classmethod
+    def resource_uri(cls):
+        return ('nodegroups_handler', [])
+
+
+def check_nodegroup_access(request, nodegroup):
+    """Validate API access by worker for `nodegroup`.
 
     This supports a nodegroup worker accessing its nodegroup object on
-    the API.  If the request is done by ayone but the worker for this
+    the API.  If the request is done by anyone but the worker for this
     particular nodegroup, the function raises :class:`PermissionDenied`.
     """
-    nodegroup = get_object_or_404(NodeGroup, name=nodegroup_name)
     try:
         key = extract_oauth_key(request)
     except Unauthorized as e:
@@ -907,38 +1062,148 @@ def get_nodegroup_for_worker(request, nodegroup_name):
         raise PermissionDenied(
             "Only allowed for the %r worker." % nodegroup.name)
 
-    return nodegroup
-
 
 @api_operations
 class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
     allowed_methods = ('GET', 'POST')
-    fields = ('name', )
+    fields = DISPLAYED_NODEGROUP_FIELDS
 
-    def read(self, request, name):
+    def read(self, request, uuid):
         """GET a node group."""
-        return get_object_or_404(NodeGroup, name=name)
+        return get_object_or_404(NodeGroup, uuid=uuid)
 
     @classmethod
     def resource_uri(cls, nodegroup=None):
         if nodegroup is None:
-            name = 'name'
+            uuid = 'uuid'
         else:
-            name = nodegroup.name
-        return ('nodegroup_handler', [name])
+            uuid = nodegroup.uuid
+        return ('nodegroup_handler', [uuid])
 
     @api_exported('POST')
-    def update_leases(self, request, name):
+    def update_leases(self, request, uuid):
         leases = get_mandatory_param(request.data, 'leases')
-        nodegroup = get_nodegroup_for_worker(request, name)
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        check_nodegroup_access(request, nodegroup)
         leases = json.loads(leases)
         new_leases = DHCPLease.objects.update_leases(nodegroup, leases)
         if len(new_leases) > 0:
             nodegroup.add_dhcp_host_maps(
                 {ip: leases[ip] for ip in new_leases if ip in leases})
         return HttpResponse("Leases updated.", status=httplib.OK)
+
+
+DISPLAYED_NODEGROUP_FIELDS = (
+    'ip', 'management', 'interface', 'subnet_mask',
+    'broadcast_ip', 'ip_range_low', 'ip_range_high')
+
+
+@api_operations
+class NodeGroupInterfacesHandler(BaseHandler):
+    """NodeGroupInterfaces API."""
+    allowed_methods = ('GET', 'POST')
+    fields = DISPLAYED_NODEGROUP_FIELDS
+
+    @api_exported('GET')
+    def list(self, request, uuid):
+        """List of NodeGroupInterfaces of a NodeGroup."""
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        return NodeGroupInterface.objects.filter(nodegroup=nodegroup)
+
+    @api_exported('POST')
+    def new(self, request, uuid):
+        """Create a new NodeGroupInterface for this NodeGroup.
+
+        :param ip: Static IP of the interface.
+        :type ip: basestring (IP Address)
+        :param interface: Name of the interface.
+        :type interface: basestring
+        :param management: The service(s) MAAS should manage on this interface.
+        :type management: Vocabulary `NODEGROUPINTERFACE_MANAGEMENT`
+        :param subnet_mask: Subnet mask, e.g. 255.0.0.0.
+        :type subnet_mask: basestring (IP Address)
+        :param broadcast_ip: Broadcast address for this subnet.
+        :type broadcast_ip: basestring (IP Address)
+        :param router_ip: Address of default gateway.
+        :type router_ip: basestring (IP Address)
+        :param ip_range_low: Lowest IP address to assign to clients.
+        :type ip_range_low: basestring (IP Address)
+        :param ip_range_high: Highest IP address to assign to clients.
+        :type ip_range_high: basestring (IP Address)
+        """
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        form = NodeGroupInterfaceForm(request.data)
+        if form.is_valid():
+            return form.save(
+                nodegroup=nodegroup)
+        else:
+            raise ValidationError(form.errors)
+
+    @classmethod
+    def resource_uri(cls, nodegroup=None):
+        if nodegroup is None:
+            uuid = 'uuid'
+        else:
+            uuid = nodegroup.uuid
+        return ('nodegroupinterfaces_handler', [uuid])
+
+
+class NodeGroupInterfaceHandler(BaseHandler):
+    """NodeGroupInterface API."""
+    allowed_methods = ('GET', 'PUT')
+    fields = DISPLAYED_NODEGROUP_FIELDS
+
+    def read(self, request, uuid, interface):
+        """List of NodeGroupInterfaces of a NodeGroup."""
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroupinterface = get_object_or_404(
+            NodeGroupInterface, nodegroup=nodegroup, interface=interface)
+        return nodegroupinterface
+
+    def update(self, request, uuid, interface):
+        """Update a specific NodeGroupInterface.
+
+        :param ip: Static IP of the interface.
+        :type ip: basestring (IP Address)
+        :param interface: Name of the interface.
+        :type interface: basestring
+        :param management: The service(s) MAAS should manage on this interface.
+        :type management: Vocabulary `NODEGROUPINTERFACE_MANAGEMENT`
+        :param subnet_mask: Subnet mask, e.g. 255.0.0.0.
+        :type subnet_mask: basestring (IP Address)
+        :param broadcast_ip: Broadcast address for this subnet.
+        :type broadcast_ip: basestring (IP Address)
+        :param router_ip: Address of default gateway.
+        :type router_ip: basestring (IP Address)
+        :param ip_range_low: Lowest IP address to assign to clients.
+        :type ip_range_low: basestring (IP Address)
+        :param ip_range_high: Highest IP address to assign to clients.
+        :type ip_range_high: basestring (IP Address)
+        """
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroupinterface = get_object_or_404(
+            NodeGroupInterface, nodegroup=nodegroup, interface=interface)
+        data = get_overrided_query_dict(
+            model_to_dict(nodegroupinterface), request.data)
+        form = NodeGroupInterfaceForm(data, instance=nodegroupinterface)
+        if form.is_valid():
+            return form.save()
+        else:
+            raise ValidationError(form.errors)
+
+    @classmethod
+    def resource_uri(cls, nodegroup=None, interface=None):
+        if nodegroup is None:
+            uuid = 'uuid'
+        else:
+            uuid = nodegroup.uuid
+        if interface is None:
+            interface_name = 'interface'
+        else:
+            interface_name = interface.interface
+        return ('nodegroupinterface_handler', [uuid, interface_name])
 
 
 @api_operations
@@ -1014,7 +1279,7 @@ class MAASHandler(BaseHandler):
 
 
 # Title section for the API documentation.  Matches in style, format,
-# etc. whatever generate_api_doc() produces, so that you can concatenate
+# etc. whatever render_api_docs() produces, so that you can concatenate
 # the two.
 api_doc_title = dedent("""
     ========
@@ -1023,8 +1288,8 @@ api_doc_title = dedent("""
     """.lstrip('\n'))
 
 
-def generate_api_doc():
-    """Generate ReST documentation for the REST API.
+def render_api_docs():
+    """Render ReST documentation for the REST API.
 
     This module's docstring forms the head of the documentation; details of
     the API methods follow.
@@ -1032,24 +1297,7 @@ def generate_api_doc():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
-
-    # Fetch all the API Handlers (objects with the class
-    # HandlerMetaClass).
     module = sys.modules[__name__]
-
-    all = [getattr(module, name) for name in module.__all__]
-    handlers = [obj for obj in all if isinstance(obj, HandlerMetaClass)]
-
-    # Make sure each handler defines a 'resource_uri' method (this is
-    # easily forgotten and essential to have a proper documentation).
-    for handler in handlers:
-        sentinel = object()
-        resource_uri = getattr(handler, "resource_uri", sentinel)
-        assert resource_uri is not sentinel, "Missing resource_uri in %s" % (
-            handler.__name__)
-
-    docs = [generate_doc(handler) for handler in handlers]
-
     messages = [
         __doc__.strip(),
         '',
@@ -1058,7 +1306,8 @@ def generate_api_doc():
         '----------',
         '',
         ]
-    for doc in docs:
+    handlers = find_api_handlers(module)
+    for doc in generate_api_docs(handlers):
         for method in doc.get_methods():
             messages.append(
                 "%s %s\n  %s\n" % (
@@ -1072,20 +1321,14 @@ def reST_to_html_fragment(a_str):
     return parts['body_pre_docinfo'] + parts['fragment']
 
 
-_API_DOC = None
-
-
 def api_doc(request):
     """Get ReST documentation for the REST API."""
     # Generate the documentation and keep it cached.  Note that we can't do
     # that at the module level because the API doc generation needs Django
     # fully initialized.
-    global _API_DOC
-    if _API_DOC is None:
-        _API_DOC = generate_api_doc()
     return render_to_response(
         'maasserver/api_doc.html',
-        {'doc': reST_to_html_fragment(generate_api_doc())},
+        {'doc': reST_to_html_fragment(render_api_docs())},
         context_instance=RequestContext(request))
 
 
@@ -1139,17 +1382,79 @@ def pxeconfig(request):
         preseed_url = compose_preseed_url(node)
         hostname = node.hostname
 
-    # XXX JeroenVermeulen 2012-08-06 bug=1013146: Stop hard-coding this.
-    release = 'precise'
+    if node is None or node.status == NODE_STATUS.COMMISSIONING:
+        series = Config.objects.get_config('commissioning_distro_series')
+    else:
+        series = node.get_distro_series()
+
     purpose = get_boot_purpose(node)
     domain = 'local.lan'  # TODO: This is probably not enough!
     server_address = get_maas_facing_server_address()
 
     params = KernelParameters(
-        arch=arch, subarch=subarch, release=release, purpose=purpose,
+        arch=arch, subarch=subarch, release=series, purpose=purpose,
         hostname=hostname, domain=domain, preseed_url=preseed_url,
         log_host=server_address, fs_host=server_address)
 
     return HttpResponse(
         json.dumps(params._asdict()),
+        content_type="application/json")
+
+
+@api_operations
+class BootImagesHandler(BaseHandler):
+
+    @classmethod
+    def resource_uri(cls):
+        return ('boot_images_handler', [])
+
+    @api_exported('POST')
+    def report_boot_images(self, request):
+        """Report images available to net-boot nodes from.
+
+        :param images: A list of dicts, each describing a boot image with
+            these properties: `architecture`, `subarchitecture`, `release`,
+            `purpose`, all as in the code that determines TFTP paths for
+            these images.
+        """
+        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
+        images = json.loads(get_mandatory_param(request.data, 'images'))
+
+        for image in images:
+            BootImage.objects.register_image(
+                architecture=image['architecture'],
+                subarchitecture=image.get('subarchitecture', 'generic'),
+                release=image['release'],
+                purpose=image['purpose'])
+
+        if len(images) == 0:
+            warning = dedent("""\
+                No boot images have been imported yet.  Either the
+                maas-import-pxe-files script has not run yet, or it failed.
+
+                Try running it manually.  If it succeeds, this message will
+                go away within 5 minutes.
+                """)
+            register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
+        else:
+            discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
+
+        return HttpResponse("OK")
+
+
+def describe(request):
+    """Return a description of the whole MAAS API.
+
+    Returns a JSON object describing the whole MAAS API.
+    """
+    module = sys.modules[__name__]
+    description = {
+        "doc": "MAAS API",
+        "handlers": [
+            describe_handler(handler)
+            for handler in find_api_handlers(module)
+            ],
+        }
+    return HttpResponse(
+        json.dumps(description),
         content_type="application/json")

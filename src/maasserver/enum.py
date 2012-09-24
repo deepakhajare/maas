@@ -13,13 +13,17 @@ __metaclass__ = type
 __all__ = [
     'ARCHITECTURE',
     'ARCHITECTURE_CHOICES',
-    'DNS_DHCP_MANAGEMENT',
-    'DNS_DHCP_MANAGEMENT_CHOICES',
+    'NODEGROUP_STATUS',
+    'NODEGROUP_STATUS_CHOICES',
+    'NODEGROUPINTERFACE_MANAGEMENT',
+    'NODEGROUPINTERFACE_MANAGEMENT_CHOICES',
     'NODE_PERMISSION',
     'NODE_STATUS',
     'NODE_STATUS_CHOICES',
     'NODE_STATUS_CHOICES_DICT',
     'PRESEED_TYPE',
+    'DISTRO_SERIES',
+    'DISTRO_SERIES_CHOICES',
     ]
 
 from collections import OrderedDict
@@ -103,12 +107,31 @@ class ARCHITECTURE:
     i386 = 'i386'
     #:
     amd64 = 'amd64'
+    #:
+    armhf = 'armhf'
 
 
 # Architecture names.
 ARCHITECTURE_CHOICES = (
     (ARCHITECTURE.i386, "i386"),
     (ARCHITECTURE.amd64, "amd64"),
+    (ARCHITECTURE.armhf, "armhf"),
+)
+
+
+class DISTRO_SERIES:
+    """List of supported ubuntu releases."""
+    #:
+    default = ''
+    #:
+    precise = 'precise'
+    #:
+    quantal = 'quantal'
+
+DISTRO_SERIES_CHOICES = (
+    (DISTRO_SERIES.default, 'Default Ubuntu Release'),
+    (DISTRO_SERIES.precise, 'Ubuntu 12.04 LTS "Precise Pangolin"'),
+    (DISTRO_SERIES.quantal, 'Ubuntu 12.10 "Quantal Quetzal"'),
 )
 
 
@@ -127,14 +150,43 @@ class PRESEED_TYPE:
     ENLIST_USERDATA = 'enlist_userdata'
 
 
-class DNS_DHCP_MANAGEMENT:
-    NONE = 'none'
-    DHCP_ONLY = 'dhcp_only'
-    DNS_AND_DHCP = 'dns_and_dhcp'
+class NODEGROUP_STATUS:
+    """The vocabulary of a `NodeGroup`'s possible statuses."""
+    # A nodegroup starts out as PENDING.
+    DEFAULT_STATUS = 0
+
+    #: The nodegroup has been created and awaits approval.
+    PENDING = 0
+    ACCEPTED = 1
+    REJECTED = 2
 
 
-DNS_DHCP_MANAGEMENT_CHOICES = (
-    (DNS_DHCP_MANAGEMENT.NONE, "Don't manage either"),
-    (DNS_DHCP_MANAGEMENT.DHCP_ONLY, "Manage DHCP"),
-    (DNS_DHCP_MANAGEMENT.DNS_AND_DHCP, "Manage DNS and DHCP"),
-)
+# Django choices for NODEGROUP_STATUS: sequence of tuples (key, UI
+# representation).
+NODEGROUP_STATUS_CHOICES = (
+    (NODEGROUP_STATUS.PENDING, "Pending"),
+    (NODEGROUP_STATUS.ACCEPTED, "Accepted"),
+    (NODEGROUP_STATUS.REJECTED, "Rejected"),
+    )
+
+
+class NODEGROUPINTERFACE_MANAGEMENT:
+    """The vocabulary of a `NodeGroupInterface`'s possible statuses."""
+    # A nodegroupinterface starts out as UNMANAGED.
+    DEFAULT = 0
+
+    # Do not manage DHCP or DNS for this interface.
+    UNMANAGED = 0
+    # Manage DHCP for this interface.
+    DHCP = 1
+    # Manage DHCP and DNS for this interface.
+    DHCP_AND_DNS = 2
+
+
+# Django choices for NODEGROUP_STATUS: sequence of tuples (key, UI
+# representation).
+NODEGROUPINTERFACE_MANAGEMENT_CHOICES = (
+    (NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED, "Unmanaged"),
+    (NODEGROUPINTERFACE_MANAGEMENT.DHCP, "Manage DHCP"),
+    (NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS, "Manage DHCP and DNS"),
+    )

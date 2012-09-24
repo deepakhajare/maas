@@ -23,12 +23,14 @@ from datetime import (
     timedelta,
     )
 import httplib
+from itertools import izip
 import json
 import os
 import random
 import shutil
 
 from apiclient.maas_client import MAASClient
+from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
@@ -36,27 +38,34 @@ from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
 from maasserver.api import (
+    DISPLAYED_NODEGROUP_FIELDS,
     extract_constraints,
     extract_oauth_key,
     extract_oauth_key_from_auth_header,
     get_oauth_token,
     get_overrided_query_dict,
     )
+from maasserver.components import COMPONENT
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DISTRO_SERIES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.exceptions import Unauthorized
 from maasserver.fields import mac_error_msg
 from maasserver.models import (
+    BootImage,
     Config,
     DHCPLease,
     MACAddress,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.models.user import (
     create_auth_token,
@@ -68,8 +77,6 @@ from maasserver.preseed import (
     )
 from maasserver.refresh_worker import refresh_worker
 from maasserver.testing import (
-    disable_dhcp_management,
-    enable_dhcp_management,
     reload_object,
     reload_objects,
     )
@@ -80,6 +87,7 @@ from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
     )
+from maasserver.tests.test_forms import make_interface_settings
 from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
@@ -97,7 +105,7 @@ from provisioningserver import (
     kernel_opts,
     tasks,
     )
-from provisioningserver.auth import get_recorded_nodegroup_name
+from provisioningserver.auth import get_recorded_nodegroup_uuid
 from provisioningserver.dhcp.leases import send_leases
 from provisioningserver.enum import (
     POWER_TYPE,
@@ -105,11 +113,15 @@ from provisioningserver.enum import (
     )
 from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.omshell import Omshell
+from provisioningserver.pxe import tftppath
+from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
 from testtools.matchers import (
+    AllMatch,
     Contains,
     Equals,
     MatchesListwise,
+    MatchesStructure,
     StartsWith,
     )
 
@@ -504,6 +516,19 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 "following node(s): %s." % node_id),
             (response.status_code, response.content))
 
+    def test_POST_accept_all_does_not_accept_anything(self):
+        # It is not an error for a non-admin user to attempt to accept all
+        # anonymously enlisted nodes, but only those for which he/she has
+        # admin privs will be accepted, which currently equates to none of
+        # them.
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertEqual([], nodes_returned)
+
     def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
@@ -688,6 +713,20 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
             ],
             list(parsed_result))
 
+    def test_POST_accept_all(self):
+        # An admin user can accept all anonymously enlisted nodes.
+        nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            ]
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertSetEqual(
+            {node.system_id for node in nodes},
+            {node["system_id"] for node in nodes_returned})
+
 
 class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
 
@@ -870,6 +909,36 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(
             node.system_id, json.loads(response.content)['system_id'])
 
+    def test_POST_start_sets_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        distro_series = factory.getRandomEnum(DISTRO_SERIES)
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': distro_series})
+        self.assertEqual(
+            (httplib.OK, node.system_id),
+            (response.status_code, json.loads(response.content)['system_id']))
+        self.assertEqual(
+            distro_series, reload_object(node).distro_series)
+
+    def test_POST_start_validates_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        invalid_distro_series = factory.getRandomString()
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': invalid_distro_series})
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'distro_series': ["Value u'%s' is not a valid choice." %
+                    invalid_distro_series]}
+            ),
+            (response.status_code, json.loads(response.content)))
+
     def test_POST_start_may_be_repeated(self):
         node = factory.make_node(
             owner=self.logged_in_user, mac=True,
@@ -917,6 +986,13 @@ class TestNodeAPI(APITestCase):
         node.set_netboot(on=False)
         self.client.post(self.get_node_uri(node), {'op': 'release'})
         self.assertTrue(reload_object(node).netboot)
+
+    def test_POST_release_resets_distro_series(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
+            distro_series=factory.getRandomEnum(DISTRO_SERIES))
+        self.client.post(self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual('', reload_object(node).distro_series)
 
     def test_POST_release_removes_token_and_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -1698,17 +1774,6 @@ class TestNodesAPI(APITestCase):
             (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
             (response.status_code, response.content))
 
-    def test_POST_accept_fails_if_not_admin(self):
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {'op': 'accept', 'nodes': [node.system_id]})
-        self.assertEqual(
-            (httplib.FORBIDDEN,
-                "You don't have the required permission to accept the "
-                "following node(s): %s." % node.system_id),
-            (response.status_code, response.content))
-
     def test_POST_accept_accepts_multiple_nodes(self):
         # This will change when we add provisioning.  Until then,
         # acceptance gets a node straight to Ready state.
@@ -2378,7 +2443,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
             json.loads(response.content)["purpose"])
 
 
-class TestNodeGroupsAPI(AnonAPITestCase):
+class TestNodeGroupsAPI(APIv10TestMixin, MultipleUsersScenarios, TestCase):
+    scenarios = [
+        ('anon', dict(userfactory=lambda: AnonymousUser())),
+        ('user', dict(userfactory=factory.make_user)),
+        ('admin', dict(userfactory=factory.make_admin)),
+        ]
 
     resources = (
         ('celery', FixtureResource(CeleryFixture())),
@@ -2391,16 +2461,30 @@ class TestNodeGroupsAPI(AnonAPITestCase):
     def test_nodegroups_index_lists_nodegroups(self):
         # The nodegroups index lists node groups for the MAAS.
         nodegroup = factory.make_node_group()
-        response = self.client.get(reverse('nodegroups_handler'))
+        response = self.client.get(
+            reverse('nodegroups_handler'), {'op': 'list'})
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertIn(nodegroup.name, json.loads(response.content))
+        self.assertEqual(
+            [{
+                'uuid': nodegroup.uuid,
+                'status': nodegroup.status,
+                'name': nodegroup.name,
+            }],
+            json.loads(response.content))
+
+
+class TestAnonNodeGroupsAPI(AnonAPITestCase):
+
+    resources = (
+        ('celery', FixtureResource(CeleryFixture())),
+        )
 
     def test_refresh_calls_refresh_worker(self):
         nodegroup = factory.make_node_group()
         response = self.client.post(
             reverse('nodegroups_handler'), {'op': 'refresh_workers'})
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(nodegroup.name, get_recorded_nodegroup_name())
+        self.assertEqual(nodegroup.uuid, get_recorded_nodegroup_uuid())
 
     def test_refresh_does_not_return_secrets(self):
         # The response from "refresh" contains only an innocuous
@@ -2411,6 +2495,229 @@ class TestNodeGroupsAPI(AnonAPITestCase):
         self.assertEqual(
             (httplib.OK, "Sending worker refresh."),
             (response.status_code, response.content))
+
+    def test_register_nodegroup_creates_nodegroup_and_interfaces(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        interface = make_interface_settings()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+                'interfaces': json.dumps([interface]),
+            })
+        nodegroup = NodeGroup.objects.get(uuid=uuid)
+        # The nodegroup was created with its interface.  Its status is
+        # 'PENDING'.
+        self.assertEqual(
+            (name, NODEGROUP_STATUS.PENDING),
+            (nodegroup.name, nodegroup.status))
+        self.assertThat(
+            nodegroup.nodegroupinterface_set.all()[0],
+            MatchesStructure.byEquality(**interface))
+        # The response code is 'ACCEPTED': the nodegroup now needs to be
+        # validated by an admin.
+        self.assertEqual(httplib.ACCEPTED, response.status_code)
+
+    def test_register_accepts_only_one_managed_interface(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        # This will try to create 2 "managed" interfaces.
+        interface1 = make_interface_settings()
+        interface1['management'] = NODEGROUPINTERFACE_MANAGEMENT.DHCP
+        interface2 = interface1.copy()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+                'interfaces': json.dumps([interface1, interface2]),
+            })
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'interfaces':
+                    [
+                        "Only one managed interface can be configured for "
+                        "this nodegroup"
+                    ]},
+            ),
+            (response.status_code, json.loads(response.content)))
+
+    def test_register_nodegroup_validates_data(self):
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': factory.getRandomUUID(),
+                'interfaces': 'invalid data',
+            })
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'interfaces': ['Invalid json value.']},
+            ),
+            (response.status_code, json.loads(response.content)))
+
+    def test_register_nodegroup_twice_does_not_update_nodegroup(self):
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.PENDING
+        nodegroup.save()
+        name = factory.make_name('name')
+        uuid = nodegroup.uuid
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+            })
+        new_nodegroup = NodeGroup.objects.get(uuid=uuid)
+        self.assertEqual(
+            (nodegroup.name, NODEGROUP_STATUS.PENDING),
+            (new_nodegroup.name, new_nodegroup.status))
+        # The response code is 'ACCEPTED': the nodegroup still needs to be
+        # validated by an admin.
+        self.assertEqual(httplib.ACCEPTED, response.status_code)
+
+    def test_register_rejected_nodegroup_fails(self):
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.REJECTED
+        nodegroup.save()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': nodegroup.uuid,
+                'interfaces': json.dumps([]),
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_register_accepted_cluster_gets_credentials(self):
+        fake_broker_url = factory.make_name('fake-broker_url')
+        celery_conf = app_or_default().conf
+        self.patch(celery_conf, 'BROKER_URL', fake_broker_url)
+        nodegroup = factory.make_node_group()
+        nodegroup.status = NODEGROUP_STATUS.ACCEPTED
+        nodegroup.save()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': factory.make_name('name'),
+                'uuid': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual({'BROKER_URL': fake_broker_url}, parsed_result)
+
+
+def dict_subset(obj, fields):
+    """Return a dict of a subset of the fields/values of an object."""
+    undefined = object()
+    values = (getattr(obj, field, undefined) for field in fields)
+    return {
+        field: value for field, value in izip(fields, values)
+        if value is not undefined
+     }
+
+
+class TestNodeGroupInterfacesAPI(APITestCase):
+
+    def test_list_lists_interfaces(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
+            {'op': 'list'})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            [
+                dict_subset(interface, DISPLAYED_NODEGROUP_FIELDS)
+                for interface in nodegroup.nodegroupinterface_set.all()
+            ],
+            json.loads(response.content))
+
+    def test_list_only_available_to_admin(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
+            {'op': 'list'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_new_creates_interface(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group(
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+
+        settings = make_interface_settings()
+        query_data = dict(settings, op="new")
+        response = self.client.post(
+            reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
+            query_data)
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        expected_result = settings
+        new_interface = NodeGroupInterface.objects.get(
+            nodegroup=nodegroup, interface=settings['interface'])
+        self.assertThat(
+            new_interface,
+            MatchesStructure.byEquality(**expected_result))
+
+    def test_new_validates_data(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        response = self.client.post(
+            reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
+            {'op': 'new', 'ip': 'invalid ip'})
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'ip': ["Enter a valid IPv4 address."]},
+            ),
+            (response.status_code, json.loads(response.content)))
+
+    def test_new_only_available_to_admin(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroupinterfaces_handler', args=[nodegroup.uuid]),
+            {'op': 'new'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+
+class TestNodeGroupInterfaceAPI(APITestCase):
+
+    def test_read_interface(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.get_managed_interface()
+        response = self.client.get(
+            reverse(
+                'nodegroupinterface_handler',
+                args=[nodegroup.uuid, interface.interface]))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(
+            dict_subset(interface, DISPLAYED_NODEGROUP_FIELDS),
+            json.loads(response.content))
+
+    def test_update_interface(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.get_managed_interface()
+        new_ip_range_high = factory.getRandomIPAddress()
+        response = self.client.put(
+            reverse(
+                'nodegroupinterface_handler',
+                args=[nodegroup.uuid, interface.interface]),
+            {'ip_range_high': new_ip_range_high})
+        self.assertEqual(
+            (httplib.OK, new_ip_range_high),
+            (response.status_code, reload_object(interface).ip_range_high))
 
 
 def explain_unexpected_response(expected_status, response):
@@ -2437,16 +2744,16 @@ class TestNodeGroupAPI(APITestCase):
     def test_reverse_points_to_nodegroup(self):
         nodegroup = factory.make_node_group()
         self.assertEqual(
-            self.get_uri('nodegroups/%s/' % nodegroup.name),
-            reverse('nodegroup_handler', args=[nodegroup.name]))
+            self.get_uri('nodegroups/%s/' % nodegroup.uuid),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]))
 
     def test_GET_returns_node_group(self):
         nodegroup = factory.make_node_group()
         response = self.client.get(
-            reverse('nodegroup_handler', args=[nodegroup.name]))
+            reverse('nodegroup_handler', args=[nodegroup.uuid]))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            nodegroup.name, json.loads(response.content).get('name'))
+            nodegroup.uuid, json.loads(response.content).get('uuid'))
 
     def test_GET_returns_404_for_unknown_node_group(self):
         response = self.client.get(
@@ -2454,12 +2761,11 @@ class TestNodeGroupAPI(APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
 
     def test_update_leases_processes_empty_leases_dict(self):
-        enable_dhcp_management()
         nodegroup = factory.make_node_group()
         factory.make_dhcp_lease(nodegroup=nodegroup)
         client = make_worker_client(nodegroup)
         response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps({}),
@@ -2471,11 +2777,12 @@ class TestNodeGroupAPI(APITestCase):
             [], DHCPLease.objects.filter(nodegroup=nodegroup))
 
     def test_update_leases_stores_leases(self):
+        self.patch(Omshell, 'create')
         nodegroup = factory.make_node_group()
         lease = factory.make_random_leases()
         client = make_worker_client(nodegroup)
         response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps(lease),
@@ -2488,32 +2795,13 @@ class TestNodeGroupAPI(APITestCase):
                 lease.ip
                 for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
 
-    def test_update_leases_stores_leases_even_if_not_managing_dhcp(self):
-        disable_dhcp_management()
-        nodegroup = factory.make_node_group()
-        lease = factory.make_random_leases()
-        client = make_worker_client(nodegroup)
-        response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
-            {
-                'op': 'update_leases',
-                'leases': json.dumps(lease),
-            })
-        self.assertEqual(
-            (httplib.OK, "Leases updated."),
-            (response.status_code, response.content))
-        self.assertItemsEqual(lease.keys(), [
-            lease.ip
-            for lease in DHCPLease.objects.filter(nodegroup=nodegroup)])
-
     def test_update_leases_adds_new_leases_on_worker(self):
-        enable_dhcp_management()
         nodegroup = factory.make_node_group()
         client = make_worker_client(nodegroup)
         self.patch(Omshell, 'create', FakeMethod())
         new_leases = factory.make_random_leases()
         response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps(new_leases),
@@ -2527,12 +2815,11 @@ class TestNodeGroupAPI(APITestCase):
 
     def test_update_leases_does_not_add_old_leases(self):
         self.patch(Omshell, 'create')
-        enable_dhcp_management()
         nodegroup = factory.make_node_group()
         client = make_worker_client(nodegroup)
         self.patch(tasks, 'add_new_dhcp_host_map', FakeMethod())
         response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {
                 'op': 'update_leases',
                 'leases': json.dumps(factory.make_random_leases()),
@@ -2551,32 +2838,89 @@ class TestNodeGroupAPI(APITestCase):
         self.patch(MAASClient, 'post', Mock())
         leases = factory.make_random_leases()
         send_leases(leases)
-        nodegroup_path = reverse('nodegroup_handler', args=[nodegroup.name])
+        nodegroup_path = reverse(
+            'nodegroup_handler', args=[nodegroup.uuid])
         nodegroup_path = nodegroup_path.decode('ascii').lstrip('/')
         MAASClient.post.assert_called_once_with(
             nodegroup_path, 'update_leases', leases=json.dumps(leases))
+
+    def test_accept_accepts_nodegroup(self):
+        nodegroups = [factory.make_node_group() for i in range(3)]
+        uuids = [nodegroup.uuid for nodegroup in nodegroups]
+        self.become_admin()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'accept',
+                'uuid': uuids,
+            })
+        self.assertEqual(
+            (httplib.OK, "Nodegroup(s) accepted."),
+            (response.status_code, response.content))
+        self.assertThat(
+            [nodegroup.status for nodegroup in
+             reload_objects(NodeGroup, nodegroups)],
+            AllMatch(Equals(NODEGROUP_STATUS.ACCEPTED)))
+
+    def test_accept_reserved_to_admin(self):
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'accept',
+                'uuid': factory.getRandomString(),
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_reject_rejects_nodegroup(self):
+        nodegroups = [factory.make_node_group() for i in range(3)]
+        uuids = [nodegroup.uuid for nodegroup in nodegroups]
+        self.become_admin()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'reject',
+                'uuid': uuids,
+            })
+        self.assertEqual(
+            (httplib.OK, "Nodegroup(s) rejected."),
+            (response.status_code, response.content))
+        self.assertThat(
+            [nodegroup.status for nodegroup in
+             reload_objects(NodeGroup, nodegroups)],
+            AllMatch(Equals(NODEGROUP_STATUS.REJECTED)))
+
+    def test_reject_reserved_to_admin(self):
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'reject',
+                'uuid': factory.getRandomString(),
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+
+def log_in_as_normal_user(client):
+    """Log `client` in as a normal user."""
+    password = factory.getRandomString()
+    user = factory.make_user(password=password)
+    client.login(username=user.username, password=password)
+    return user
 
 
 class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
     """Authorization tests for nodegroup API."""
 
-    def log_in_as_normal_user(self):
-        """Log `self.client` in as a normal user."""
-        password = factory.getRandomString()
-        user = factory.make_user(password=password)
-        self.client.login(username=user.username, password=password)
-
     def test_nodegroup_requires_authentication(self):
         nodegroup = factory.make_node_group()
         response = self.client.get(
-            reverse('nodegroup_handler', args=[nodegroup.name]))
+            reverse('nodegroup_handler', args=[nodegroup.uuid]))
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
     def test_update_leases_works_for_nodegroup_worker(self):
         nodegroup = factory.make_node_group()
         client = make_worker_client(nodegroup)
         response = client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {'op': 'update_leases', 'leases': json.dumps({})})
         self.assertEqual(
             httplib.OK, response.status_code,
@@ -2584,9 +2928,9 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_update_leases_does_not_work_for_normal_user(self):
         nodegroup = factory.make_node_group()
-        self.log_in_as_normal_user()
+        log_in_as_normal_user(self.client)
         response = self.client.post(
-            reverse('nodegroup_handler', args=[nodegroup.name]),
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {'op': 'update_leases', 'leases': json.dumps({})})
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
@@ -2597,8 +2941,123 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         about_nodegroup = factory.make_node_group()
         client = make_worker_client(requesting_nodegroup)
         response = client.post(
-            reverse('nodegroup_handler', args=[about_nodegroup.name]),
+            reverse('nodegroup_handler', args=[about_nodegroup.uuid]),
             {'op': 'update_leases', 'leases': json.dumps({})})
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
+
+
+class TestBootImagesAPI(APITestCase):
+
+    resources = (
+        ('celery', FixtureResource(CeleryFixture())),
+        )
+
+    def report_images(self, images, client=None):
+        if client is None:
+            client = self.client
+        return client.post(
+            reverse('boot_images_handler'),
+            {'op': 'report_boot_images', 'images': json.dumps(images)})
+
+    def test_report_boot_images_does_not_work_for_normal_user(self):
+        NodeGroup.objects.ensure_master()
+        log_in_as_normal_user(self.client)
+        response = self.report_images([])
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_report_boot_images_works_for_master_worker(self):
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+        response = self.report_images([], client=client)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_report_boot_images_does_not_work_for_other_workers(self):
+        NodeGroup.objects.ensure_master()
+        client = make_worker_client(factory.make_node_group())
+        response = self.report_images([], client=client)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_report_boot_images_stores_images(self):
+        image = make_boot_image_params()
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+        response = self.report_images([image], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
+        self.assertTrue(
+            BootImage.objects.have_image(**image))
+
+    def test_report_boot_images_ignores_unknown_image_properties(self):
+        image = make_boot_image_params()
+        image['nonesuch'] = factory.make_name('nonesuch'),
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+        response = self.report_images([image], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
+
+    def test_report_boot_images_warns_if_no_images_found(self):
+        recorder = self.patch(api, 'register_persistent_error')
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+
+        response = self.report_images([], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
+
+        self.assertIn(
+            COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+
+    def test_report_boot_images_removes_warning_if_images_found(self):
+        self.patch(api, 'register_persistent_error')
+        self.patch(api, 'discard_persistent_error')
+        client = make_worker_client(NodeGroup.objects.ensure_master())
+
+        response = self.report_images(
+            [make_boot_image_params()], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
+
+        self.assertItemsEqual(
+            [],
+            api.register_persistent_error.call_args_list)
+        api.discard_persistent_error.assert_called_once_with(
+            COMPONENT.IMPORT_PXE_FILES)
+
+    def test_worker_calls_report_boot_images(self):
+        refresh_worker(NodeGroup.objects.ensure_master())
+        self.patch(MAASClient, 'post')
+        self.patch(tftppath, 'list_boot_images', Mock(return_value=[]))
+
+        tasks.report_boot_images.delay()
+
+        MAASClient.post.assert_called_once_with(
+            reverse('boot_images_handler').lstrip('/'), 'report_boot_images',
+            images=json.dumps([]))
+
+
+class TestDescribe(AnonAPITestCase):
+    """Tests for the `describe` view."""
+
+    def test_describe_returns_json(self):
+        response = self.client.get(reverse('describe'))
+        self.assertThat(
+            (response.status_code,
+             response['Content-Type'],
+             response.content,
+             response.content),
+            MatchesListwise(
+                (Equals(httplib.OK),
+                 Equals("application/json"),
+                 StartsWith(b'{'),
+                 Contains('name'))),
+            response)
+
+    def test_describe(self):
+        response = self.client.get(reverse('describe'))
+        description = json.loads(response.content)
+        self.assertSetEqual({"doc", "handlers"}, set(description))
+        self.assertIsInstance(description["handlers"], list)

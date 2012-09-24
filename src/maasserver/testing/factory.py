@@ -22,14 +22,18 @@ from django.contrib.auth.models import User
 from maasserver.enum import (
     ARCHITECTURE,
     NODE_STATUS,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.models import (
+    BootImage,
     DHCPLease,
     FileStorage,
     MACAddress,
     Node,
     NodeGroup,
     SSHKey,
+    Tag,
     )
 from maasserver.models.node import NODE_TRANSITIONS
 from maasserver.testing import (
@@ -116,10 +120,11 @@ class Factory(maastesting.factory.Factory):
             Node.objects.filter(id=node.id).update(created=created)
         return reload_object(node)
 
-    def make_node_group(self, name=None, worker_ip=None, router_ip=None,
-                        network=None, subnet_mask=None, broadcast_ip=None,
-                        ip_range_low=None, ip_range_high=None,
-                        dhcp_interfaces=None, **kwargs):
+    def make_node_group(self, name=None, uuid=None, ip=None,
+                        router_ip=None, network=None, subnet_mask=None,
+                        broadcast_ip=None, ip_range_low=None,
+                        ip_range_high=None, interface=None, management=None,
+                        status=None, **kwargs):
         """Create a :class:`NodeGroup`.
 
         If network (an instance of IPNetwork) is provided, use it to populate
@@ -130,15 +135,21 @@ class Factory(maastesting.factory.Factory):
         Otherwise, use the provided values for these values or use random IP
         addresses if they are not provided.
         """
+        if status is None:
+            status = factory.getRandomEnum(NODEGROUP_STATUS)
+        if management is None:
+            management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
         if name is None:
             name = self.make_name('nodegroup')
+        if uuid is None:
+            uuid = factory.getRandomUUID()
         if network is not None:
             subnet_mask = str(network.netmask)
             broadcast_ip = str(network.broadcast)
             ip_range_low = str(IPAddress(network.first))
             ip_range_high = str(IPAddress(network.last))
             router_ip = factory.getRandomIPInNetwork(network)
-            worker_ip = factory.getRandomIPInNetwork(network)
+            ip = factory.getRandomIPInNetwork(network)
         else:
             if subnet_mask is None:
                 subnet_mask = self.getRandomIPAddress()
@@ -150,15 +161,17 @@ class Factory(maastesting.factory.Factory):
                 ip_range_high = self.getRandomIPAddress()
             if router_ip is None:
                 router_ip = self.getRandomIPAddress()
-            if worker_ip is None:
-                worker_ip = self.getRandomIPAddress()
-        if dhcp_interfaces is None:
-            dhcp_interfaces = self.make_name('interface')
+            if ip is None:
+                ip = self.getRandomIPAddress()
+        if interface is None:
+            interface = self.make_name('interface')
         ng = NodeGroup.objects.new(
-            name=name, worker_ip=worker_ip, subnet_mask=subnet_mask,
-            broadcast_ip=broadcast_ip, router_ip=router_ip,
-            ip_range_low=ip_range_low, ip_range_high=ip_range_high,
-            dhcp_interfaces=dhcp_interfaces, **kwargs)
+            name=name, uuid=uuid, ip=ip,
+            subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
+            router_ip=router_ip, ip_range_low=ip_range_low,
+            ip_range_high=ip_range_high, interface=interface,
+            management=management, **kwargs)
+        ng.status = status
         ng.save()
         return ng
 
@@ -211,6 +224,21 @@ class Factory(maastesting.factory.Factory):
         key = SSHKey(key=key_string, user=user)
         key.save()
         return key
+
+    def make_tag(self, name, definition=None, comment='', created=None,
+                 updated=None):
+        if definition is None:
+            # Is there a 'node' in this xml?
+            definition = '//node'
+        tag = Tag(name=name, definition=definition, comment=comment)
+        self._save_node_unchecked(tag)
+        # Update the 'updated'/'created' fields with a call to 'update'
+        # preventing a call to save() from overriding the values.
+        if updated is not None:
+            Tag.objects.filter(id=tag.id).update(updated=updated)
+        if created is not None:
+            Tag.objects.filter(id=tag.id).update(created=created)
+        return reload_object(tag)
 
     def make_user_with_keys(self, n_keys=2, user=None, **kwargs):
         """Create a user with n `SSHKey`.  If user is not None, use this user
@@ -267,6 +295,22 @@ class Factory(maastesting.factory.Factory):
         items.update(kwargs)
         return "OAuth " + ", ".join([
             '%s="%s"' % (key, value) for key, value in items.items()])
+
+    def make_boot_image(self, architecture=None, subarchitecture=None,
+                        release=None, purpose=None):
+        if architecture is None:
+            architecture = self.make_name('architecture')
+        if subarchitecture is None:
+            subarchitecture = self.make_name('subarchitecture')
+        if release is None:
+            release = self.make_name('release')
+        if purpose is None:
+            purpose = self.make_name('purpose')
+        return BootImage.objects.create(
+            architecture=architecture,
+            subarchitecture=subarchitecture,
+            release=release,
+            purpose=purpose)
 
 
 # Create factory singleton.

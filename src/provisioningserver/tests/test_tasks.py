@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from datetime import datetime
+import json
 import os
 import random
 from subprocess import (
@@ -21,7 +22,12 @@ from subprocess import (
     )
 
 from apiclient.creds import convert_tuple_to_string
-from celeryconfig import DHCP_CONFIG_FILE
+from apiclient.maas_client import MAASClient
+from apiclient.testing.credentials import make_api_credentials
+from celeryconfig import (
+    DHCP_CONFIG_FILE,
+    DHCP_INTERFACES_FILE,
+    )
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import (
@@ -35,6 +41,7 @@ from provisioningserver import (
     auth,
     cache,
     tasks,
+    utils,
     )
 from provisioningserver.dhcp import (
     config,
@@ -49,6 +56,7 @@ from provisioningserver.dns.config import (
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
+from provisioningserver.pxe import tftppath
 from provisioningserver.tasks import (
     add_new_dhcp_host_map,
     Omshell,
@@ -56,6 +64,7 @@ from provisioningserver.tasks import (
     power_on,
     refresh_secrets,
     remove_dhcp_host_map,
+    report_boot_images,
     restart_dhcp_server,
     rndc_command,
     RNDC_COMMAND_MAX_RETRY,
@@ -66,6 +75,8 @@ from provisioningserver.tasks import (
     write_full_dns_config,
     )
 from provisioningserver.testing import network_infos
+from provisioningserver.testing.boot_images import make_boot_image_params
+from provisioningserver.testing.config import ConfigFixture
 from provisioningserver.testing.testcase import PservTestCase
 from testresources import FixtureResource
 from testtools.matchers import (
@@ -103,19 +114,15 @@ class TestRefreshSecrets(PservTestCase):
         self.assertEqual(maas_url, auth.get_recorded_maas_url())
 
     def test_updates_api_credentials(self):
-        credentials = (
-            factory.make_name('key'),
-            factory.make_name('token'),
-            factory.make_name('secret'),
-            )
+        credentials = make_api_credentials()
         refresh_secrets(
             api_credentials=convert_tuple_to_string(credentials))
         self.assertEqual(credentials, auth.get_recorded_api_credentials())
 
-    def test_updates_nodegroup_name(self):
-        nodegroup_name = factory.make_name('nodegroup')
-        refresh_secrets(nodegroup_name=nodegroup_name)
-        self.assertEqual(nodegroup_name, cache.cache.get('nodegroup_name'))
+    def test_updates_nodegroup_uuid(self):
+        nodegroup_uuid = factory.make_name('nodegroupuuid')
+        refresh_secrets(nodegroup_uuid=nodegroup_uuid)
+        self.assertEqual(nodegroup_uuid, cache.cache.get('nodegroup_uuid'))
 
 
 class TestPowerTasks(PservTestCase):
@@ -160,7 +167,7 @@ class TestDHCPTasks(PservTestCase):
     def make_dhcp_config_params(self):
         """Fake up a dict of dhcp configuration parameters."""
         param_names = [
-            'dhcp_interfaces',
+            'interface',
             'omapi_key',
             'subnet',
             'subnet_mask',
@@ -233,8 +240,10 @@ class TestDHCPTasks(PservTestCase):
 
     def test_write_dhcp_config_invokes_script_correctly(self):
         mocked_proc = Mock()
+        mocked_proc.returncode = 0
+        mocked_proc.communicate = Mock(return_value=('output', 'error output'))
         mocked_popen = self.patch(
-            tasks, "Popen", Mock(return_value=mocked_proc))
+            utils, "Popen", Mock(return_value=mocked_proc))
         mocked_check_call = self.patch(tasks, "check_call")
 
         config_params = self.make_dhcp_config_params()
@@ -242,25 +251,31 @@ class TestDHCPTasks(PservTestCase):
 
         # It should construct Popen with the right parameters.
         mocked_popen.assert_any_call(
-            ["sudo", "maas-provision", "atomic-write", "--filename",
-            DHCP_CONFIG_FILE, "--mode", "744"], stdin=PIPE)
+            ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
+            DHCP_CONFIG_FILE, "--mode", "0744"], stdin=PIPE)
 
         # It should then pass the content to communicate().
         content = config.get_config(**config_params).encode("ascii")
         mocked_proc.communicate.assert_any_call(content)
 
+        # Similarly, it also writes the DHCPD interfaces to
+        # /var/lib/maas/dhcpd-interfaces.
+        mocked_popen.assert_any_call(
+            ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
+            DHCP_INTERFACES_FILE, "--mode", "0744"], stdin=PIPE)
+
         # Finally it should restart the dhcp server.
         check_call_args = mocked_check_call.call_args
         self.assertEqual(
             check_call_args[0][0],
-            ['sudo', 'service', 'isc-dhcp-server', 'restart'])
+            ['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
         self.patch(tasks, 'check_call', recorder)
         restart_dhcp_server()
         self.assertEqual(
-            (1, (['sudo', 'service', 'isc-dhcp-server', 'restart'],)),
+            (1, (['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'],)),
             (recorder.call_count, recorder.extract_args()[0]))
 
 
@@ -423,3 +438,24 @@ class TestDNSTasks(PservTestCase):
                     FileExists(),
                     FileExists(),
                 )))
+
+
+class TestBootImagesTasks(PservTestCase):
+
+    resources = (
+        ("celery", FixtureResource(CeleryFixture())),
+        )
+
+    def test_sends_boot_images_to_server(self):
+        self.useFixture(ConfigFixture({'tftp': {'root': self.make_dir()}}))
+        auth.record_maas_url('http://127.0.0.1/%s' % factory.make_name('path'))
+        auth.record_api_credentials(':'.join(make_api_credentials()))
+        image = make_boot_image_params()
+        self.patch(tftppath, 'list_boot_images', Mock(return_value=[image]))
+        self.patch(MAASClient, 'post')
+
+        report_boot_images.delay()
+
+        self.assertItemsEqual(
+            [image],
+            json.loads(MAASClient.post.call_args[1]['images']))

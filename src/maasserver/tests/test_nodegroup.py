@@ -15,13 +15,13 @@ __all__ = []
 from django.conf import settings
 import maasserver
 from maasserver.dns import get_dns_server_address
+from maasserver.enum import (
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
+    )
 from maasserver.models import NodeGroup
 from maasserver.server_address import get_maas_facing_server_address
-from maasserver.testing import (
-    disable_dhcp_management,
-    enable_dhcp_management,
-    reload_object,
-    )
+from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
@@ -41,7 +41,7 @@ from testtools.matchers import (
 def make_dhcp_settings():
     """Create a dict of arbitrary nodegroup configuration parameters."""
     return {
-        'dhcp_interfaces': factory.make_name('interface'),
+        'interface': factory.make_name('interface'),
         'subnet_mask': '255.0.0.0',
         'broadcast_ip': '10.255.255.255',
         'router_ip': factory.getRandomIPAddress(),
@@ -54,15 +54,18 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_creates_nodegroup(self):
         name = factory.make_name('nodegroup')
+        uuid = factory.getRandomUUID()
         ip = factory.getRandomIPAddress()
         self.assertThat(
-            NodeGroup.objects.new(name, ip),
-            MatchesStructure.fromExample({'name': name, 'worker_ip': ip}))
+            NodeGroup.objects.new(name, uuid, ip),
+            MatchesStructure.fromExample(
+                {'name': name, 'uuid': uuid, 'worker_ip': ip}))
 
     def test_new_does_not_require_dhcp_settings(self):
         name = factory.make_name('nodegroup')
+        uuid = factory.getRandomUUID()
         ip = factory.getRandomIPAddress()
-        nodegroup = NodeGroup.objects.new(name, ip)
+        nodegroup = NodeGroup.objects.new(name, uuid, ip)
         self.assertThat(
             nodegroup,
             MatchesStructure.fromExample({
@@ -71,16 +74,18 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_requires_all_dhcp_settings_or_none(self):
         name = factory.make_name('nodegroup')
+        uuid = factory.make_name('uuid')
         ip = factory.getRandomIPAddress()
         self.assertRaises(
             AssertionError,
-            NodeGroup.objects.new, name, ip, subnet_mask='255.0.0.0')
+            NodeGroup.objects.new, name, uuid, ip, subnet_mask='255.0.0.0')
 
     def test_new_creates_nodegroup_with_given_dhcp_settings(self):
         name = factory.make_name('nodegroup')
+        uuid = factory.make_name('uuid')
         ip = factory.getRandomIPAddress()
         dhcp_settings = make_dhcp_settings()
-        nodegroup = NodeGroup.objects.new(name, ip, **dhcp_settings)
+        nodegroup = NodeGroup.objects.new(name, uuid, ip, **dhcp_settings)
         nodegroup = reload_object(nodegroup)
         self.assertEqual(name, nodegroup.name)
         self.assertThat(
@@ -88,7 +93,8 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_assigns_token_and_key_for_worker_user(self):
         nodegroup = NodeGroup.objects.new(
-            factory.make_name('nodegroup'), factory.getRandomIPAddress())
+            factory.make_name('nodegroup'), factory.make_name('uuid'),
+            factory.getRandomIPAddress())
         self.assertIsNotNone(nodegroup.api_token)
         self.assertIsNotNone(nodegroup.api_key)
         self.assertEqual(get_worker_user(), nodegroup.api_token.user)
@@ -96,13 +102,15 @@ class TestNodeGroupManager(TestCase):
 
     def test_new_creates_nodegroup_with_empty_dhcp_key(self):
         nodegroup = NodeGroup.objects.new(
-            factory.make_name('nodegroup'), factory.getRandomIPAddress())
+            factory.make_name('nodegroup'), factory.make_name('uuid'),
+            factory.getRandomIPAddress())
         self.assertEqual('', nodegroup.dhcp_key)
 
     def test_new_stores_dhcp_key_on_nodegroup(self):
         key = generate_omapi_key()
         nodegroup = NodeGroup.objects.new(
-            factory.make_name('nodegroup'), factory.getRandomIPAddress(),
+            factory.make_name('nodegroup'), factory.make_name('uuid'),
+            factory.getRandomIPAddress(),
             dhcp_key=key)
         self.assertEqual(key, nodegroup.dhcp_key)
 
@@ -111,6 +119,7 @@ class TestNodeGroupManager(TestCase):
             NodeGroup.objects.ensure_master(),
             MatchesStructure.fromExample({
                 'name': 'master',
+                'workder_id': 'master',
                 'worker_ip': '127.0.0.1',
                 'subnet_mask': None,
                 'broadcast_ip': None,
@@ -136,20 +145,26 @@ class TestNodeGroupManager(TestCase):
     def test_ensure_master_does_not_return_other_nodegroup(self):
         self.assertNotEqual(
             NodeGroup.objects.new(
-                factory.make_name('nodegroup'), factory.getRandomIPAddress()),
+                factory.make_name('nodegroup'), factory.make_name('uuid'),
+                factory.getRandomIPAddress()),
             NodeGroup.objects.ensure_master())
 
     def test_ensure_master_preserves_existing_attributes(self):
         master = NodeGroup.objects.ensure_master()
-        ip = factory.getRandomIPAddress()
-        master.worker_ip = ip
+        key = factory.getRandomString()
+        master.dhcp_key = key
         master.save()
-        self.assertEqual(ip, NodeGroup.objects.ensure_master().worker_ip)
+        self.assertEqual(key, NodeGroup.objects.ensure_master().dhcp_key)
 
-    def test_get_by_natural_key_looks_up_by_name(self):
+    def test_ensure_master_creates_accepted_nodegroup(self):
+        master = NodeGroup.objects.ensure_master()
+        self.assertEqual(NODEGROUP_STATUS.ACCEPTED, master.status)
+
+    def test_get_by_natural_key_looks_up_by_uuid(self):
         nodegroup = factory.make_node_group()
         self.assertEqual(
-            nodegroup, NodeGroup.objects.get_by_natural_key(nodegroup.name))
+            nodegroup,
+            NodeGroup.objects.get_by_natural_key(nodegroup.uuid))
 
     def test_get_by_natural_key_will_not_return_other_nodegroup(self):
         factory.make_node_group()
@@ -165,66 +180,9 @@ class TestNodeGroup(TestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
-    def test_is_dhcp_enabled_returns_True_if_fully_set_up(self):
-        enable_dhcp_management()
-        self.assertTrue(factory.make_node_group().is_dhcp_enabled())
-
-    def test_is_dhcp_enabled_returns_False_if_disabled(self):
-        disable_dhcp_management()
-        self.assertFalse(factory.make_node_group().is_dhcp_enabled())
-
-    def test_is_dhcp_enabled_returns_False_if_config_is_missing(self):
-        enable_dhcp_management()
-        required_fields = [
-            'subnet_mask', 'broadcast_ip', 'ip_range_low', 'ip_range_high']
-        # Map each required field's name to a nodegroup that has just
-        # that field set to None.
-        nodegroups = {
-            field: factory.make_node_group()
-            for field in required_fields}
-        for field, nodegroup in nodegroups.items():
-            setattr(nodegroup, field, None)
-            nodegroup.save()
-        # List any nodegroups from this mapping that have DHCP
-        # management enabled.  There should not be any.
-        self.assertEqual([], [
-            field
-            for field, nodegroup in nodegroups.items()
-                if nodegroup.is_dhcp_enabled()])
-
-    def test_set_up_dhcp_writes_dhcp_config(self):
-        mocked_task = self.patch(
-            maasserver.models.nodegroup, 'write_dhcp_config')
-        self.patch(
-            settings, 'DEFAULT_MAAS_URL',
-            'http://%s/' % factory.getRandomIPAddress())
-        nodegroup = factory.make_node_group(
-            dhcp_key=factory.getRandomString(),
-            ip_range_low='192.168.102.1', ip_range_high='192.168.103.254',
-            subnet_mask='255.255.252.0', broadcast_ip='192.168.103.255')
-        nodegroup.set_up_dhcp()
-        dhcp_params = [
-            'subnet_mask', 'broadcast_ip', 'router_ip',
-            'ip_range_low', 'ip_range_high']
-
-        expected_params = {
-            param: getattr(nodegroup, param)
-            for param in dhcp_params}
-
-        # Currently all nodes use the central TFTP server.  This will be
-        # decentralized to use NodeGroup.worker_ip later.
-        expected_params["next_server"] = get_maas_facing_server_address()
-
-        expected_params["omapi_key"] = nodegroup.dhcp_key
-        expected_params["dns_servers"] = get_dns_server_address()
-        expected_params["subnet"] = '192.168.100.0'
-
-        mocked_task.delay.assert_called_once_with(**expected_params)
-
     def test_add_dhcp_host_maps_adds_maps_if_managing_dhcp(self):
         self.patch(Omshell, 'create', FakeMethod())
         nodegroup = factory.make_node_group()
-        self.patch(nodegroup, 'is_dhcp_enabled', FakeMethod(result=True))
         leases = factory.make_random_leases()
         nodegroup.add_dhcp_host_maps(leases)
         self.assertEqual(
@@ -233,8 +191,41 @@ class TestNodeGroup(TestCase):
 
     def test_add_dhcp_host_maps_does_nothing_if_not_managing_dhcp(self):
         self.patch(Omshell, 'create', FakeMethod())
-        nodegroup = factory.make_node_group()
-        self.patch(nodegroup, 'is_dhcp_enabled', FakeMethod(result=False))
+        nodegroup = factory.make_node_group(
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
         leases = factory.make_random_leases()
         nodegroup.add_dhcp_host_maps(leases)
         self.assertEqual([], Omshell.create.extract_args())
+
+    def test_get_managed_interface_returns_managed_interface(self):
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.nodegroupinterface_set.all()[0]
+        self.assertEqual(interface, nodegroup.get_managed_interface())
+
+    def test_get_managed_interface_does_not_return_unmanaged_interface(self):
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.nodegroupinterface_set.all()[0]
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
+        interface.save()
+        self.assertIsNone(nodegroup.get_managed_interface())
+
+    def test_get_managed_interface_does_not_return_unrelated_interface(self):
+        nodegroup = factory.make_node_group()
+        # Create another nodegroup with a managed interface.
+        factory.make_node_group()
+        interface = nodegroup.nodegroupinterface_set.all()[0]
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
+        interface.save()
+        self.assertIsNone(nodegroup.get_managed_interface())
+
+    def test_accept_node_changes_status(self):
+        nodegroup = factory.make_node_group(
+            status=factory.getRandomEnum(NODEGROUP_STATUS))
+        nodegroup.accept()
+        self.assertEqual(nodegroup.status, NODEGROUP_STATUS.ACCEPTED)
+
+    def test_reject_node_changes_status(self):
+        nodegroup = factory.make_node_group(
+            status=factory.getRandomEnum(NODEGROUP_STATUS))
+        nodegroup.reject()
+        self.assertEqual(nodegroup.status, NODEGROUP_STATUS.REJECTED)

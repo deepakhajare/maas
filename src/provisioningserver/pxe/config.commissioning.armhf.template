@@ -1,7 +1,7 @@
 DEFAULT execute
 
 LABEL execute
-  SAY Booting under MAAS direction...
+  {{py: # SAY is not implemented in U-Boot }}
   KERNEL {{kernel_params | kernel_path }}
   INITRD {{kernel_params | initrd_path }}
   APPEND {{kernel_params | kernel_command}}
