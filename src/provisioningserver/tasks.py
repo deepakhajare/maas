@@ -32,6 +32,7 @@ from celery.task import task
 from celeryconfig import (
     BOOT_IMAGES_WORKER_QUEUE,
     DHCP_CONFIG_FILE,
+    DHCP_INTERFACES_FILE,
     DNS_WORKER_QUEUE,
     )
 from provisioningserver import boot_images
@@ -310,11 +311,12 @@ def remove_dhcp_host_map(ip_address, server_address, omapi_key):
 def write_dhcp_config(callback=None, **kwargs):
     """Write out the DHCP configuration file and restart the DHCP server.
 
+    :param dhcp_interfaces: Space-separated list of interfaces that the
+        DHCP server should listen on.
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
-    sudo_write_file(
-        DHCP_CONFIG_FILE, config.get_config(**kwargs), encoding='ascii',
-        mode=0744)
+    sudo_write_file(DHCP_CONFIG_FILE, config.get_config(**kwargs))
+    sudo_write_file(DHCP_INTERFACES_FILE, kwargs.get('dhcp_interfaces', ''))
     if callback is not None:
         callback.delay()
 
@@ -322,7 +324,7 @@ def write_dhcp_config(callback=None, **kwargs):
 @task
 def restart_dhcp_server():
     """Restart the DHCP server."""
-    check_call(['sudo', 'service', 'isc-dhcp-server', 'restart'])
+    check_call(['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
 
 
 # =====================================================================

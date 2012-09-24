@@ -9,34 +9,27 @@ from south.v2 import SchemaMigration
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        
-        # Adding model 'Tag'
-        db.create_table(u'maasserver_tag', (
-            ('id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('created', self.gf('django.db.models.fields.DateTimeField')()),
-            ('updated', self.gf('django.db.models.fields.DateTimeField')()),
-            ('name', self.gf('django.db.models.fields.CharField')(unique=True, max_length=256)),
-            ('definition', self.gf('django.db.models.fields.TextField')()),
-            ('comment', self.gf('django.db.models.fields.TextField')(blank=True)),
-        ))
-        db.send_create_signal(u'maasserver', ['Tag'])
 
-        # Adding M2M table for field tags on 'Node'
-        db.create_table(u'maasserver_node_tags', (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('node', models.ForeignKey(orm[u'maasserver.node'], null=False)),
-            ('tag', models.ForeignKey(orm[u'maasserver.tag'], null=False))
-        ))
-        db.create_unique(u'maasserver_node_tags', ['node_id', 'tag_id'])
+        # Adding field 'Node.cpu_count'
+        db.add_column(u'maasserver_node', 'cpu_count', self.gf('django.db.models.fields.IntegerField')(default=0), keep_default=False)
+
+        # Adding field 'Node.memory'
+        db.add_column(u'maasserver_node', 'memory', self.gf('django.db.models.fields.IntegerField')(default=0), keep_default=False)
+
+        # Adding field 'Node.hardware_details'
+        db.add_column(u'maasserver_node', 'hardware_details', self.gf('maasserver.fields.XMLField')(default=None, null=True, blank=True), keep_default=False)
 
 
     def backwards(self, orm):
-        
-        # Deleting model 'Tag'
-        db.delete_table(u'maasserver_tag')
 
-        # Removing M2M table for field tags on 'Node'
-        db.delete_table('maasserver_node_tags')
+        # Deleting field 'Node.cpu_count'
+        db.delete_column(u'maasserver_node', 'cpu_count')
+
+        # Deleting field 'Node.memory'
+        db.delete_column(u'maasserver_node', 'memory')
+
+        # Deleting field 'Node.hardware_details'
+        db.delete_column(u'maasserver_node', 'hardware_details')
 
 
     models = {
@@ -115,18 +108,21 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'Node'},
             'after_commissioning_action': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'architecture': ('django.db.models.fields.CharField', [], {'default': "u'i386'", 'max_length': '10'}),
+            'cpu_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'created': ('django.db.models.fields.DateTimeField', [], {}),
-            'distro_series': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'null': 'True', 'blank': 'True'}),
+            'distro_series': ('django.db.models.fields.CharField', [], {'default': 'None', 'max_length': '10', 'null': 'True', 'blank': 'True'}),
             'error': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
+            'hardware_details': ('maasserver.fields.XMLField', [], {'default': 'None', 'null': 'True', 'blank': 'True'}),
             'hostname': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'memory': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'netboot': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'nodegroup': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.NodeGroup']", 'null': 'True'}),
             'owner': ('django.db.models.fields.related.ForeignKey', [], {'default': 'None', 'to': "orm['auth.User']", 'null': 'True', 'blank': 'True'}),
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-1b9ca6e2-0323-11e2-8516-00163e9c8bf7'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-4f4bbb90-032d-11e2-8bc6-fa163e17f81b'", 'unique': 'True', 'max_length': '41'}),
             'tags': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Tag']", 'symmetrical': 'False'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
@@ -199,7 +195,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1348146009L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1348150391L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})

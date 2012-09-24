@@ -27,6 +27,7 @@ from apiclient.testing.credentials import make_api_credentials
 from celeryconfig import (
     BOOT_IMAGES_WORKER_QUEUE,
     DHCP_CONFIG_FILE,
+    DHCP_INTERFACES_FILE,
     DNS_WORKER_QUEUE,
     )
 from maastesting.celery import CeleryFixture
@@ -258,12 +259,18 @@ class TestDHCPTasks(PservTestCase):
         content = config.get_config(**config_params).encode("ascii")
         mocked_proc.communicate.assert_any_call(content)
 
+        # Similarly, it also writes the DHCPD interfaces to
+        # /var/lib/maas/dhcpd-interfaces.
+        mocked_popen.assert_any_call(
+            ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
+            DHCP_INTERFACES_FILE, "--mode", "0744"], stdin=PIPE)
+
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
         self.patch(tasks, 'check_call', recorder)
         restart_dhcp_server()
         self.assertEqual(
-            (1, (['sudo', 'service', 'isc-dhcp-server', 'restart'],)),
+            (1, (['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'],)),
             (recorder.call_count, recorder.extract_args()[0]))
 
 
