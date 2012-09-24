@@ -13,10 +13,11 @@ __metaclass__ = type
 __all__ = []
 
 from argparse import ArgumentParser
+from collections import namedtuple
 import httplib
 import json
 
-from apiclient.maas_client import MAASClient
+from apiclient.maas_client import MAASDispatcher
 from maastesting.factory import factory
 from mock import Mock
 from provisioningserver import start_cluster_controller
@@ -27,31 +28,47 @@ class Sleeping(Exception):
     """Exception: `sleep` has been called."""
 
 
-class FakeHttpResponse:
-    """Cheap simile of a Django `HttpResponse`."""
-    # Needed because we can't import from django in provisioningserver
-    # code.
+FakeArgs = namedtuple('FakeArgs', ['server_url'])
+
+
+class FakeURLOpenResponse:
+    """Cheap simile of a `urlopen` result."""
 
     def __init__(self, content, status=httplib.OK):
-        self.content = content
-        self.status_code = status
+        self._content = content
+        self._status_code = status
+
+    def read(self):
+        return self._content
+
+    def getcode(self):
+        return self._status_code
+
+
+def make_url(name_hint='host'):
+    return "http://%s.example.com/%s/" % (
+        factory.make_name(name_hint),
+        factory.make_name('path'),
+        )
 
 
 class TestStartClusterController(PservTestCase):
 
     def setUp(self):
         super(TestStartClusterController, self).setUp()
-        self.patch(start_cluster_controller, 'sleep', Mock(failure=Sleeping()))
+        self.patch(
+            start_cluster_controller, 'sleep', Mock(side_effect=Sleeping()))
 
     def make_connection_details(self):
         return {
-            'BROKER_URL': 'http://%s/' % factory.make_name('broker'),
+            'BROKER_URL': make_url('broker'),
         }
 
     def prepare_response(self, http_code, content=""):
         """Prepare to return the given http response from API request."""
-        self.patch(MAASClient, 'post', Mock(return_value=FakeHttpResponse(
-            content, status=http_code)))
+        self.patch(
+            MAASDispatcher, 'dispatch_query',
+            Mock(return_value=FakeURLOpenResponse(content, status=http_code)))
 
     def prepare_success_response(self):
         """Prepare to return connection details from API request."""
@@ -75,24 +92,36 @@ class TestStartClusterController(PservTestCase):
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
-        start_cluster_controller.run(parser.parse_args(()))
+        start_cluster_controller.run(parser.parse_args((make_url(), )))
         self.assertNotEqual(0, start_cluster_controller.check_call.call_count)
 
+    def test_uses_given_url(self):
+        url = make_url('region')
+        self.patch(start_cluster_controller, 'start_up')
+        self.prepare_success_response()
+        start_cluster_controller.run(FakeArgs(url))
+        (args, kwargs) = MAASDispatcher.dispatch_query.call_args
+        self.assertEqual(url + 'api/1.0/nodegroups', args[0])
+
     def test_fails_if_declined(self):
+        self.patch(start_cluster_controller, 'start_up')
         self.prepare_rejection_response()
         self.assertRaises(
             start_cluster_controller.ClusterControllerRejected,
-            start_cluster_controller.run, None)
-        self.assertEqual([], start_cluster_controller.start_up.calls_list)
+            start_cluster_controller.run, FakeArgs(make_url()))
+        self.assertItemsEqual([], start_cluster_controller.start_up.calls_list)
 
     def test_polls_while_pending(self):
+        self.patch(start_cluster_controller, 'start_up')
         self.prepare_pending_response()
-        self.assertRaises(Sleeping, start_cluster_controller.run, None)
-        self.assertEqual([], start_cluster_controller.start_up.calls_list)
+        self.assertRaises(
+            Sleeping,
+            start_cluster_controller.run, FakeArgs(make_url()))
+        self.assertItemsEqual([], start_cluster_controller.start_up.calls_list)
 
     def test_starts_up_once_accepted(self):
         self.patch(start_cluster_controller, 'start_up')
         connection_details = self.prepare_success_response()
-        start_cluster_controller.run(None)
+        start_cluster_controller.run(FakeArgs(make_url()))
         start_cluster_controller.start_up.assert_called_once_with(
             connection_details)
