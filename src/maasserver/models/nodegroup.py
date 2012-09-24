@@ -176,31 +176,6 @@ class NodeGroup(TimestampedModel):
                 nodegroup=self).exclude(
                     management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED))
 
-    def set_up_dhcp(self):
-        """Write the DHCP configuration file and restart the DHCP server."""
-        # Circular imports.
-        from maasserver.dns import get_dns_server_address
-
-        # Use the server's address (which is where the central TFTP
-        # server is) for the next_server setting.  We'll want to proxy
-        # it on the local worker later, and then we can use
-        # next_server=self.worker_ip.
-        next_server = get_maas_facing_server_address()
-
-        interface = self.get_managed_interface()
-        subnet = str(
-            IPAddress(interface.ip_range_low) &
-            IPAddress(interface.subnet_mask))
-        write_dhcp_config.delay(
-            subnet=subnet, next_server=next_server, omapi_key=self.dhcp_key,
-            subnet_mask=interface.subnet_mask,
-            broadcast_ip=interface.broadcast_ip,
-            router_ip=interface.router_ip,
-            dns_servers=get_dns_server_address(),
-            ip_range_low=interface.ip_range_low,
-            ip_range_high=interface.ip_range_high,
-            dhcp_interfaces=interface.interface)
-
     def add_dhcp_host_maps(self, new_leases):
         if self.get_managed_interface() is not None and len(new_leases) > 0:
             # XXX JeroenVermeulen 2012-08-21, bug=1039362: the DHCP
