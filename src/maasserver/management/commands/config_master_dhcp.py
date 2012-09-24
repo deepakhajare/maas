@@ -25,12 +25,8 @@ from optparse import (
     )
 
 from django.core.management.base import BaseCommand
-from maasserver.enum import (
-    DNS_DHCP_MANAGEMENT,
-    NODEGROUPINTERFACE_MANAGEMENT,
-    )
+from maasserver.enum import NODEGROUPINTERFACE_MANAGEMENT
 from maasserver.models import (
-    Config,
     NodeGroup,
     NodeGroupInterface,
     )
@@ -109,12 +105,3 @@ class Command(BaseCommand):
             for item, value in settings.items():
                 setattr(interface, item, value)
             interface.save()
-
-            # Enable DHCP management if it was previously disabled.
-            dns_dhcp_management = Config.objects.get_config(
-                'dns_dhcp_management')
-            if dns_dhcp_management == DNS_DHCP_MANAGEMENT.NONE:
-                Config.objects.set_config(
-                    'dns_dhcp_management', DNS_DHCP_MANAGEMENT.DHCP_ONLY)
-            # Create a Task that will write the config out.
-            master_nodegroup.set_up_dhcp()

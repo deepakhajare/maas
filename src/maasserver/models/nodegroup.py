@@ -22,7 +22,6 @@ from django.db.models import (
     Manager,
     )
 from maasserver import DefaultMeta
-from maasserver.dhcp import is_dhcp_management_enabled
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUP_STATUS_CHOICES,
@@ -55,6 +54,7 @@ class NodeGroupManager(Manager):
     def new(self, name, uuid, ip, subnet_mask=None,
             broadcast_ip=None, router_ip=None, ip_range_low=None,
             ip_range_high=None, dhcp_key='', interface='',
+            status=NODEGROUP_STATUS.DEFAULT_STATUS,
             management=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT):
         """Create a :class:`NodeGroup` with the given parameters.
 
@@ -73,7 +73,8 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
-        nodegroup = NodeGroup(name=name, uuid=uuid, dhcp_key=dhcp_key)
+        nodegroup = NodeGroup(
+            name=name, uuid=uuid, dhcp_key=dhcp_key, status=status)
         nodegroup.save()
         nginterface = NodeGroupInterface(
             nodegroup=nodegroup, ip=ip, subnet_mask=subnet_mask,
@@ -89,11 +90,12 @@ class NodeGroupManager(Manager):
         from maasserver.models import Node
 
         try:
-            master = self.get(name='master')
+            master = self.get(uuid='master')
         except NodeGroup.DoesNotExist:
             # The master did not exist yet; create it on demand.
             master = self.new(
-                'master', 'master', '127.0.0.1', dhcp_key=generate_omapi_key())
+                'master', 'master', '127.0.0.1', dhcp_key=generate_omapi_key(),
+                status=NODEGROUP_STATUS.ACCEPTED)
 
             # If any legacy nodes were still not associated with a node
             # group, enroll them in the master node group.
@@ -200,22 +202,9 @@ class NodeGroup(TimestampedModel):
             dhcp_interfaces=interface.interface)
 
     def add_dhcp_host_maps(self, new_leases):
-        if self.is_dhcp_enabled() and len(new_leases) > 0:
+        if self.get_managed_interface() is not None and len(new_leases) > 0:
             # XXX JeroenVermeulen 2012-08-21, bug=1039362: the DHCP
             # server is currently always local to the worker system, so
             # use 127.0.0.1 as the DHCP server address.
             add_new_dhcp_host_map.delay(
                 new_leases, '127.0.0.1', self.dhcp_key)
-
-    def is_dhcp_enabled(self):
-        """Is the DHCP for this nodegroup enabled?"""
-        # Once we have support for multiple managed interfaces, this
-        # method will have to be improved to cope with that.
-        if not is_dhcp_management_enabled():
-            return False
-
-        interface = self.get_managed_interface()
-        if interface is not None:
-            return True
-        else:
-            return False

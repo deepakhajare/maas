@@ -24,11 +24,11 @@ from maasserver import (
     dns,
     server_address,
     )
-from maasserver.models.dhcplease import DHCPLease
-from maasserver.testing import (
-    disable_dns_management,
-    enable_dns_management,
+from maasserver.enum import (
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
+from maasserver.models.dhcplease import DHCPLease
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.bindfixture import BINDServer
@@ -93,8 +93,9 @@ class TestDNSUtilities(TestCase):
         self.assertRaises(dns.DNSException, dns.get_dns_server_address)
 
     def test_get_zone_creates_DNSZoneConfig(self):
-        enable_dns_management()
-        nodegroup = factory.make_node_group()
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         interface = nodegroup.get_managed_interface()
         serial = random.randint(1, 100)
         zone = dns.get_zone(nodegroup, serial)
@@ -110,6 +111,30 @@ class TestDNSUtilities(TestCase):
                 mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
                 ))
 
+    def test_is_dns_managed(self):
+        nodegroups_with_expected_results = {
+            factory.make_node_group(
+                status=NODEGROUP_STATUS.PENDING,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS): False,
+            factory.make_node_group(
+                status=NODEGROUP_STATUS.REJECTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS): False,
+            factory.make_node_group(
+                status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS): True,
+            factory.make_node_group(
+                status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP): False,
+            factory.make_node_group(
+                status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED): False,
+        }
+        results = {
+            nodegroup: dns.is_dns_managed(nodegroup)
+            for nodegroup, _ in nodegroups_with_expected_results.items()
+        }
+        self.assertEqual(nodegroups_with_expected_results, results)
+
 
 class TestDNSConfigModifications(TestCase):
 
@@ -119,7 +144,6 @@ class TestDNSConfigModifications(TestCase):
 
     def setUp(self):
         super(TestDNSConfigModifications, self).setUp()
-        enable_dns_management()
         self.bind = self.useFixture(BINDServer())
         self.patch(conf, 'DNS_CONFIG_DIR', self.bind.config.homedir)
 
@@ -140,7 +164,9 @@ class TestDNSConfigModifications(TestCase):
     def create_nodegroup_with_lease(self, lease_number=1, nodegroup=None):
         if nodegroup is None:
             nodegroup = factory.make_node_group(
-                network=IPNetwork('192.168.0.1/24'))
+                network=IPNetwork('192.168.0.1/24'),
+                status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         interface = nodegroup.get_managed_interface()
         node = factory.make_node(
             nodegroup=nodegroup, set_hostname=True)
@@ -211,13 +237,8 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, 'DNS_CONNECT', False)
         self.assertFalse(dns.is_dns_enabled())
 
-    def test_is_dns_enabled_return_false_if_confif_enable_dns_False(self):
-        disable_dns_management()
-        self.assertFalse(dns.is_dns_enabled())
-
     def test_is_dns_enabled_return_True(self):
         self.patch(settings, 'DNS_CONNECT', True)
-        enable_dns_management()
         self.assertTrue(dns.is_dns_enabled())
 
     def test_write_full_dns_loads_full_dns_config(self):
@@ -268,14 +289,18 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, "DNS_CONNECT", True)
         network = IPNetwork('192.168.7.1/24')
         ip = factory.getRandomIPInNetwork(network)
-        nodegroup = factory.make_node_group(network=network)
+        nodegroup = factory.make_node_group(
+                network=network, status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         self.assertDNSMatches(generated_hostname(ip), nodegroup.name, ip)
 
     def test_edit_nodegroupinterface_updates_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
         old_network = IPNetwork('192.168.7.1/24')
         old_ip = factory.getRandomIPInNetwork(old_network)
-        nodegroup = factory.make_node_group(network=old_network)
+        nodegroup = factory.make_node_group(
+                network=old_network, status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         interface = nodegroup.get_managed_interface()
         # Edit nodegroup's network information to '192.168.44.1/24'
         interface.broadcast_ip = '192.168.44.255'
@@ -294,7 +319,9 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, "DNS_CONNECT", True)
         network = IPNetwork('192.168.7.1/24')
         ip = factory.getRandomIPInNetwork(network)
-        nodegroup = factory.make_node_group(network=network)
+        nodegroup = factory.make_node_group(
+            network=network, status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         nodegroup.delete()
         self.assertEqual([''], self.dig_resolve(generated_hostname(ip)))
         self.assertEqual([''], self.dig_reverse_resolve(ip))
@@ -326,16 +353,3 @@ class TestDNSConfigModifications(TestCase):
         node.error = factory.getRandomString()
         node.save()
         self.assertEqual(0, recorder.call_count)
-
-    def test_change_config_enable_dns_enables_dns(self):
-        self.patch(settings, "DNS_CONNECT", False)
-        nodegroup, node, lease = self.create_nodegroup_with_lease()
-        settings.DNS_CONNECT = True
-        enable_dns_management()
-        self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
-
-    def test_change_config_enable_dns_disables_dns(self):
-        self.patch(settings, "DNS_CONNECT", True)
-        nodegroup, node, lease = self.create_nodegroup_with_lease()
-        disable_dns_management()
-        self.assertEqual([''], self.dig_resolve(generated_hostname(lease.ip)))

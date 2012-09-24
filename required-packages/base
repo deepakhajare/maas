@@ -17,6 +17,7 @@ python-convoy
 python-dbus
 python-dev
 python-django
+python-django-piston
 python-django-south
 python-formencode
 python-httplib2
@@ -24,6 +25,7 @@ python-lockfile
 python-netaddr
 python-oauth
 python-oops
+python-oops-amqp
 python-oops-datedir-repo
 python-oops-twisted
 python-oops-wsgi
@@ -32,6 +34,7 @@ python-pyinotify
 python-tempita
 python-twisted
 python-txamqp
+python-txlongpoll
 python-yaml
 rabbitmq-server
 syslinux-common
