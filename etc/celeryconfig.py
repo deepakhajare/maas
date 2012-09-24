@@ -17,6 +17,7 @@ __metaclass__ = type
 
 from datetime import timedelta
 
+from kombu.common import Broadcast
 from maas import import_settings
 
 # Location of power action templates.  Use an absolute path, or leave as
@@ -52,6 +53,9 @@ else:
     import_settings(maas_local_celeryconfig)
 
 
+CELERY_CREATE_MISSING_QUEUES = True
+
+
 CELERY_IMPORTS = (
     # Tasks.
     "provisioningserver.tasks",
@@ -68,16 +72,18 @@ CELERY_ACKS_LATE = True
 CELERY_IGNORE_RESULT = True
 
 
+DNS_WORKER_QUEUE = 'celery'
+BOOT_IMAGES_WORKER_QUEUE = 'celery'
+COMMON_WORKER_QUEUE = 'common'
+
+
 CELERYBEAT_SCHEDULE = {
-    # XXX JeroenVermeulen 2012-08-24, bug=1039366: once we have multiple
-    # workers, make sure each worker gets one of these.
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
+        'options': {'queue': Broadcast(COMMON_WORKER_QUEUE)}
     },
 
-    # XXX JeroenVermeulen 2012-09-12, bug=1039366: this task should run
-    # only on the master worker.
     'report-boot-images': {
         'task': 'provisioningserver.tasks.report_boot_images',
         'schedule': timedelta(minutes=5),

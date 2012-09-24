@@ -16,7 +16,10 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.models import NodeGroup
+from maasserver.models import (
+    NodeGroup,
+    nodegroup as nodegroup_module,
+    )
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -192,6 +195,14 @@ class TestNodeGroup(TestCase):
         leases = factory.make_random_leases()
         nodegroup.add_dhcp_host_maps(leases)
         self.assertEqual([], Omshell.create.extract_args())
+
+    def test_fires_tasks_routed_to_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        task = self.patch(nodegroup_module, 'add_new_dhcp_host_map')
+        leases = factory.make_random_leases()
+        nodegroup.add_dhcp_host_maps(leases)
+        self.assertEqual(
+             nodegroup.uuid, task.apply_async.call_args[1]['queue'])
 
     def test_get_managed_interface_returns_managed_interface(self):
         nodegroup = factory.make_node_group()

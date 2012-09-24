@@ -276,7 +276,9 @@ class NodeManager(Manager):
             node_power_type = node.get_effective_power_type()
             # WAKE_ON_LAN does not support poweroff.
             if node_power_type != POWER_TYPE.WAKE_ON_LAN:
-                power_off.delay(node_power_type, **power_params)
+                power_off.apply_async(
+                    queue=node.nodegroup.uuid, args=[node_power_type],
+                    kwargs=power_params)
             processed_nodes.append(node)
         return processed_nodes
 
@@ -313,7 +315,9 @@ class NodeManager(Manager):
             else:
                 do_start = True
             if do_start:
-                power_on.delay(node_power_type, **power_params)
+                power_on.apply_async(
+                    queue=node.nodegroup.uuid, args=[node_power_type],
+                    kwargs=power_params)
                 processed_nodes.append(node)
         return processed_nodes
 

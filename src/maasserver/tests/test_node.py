@@ -1,3 +1,4 @@
+
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
@@ -20,17 +21,18 @@ from django.core.exceptions import (
     ValidationError,
     )
 from maasserver.enum import (
+    DISTRO_SERIES,
     NODE_PERMISSION,
     NODE_STATUS,
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
-    DISTRO_SERIES,
     )
 from maasserver.exceptions import NodeStateViolation
 from maasserver.models import (
     Config,
     MACAddress,
     Node,
+    node as node_module,
     )
 from maasserver.models.node import NODE_TRANSITIONS
 from maasserver.models.user import create_auth_token
@@ -650,8 +652,7 @@ class NodeManagerTest(TestCase):
         # run shell commands.
         self.patch(PowerAction, 'run_shell', lambda *args, **kwargs: ('', ''))
         user = factory.make_user()
-        node, mac = self.make_node_with_mac(
-                user, power_type=POWER_TYPE.VIRSH)
+        node, mac = self.make_node_with_mac(user, power_type=POWER_TYPE.VIRSH)
         output = Node.objects.stop_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
@@ -661,6 +662,14 @@ class NodeManagerTest(TestCase):
                 len(self.celery.tasks),
                 self.celery.tasks[0]['task'].name,
             ))
+
+    def test_stop_nodes_task_routed_to_nodegroup_worker(self):
+        user = factory.make_user()
+        node, mac = self.make_node_with_mac(user, power_type=POWER_TYPE.VIRSH)
+        task = self.patch(node_module, 'power_off')
+        Node.objects.stop_nodes([node.system_id], user)
+        self.assertEqual(
+            node.nodegroup.uuid, task.apply_async.call_args[1]['queue'])
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [
@@ -687,6 +696,15 @@ class NodeManagerTest(TestCase):
                 self.celery.tasks[0]['task'].name,
                 self.celery.tasks[0]['kwargs']['mac_address'],
             ))
+
+    def test_start_nodes_task_routed_to_nodegroup_worker(self):
+        user = factory.make_user()
+        node, mac = self.make_node_with_mac(
+            user, power_type=POWER_TYPE.WAKE_ON_LAN)
+        task = self.patch(node_module, 'power_on')
+        Node.objects.start_nodes([node.system_id], user)
+        self.assertEqual(
+            node.nodegroup.uuid, task.apply_async.call_args[1]['queue'])
 
     def test_start_nodes_uses_default_power_type_if_not_node_specific(self):
         # If the node has a power_type set to POWER_TYPE.DEFAULT,

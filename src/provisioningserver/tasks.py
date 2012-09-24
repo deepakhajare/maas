@@ -29,7 +29,11 @@ from subprocess import (
     )
 
 from celery.task import task
-from celeryconfig import DHCP_CONFIG_FILE
+from celeryconfig import (
+    BOOT_IMAGES_WORKER_QUEUE,
+    DHCP_CONFIG_FILE,
+    DNS_WORKER_QUEUE,
+    )
 from provisioningserver import boot_images
 from provisioningserver.auth import (
     record_api_credentials,
@@ -152,7 +156,7 @@ RNDC_COMMAND_MAX_RETRY = 10
 RNDC_COMMAND_RETRY_DELAY = 2
 
 
-@task(max_retries=RNDC_COMMAND_MAX_RETRY)
+@task(max_retries=RNDC_COMMAND_MAX_RETRY, queue=DNS_WORKER_QUEUE)
 def rndc_command(arguments, retry=False, callback=None):
     """Use rndc to execute a command.
     :param arguments: Argument list passed down to the rndc command.
@@ -174,7 +178,7 @@ def rndc_command(arguments, retry=False, callback=None):
         callback.delay()
 
 
-@task
+@task(queue=DNS_WORKER_QUEUE)
 def write_full_dns_config(zones=None, callback=None, **kwargs):
     """Write out the DNS configuration files: the main configuration
     file and the zone files.
@@ -195,7 +199,7 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
         callback.delay()
 
 
-@task
+@task(queue=DNS_WORKER_QUEUE)
 def write_dns_config(zones=(), callback=None, **kwargs):
     """Write out the DNS configuration file.
 
@@ -212,7 +216,7 @@ def write_dns_config(zones=(), callback=None, **kwargs):
         callback.delay()
 
 
-@task
+@task(queue=DNS_WORKER_QUEUE)
 def write_dns_zone_config(zone, callback=None, **kwargs):
     """Write out a DNS zone configuration file.
 
@@ -228,7 +232,7 @@ def write_dns_zone_config(zone, callback=None, **kwargs):
         callback.delay()
 
 
-@task
+@task(queue=DNS_WORKER_QUEUE)
 def setup_rndc_configuration(callback=None):
     """Write out the two rndc configuration files (rndc.conf and
     named.conf.rndc).
@@ -303,7 +307,7 @@ def remove_dhcp_host_map(ip_address, server_address, omapi_key):
 
 
 @task
-def write_dhcp_config(**kwargs):
+def write_dhcp_config(callback=None, **kwargs):
     """Write out the DHCP configuration file and restart the DHCP server.
 
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
@@ -311,7 +315,8 @@ def write_dhcp_config(**kwargs):
     sudo_write_file(
         DHCP_CONFIG_FILE, config.get_config(**kwargs), encoding='ascii',
         mode=0744)
-    restart_dhcp_server()
+    if callback is not None:
+        callback.delay()
 
 
 @task
@@ -325,7 +330,7 @@ def restart_dhcp_server():
 # =====================================================================
 
 
-@task
+@task(queue=BOOT_IMAGES_WORKER_QUEUE)
 def report_boot_images():
     """For master worker only: report available netboot images."""
     boot_images.report_to_server()

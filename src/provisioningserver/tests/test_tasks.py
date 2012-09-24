@@ -24,7 +24,11 @@ from subprocess import (
 from apiclient.creds import convert_tuple_to_string
 from apiclient.maas_client import MAASClient
 from apiclient.testing.credentials import make_api_credentials
-from celeryconfig import DHCP_CONFIG_FILE
+from celeryconfig import (
+    BOOT_IMAGES_WORKER_QUEUE,
+    DHCP_CONFIG_FILE,
+    DNS_WORKER_QUEUE,
+    )
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import (
@@ -241,7 +245,6 @@ class TestDHCPTasks(PservTestCase):
         mocked_proc.communicate = Mock(return_value=('output', 'error output'))
         mocked_popen = self.patch(
             utils, "Popen", Mock(return_value=mocked_proc))
-        mocked_check_call = self.patch(tasks, "check_call")
 
         config_params = self.make_dhcp_config_params()
         write_dhcp_config(**config_params)
@@ -254,12 +257,6 @@ class TestDHCPTasks(PservTestCase):
         # It should then pass the content to communicate().
         content = config.get_config(**config_params).encode("ascii")
         mocked_proc.communicate.assert_any_call(content)
-
-        # Finally it should restart the dhcp server.
-        check_call_args = mocked_check_call.call_args
-        self.assertEqual(
-            check_call_args[0][0],
-            ['sudo', 'service', 'isc-dhcp-server', 'restart'])
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
@@ -308,6 +305,9 @@ class TestDNSTasks(PservTestCase):
                 )),
             result)
 
+    def test_write_dns_config_attached_to_dns_worker_queue(self):
+        self.assertEqual(write_dns_config.queue, DNS_WORKER_QUEUE)
+
     def test_write_dns_zone_config_writes_file(self):
         command = factory.getRandomString()
         zone_name = factory.getRandomString()
@@ -336,6 +336,9 @@ class TestDNSTasks(PservTestCase):
                 )),
             result)
 
+    def test_write_dns_zone_config_attached_to_dns_worker_queue(self):
+        self.assertEqual(write_dns_zone_config.queue, DNS_WORKER_QUEUE)
+
     def test_setup_rndc_configuration_writes_files(self):
         command = factory.getRandomString()
         result = setup_rndc_configuration.delay(
@@ -357,6 +360,9 @@ class TestDNSTasks(PservTestCase):
                     Equals([((command,), {})]),
                 )),
             result)
+
+    def test_setup_rndc_configuration_attached_to_dns_worker_queue(self):
+        self.assertEqual(setup_rndc_configuration.queue, DNS_WORKER_QUEUE)
 
     def test_rndc_command_execute_command(self):
         command = factory.getRandomString()
@@ -398,6 +404,9 @@ class TestDNSTasks(PservTestCase):
         self.assertRaises(
             CalledProcessError, rndc_command.delay, command, retry=True)
 
+    def test_rndc_command_attached_to_dns_worker_queue(self):
+        self.assertEqual(rndc_command.queue, DNS_WORKER_QUEUE)
+
     def test_write_full_dns_config_sets_up_config(self):
         # write_full_dns_config writes the config file, writes
         # the zone files, and reloads the dns service.
@@ -430,6 +439,9 @@ class TestDNSTasks(PservTestCase):
                     FileExists(),
                 )))
 
+    def test_write_full_dns_attached_to_dns_worker_queue(self):
+        self.assertEqual(write_full_dns_config.queue, DNS_WORKER_QUEUE)
+
 
 class TestBootImagesTasks(PservTestCase):
 
@@ -450,3 +462,6 @@ class TestBootImagesTasks(PservTestCase):
         self.assertItemsEqual(
             [image],
             json.loads(MAASClient.post.call_args[1]['images']))
+
+    def test_report_boot_images_attached_to_boot_images_worker_queue(self):
+        self.assertEqual(write_dns_config.queue, BOOT_IMAGES_WORKER_QUEUE)
