@@ -68,6 +68,6 @@ def configure_dhcp(nodegroup):
         dns_servers=get_dns_server_address(),
         ip_range_low=interface.ip_range_low,
         ip_range_high=interface.ip_range_high,
-        callback=reload_dhcp_server_subtask
+        callback=reload_dhcp_server_subtask,
     )
     write_dhcp_config.apply_async(queue=nodegroup.uuid, kwargs=task_kwargs)

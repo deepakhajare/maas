@@ -72,7 +72,8 @@ class CeleryFixture(Fixture):
         """
         return {
             task_info['task'].name: task_info['task'].queue
-            for task_info in self.tasks}
+            for task_info in self.tasks
+        }
 
     def cleanup_tasks(self):
         self.tasks = []
