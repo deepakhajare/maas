@@ -17,6 +17,9 @@ __all__ = [
 
 import httplib
 import json
+import os
+from subprocess import check_call
+import sys
 from time import sleep
 from urllib2 import HTTPError
 
@@ -71,7 +74,33 @@ def register(server_url):
 
 
 def start_up(connection_details):
-    """We've been accepted as a cluster controller; start doing the job."""
+    """We've been accepted as a cluster controller; start doing the job.
+
+    This starts up celeryd, listening to the broker that the region
+    controller pointed us to, and on the appropriate queue.
+    """
+    broker_url = connection_details['BROKER_URL']
+
+    # XXX JeroenVermeulen 2012-09-24, bug=1055523: Fill in proper
+    # cluster-specific queue name once we have those (based on cluster
+    # uuid).
+    queue = 'celery'
+
+    env = {
+        # Tell celeryd what broker to listen to.
+        'CELERY_BROKER_URL': broker_url,
+        'PATH': os.environ['PATH'],
+        'PYTHONPATH': ':'.join(sys.path),
+        }
+
+    check_call([
+        'celeryd',
+        '--logfile=/var/log/maas/celery.log',
+        '--loglevel=INFO',
+        '--beat', '--schedule=/var/lib/maas/celerybeat-schedule',
+        '-Q', "%s,common" % queue,
+        ],
+        env=env)
 
 
 def run(args):
