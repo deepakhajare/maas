@@ -21,13 +21,17 @@ import os
 from subprocess import check_call
 import sys
 from time import sleep
-from urllib2 import HTTPError
+from urllib2 import (
+    HTTPError,
+    URLError,
+    )
 
 from apiclient.maas_client import (
     MAASClient,
     MAASDispatcher,
     NoAuth,
     )
+from provisioningserver.logging import task_logger
 
 
 class ClusterControllerRejected(Exception):
@@ -40,6 +44,12 @@ def add_arguments(parser):
         'server_url', metavar='URL', help="URL to the MAAS region controller.")
 
 
+def log_error(exception):
+    task_logger.info(
+        "Could not register with region controller: %s."
+        % exception.reason)
+
+
 def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
@@ -47,7 +57,8 @@ def register(server_url):
     controller.
 
     :return: A dict of connection details if this cluster controller has been
-        accepted, or `None` if accreditation is still pending.
+        accepted, or `None` if there is no definite response yet.  If there
+        is no definite response, retry this call later.
     :raise ClusterControllerRejected: if this system has been rejected as a
         cluster controller.
     """
@@ -58,7 +69,11 @@ def register(server_url):
     except HTTPError as e:
         status_code = e.code
         if e.code not in known_responses:
-            raise
+            log_error(e)
+            return None
+    except URLError as e:
+        log_error(e)
+        return None
     else:
         status_code = response.getcode()
 
