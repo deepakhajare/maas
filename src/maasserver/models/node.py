@@ -336,7 +336,7 @@ def update_hardware_details(node, xmlbytes):
     cursor = connection.cursor()
     cursor.execute("SELECT"
         " array_length(xpath(%s, hardware_details), 1) AS count"
-        ", (xpath(%s, hardware_details))[1]::text::bigint / 1073741824 AS mem"
+        ", (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
         " FROM maasserver_node"
         " WHERE id = %s",
         [
