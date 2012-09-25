@@ -61,8 +61,11 @@ def configure_dhcp(nodegroup):
     reload_dhcp_server_subtask = restart_dhcp_server.subtask(
         options={'queue': nodegroup.uuid})
     task_kwargs = dict(
-        subnet=subnet, next_server=next_server, omapi_key=nodegroup.dhcp_key,
+        subnet=subnet,
+        next_server=next_server,
+        omapi_key=nodegroup.dhcp_key,
         subnet_mask=interface.subnet_mask,
+        dhcp_interfaces=interface.interface,
         broadcast_ip=interface.broadcast_ip,
         router_ip=interface.router_ip,
         dns_servers=get_dns_server_address(),
