@@ -120,3 +120,48 @@ class TestFunctions(TestCase):
         self.assertEqual(
             "Expected application/json, got: text/css",
             "%s" % error)
+
+
+class TestActionReSTful(TestCase):
+    """Tests for ReSTful operations in `maascli.api.Action`."""
+
+    scenarios = (
+        ("create", dict(method="POST")),
+        ("read", dict(method="GET")),
+        ("update", dict(method="PUT")),
+        ("delete", dict(method="DELETE")),
+        )
+
+    def test_prepare_payload_without_data(self):
+        uri_base = "http://example.com/MAAS/api/1.0/"
+        uri, body, headers = api.Action.prepare_payload(
+            method=self.method, restful=True, uri=uri_base, data=[])
+        self.assertEqual(uri_base, uri)
+        self.assertIsNone(body)
+        self.assertEqual({}, headers)
+
+    def test_prepare_payload_with_data(self):
+        # Given data is always encoded as query parameters.
+        uri_base = "http://example.com/MAAS/api/1.0/"
+        uri, body, headers = api.Action.prepare_payload(
+            method=self.method, restful=True, uri=uri_base,
+            data=[("foo", "bar"), ("foo", "baz")])
+        self.assertEqual(uri_base + "?foo=bar&foo=baz", uri)
+        self.assertIsNone(body)
+        self.assertEqual({}, headers)
+
+
+class TestActionOperations(TestCase):
+    """Tests for non-ReSTful operations in `maascli.api.Action`."""
+
+    def test_prepare_payload_POST_non_restful(self):
+        # Non-ReSTful POSTs encode the given data using encode_multipart_data.
+        encode_multipart_data = self.patch(api, "encode_multipart_data")
+        encode_multipart_data.return_value = sentinel.body, sentinel.headers
+        uri_base = "http://example.com/MAAS/api/1.0/"
+        uri, body, headers = api.Action.prepare_payload(
+            method="POST", restful=False, uri=uri_base,
+            data=[("foo", "bar"), ("foo", "baz")])
+        self.assertEqual(uri_base, uri)
+        self.assertIs(sentinel.body, body)
+        self.assertIs(sentinel.headers, headers)

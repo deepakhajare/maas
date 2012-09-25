@@ -216,7 +216,8 @@ class Action(Command):
             data["op"] = self.op
 
         # Bundle things up ready to throw over the wire.
-        uri, body, headers = self.prepare_payload(uri, data)
+        uri, body, headers = self.prepare_payload(
+            self.method, self.restful, uri, options.data)
 
         # Sign request if credentials have been provided.
         if self.credentials is not None:
@@ -246,15 +247,17 @@ class Action(Command):
             raise CommandError(
                 "%r is not a name=value pair" % string)
 
-    def prepare_payload(self, uri, data):
+    @staticmethod
+    def prepare_payload(method, restful, uri, data):
         """Return the URI (modified perhaps) and body and headers.
 
         :param method: The HTTP method.
+        :param restful: Is this a ReSTful operation?
         :param uri: The URI of the action.
         :param data: A dict or iterable of name=value pairs to pack into the
             body or headers, depending on the type of request.
         """
-        if self.method == "POST" and not self.restful:
+        if method == "POST" and not restful:
             # Encode the data as multipart for non-ReSTful POST requests; all
             # others should use query parameters. TODO: encode_multipart_data
             # insists on a dict for the data, which prevents specifying
