@@ -26,9 +26,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.db import (
-    connection,
-    )
+from django.db import connection
 from django.db.models import (
     BooleanField,
     CharField,
@@ -53,7 +51,10 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.exceptions import NodeStateViolation
-from maasserver.fields import JSONObjectField, XMLField
+from maasserver.fields import (
+    JSONObjectField,
+    XMLField,
+    )
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.tag import Tag
@@ -320,7 +321,6 @@ class NodeManager(Manager):
                 power_on.delay(node_power_type, **power_params)
                 processed_nodes.append(node)
         return processed_nodes
-
 
 
 def update_hardware_details(node, xmlbytes):
