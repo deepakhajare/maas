@@ -69,6 +69,8 @@ __all__ = [
     "NodeMacHandler",
     "NodeMacsHandler",
     "NodesHandler",
+    "TagHandler",
+    "TagsHandler",
     "pxeconfig",
     "render_api_docs",
     ]
@@ -133,6 +135,7 @@ from maasserver.forms import (
     get_node_edit_form,
     NodeGroupInterfaceForm,
     NodeGroupWithInterfacesForm,
+    TagForm,
     )
 from maasserver.models import (
     BootImage,
@@ -143,6 +146,7 @@ from maasserver.models import (
     Node,
     NodeGroup,
     NodeGroupInterface,
+    Tag,
     )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
@@ -429,6 +433,7 @@ DISPLAYED_NODE_FIELDS = (
     'netboot',
     'power_type',
     'power_parameters',
+    'tag_names',
     )
 
 
@@ -515,12 +520,12 @@ class NodeHandler(BaseHandler):
     def start(self, request, system_id):
         """Power up a node.
 
-        The user_data parameter, if set in the POST data, is taken as
-        base64-encoded binary data.
-
-        The distro_series parameter, if set in the POST data, is taken as
-        clear text. This parameter specifies the Ubuntu Release the node
-        will use.
+        :param user_data: If present, this blob of user-data to be made
+            available to the nodes through the metadata service.
+        :type user_data: base64-encoded basestring
+        :param distro_series: If present, this parameter specifies the
+            Ubuntu Release the node will use.
+        :type distro_series: basestring
 
         Ideally we'd have MIME multipart and content-transfer-encoding etc.
         deal with the encapsulation of binary data, but couldn't make it work
@@ -533,7 +538,8 @@ class NodeHandler(BaseHandler):
             user_data = b64decode(user_data)
         if series is not None:
             node = Node.objects.get_node_or_404(
-                system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
+                system_id=system_id, user=request.user,
+                perm=NODE_PERMISSION.EDIT)
             node.set_distro_series(series=series)
         nodes = Node.objects.start_nodes(
             [system_id], request.user, user_data=user_data)
@@ -644,11 +650,10 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    name = request_params.get('name', None)
-    if name is None:
-        return {}
-    else:
-        return {'name': name}
+    supported_constraints = ('name', 'arch')
+    return {constraint: request_params[constraint]
+        for constraint in supported_constraints
+            if constraint in request_params}
 
 
 @api_operations
@@ -706,6 +711,25 @@ class NodesHandler(BaseHandler):
                     ', '.join(system_ids - ids)))
         return filter(
             None, [node.accept_enlistment(request.user) for node in nodes])
+
+    @api_exported('POST')
+    def accept_all(self, request):
+        """Accept all declared nodes into the MAAS.
+
+        Nodes can be enlisted in the MAAS anonymously or by non-admin users,
+        as opposed to by an admin.  These nodes are held in the Declared
+        state; a MAAS admin must first verify the authenticity of these
+        enlistments, and accept them.
+
+        :return: Representations of any nodes that have their status changed
+            by this call.  Thus, nodes that were already accepted are excluded
+            from the result.
+        """
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.ADMIN)
+        nodes = nodes.filter(status=NODE_STATUS.DECLARED)
+        nodes = [node.accept_enlistment(request.user) for node in nodes]
+        return filter(None, nodes)
 
     @api_exported('GET')
     def list(self, request):
@@ -1225,6 +1249,100 @@ class AccountHandler(BaseHandler):
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('account_handler', [])
+
+
+@api_operations
+class TagHandler(BaseHandler):
+    """Manage individual Tags."""
+    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+    model = Tag
+    fields = (
+        'name',
+        'definition',
+        'comment',
+        )
+
+    def read(self, request, name):
+        """Read a specific Node."""
+        return Tag.objects.get_tag_or_404(name=name, user=request.user)
+
+    def update(self, request, name):
+        """Update a specific `Tag`.
+        """
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
+            to_edit=True)
+        data = get_overrided_query_dict(model_to_dict(tag), request.data)
+        form = TagForm(data, instance=tag)
+        if form.is_valid():
+            return form.save()
+        else:
+            raise ValidationError(form.errors)
+
+    def delete(self, request, name):
+        """Delete a specific Node."""
+        tag = Tag.objects.get_tag_or_404(name=name,
+            user=request.user, to_edit=True)
+        tag.delete()
+        return rc.DELETED
+
+    # XXX: JAM 2012-09-25 This is currently a POST because of bug:
+    #      http://pad.lv/1049933
+    #      Essentially, if you have one 'GET' op, then you can no longer get
+    #      the Tag object itself from a plain 'GET' without op.
+    @api_exported('POST')
+    def nodes(self, request, name):
+        """Get the list of nodes that have this tag."""
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        # XXX: JAM 2012-09-25 We need to filter the node set returned by the
+        #      visibility defined by the user.
+        return tag.node_set.all()
+
+    @classmethod
+    def resource_uri(cls, tag=None):
+        # See the comment in NodeHandler.resource_uri
+        tag_name = 'tag_name'
+        if tag is not None:
+            tag_name = tag.name
+        return ('tag_handler', (tag_name, ))
+
+
+@api_operations
+class TagsHandler(BaseHandler):
+    """Manage collection of Tags."""
+    allowed_methods = ('GET', 'POST')
+
+    @api_exported('POST')
+    def new(self, request):
+        """Create a new `Tag`.
+        """
+        return create_tag(request)
+
+    @api_exported('GET')
+    def list(self, request):
+        """List Tags.
+        """
+        return Tag.objects.all()
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('tags_handler', [])
+
+
+def create_tag(request):
+    """Service an http request to create a tag.
+
+    :param request: The http request for this node to be created.
+    :return: A `Tag`.
+    :rtype: :class:`maasserver.models.Tag`.
+    :raises: ValidationError
+    """
+    if not request.user.is_superuser:
+        raise PermissionDenied()
+    form = TagForm(request.data)
+    if form.is_valid():
+        return form.save()
+    else:
+        raise ValidationError(form.errors)
 
 
 @api_operations

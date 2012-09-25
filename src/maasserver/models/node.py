@@ -259,6 +259,11 @@ class NodeManager(Manager):
         if constraints.get('name'):
             available_nodes = available_nodes.filter(
                 hostname=constraints['name'])
+        if constraints.get('arch'):
+            # GZ 2012-09-11: This only supports an exact match on arch type,
+            #                using an i386 image on amd64 hardware will wait.
+            available_nodes = available_nodes.filter(
+                architecture=constraints['arch'])
 
         return get_first(available_nodes)
 
@@ -461,6 +466,9 @@ class Node(CleanSave, TimestampedModel):
         else:
             return self.system_id
 
+    def tag_names(self):
+        return self.tags.values_list('name', flat=True)
+
     def clean_status(self):
         """Check a node's status transition against the node-status FSM."""
         old_status = get_db_state(self, 'status')
@@ -620,7 +628,10 @@ class Node(CleanSave, TimestampedModel):
 
     def get_distro_series(self):
         """Return the distro series to install that node."""
-        if not self.distro_series or self.distro_series == DISTRO_SERIES.default:
+        use_default_distro_series = (
+            not self.distro_series or
+            self.distro_series == DISTRO_SERIES.default)
+        if use_default_distro_series:
             return Config.objects.get_config('default_distro_series')
         else:
             return self.distro_series

@@ -49,6 +49,7 @@ from maasserver.components import COMPONENT
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
+    DISTRO_SERIES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
     NODE_STATUS_CHOICES_DICT,
@@ -65,6 +66,7 @@ from maasserver.models import (
     Node,
     NodeGroup,
     NodeGroupInterface,
+    Tag,
     )
 from maasserver.models.user import (
     create_auth_token,
@@ -495,6 +497,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'netboot',
                 'power_type',
                 'power_parameters',
+                'tag_names',
             ],
             list(parsed_result))
 
@@ -514,6 +517,19 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 "You don't have the required permission to accept the "
                 "following node(s): %s." % node_id),
             (response.status_code, response.content))
+
+    def test_POST_accept_all_does_not_accept_anything(self):
+        # It is not an error for a non-admin user to attempt to accept all
+        # anonymously enlisted nodes, but only those for which he/she has
+        # admin privs will be accepted, which currently equates to none of
+        # them.
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        factory.make_node(status=NODE_STATUS.DECLARED),
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertEqual([], nodes_returned)
 
     def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
@@ -556,6 +572,7 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
+                'tag_names',
             ],
             list(parsed_result))
 
@@ -696,8 +713,23 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'power_type',
                 'power_parameters',
                 'resource_uri',
+                'tag_names',
             ],
             list(parsed_result))
+
+    def test_POST_accept_all(self):
+        # An admin user can accept all anonymously enlisted nodes.
+        nodes = [
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            factory.make_node(status=NODE_STATUS.DECLARED),
+            ]
+        response = self.client.post(
+            self.get_uri('nodes/'), {'op': 'accept_all'})
+        self.assertEqual(httplib.OK, response.status_code)
+        nodes_returned = json.loads(response.content)
+        self.assertSetEqual(
+            {node.system_id for node in nodes},
+            {node["system_id"] for node in nodes_returned})
 
 
 class AnonymousIsRegisteredAPITest(APIv10TestMixin, TestCase):
@@ -824,11 +856,21 @@ class TestNodeAPI(APITestCase):
         # The api allows for fetching a single Node (using system_id).
         node = factory.make_node(set_hostname=True)
         response = self.client.get(self.get_node_uri(node))
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertEqual(node.hostname, parsed_result['hostname'])
         self.assertEqual(node.system_id, parsed_result['system_id'])
+
+    def test_GET_returns_associated_tag(self):
+        node = factory.make_node(set_hostname=True)
+        tag = factory.make_tag()
+        node.tags.add(tag)
+        response = self.client.get(self.get_node_uri(node))
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([tag.name], parsed_result['tag_names'])
 
     def test_GET_refuses_to_access_invisible_node(self):
         # The request to fetch a single node is denied if the node isn't
@@ -881,6 +923,36 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(
             node.system_id, json.loads(response.content)['system_id'])
 
+    def test_POST_start_sets_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        distro_series = factory.getRandomEnum(DISTRO_SERIES)
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': distro_series})
+        self.assertEqual(
+            (httplib.OK, node.system_id),
+            (response.status_code, json.loads(response.content)['system_id']))
+        self.assertEqual(
+            distro_series, reload_object(node).distro_series)
+
+    def test_POST_start_validates_distro_series(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, mac=True,
+            power_type=POWER_TYPE.WAKE_ON_LAN)
+        invalid_distro_series = factory.getRandomString()
+        response = self.client.post(
+            self.get_node_uri(node),
+            {'op': 'start', 'distro_series': invalid_distro_series})
+        self.assertEqual(
+            (
+                httplib.BAD_REQUEST,
+                {'distro_series': ["Value u'%s' is not a valid choice." %
+                    invalid_distro_series]}
+            ),
+            (response.status_code, json.loads(response.content)))
+
     def test_POST_start_may_be_repeated(self):
         node = factory.make_node(
             owner=self.logged_in_user, mac=True,
@@ -928,6 +1000,13 @@ class TestNodeAPI(APITestCase):
         node.set_netboot(on=False)
         self.client.post(self.get_node_uri(node), {'op': 'release'})
         self.assertTrue(reload_object(node).netboot)
+
+    def test_POST_release_resets_distro_series(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user,
+            distro_series=factory.getRandomEnum(DISTRO_SERIES))
+        self.client.post(self.get_node_uri(node), {'op': 'release'})
+        self.assertEqual('', reload_object(node).distro_series)
 
     def test_POST_release_removes_token_and_user(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -1598,17 +1677,6 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(
             node.hostname, json.loads(response.content)['hostname'])
 
-    def test_POST_acquire_constrains_by_name(self):
-        # Negative test for name constraint.
-        # If a name constraint is given, "acquire" will only consider a
-        # node with that name.
-        factory.make_node(status=NODE_STATUS.READY, owner=None)
-        response = self.client.post(self.get_uri('nodes/'), {
-            'op': 'acquire',
-            'name': factory.getRandomString(),
-        })
-        self.assertEqual(httplib.CONFLICT, response.status_code)
-
     def test_POST_acquire_treats_unknown_name_as_resource_conflict(self):
         # A name constraint naming an unknown node produces a resource
         # conflict: most likely the node existed but has changed or
@@ -1619,6 +1687,27 @@ class TestNodesAPI(APITestCase):
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',
             'name': factory.getRandomString(),
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_allocates_node_by_arch(self):
+        # Asking for a particular arch acquires a node with that arch.
+        node = factory.make_node(
+            status=NODE_STATUS.READY, architecture=ARCHITECTURE.i386)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'i386',
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.architecture, response_json['architecture'])
+
+    def test_POST_acquire_treats_unknown_arch_as_resource_conflict(self):
+        # Asking for an unknown arch returns an HTTP conflict
+        factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'sparc',
         })
         self.assertEqual(httplib.CONFLICT, response.status_code)
 
@@ -1697,17 +1786,6 @@ class TestNodesAPI(APITestCase):
             self.get_uri('nodes/'), {'op': 'accept', 'nodes': [node_id]})
         self.assertEqual(
             (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_id),
-            (response.status_code, response.content))
-
-    def test_POST_accept_fails_if_not_admin(self):
-        node = factory.make_node(status=NODE_STATUS.DECLARED)
-        response = self.client.post(
-            self.get_uri('nodes/'),
-            {'op': 'accept', 'nodes': [node.system_id]})
-        self.assertEqual(
-            (httplib.FORBIDDEN,
-                "You don't have the required permission to accept the "
-                "following node(s): %s." % node.system_id),
             (response.status_code, response.content))
 
     def test_POST_accept_accepts_multiple_nodes(self):
@@ -2094,6 +2172,138 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
         self.assertEqual(httplib.NOT_FOUND, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("File not found", response.content)
+
+
+class TestTagAPI(APITestCase):
+    """Tests for /api/1.0/tags/<tagname>/."""
+
+    def get_tag_uri(self, tag):
+        """Get the API URI for `tag`."""
+        return self.get_uri('tags/%s/') % tag.name
+
+    def test_DELETE_requires_admin(self):
+        tag = factory.make_tag()
+        response = self.client.delete(self.get_tag_uri(tag))
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([tag], Tag.objects.filter(id=tag.id))
+
+    def test_DELETE_removes_tag(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        response = self.client.delete(self.get_tag_uri(tag))
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+        self.assertFalse(Tag.objects.filter(id=tag.id).exists())
+
+    def test_DELETE_404(self):
+        self.become_admin()
+        response = self.client.delete(self.get_uri('tags/no-tag/'))
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_GET_returns_tag(self):
+        # The api allows for fetching a single Node (using system_id).
+        tag = factory.make_tag('tag-name')
+        response = self.client.get(self.get_uri('tags/tag-name/'))
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(tag.name, parsed_result['name'])
+        self.assertEqual(tag.definition, parsed_result['definition'])
+        self.assertEqual(tag.comment, parsed_result['comment'])
+
+    def test_GET_refuses_to_access_nonexistent_node(self):
+        # When fetching a Tag, the api returns a 'Not Found' (404) error
+        # if no tag is found.
+        response = self.client.get(self.get_uri('tags/no-such-tag/'))
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_PUT_refuses_non_superuser(self):
+        tag = factory.make_tag()
+        response = self.client.put(self.get_tag_uri(tag),
+                                   {'comment': 'A special comment'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_PUT_invalid_field(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        response = self.client.put(self.get_tag_uri(tag),
+            {'not-a-field': 'content'})
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_PUT_updates_tag(self):
+        self.become_admin()
+        tag = factory.make_tag()
+        # Note that 'definition' is not being sent
+        response = self.client.put(self.get_tag_uri(tag),
+            {'name': 'new-tag-name', 'comment': 'A random comment'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual('new-tag-name', parsed_result['name'])
+        self.assertEqual('A random comment', parsed_result['comment'])
+        self.assertEqual(tag.definition, parsed_result['definition'])
+        self.assertFalse(Tag.objects.filter(name=tag.name).exists())
+        self.assertTrue(Tag.objects.filter(name='new-tag-name').exists())
+
+    def test_POST_nodes_with_no_nodes(self):
+        tag = factory.make_tag()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([], parsed_result)
+
+    def test_POST_nodes_returns_nodes(self):
+        tag = factory.make_tag()
+        node1 = factory.make_node()
+        # Create a second node that isn't tagged.
+        factory.make_node()
+        node1.tags.add(tag)
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([node1.system_id],
+                         [r['system_id'] for r in parsed_result])
+
+
+class TestTagsAPI(APITestCase):
+
+    def test_GET_list_without_tags_returns_empty_list(self):
+        response = self.client.get(self.get_uri('tags/'), {'op': 'list'})
+        self.assertItemsEqual([], json.loads(response.content))
+
+    def test_POST_new_refuses_non_admin(self):
+        name = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': factory.getRandomString(),
+                'definition': factory.getRandomString(),
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertFalse(Tag.objects.filter(name=name).exists())
+
+    def test_POST_new_creates_tag(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        definition = '//node'
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': comment,
+                'definition': definition,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(name, parsed_result['name'])
+        self.assertEqual(comment, parsed_result['comment'])
+        self.assertEqual(definition, parsed_result['definition'])
+        self.assertTrue(Tag.objects.filter(name=name).exists())
 
 
 class MAASAPIAnonTest(APIv10TestMixin, TestCase):

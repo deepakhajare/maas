@@ -24,7 +24,10 @@ from subprocess import (
 from apiclient.creds import convert_tuple_to_string
 from apiclient.maas_client import MAASClient
 from apiclient.testing.credentials import make_api_credentials
-from celeryconfig import DHCP_CONFIG_FILE
+from celeryconfig import (
+    DHCP_CONFIG_FILE,
+    DHCP_INTERFACES_FILE,
+    )
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import (
@@ -249,24 +252,30 @@ class TestDHCPTasks(PservTestCase):
         # It should construct Popen with the right parameters.
         mocked_popen.assert_any_call(
             ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
-            DHCP_CONFIG_FILE, "--mode", "0744"], stdin=PIPE)
+            DHCP_CONFIG_FILE, "--mode", "0644"], stdin=PIPE)
 
         # It should then pass the content to communicate().
         content = config.get_config(**config_params).encode("ascii")
         mocked_proc.communicate.assert_any_call(content)
 
+        # Similarly, it also writes the DHCPD interfaces to
+        # /var/lib/maas/dhcpd-interfaces.
+        mocked_popen.assert_any_call(
+            ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
+            DHCP_INTERFACES_FILE, "--mode", "0644"], stdin=PIPE)
+
         # Finally it should restart the dhcp server.
         check_call_args = mocked_check_call.call_args
         self.assertEqual(
             check_call_args[0][0],
-            ['sudo', 'service', 'isc-dhcp-server', 'restart'])
+            ['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'])
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
         self.patch(tasks, 'check_call', recorder)
         restart_dhcp_server()
         self.assertEqual(
-            (1, (['sudo', 'service', 'isc-dhcp-server', 'restart'],)),
+            (1, (['sudo', '-n', 'service', 'maas-dhcp-server', 'restart'],)),
             (recorder.call_count, recorder.extract_args()[0]))
 
 

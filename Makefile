@@ -1,6 +1,14 @@
 python := python2.7
+
+# Network activity can be suppressed by setting offline=true (or any
+# non-empty string) at the command-line.
+ifeq ($(offline),)
 buildout := bin/buildout
 virtualenv := virtualenv
+else
+buildout := bin/buildout buildout:offline=true
+virtualenv := virtualenv --never-download
+endif
 
 # Python enum modules.
 py_enums := $(wildcard src/*/enum.py)
@@ -26,13 +34,6 @@ build: \
     bin/twistd.txlongpoll \
     bin/py bin/ipy \
     $(js_enums)
-
-# Note: the following target may not be needed. It remains as an
-# experiment, to see if it helps the situation with building MAAS in
-# the QA environment, which is isolated from the Internet at large.
-build-offline: buildout := $(buildout) buildout:offline=true
-build-offline: virtualenv := $(virtualenv) --never-download
-build-offline: build
 
 all: build doc
 
@@ -170,7 +171,6 @@ syncdb: bin/maas bin/database
 
 define phony_targets
   build
-  build-offline
   check
   clean
   dbharness
@@ -193,6 +193,7 @@ endef
 
 service_names_region := database dns reloader txlongpoll web webapp
 service_names_cluster := celeryd pserv reloader
+service_names_all := $(service_names_region) $(service_names_cluster)
 
 # The following template is intended to be used with `call`, and it
 # accepts a single argument: a target name. The target name must
@@ -221,7 +222,8 @@ run-region:
 	@services/run $(service_names_region)
 run-cluster:
 	@services/run $(service_names_cluster)
-run: run-region run-cluster
+run:
+	@services/run $(service_names_all)
 
 phony_services_targets += run-region run-cluster run
 
