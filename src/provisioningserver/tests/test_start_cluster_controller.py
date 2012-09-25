@@ -18,7 +18,10 @@ import httplib
 from io import BytesIO
 import json
 import os
-from urllib2 import HTTPError
+from urllib2 import (
+    HTTPError,
+    URLError,
+    )
 
 from apiclient.maas_client import MAASDispatcher
 from maastesting.factory import factory
@@ -67,8 +70,9 @@ class TestStartClusterController(PservTestCase):
 
     def prepare_response(self, http_code, content=""):
         """Prepare to return the given http response from API request."""
-        self.patch(MAASDispatcher, 'dispatch_query').return_value = (
-            FakeURLOpenResponse(content, status=http_code))
+        fake = self.patch(MAASDispatcher, 'dispatch_query')
+        fake.return_value = FakeURLOpenResponse(content, status=http_code)
+        return fake
 
     def prepare_success_response(self):
         """Prepare to return connection details from API request."""
@@ -135,3 +139,26 @@ class TestStartClusterController(PservTestCase):
         start_cluster_controller.run(FakeArgs(server_url))
         start_cluster_controller.start_up.assert_called_once_with(
             server_url, connection_details)
+
+    def test_start_up_calls_refresh_secrets(self):
+        url = make_url('region')
+        connection_details = self.make_connection_details()
+        self.patch(os, 'execvpe')
+        self.prepare_response('OK', httplib.OK)
+
+        start_cluster_controller.start_up(url, connection_details)
+
+        (args, kwargs) = MAASDispatcher.dispatch_query.call_args
+        self.assertEqual(
+            url + 'api/1.0/nodegroups', 'refresh_workers', 'POST',
+            args[0])
+
+    def test_start_up_ignores_failure_on_refresh_secrets(self):
+        self.patch(os, 'execvpe')
+        self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
+            "Simulated HTTP failure.")
+
+        start_cluster_controller.start_up(
+            make_url(), self.make_connection_details())
+
+        self.assertNotEqual(0, os.execvpe.call_count)
