@@ -69,7 +69,7 @@ class TestStartClusterController(PservTestCase):
     def setUp(self):
         super(TestStartClusterController, self).setUp()
         self.patch(start_cluster_controller, 'sleep').side_effect = Sleeping()
-        self.patch(start_cluster_controller, 'check_call').side_effect = (
+        self.patch(start_cluster_controller, 'Popen').side_effect = (
             Executing())
 
     def make_connection_details(self):
@@ -101,13 +101,13 @@ class TestStartClusterController(PservTestCase):
         # We can't really run the script, but we can verify that (with
         # the right system functions patched out) we can run it
         # directly.
-        self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'Popen')
         self.patch(start_cluster_controller, 'sleep')
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
         start_cluster_controller.run(parser.parse_args((make_url(), )))
-        self.assertNotEqual(0, start_cluster_controller.check_call.call_count)
+        self.assertNotEqual(0, start_cluster_controller.Popen.call_count)
 
     def test_uses_given_url(self):
         url = make_url('region')
@@ -153,7 +153,7 @@ class TestStartClusterController(PservTestCase):
     def test_start_up_calls_refresh_secrets(self):
         url = make_url('region')
         connection_details = self.make_connection_details()
-        self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'Popen')
         self.patch(start_cluster_controller, 'sleep')
         self.prepare_response('OK', httplib.OK)
 
@@ -165,7 +165,7 @@ class TestStartClusterController(PservTestCase):
         self.assertIn('refresh_workers', kwargs['data'])
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
-        self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'Popen')
         self.patch(start_cluster_controller, 'sleep')
         self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
             "Simulated HTTP failure.")
@@ -173,4 +173,4 @@ class TestStartClusterController(PservTestCase):
         start_cluster_controller.start_up(
             make_url(), self.make_connection_details())
 
-        self.assertNotEqual(0, start_cluster_controller.check_call.call_count)
+        self.assertNotEqual(0, start_cluster_controller.Popen.call_count)

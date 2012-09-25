@@ -18,7 +18,7 @@ __all__ = [
 import httplib
 import json
 import os
-from subprocess import check_call
+from subprocess import Popen
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -120,7 +120,7 @@ def start_celery(connection_details):
         '--beat', '--schedule=/var/lib/maas/celerybeat-schedule',
         '-Q', ','.join(queues),
         ]
-    check_call(command, env=env)
+    Popen(command, env=env)
 
 
 def request_refresh(server_url):
