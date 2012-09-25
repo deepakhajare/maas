@@ -77,6 +77,7 @@ CELERY_IGNORE_RESULT = True
 
 DNS_WORKER_QUEUE = 'celery'
 BOOT_IMAGES_WORKER_QUEUE = 'celery'
+DHCP_LEASE_UPLOAD_WORKER_QUEUE = 'common'
 COMMON_WORKER_QUEUE = 'common'
 
 
@@ -84,7 +85,8 @@ CELERYBEAT_SCHEDULE = {
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
-        'options': {'queue': Broadcast(COMMON_WORKER_QUEUE)}
+        'options':
+            {'queue': Broadcast(DHCP_LEASE_UPLOAD_WORKER_QUEUE)}
     },
 
     'report-boot-images': {
