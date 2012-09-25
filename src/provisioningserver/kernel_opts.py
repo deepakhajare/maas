@@ -125,7 +125,7 @@ def compose_purpose_opts(params):
             "hostname=%s" % params.hostname,
             # Read by klibc 'ipconfig' in initramfs.
             "ip=dhcp",  # TODO(smoser) remove this
-            # "ip=::::%s:BOOTIF" % hostname, # TODO(smoser) use this
+            # "ip=::::%s:BOOTIF" % params.hostname, # TODO(smoser) use this
             # cloud-images have this filesystem label.
             "ro root=LABEL=cloudimg-rootfs",
             # Read by overlayroot package.
