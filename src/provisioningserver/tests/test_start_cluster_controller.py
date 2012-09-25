@@ -17,7 +17,6 @@ from collections import namedtuple
 import httplib
 from io import BytesIO
 import json
-import os
 from urllib2 import (
     HTTPError,
     URLError,
@@ -92,12 +91,12 @@ class TestStartClusterController(PservTestCase):
         # We can't really run the script, but we can verify that (with
         # the right system functions patched out) we can run it
         # directly.
-        self.patch(os, 'execvpe')
+        self.patch(start_cluster_controller, 'check_call')
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
         start_cluster_controller.run(parser.parse_args((make_url(), )))
-        self.assertNotEqual(0, os.execvpe.call_count)
+        self.assertNotEqual(0, start_cluster_controller.check_call.call_count)
 
     def test_uses_given_url(self):
         url = make_url('region')
@@ -143,7 +142,7 @@ class TestStartClusterController(PservTestCase):
     def test_start_up_calls_refresh_secrets(self):
         url = make_url('region')
         connection_details = self.make_connection_details()
-        self.patch(os, 'execvpe')
+        self.patch(start_cluster_controller, 'check_call')
         self.prepare_response('OK', httplib.OK)
 
         start_cluster_controller.start_up(url, connection_details)
@@ -154,11 +153,11 @@ class TestStartClusterController(PservTestCase):
         self.assertIn('refresh_workers', kwargs['data'])
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
-        self.patch(os, 'execvpe')
+        self.patch(start_cluster_controller, 'check_call')
         self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
             "Simulated HTTP failure.")
 
         start_cluster_controller.start_up(
             make_url(), self.make_connection_details())
 
-        self.assertNotEqual(0, os.execvpe.call_count)
+        self.assertNotEqual(0, start_cluster_controller.check_call.call_count)

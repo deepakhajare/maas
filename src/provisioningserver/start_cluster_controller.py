@@ -18,6 +18,7 @@ __all__ = [
 import httplib
 import json
 import os
+from subprocess import check_call
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -125,9 +126,9 @@ def start_up(server_url, connection_details):
         '--logfile=/var/log/maas/celery.log',
         '--loglevel=INFO',
         '--beat', '--schedule=/var/lib/maas/celerybeat-schedule',
-        '-Q', "%s,common" % queue,
+        '-Q', queue,
         ]
-    os.execvpe(command[0], command, env)
+    check_call(command, env=env)
 
 
 def run(args):
