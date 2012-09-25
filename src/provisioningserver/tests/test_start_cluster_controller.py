@@ -149,9 +149,9 @@ class TestStartClusterController(PservTestCase):
         start_cluster_controller.start_up(url, connection_details)
 
         (args, kwargs) = MAASDispatcher.dispatch_query.call_args
-        self.assertEqual(
-            url + 'api/1.0/nodegroups', 'refresh_workers', 'POST',
-            args[0])
+        self.assertEqual(url + 'api/1.0/nodegroups', args[0])
+        self.assertEqual('POST', kwargs['method'])
+        self.assertIn('refresh_workers', kwargs['data'])
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
         self.patch(os, 'execvpe')

@@ -102,6 +102,14 @@ def start_up(server_url, connection_details):
     This starts up celeryd, listening to the broker that the region
     controller pointed us to, and on the appropriate queue.
     """
+    client = make_anonymous_api_client(server_url)
+    try:
+        client.post('api/1.0/nodegroups', 'refresh_workers')
+    except URLError as e:
+        task_logger.warn(
+            "Could not request secrets from region controller: %s"
+            % e.reason)
+
     broker_url = connection_details['BROKER_URL']
 
     # XXX JeroenVermeulen 2012-09-24, bug=1055523: Fill in proper
