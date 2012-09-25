@@ -49,7 +49,7 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.exceptions import NodeStateViolation
-from maasserver.fields import JSONObjectField
+from maasserver.fields import JSONObjectField, XMLField
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.tag import Tag
@@ -253,6 +253,11 @@ class NodeManager(Manager):
         if constraints.get('name'):
             available_nodes = available_nodes.filter(
                 hostname=constraints['name'])
+        if constraints.get('arch'):
+            # GZ 2012-09-11: This only supports an exact match on arch type,
+            #                using an i386 image on amd64 hardware will wait.
+            available_nodes = available_nodes.filter(
+                architecture=constraints['arch'])
 
         return get_first(available_nodes)
 
@@ -369,6 +374,13 @@ class Node(CleanSave, TimestampedModel):
     architecture = CharField(
         max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
+
+    # Juju expects the following standard constraints, which are stored here
+    # as a basic optimisation over querying the hardware_details field.
+    cpu_count = IntegerField(default=0)
+    memory = IntegerField(default=0)
+
+    hardware_details = XMLField(default=None, blank=True, null=True)
 
     # For strings, Django insists on abusing the empty string ("blank")
     # to mean "none."
@@ -627,4 +639,9 @@ class Node(CleanSave, TimestampedModel):
     def set_netboot(self, on=True):
         """Set netboot on or off."""
         self.netboot = on
+        self.save()
+
+    def set_hardware_details(self, xmlbytes):
+        """Set the `lshw -xml` output"""
+        self.hardware_details = xmlbytes
         self.save()
