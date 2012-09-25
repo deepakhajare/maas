@@ -48,7 +48,7 @@ class MAASOAuth:
 
 
 class NoAuth:
-    """Dummy authentication class for making unauthenticated requests."""
+    """Anonymous authentication class for making unauthenticated requests."""
 
     def __init__(self, *args, **kwargs):
         pass

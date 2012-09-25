@@ -17,11 +17,11 @@ from collections import namedtuple
 import httplib
 from io import BytesIO
 import json
+import os
 from urllib2 import HTTPError
 
 from apiclient.maas_client import MAASDispatcher
 from maastesting.factory import factory
-from mock import Mock
 from provisioningserver import start_cluster_controller
 from provisioningserver.testing.testcase import PservTestCase
 
@@ -58,8 +58,7 @@ class TestStartClusterController(PservTestCase):
 
     def setUp(self):
         super(TestStartClusterController, self).setUp()
-        self.patch(
-            start_cluster_controller, 'sleep', Mock(side_effect=Sleeping()))
+        self.patch(start_cluster_controller, 'sleep').side_effect = Sleeping()
 
     def make_connection_details(self):
         return {
@@ -68,9 +67,8 @@ class TestStartClusterController(PservTestCase):
 
     def prepare_response(self, http_code, content=""):
         """Prepare to return the given http response from API request."""
-        self.patch(
-            MAASDispatcher, 'dispatch_query',
-            Mock(return_value=FakeURLOpenResponse(content, status=http_code)))
+        self.patch(MAASDispatcher, 'dispatch_query').return_value = (
+            FakeURLOpenResponse(content, status=http_code))
 
     def prepare_success_response(self):
         """Prepare to return connection details from API request."""
@@ -90,12 +88,12 @@ class TestStartClusterController(PservTestCase):
         # We can't really run the script, but we can verify that (with
         # the right system functions patched out) we can run it
         # directly.
-        self.patch(start_cluster_controller, 'check_call')
+        self.patch(os, 'execvpe')
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
         start_cluster_controller.run(parser.parse_args((make_url(), )))
-        self.assertNotEqual(0, start_cluster_controller.check_call.call_count)
+        self.assertNotEqual(0, os.execvpe.call_count)
 
     def test_uses_given_url(self):
         url = make_url('region')
@@ -123,11 +121,8 @@ class TestStartClusterController(PservTestCase):
 
     def test_polls_on_unexpected_errors(self):
         self.patch(start_cluster_controller, 'start_up')
-        self.patch(
-            MAASDispatcher, 'dispatch_query',
-            Mock(side_effect=HTTPError(
-                make_url(), httplib.REQUEST_TIMEOUT, "Timeout.", '',
-                BytesIO())))
+        self.patch(MAASDispatcher, 'dispatch_query').side_effect = HTTPError(
+            make_url(), httplib.REQUEST_TIMEOUT, "Timeout.", '', BytesIO())
         self.assertRaises(
             Sleeping,
             start_cluster_controller.run, FakeArgs(make_url()))
@@ -136,6 +131,7 @@ class TestStartClusterController(PservTestCase):
     def test_starts_up_once_accepted(self):
         self.patch(start_cluster_controller, 'start_up')
         connection_details = self.prepare_success_response()
-        start_cluster_controller.run(FakeArgs(make_url()))
+        server_url = make_url()
+        start_cluster_controller.run(FakeArgs(server_url))
         start_cluster_controller.start_up.assert_called_once_with(
-            connection_details)
+            server_url, connection_details)

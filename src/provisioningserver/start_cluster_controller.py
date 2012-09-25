@@ -18,8 +18,6 @@ __all__ = [
 import httplib
 import json
 import os
-from subprocess import check_call
-import sys
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -50,6 +48,11 @@ def log_error(exception):
         % exception.reason)
 
 
+def make_anonymous_api_client(server_url):
+    """Create an unauthenticated API client."""
+    return MAASClient(NoAuth(), MAASDispatcher(), server_url)
+
+
 def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
@@ -62,8 +65,8 @@ def register(server_url):
     :raise ClusterControllerRejected: if this system has been rejected as a
         cluster controller.
     """
-    known_responses = [httplib.OK, httplib.FORBIDDEN, httplib.ACCEPTED]
-    client = MAASClient(NoAuth(), MAASDispatcher(), server_url)
+    known_responses = {httplib.OK, httplib.FORBIDDEN, httplib.ACCEPTED}
+    client = make_anonymous_api_client(server_url)
     try:
         response = client.post('api/1.0/nodegroups', 'register')
     except HTTPError as e:
@@ -93,7 +96,7 @@ def register(server_url):
         raise AssertionError("Unexpected return code: %r" % status_code)
 
 
-def start_up(connection_details):
+def start_up(server_url, connection_details):
     """We've been accepted as a cluster controller; start doing the job.
 
     This starts up celeryd, listening to the broker that the region
@@ -106,21 +109,17 @@ def start_up(connection_details):
     # uuid).
     queue = 'celery'
 
-    env = {
-        # Tell celeryd what broker to listen to.
-        'CELERY_BROKER_URL': broker_url,
-        'PATH': os.environ['PATH'],
-        'PYTHONPATH': ':'.join(sys.path),
-        }
+    # Copy environment, but also tell celeryd what broker to listen to.
+    env = dict(os.environ, CELERY_BROKER_URL=broker_url)
 
-    check_call([
+    command = [
         'celeryd',
         '--logfile=/var/log/maas/celery.log',
         '--loglevel=INFO',
         '--beat', '--schedule=/var/lib/maas/celerybeat-schedule',
         '-Q', "%s,common" % queue,
-        ],
-        env=env)
+        ]
+    os.execvpe(command[0], command, env)
 
 
 def run(args):
@@ -133,4 +132,4 @@ def run(args):
     while connection_details is None:
         sleep(60)
         connection_details = register(args.server_url)
-    start_up(connection_details)
+    start_up(args.server_url, connection_details)
