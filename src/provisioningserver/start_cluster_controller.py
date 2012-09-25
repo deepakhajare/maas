@@ -97,20 +97,7 @@ def register(server_url):
         raise AssertionError("Unexpected return code: %r" % status_code)
 
 
-def start_up(server_url, connection_details):
-    """We've been accepted as a cluster controller; start doing the job.
-
-    This starts up celeryd, listening to the broker that the region
-    controller pointed us to, and on the appropriate queue.
-    """
-    client = make_anonymous_api_client(server_url)
-    try:
-        client.post('api/1.0/nodegroups', 'refresh_workers')
-    except URLError as e:
-        task_logger.warn(
-            "Could not request secrets from region controller: %s"
-            % e.reason)
-
+def start_celery(connection_details):
     broker_url = connection_details['BROKER_URL']
 
     # XXX JeroenVermeulen 2012-09-24, bug=1055523: Fill in proper
@@ -129,6 +116,27 @@ def start_up(server_url, connection_details):
         '-Q', queue,
         ]
     check_call(command, env=env)
+
+
+def request_refresh(server_url):
+    client = make_anonymous_api_client(server_url)
+    try:
+        client.post('api/1.0/nodegroups', 'refresh_workers')
+    except URLError as e:
+        task_logger.warn(
+            "Could not request secrets from region controller: %s"
+            % e.reason)
+
+
+def start_up(server_url, connection_details):
+    """We've been accepted as a cluster controller; start doing the job.
+
+    This starts up celeryd, listening to the broker that the region
+    controller pointed us to, and on the appropriate queue.
+    """
+    start_celery(connection_details)
+    sleep(10)
+    request_refresh(server_url)
 
 
 def run(args):

@@ -32,6 +32,14 @@ class Sleeping(Exception):
     """Exception: `sleep` has been called."""
 
 
+class Executing(Exception):
+    """Exception: an attempt has been made to start another process.
+
+    It would be inadvisable for tests in this test case to attempt to start
+    a real celeryd, so we want to know when it tries.
+    """
+
+
 FakeArgs = namedtuple('FakeArgs', ['server_url'])
 
 
@@ -61,6 +69,8 @@ class TestStartClusterController(PservTestCase):
     def setUp(self):
         super(TestStartClusterController, self).setUp()
         self.patch(start_cluster_controller, 'sleep').side_effect = Sleeping()
+        self.patch(start_cluster_controller, 'check_call').side_effect = (
+            Executing())
 
     def make_connection_details(self):
         return {
@@ -92,6 +102,7 @@ class TestStartClusterController(PservTestCase):
         # the right system functions patched out) we can run it
         # directly.
         self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'sleep')
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
@@ -143,6 +154,7 @@ class TestStartClusterController(PservTestCase):
         url = make_url('region')
         connection_details = self.make_connection_details()
         self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'sleep')
         self.prepare_response('OK', httplib.OK)
 
         start_cluster_controller.start_up(url, connection_details)
@@ -154,6 +166,7 @@ class TestStartClusterController(PservTestCase):
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
         self.patch(start_cluster_controller, 'check_call')
+        self.patch(start_cluster_controller, 'sleep')
         self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
             "Simulated HTTP failure.")
 
