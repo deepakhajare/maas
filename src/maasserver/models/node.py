@@ -16,6 +16,7 @@ __all__ = [
     "update_hardware_details",
     ]
 
+import contextlib
 import os
 from string import whitespace
 from uuid import uuid1
@@ -333,22 +334,22 @@ def update_hardware_details(node, xmlbytes):
     """
     node.hardware_details = xmlbytes
     node.save()
-    cursor = connection.cursor()
-    cursor.execute("SELECT"
-        " array_length(xpath(%s, hardware_details), 1) AS count"
-        ", (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
-        " FROM maasserver_node"
-        " WHERE id = %s",
-        [
-            "//node[@id='core']/node[@class='processor']",
-            "//node[@id='memory']/size[@units='bytes']/text()",
-            node.id,
-        ])
-    cpu_count, memory = cursor.fetchone()
+    with contextlib.closing(connection.cursor()) as cursor:
+        cursor.execute("SELECT"
+            " array_length(xpath(%s, hardware_details), 1) AS count,"
+            " (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
+            " FROM maasserver_node"
+            " WHERE id = %s",
+            [
+                "//node[@id='core']/node[@class='processor']",
+                "//node[@id='memory']/size[@units='bytes']/text()",
+                node.id,
+            ])
+        cpu_count, memory = cursor.fetchone()
     node.cpu_count = cpu_count or 0
     node.memory = memory or 0
-    node.save()
     # TODO: update node-tag links
+    node.save()
 
 
 class Node(CleanSave, TimestampedModel):
