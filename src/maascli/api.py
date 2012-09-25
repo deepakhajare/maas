@@ -210,10 +210,9 @@ class Action(Command):
         # <https://github.com/uri-templates/uritemplate-py> here?
         uri = self.uri.format(**vars(options))
 
-        # Parse data out of the positional arguments.
-        data = dict(options.data)
+        # Add the operation to the data set.
         if self.op is not None:
-            data["op"] = self.op
+            options.data.append(("op", self.op))
 
         # Bundle things up ready to throw over the wire.
         uri, body, headers = self.prepare_payload(
