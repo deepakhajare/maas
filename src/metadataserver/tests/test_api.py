@@ -526,7 +526,7 @@ class TestViews(DjangoTestCase):
         response = self.call_signal(client, files={'01-lshw.out': xmlbytes})
         self.assertEqual(httplib.OK, response.status_code)
         node = reload_object(node)
-        self.assertEqual(4, node.memory)
+        self.assertEqual(4096, node.memory)
 
     def test_signal_lshw_tags_match(self):
         tag1 = factory.make_tag(factory.getRandomString(10), "/node")
