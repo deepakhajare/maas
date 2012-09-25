@@ -17,7 +17,6 @@ __metaclass__ = type
 
 from datetime import timedelta
 
-from kombu.common import Broadcast
 from maas import import_settings
 
 # Location of power action templates.  Use an absolute path, or leave as
@@ -48,6 +47,11 @@ DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
 # Format: transport://userid:password@hostname:port/virtual_host
 BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
+
+WORKER_QUEUE_DNS = 'celery'
+WORKER_QUEUE_BOOT_IMAGES = 'celery'
+WORKER_QUEUE_CLUSTER = 'celery'
+
 try:
     import maas_local_celeryconfig
 except ImportError:
@@ -56,6 +60,7 @@ else:
     import_settings(maas_local_celeryconfig)
 
 
+# Each cluster should have its own queue created automatically by Celery.
 CELERY_CREATE_MISSING_QUEUES = True
 
 
@@ -75,22 +80,16 @@ CELERY_ACKS_LATE = True
 CELERY_IGNORE_RESULT = True
 
 
-DNS_WORKER_QUEUE = 'celery'
-BOOT_IMAGES_WORKER_QUEUE = 'celery'
-DHCP_LEASE_UPLOAD_WORKER_QUEUE = 'common'
-COMMON_WORKER_QUEUE = 'common'
-
-
 CELERYBEAT_SCHEDULE = {
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
-        'options':
-            {'queue': Broadcast(DHCP_LEASE_UPLOAD_WORKER_QUEUE)}
+        'options': {'queue': WORKER_QUEUE_CLUSTER},
     },
 
     'report-boot-images': {
         'task': 'provisioningserver.tasks.report_boot_images',
         'schedule': timedelta(minutes=5),
+        'options': {'queue': WORKER_QUEUE_BOOT_IMAGES},
     },
 }

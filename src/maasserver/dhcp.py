@@ -59,7 +59,7 @@ def configure_dhcp(nodegroup):
         IPAddress(interface.ip_range_low) &
         IPAddress(interface.subnet_mask))
     reload_dhcp_server_subtask = restart_dhcp_server.subtask(
-        options={'queue': nodegroup.uuid})
+        options={'queue': nodegroup.work_queue})
     task_kwargs = dict(
         subnet=subnet,
         next_server=next_server,
@@ -73,4 +73,5 @@ def configure_dhcp(nodegroup):
         ip_range_high=interface.ip_range_high,
         callback=reload_dhcp_server_subtask,
     )
-    write_dhcp_config.apply_async(queue=nodegroup.uuid, kwargs=task_kwargs)
+    write_dhcp_config.apply_async(
+        queue=nodegroup.work_queue, kwargs=task_kwargs)

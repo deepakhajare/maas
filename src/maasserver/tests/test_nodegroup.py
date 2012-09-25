@@ -179,6 +179,10 @@ class TestNodeGroup(TestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
+    def test_work_queue_returns_uuid(self):
+        nodegroup = factory.make_node_group()
+        self.assertEqual(nodegroup.uuid, nodegroup.work_queue)
+
     def test_add_dhcp_host_maps_adds_maps_if_managing_dhcp(self):
         self.patch(Omshell, 'create', FakeMethod())
         nodegroup = factory.make_node_group()
@@ -201,8 +205,8 @@ class TestNodeGroup(TestCase):
         task = self.patch(nodegroup_module, 'add_new_dhcp_host_map')
         leases = factory.make_random_leases()
         nodegroup.add_dhcp_host_maps(leases)
-        self.assertEqual(
-             nodegroup.uuid, task.apply_async.call_args[1]['queue'])
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(nodegroup.work_queue, kwargs['queue'])
 
     def test_get_managed_interface_returns_managed_interface(self):
         nodegroup = factory.make_node_group()

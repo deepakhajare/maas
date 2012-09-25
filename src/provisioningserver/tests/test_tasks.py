@@ -25,10 +25,10 @@ from apiclient.creds import convert_tuple_to_string
 from apiclient.maas_client import MAASClient
 from apiclient.testing.credentials import make_api_credentials
 from celeryconfig import (
-    BOOT_IMAGES_WORKER_QUEUE,
     DHCP_CONFIG_FILE,
     DHCP_INTERFACES_FILE,
-    DNS_WORKER_QUEUE,
+    WORKER_QUEUE_BOOT_IMAGES,
+    WORKER_QUEUE_DNS,
     )
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
@@ -313,7 +313,7 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_write_dns_config_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_dns_config.queue, DNS_WORKER_QUEUE)
+        self.assertEqual(write_dns_config.queue, WORKER_QUEUE_DNS)
 
     def test_write_dns_zone_config_writes_file(self):
         command = factory.getRandomString()
@@ -344,7 +344,7 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_write_dns_zone_config_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_dns_zone_config.queue, DNS_WORKER_QUEUE)
+        self.assertEqual(write_dns_zone_config.queue, WORKER_QUEUE_DNS)
 
     def test_setup_rndc_configuration_writes_files(self):
         command = factory.getRandomString()
@@ -369,7 +369,7 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_setup_rndc_configuration_attached_to_dns_worker_queue(self):
-        self.assertEqual(setup_rndc_configuration.queue, DNS_WORKER_QUEUE)
+        self.assertEqual(setup_rndc_configuration.queue, WORKER_QUEUE_DNS)
 
     def test_rndc_command_execute_command(self):
         command = factory.getRandomString()
@@ -412,7 +412,7 @@ class TestDNSTasks(PservTestCase):
             CalledProcessError, rndc_command.delay, command, retry=True)
 
     def test_rndc_command_attached_to_dns_worker_queue(self):
-        self.assertEqual(rndc_command.queue, DNS_WORKER_QUEUE)
+        self.assertEqual(rndc_command.queue, WORKER_QUEUE_DNS)
 
     def test_write_full_dns_config_sets_up_config(self):
         # write_full_dns_config writes the config file, writes
@@ -447,7 +447,7 @@ class TestDNSTasks(PservTestCase):
                 )))
 
     def test_write_full_dns_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_full_dns_config.queue, DNS_WORKER_QUEUE)
+        self.assertEqual(write_full_dns_config.queue, WORKER_QUEUE_DNS)
 
 
 class TestBootImagesTasks(PservTestCase):
@@ -466,9 +466,8 @@ class TestBootImagesTasks(PservTestCase):
 
         report_boot_images.delay()
 
-        self.assertItemsEqual(
-            [image],
-            json.loads(MAASClient.post.call_args[1]['images']))
+        args, kwargs = MAASClient.post.call_args
+        self.assertItemsEqual([image], json.loads(kwargs['images']))
 
     def test_report_boot_images_attached_to_boot_images_worker_queue(self):
-        self.assertEqual(write_dns_config.queue, BOOT_IMAGES_WORKER_QUEUE)
+        self.assertEqual(write_dns_config.queue, WORKER_QUEUE_BOOT_IMAGES)

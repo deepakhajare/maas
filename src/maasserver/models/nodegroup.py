@@ -171,6 +171,11 @@ class NodeGroup(TimestampedModel):
                 nodegroup=self).exclude(
                     management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED))
 
+    @property
+    def work_queue(self):
+        """The name of the queue for tasks specific to this nodegroup."""
+        return self.uuid
+
     def add_dhcp_host_maps(self, new_leases):
         if self.get_managed_interface() is not None and len(new_leases) > 0:
             # XXX JeroenVermeulen 2012-08-21, bug=1039362: the DHCP

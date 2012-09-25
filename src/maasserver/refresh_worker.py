@@ -38,4 +38,4 @@ def refresh_worker(nodegroup):
         'nodegroup_uuid': nodegroup.uuid,
     }
 
-    refresh_secrets.apply_async(queue=nodegroup.uuid, kwargs=items)
+    refresh_secrets.apply_async(queue=nodegroup.work_queue, kwargs=items)

@@ -30,10 +30,10 @@ from subprocess import (
 
 from celery.task import task
 from celeryconfig import (
-    BOOT_IMAGES_WORKER_QUEUE,
     DHCP_CONFIG_FILE,
     DHCP_INTERFACES_FILE,
-    DNS_WORKER_QUEUE,
+    WORKER_QUEUE_BOOT_IMAGES,
+    WORKER_QUEUE_DNS,
     )
 from provisioningserver import boot_images
 from provisioningserver.auth import (
@@ -157,7 +157,7 @@ RNDC_COMMAND_MAX_RETRY = 10
 RNDC_COMMAND_RETRY_DELAY = 2
 
 
-@task(max_retries=RNDC_COMMAND_MAX_RETRY, queue=DNS_WORKER_QUEUE)
+@task(max_retries=RNDC_COMMAND_MAX_RETRY, queue=WORKER_QUEUE_DNS)
 def rndc_command(arguments, retry=False, callback=None):
     """Use rndc to execute a command.
     :param arguments: Argument list passed down to the rndc command.
@@ -179,7 +179,7 @@ def rndc_command(arguments, retry=False, callback=None):
         callback.delay()
 
 
-@task(queue=DNS_WORKER_QUEUE)
+@task(queue=WORKER_QUEUE_DNS)
 def write_full_dns_config(zones=None, callback=None, **kwargs):
     """Write out the DNS configuration files: the main configuration
     file and the zone files.
@@ -200,7 +200,7 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
         callback.delay()
 
 
-@task(queue=DNS_WORKER_QUEUE)
+@task(queue=WORKER_QUEUE_DNS)
 def write_dns_config(zones=(), callback=None, **kwargs):
     """Write out the DNS configuration file.
 
@@ -217,7 +217,7 @@ def write_dns_config(zones=(), callback=None, **kwargs):
         callback.delay()
 
 
-@task(queue=DNS_WORKER_QUEUE)
+@task(queue=WORKER_QUEUE_DNS)
 def write_dns_zone_config(zone, callback=None, **kwargs):
     """Write out a DNS zone configuration file.
 
@@ -233,7 +233,7 @@ def write_dns_zone_config(zone, callback=None, **kwargs):
         callback.delay()
 
 
-@task(queue=DNS_WORKER_QUEUE)
+@task(queue=WORKER_QUEUE_DNS)
 def setup_rndc_configuration(callback=None):
     """Write out the two rndc configuration files (rndc.conf and
     named.conf.rndc).
@@ -332,7 +332,7 @@ def restart_dhcp_server():
 # =====================================================================
 
 
-@task(queue=BOOT_IMAGES_WORKER_QUEUE)
+@task(queue=WORKER_QUEUE_BOOT_IMAGES)
 def report_boot_images():
     """For master worker only: report available netboot images."""
     boot_images.report_to_server()

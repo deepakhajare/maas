@@ -63,5 +63,5 @@ class TestRefreshWorker(TestCase):
         nodegroup = factory.make_node_group()
         task = self.patch(refresh_worker_module, 'refresh_secrets')
         refresh_worker(nodegroup)
-        self.assertEqual(
-            nodegroup.uuid, task.apply_async.call_args[1]['queue'])
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(nodegroup.work_queue, kwargs['queue'])

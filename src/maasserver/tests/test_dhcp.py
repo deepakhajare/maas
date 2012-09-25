@@ -87,7 +87,8 @@ class TestDHCP(TestCase):
         expected_params["subnet"] = '192.168.100.0'
         expected_params["dhcp_interfaces"] = interface.interface
 
-        result_params = mocked_task.apply_async.call_args[1]['kwargs']
+        args, kwargs = mocked_task.apply_async.call_args
+        result_params = kwargs['kwargs']
         # The check that the callback is correct is done in
         # test_configure_dhcp_restart_dhcp_server.
         del result_params['callback']
@@ -116,9 +117,8 @@ class TestDHCP(TestCase):
         self.patch(settings, "DHCP_CONNECT", True)
         self.patch(dhcp, 'write_dhcp_config')
         nodegroup.accept()
-        self.assertEqual(
-            nodegroup.uuid,
-            dhcp.write_dhcp_config.apply_async.call_args[1]['queue'])
+        args, kwargs = dhcp.write_dhcp_config.apply_async.call_args
+        self.assertEqual(nodegroup.work_queue, kwargs['queue'])
 
     def test_write_dhcp_config_restart_task_routed_to_nodegroup_worker(self):
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
@@ -126,8 +126,8 @@ class TestDHCP(TestCase):
         self.patch(tasks, 'sudo_write_file')
         task = self.patch(dhcp, 'restart_dhcp_server')
         nodegroup.accept()
-        self.assertEqual(
-            nodegroup.uuid, task.subtask.call_args[1]['options']['queue'])
+        args, kwargs = task.subtask.call_args
+        self.assertEqual(nodegroup.work_queue, kwargs['options']['queue'])
 
     def test_dhcp_config_gets_written_when_nodegroupinterface_changes(self):
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
@@ -137,10 +137,10 @@ class TestDHCP(TestCase):
         new_router_ip = factory.getRandomIPAddress()
         interface.router_ip = new_router_ip
         interface.save()
-        async_mock = dhcp.write_dhcp_config.apply_async
+        args, kwargs = dhcp.write_dhcp_config.apply_async.call_args
         self.assertEqual(
             (1, new_router_ip),
             (
                 dhcp.write_dhcp_config.apply_async.call_count,
-                async_mock.call_args[1]['kwargs']['router_ip'],
+                kwargs['kwargs']['router_ip'],
             ))

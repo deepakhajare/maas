@@ -60,6 +60,11 @@ class NodeTest(TestCase):
         self.assertEqual(len(node.system_id), 41)
         self.assertTrue(node.system_id.startswith('node-'))
 
+    def test_work_queue_returns_nodegroup_uuid(self):
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        self.assertEqual(nodegroup.uuid, node.work_queue)
+
     def test_display_status_shows_default_status(self):
         node = factory.make_node()
         self.assertEqual(
@@ -694,8 +699,8 @@ class NodeManagerTest(TestCase):
         node, mac = self.make_node_with_mac(user, power_type=POWER_TYPE.VIRSH)
         task = self.patch(node_module, 'power_off')
         Node.objects.stop_nodes([node.system_id], user)
-        self.assertEqual(
-            node.nodegroup.uuid, task.apply_async.call_args[1]['queue'])
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(node.work_queue, kwargs['queue'])
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [
@@ -729,8 +734,8 @@ class NodeManagerTest(TestCase):
             user, power_type=POWER_TYPE.WAKE_ON_LAN)
         task = self.patch(node_module, 'power_on')
         Node.objects.start_nodes([node.system_id], user)
-        self.assertEqual(
-            node.nodegroup.uuid, task.apply_async.call_args[1]['queue'])
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(node.work_queue, kwargs['queue'])
 
     def test_start_nodes_uses_default_power_type_if_not_node_specific(self):
         # If the node has a power_type set to POWER_TYPE.DEFAULT,
