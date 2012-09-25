@@ -165,7 +165,8 @@ class TestStartClusterController(PservTestCase):
         self.assertEqual(url + 'api/1.0/nodegroups', args[0])
         self.assertEqual('POST', kwargs['method'])
 
-        # Make Django STFU.
+        # Make Django STFU; just using Django's multipart code causes it to
+        # pull in a settings module, and it will throw up if it can't.
         self.useFixture(
             EnvironmentVariableFixture(
                 "DJANGO_SETTINGS_MODULE", __name__))
