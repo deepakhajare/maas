@@ -53,6 +53,8 @@ BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
 WORKER_QUEUE_DNS = 'celery'
 WORKER_QUEUE_BOOT_IMAGES = 'celery'
+# XXX rvb 2012-09-25, bug=1056250: the WORKER_QUEUE_CLUSTER should be
+# the uuid of the cluster controller.
 WORKER_QUEUE_CLUSTER = 'celery'
 
 try:
@@ -90,6 +92,8 @@ CELERYBEAT_SCHEDULE = {
         'options': {'queue': WORKER_QUEUE_CLUSTER},
     },
 
+    # XXX rvb 2012-09-25, bug=1056250: this task should
+    # only on the master worker.
     'report-boot-images': {
         'task': 'provisioningserver.tasks.report_boot_images',
         'schedule': timedelta(minutes=5),
