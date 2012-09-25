@@ -1285,6 +1285,10 @@ class TagHandler(BaseHandler):
         tag.delete()
         return rc.DELETED
 
+    # XXX: JAM 2012-09-25 This is currently a POST because of bug:
+    #      http://pad.lv/1049933
+    #      Essentially, if you have one 'GET' op, then you can no longer get
+    #      the Tag object itself from a plain 'GET' without op.
     @api_exported('POST')
     def nodes(self, request, name):
         """Get the list of nodes that have this tag."""

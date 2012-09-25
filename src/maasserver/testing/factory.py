@@ -228,7 +228,7 @@ class Factory(maastesting.factory.Factory):
     def make_tag(self, name=None, definition=None, comment='', created=None,
                  updated=None):
         if name is None:
-            name = self.getRandomString(10)
+            name = self.make_name('tag')
         if definition is None:
             # Is there a 'node' in this xml?
             definition = '//node'
