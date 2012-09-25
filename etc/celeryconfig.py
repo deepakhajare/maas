@@ -40,6 +40,13 @@ DHCP_LEASES_FILE = '/var/lib/dhcp/dhcpd.leases'
 # ISC dhcpd configuration file.
 DHCP_CONFIG_FILE = '/etc/dhcp/dhcpd.conf'
 
+# Broker connection information.  This is read by the region controller
+# and sent to connecting cluster controllers.
+# The cluster controllers currently read this same configuration file,
+# but the broker URL they receive from the region controller overrides
+# this setting.
+BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+
 try:
     import maas_local_celeryconfig
 except ImportError:

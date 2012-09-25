@@ -117,7 +117,7 @@ def start_celery(connection_details):
         'celeryd',
         '--logfile=/var/log/maas/celery.log',
         '--loglevel=INFO',
-        '--beat', '--schedule=/var/lib/maas/celerybeat-schedule',
+        '--beat',
         '-Q', ','.join(queues),
         ]
     Popen(command, env=env)
