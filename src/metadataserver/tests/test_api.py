@@ -526,7 +526,7 @@ class TestViews(DjangoTestCase):
         response = self.call_signal(client, files={'01-lshw.out': xmlbytes})
         self.assertEqual(httplib.OK, response.status_code)
         node = reload_object(node)
-        self.assertEqual(4, node.memory)
+        self.assertEqual(4096, node.memory)
 
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
