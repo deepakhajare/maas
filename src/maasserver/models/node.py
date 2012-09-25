@@ -327,6 +327,9 @@ class NodeManager(Manager):
 def update_hardware_details(node, xmlbytes):
     """Set node hardware_details from lshw output and update related fields
 
+    This is designed to be called with individual nodes on commissioning and
+    is not optimised for batch updates.
+
     There are a bunch of suboptimal things here:
     * Is a function rather than method in hope south migration can reuse.
     * Doing UPDATE then transaction.commit_unless_managed doesn't work?
