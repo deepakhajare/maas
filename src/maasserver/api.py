@@ -260,6 +260,16 @@ def perform_api_operation(handler, request, method='POST', *args, **kwargs):
         return method(handler, request, *args, **kwargs)
 
 
+def get_crud_methods(cls):
+    """Return the names of those CRUD methods enabled on `cls`."""
+    # XXX: This will not DTRT when a handler inherits from another that also
+    # uses the api_operations class decorator.
+    return {
+        method for method in crud_http_methods
+        if getattr(cls, method, None) is not None
+        }
+
+
 def api_operations(cls):
     """Class decorator (PEP 3129) to be used on piston-based handler classes
     (i.e. classes inheriting from piston.handler.BaseHandler).  It will add
@@ -295,7 +305,7 @@ def api_operations(cls):
 
     """
     # A container of CRUD method names (e.g. "read") allowed.
-    crud_methods = getattr(cls, "crud_methods", crud_http_methods)
+    crud_methods = get_crud_methods(cls)
     # Compute the list of methods ('GET', 'POST', etc.) that need to be
     # overriden.
     overriden_methods = set()
@@ -469,7 +479,7 @@ DISPLAYED_NODE_FIELDS = (
 @api_operations
 class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
-    crud_methods = {"read", "update", "delete"}
+    create = None  # Disable create.
     model = Node
     fields = DISPLAYED_NODE_FIELDS
 
@@ -617,7 +627,7 @@ def create_node(request):
 @api_operations
 class AnonNodesHandler(AnonymousBaseHandler):
     """Create Nodes."""
-    crud_methods = ()
+    create = read = update = delete = None
     fields = DISPLAYED_NODE_FIELDS
 
     @api_exported('POST')
@@ -688,7 +698,7 @@ def extract_constraints(request_params):
 @api_operations
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes."""
-    crud_methods = ()
+    create = read = update = delete = None
     anonymous = AnonNodesHandler
 
     @api_exported('POST')
@@ -810,7 +820,7 @@ class NodeMacsHandler(BaseHandler):
     for a Node.
 
     """
-    crud_methods = {"read", "create"}
+    update = delete = None
 
     def read(self, request, system_id):
         """Read all MAC addresses related to a Node."""
@@ -833,7 +843,7 @@ class NodeMacsHandler(BaseHandler):
 
 class NodeMacHandler(BaseHandler):
     """Manage a MAC address linked to a Node."""
-    crud_methods = {"read", "delete"}
+    create = update = None
     fields = ('mac_address',)
     model = MACAddress
 
@@ -896,7 +906,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
       without credentials.
 
     """
-    crud_methods = ()
+    create = read = update = delete = None
 
     get = api_exported('GET', exported_as='get')(get_file)
 
@@ -904,7 +914,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
 @api_operations
 class FilesHandler(BaseHandler):
     """File management operations."""
-    crud_methods = ()
+    create = read = update = delete = None
     anonymous = AnonFilesHandler
 
     get = api_exported('GET', exported_as='get')(get_file)
@@ -945,7 +955,7 @@ DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
 @api_operations
 class AnonNodeGroupsHandler(AnonymousBaseHandler):
     """Anon Node-groups API."""
-    crud_methods = ()
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1031,7 +1041,7 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
 class NodeGroupsHandler(BaseHandler):
     """Node-groups API."""
     anonymous = AnonNodeGroupsHandler
-    crud_methods = ()
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1101,7 +1111,7 @@ def check_nodegroup_access(request, nodegroup):
 class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
-    crud_methods = {"read"}
+    create = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid):
@@ -1137,7 +1147,7 @@ DISPLAYED_NODEGROUP_FIELDS = (
 @api_operations
 class NodeGroupInterfacesHandler(BaseHandler):
     """NodeGroupInterfaces API."""
-    crud_methods = ()
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1186,7 +1196,7 @@ class NodeGroupInterfacesHandler(BaseHandler):
 
 class NodeGroupInterfaceHandler(BaseHandler):
     """NodeGroupInterface API."""
-    crud_methods = {"read", "update"}
+    create = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid, interface):
@@ -1243,7 +1253,7 @@ class NodeGroupInterfaceHandler(BaseHandler):
 @api_operations
 class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
-    crud_methods = ()
+    create = read = update = delete = None
 
     @api_exported('POST')
     def create_authorisation_token(self, request):
@@ -1283,7 +1293,7 @@ class AccountHandler(BaseHandler):
 @api_operations
 class TagHandler(BaseHandler):
     """Manage individual Tags."""
-    crud_methods = {"read", "update", "delete"}
+    create = None
     model = Tag
     fields = (
         'name',
@@ -1345,7 +1355,7 @@ class TagHandler(BaseHandler):
 @api_operations
 class TagsHandler(BaseHandler):
     """Manage collection of Tags."""
-    crud_methods = ()
+    create = read = update = delete = None
 
     @api_exported('POST')
     def new(self, request):
@@ -1388,7 +1398,7 @@ def create_tag(request):
 @api_operations
 class MAASHandler(BaseHandler):
     """Manage the MAAS' itself."""
-    crud_methods = ()
+    create = read = update = delete = None
 
     @api_exported('POST')
     def set_config(self, request):
