@@ -193,7 +193,7 @@ class Action(Command):
 
     uri = property(lambda self: self.handler["uri"])
     method = property(lambda self: self.action["method"])
-    restful = property(lambda self: self.action["restful"])
+    is_restful = property(lambda self: self.action["restful"])
     credentials = property(lambda self: self.profile["credentials"])
     op = property(lambda self: self.action["op"])
 
@@ -216,7 +216,7 @@ class Action(Command):
 
         # Bundle things up ready to throw over the wire.
         uri, body, headers = self.prepare_payload(
-            self.method, self.restful, uri, options.data)
+            self.method, self.is_restful, uri, options.data)
 
         # Sign request if credentials have been provided.
         if self.credentials is not None:
