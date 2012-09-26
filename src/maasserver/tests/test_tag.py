@@ -14,9 +14,9 @@ __all__ = []
 
 from django.db import transaction
 from django.db.utils import DatabaseError
-from maastesting.djangotestcase import TransactionTestCase
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maastesting.djangotestcase import TransactionTestCase
 
 
 class TagTest(TestCase):
@@ -93,6 +93,7 @@ class TestTagTransactions(TransactionTestCase):
             transaction.commit()
             return tag, node
         tag, node = setup()
+
         @transaction.commit_manually
         def trigger_invalid():
             tag.definition = 'invalid::tag'
