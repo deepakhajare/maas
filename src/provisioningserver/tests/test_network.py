@@ -247,16 +247,19 @@ class TestNetworks(TestCase):
         del expected['interrupt']
         self.assertEqual(parms, info.as_dict())
 
-    def split_stanzas_returns_empty_for_empty_input(self):
+    def test_split_stanzas_returns_empty_for_empty_input(self):
         self.assertEqual([], network.split_stanzas(''))
 
-    def split_stanzas_returns_single_stanza(self):
+    def test_split_stanzas_returns_single_stanza(self):
         stanza = make_stanza()
-        self.assertEqual([stanza], network.split_stanzas(stanza))
+        self.assertEqual([stanza.strip()], network.split_stanzas(stanza))
 
-    def split_stanzas_splits_multiple_stanzas(self):
+    def test_split_stanzas_splits_multiple_stanzas(self):
         stanzas = [make_stanza() for counter in range(3)]
-        self.assertEqual(stanzas, network.split_stanzas(stanzas))
+        full_output = join_stanzas(stanzas)
+        self.assertEqual(
+            [stanza.strip() for stanza in stanzas],
+            network.split_stanzas(full_output))
 
     def test_discover_networks_returns_suitable_interfaces(self):
         params = {

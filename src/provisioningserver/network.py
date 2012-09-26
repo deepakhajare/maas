@@ -53,8 +53,12 @@ def parse_stanza(stanza):
     pass
 
 
+def split_stanzas(output):
+    return output.strip().split('\n\n')
+
+
 def parse_ifconfig(output):
-    pass
+    return [parse_stanza(stanza) for stanza in split_stanzas(output)]
 
 
 def discover_networks():
