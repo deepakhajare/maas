@@ -276,7 +276,8 @@ class TestNetworks(TestCase):
         self.assertEqual(params, info[0].as_dict())
 
     def test_discover_networks_processes_real_ifconfig_output(self):
-        info = network.parse_ifconfig(sample_output)
+        self.patch(network, 'run_ifconfig').return_value = sample_output
+        info = network.discover_networks()
         self.assertEqual(
             ['eth1', 'maasbr0', 'virbr0'],
             [interface.interface for interface in info])
