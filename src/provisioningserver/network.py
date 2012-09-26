@@ -20,6 +20,7 @@ from subprocess import check_call
 
 
 class InterfaceInfo:
+    """The details of a network interface we are interested in."""
 
     def __init__(self, interface):
         self.interface = interface
@@ -42,6 +43,7 @@ class InterfaceInfo:
 
 
 def run_ifconfig():
+    """Run `ifconfig` to list active interfaces."""
     env = dict(os.environ, LC_ALL='C')
     stdout = BytesIO()
     check_call(['/sbin/ifconfig'], env=env, stdout=stdout)
@@ -50,19 +52,22 @@ def run_ifconfig():
 
 
 def parse_stanza(stanza):
-    pass
+    """Return a :class:`InterfaceInfo` representing this ifconfig stanza."""
 
 
 def split_stanzas(output):
+    """Split `ifconfig` output into stanzas, one per interface."""
     stanzas = [stanza.strip() for stanza in output.strip().split('\n\n')]
     return [stanza for stanza in stanzas if len(stanza) > 0]
 
 
 def parse_ifconfig(output):
+    """List `InterfaceInfo` for each interface found in `ifconfig` output."""
     return [parse_stanza(stanza) for stanza in split_stanzas(output)]
 
 
 def discover_networks():
+    """Find the networks attached to this system."""
     output = run_ifconfig()
     return [
         interface
