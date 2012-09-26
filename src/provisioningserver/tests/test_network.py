@@ -42,7 +42,7 @@ def make_address_line(**kwargs):
     kwargs.setdefault('broadcast', '10.255.255.255')
     kwargs.setdefault('mask', '255.0.0.0')
     items = [
-        kwargs['inet'],
+        "%(inet)s addr:%(ip)s"
         ]
     if len(kwargs['broadcast']) > 0:
         items.append("Bcast:%(broadcast)s")

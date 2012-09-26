@@ -51,11 +51,27 @@ def run_ifconfig():
     return stdout.read().decode('ascii')
 
 
+def extract_ip_and_mask(line):
+    """Get IP address and subnet mask from an inet address line."""
+    # This line consists of key:value pairs separated by double spaces.
+    # The "inet addr" key contains a space.  There is typically a
+    # trailing separator.
+    settings = dict(
+        tuple(pair.split(':', 1))
+        for pair in line.split('  '))
+    return settings.get('inet addr'), settings.get('Mask')
+
+
 def parse_stanza(stanza):
     """Return a :class:`InterfaceInfo` representing this ifconfig stanza."""
     lines = [line.strip() for line in stanza.splitlines()]
     header = lines[0]
+    if 'Link encap:Ethernet' not in header:
+        return None
     info = InterfaceInfo(header.split()[0])
+    for line in lines[1:]:
+        if line.split()[0] == 'inet':
+            info.ip, info.mask = extract_ip_and_mask(line)
     return info
 
 
@@ -67,7 +83,8 @@ def split_stanzas(output):
 
 def parse_ifconfig(output):
     """List `InterfaceInfo` for each interface found in `ifconfig` output."""
-    return [parse_stanza(stanza) for stanza in split_stanzas(output)]
+    infos = [parse_stanza(stanza) for stanza in split_stanzas(output)]
+    return [info for info in infos if info is not None]
 
 
 def discover_networks():
