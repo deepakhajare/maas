@@ -1,7 +1,11 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Discover networks."""
+"""Discover networks attached to this cluster controller.
+
+A cluster controller uses this when registering itself with the region
+controller.
+"""
 
 from __future__ import (
     absolute_import,
@@ -44,7 +48,7 @@ class InterfaceInfo:
 
 
 def run_ifconfig():
-    """Run `ifconfig` to list active interfaces."""
+    """Run `ifconfig` to list active interfaces.  Return output."""
     env = dict(os.environ, LC_ALL='C')
     stdout = BytesIO()
     check_call(['/sbin/ifconfig'], env=env, stdout=stdout)
@@ -64,7 +68,11 @@ def extract_ip_and_mask(line):
 
 
 def parse_stanza(stanza):
-    """Return a :class:`InterfaceInfo` representing this ifconfig stanza."""
+    """Return a :class:`InterfaceInfo` representing this ifconfig stanza.
+
+    May return `None` if it's immediately clear that the interface is not
+    relevant for MAAS.
+    """
     lines = [line.strip() for line in stanza.splitlines()]
     header = lines[0]
     if 'Link encap:Ethernet' not in header:
