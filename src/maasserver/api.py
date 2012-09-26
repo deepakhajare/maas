@@ -1,4 +1,4 @@
-# Copyright 2012 Canonical Ltd.  This software is licensed under the
+ Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
 """Restful MAAS API.
@@ -983,7 +983,8 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
         existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
         if existing_nodegroup is None:
             master = NodeGroup.objects.ensure_master()
-            if master.uuid == 'master':
+            # Does master.uuid look like it's a proper uuid?
+            if len(master.uuid) != 36:
                 # Master nodegroup not yet configured, configure it.
                 form = NodeGroupWithInterfacesForm(
                     data=request.data, instance=master)
