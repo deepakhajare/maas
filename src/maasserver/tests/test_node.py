@@ -19,6 +19,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.http import Http404
 from maasserver.enum import (
     ARCHITECTURE,
     DISTRO_SERIES,
@@ -27,7 +28,10 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
     )
-from maasserver.exceptions import NodeStateViolation
+from maasserver.exceptions import (
+    InvalidConstraint,
+    NodeStateViolation,
+    )
 from maasserver.models import (
     Config,
     MACAddress,
@@ -721,6 +725,88 @@ class NodeManagerTest(TestCase):
             None,
             Node.objects.get_available_node_for_acquisition(
                 user, {'arch': "sparc"}))
+
+    def test_get_available_node_with_cpu_enough(self):
+        user = factory.make_user()
+        node = self.make_node(cpu_count=2)
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'cpu_count': "2"})
+        self.assertEqual(node, available_node)
+
+    def test_get_available_node_with_cpu_not_enough(self):
+        user = factory.make_user()
+        node = self.make_node(cpu_count=1)
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'cpu_count': "2"})
+        self.assertEqual(None, available_node)
+
+    def test_get_available_node_with_cpu_invalid(self):
+        user = factory.make_user()
+        err = self.assertRaises(InvalidConstraint,
+            Node.objects.get_available_node_for_acquisition,
+            user, {'cpu_count': "lots"})
+        self.assertEqual(("cpu_count", "lots"), err.args)
+
+    def test_get_available_node_with_mem_enough(self):
+        user = factory.make_user()
+        node = self.make_node(memory=4096)
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'memory': "2048"})
+        self.assertEqual(node, available_node)
+
+    def test_get_available_node_with_mem_not_enough(self):
+        user = factory.make_user()
+        node = self.make_node(memory=4096)
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'memory': "4097"})
+        self.assertEqual(None, available_node)
+
+    def test_get_available_node_with_mem_invalid(self):
+        user = factory.make_user()
+        err = self.assertRaises(InvalidConstraint,
+            Node.objects.get_available_node_for_acquisition,
+            user, {'memory': "forgetful"})
+        self.assertEqual(("memory", "forgetful"), err.args)
+
+    def test_get_available_node_with_single_matching_tag(self):
+        user = factory.make_user()
+        node = self.make_node()
+        node.tags = [factory.make_tag("happy")]
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'tags': "happy"})
+        self.assertEqual(node, available_node)
+
+    def test_get_available_node_with_multiple_matching_tags(self):
+        user = factory.make_user()
+        node = self.make_node()
+        node.tags = [factory.make_tag("happy"), factory.make_tag("friendly")]
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'tags': "happy, friendly"})
+        self.assertEqual(node, available_node)
+
+    def test_get_available_node_with_single_mismatching_tag(self):
+        user = factory.make_user()
+        node = self.make_node()
+        node.tags = [factory.make_tag("happy")]
+        factory.make_tag("unhappy")
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'tags': "unhappy"})
+        self.assertEqual(None, available_node)
+
+    def test_get_available_node_with_partially_mismatching_tags(self):
+        user = factory.make_user()
+        node = self.make_node()
+        node.tags = [factory.make_tag("happy"), factory.make_tag("friendly")]
+        factory.make_tag("unfriendly")
+        available_node = Node.objects.get_available_node_for_acquisition(
+            user, {'tags': "happy, unfriendly"})
+        self.assertEqual(None, available_node)
+
+    def test_get_available_node_with_single_missing_tag(self):
+        user = factory.make_user()
+        self.assertRaises(Http404,
+            Node.objects.get_available_node_for_acquisition,
+            user, {'tags': "lonely"})
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go

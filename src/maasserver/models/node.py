@@ -51,7 +51,10 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
     )
-from maasserver.exceptions import NodeStateViolation
+from maasserver.exceptions import (
+    InvalidConstraint,
+    NodeStateViolation,
+    )
 from maasserver.fields import (
     JSONObjectField,
     XMLField,
@@ -264,6 +267,23 @@ class NodeManager(Manager):
             #                using an i386 image on amd64 hardware will wait.
             available_nodes = available_nodes.filter(
                 architecture=constraints['arch'])
+        for key in ('cpu_count', 'memory'):
+            string = constraints.get(key)
+            if string:
+                try:
+                    value = int(string)
+                except ValueError as e:
+                    raise InvalidConstraint(key, string, e)
+                q = {key + "__gte": value}
+                available_nodes = available_nodes.filter(**q)
+        tag_expression = constraints.get('tags')
+        if tag_expression:
+            tag_names = tag_expression.replace(",", " ").split()
+            for tag_name in tag_names:
+                # GZ 2012-09-26: Below results in a generic "Not Found" body
+                #                rather than something useful with tag name.
+                tag = Tag.objects.get_tag_or_404(tag_name, for_user)
+                available_nodes = available_nodes.filter(tags=tag)
 
         return get_first(available_nodes)
 

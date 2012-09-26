@@ -643,6 +643,10 @@ class AnonNodesHandler(AnonymousBaseHandler):
         return ('nodes_handler', [])
 
 
+_constraints_map = {s: s for s in ('name', 'tags', 'arch', 'cpu_count')}
+_constraints_map['mem'] = "memory"
+
+
 def extract_constraints(request_params):
     """Extract a dict of node allocation constraints from http parameters.
 
@@ -651,9 +655,8 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    supported_constraints = ('name', 'arch')
-    return {constraint: request_params[constraint]
-        for constraint in supported_constraints
+    return {_constraints_map[constraint]: request_params[constraint]
+        for constraint in _constraints_map
             if constraint in request_params}
 
 
