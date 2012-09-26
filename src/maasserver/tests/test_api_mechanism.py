@@ -47,13 +47,18 @@ class TestOperationDecorator(TestCase):
         decorated = decorate(exported_function)
         self.assertEqual("exported_function", decorated.export[1])
 
-    def test_idempotent_defines_signature(self):
-        # The value of the idempotent argument determines the signature of the
-        # exported function.
+    def test_idempotent_uses_GET(self):
+        # If a function is declared as idempotent the export signature
+        # includes the HTTP GET method.
+        func = lambda: None
+        self.assertEqual(
+            ("GET", func.__name__),
+            operation(idempotent=True)(func).export)
+
+    def test_non_idempotent_uses_POST(self):
+        # If a function is declared as not idempotent the export signature
+        # includes the HTTP POST method.
         func = lambda: None
         self.assertEqual(
             ("POST", func.__name__),
             operation(idempotent=False)(func).export)
-        self.assertEqual(
-            ("GET", func.__name__),
-            operation(idempotent=True)(func).export)
