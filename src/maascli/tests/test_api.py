@@ -135,7 +135,7 @@ class TestActionReSTful(TestCase):
     def test_prepare_payload_without_data(self):
         uri_base = "http://example.com/MAAS/api/1.0/"
         uri, body, headers = api.Action.prepare_payload(
-            method=self.method, restful=True, uri=uri_base, data=[])
+            method=self.method, is_restful=True, uri=uri_base, data=[])
         self.assertEqual(uri_base, uri)
         self.assertIsNone(body)
         self.assertEqual({}, headers)
@@ -144,7 +144,7 @@ class TestActionReSTful(TestCase):
         # Given data is always encoded as query parameters.
         uri_base = "http://example.com/MAAS/api/1.0/"
         uri, body, headers = api.Action.prepare_payload(
-            method=self.method, restful=True, uri=uri_base,
+            method=self.method, is_restful=True, uri=uri_base,
             data=[("foo", "bar"), ("foo", "baz")])
         self.assertEqual(uri_base + "?foo=bar&foo=baz", uri)
         self.assertIsNone(body)
@@ -160,7 +160,7 @@ class TestActionOperations(TestCase):
         encode_multipart_data.return_value = sentinel.body, sentinel.headers
         uri_base = "http://example.com/MAAS/api/1.0/"
         uri, body, headers = api.Action.prepare_payload(
-            method="POST", restful=False, uri=uri_base,
+            method="POST", is_restful=False, uri=uri_base,
             data=[("foo", "bar"), ("foo", "baz")])
         self.assertEqual(uri_base, uri)
         self.assertIs(sentinel.body, body)
