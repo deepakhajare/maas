@@ -59,12 +59,22 @@ class TestFindingHandlers(TestCase):
         self.assertSequenceEqual(
             [], list(find_api_handlers(module)))
 
-    def test_module_with_handler(self):
-        # Handlers are discovered in a module and returned.
+    def test_module_with_incomplete_handler(self):
+        # Handlers that don't have a resource_uri method are ignored.
         module = self.make_module()
         module.handler = BaseHandler
         self.assertSequenceEqual(
-            [BaseHandler], list(find_api_handlers(module)))
+            [], list(find_api_handlers(module)))
+
+    def test_module_with_handler(self):
+        # Handlers with resource_uri attributes are discovered in a module and
+        # returned. The type of resource_uri is not checked; it must only be
+        # present and not None.
+        module = self.make_module()
+        module.handler = type(
+            b"MetalHander", (BaseHandler,), {"resource_uri": True})
+        self.assertSequenceEqual(
+            [module.handler], list(find_api_handlers(module)))
 
     def test_module_with_handler_not_in_all(self):
         # When __all__ is defined, only the names it defines are searched for
