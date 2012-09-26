@@ -97,6 +97,7 @@ from django.forms.models import model_to_dict
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
+    HttpResponseNotAllowed,
     QueryDict,
     )
 from django.shortcuts import (
@@ -172,6 +173,11 @@ dispatch_methods = {
     'DELETE': 'delete',
     }
 
+crud_http_methods = {
+    method: http_method
+    for http_method, method in dispatch_methods.items()
+    }
+
 
 class RestrictedResource(Resource):
 
@@ -240,12 +246,15 @@ def perform_api_operation(handler, request, method='POST', *args, **kwargs):
     else:
         data = request.GET
     op = data.get(OP_PARAM, None)
-    if not isinstance(op, unicode):
+    if op is not None and not isinstance(op, unicode):
         return HttpResponseBadRequest("Unknown operation.")
     elif method not in handler._available_api_methods:
         return HttpResponseBadRequest("Unknown operation: '%s'." % op)
     elif op not in handler._available_api_methods[method]:
-        return HttpResponseBadRequest("Unknown operation: '%s'." % op)
+        if op is None:
+            return HttpResponseNotAllowed(handler.allowed_methods)
+        else:
+            return HttpResponseBadRequest("Unknown operation: '%s'." % op)
     else:
         method = handler._available_api_methods[method][op]
         return method(handler, request, *args, **kwargs)
@@ -285,6 +294,8 @@ def api_operations(cls):
     GET /api/path/to/MyHandler/?op=do_y&param1=1
 
     """
+    # A container of CRUD method names (e.g. "read") allowed.
+    crud_methods = getattr(cls, "crud_methods", crud_http_methods)
     # Compute the list of methods ('GET', 'POST', etc.) that need to be
     # overriden.
     overriden_methods = set()
@@ -307,7 +318,16 @@ def api_operations(cls):
             return perform_api_operation(
                 self, request, request.method, *args, **kwargs)
 
-        method_name = str(dispatch_methods[method])
+        method_name = dispatch_methods[method]
+        if isinstance(method_name, unicode):
+            method_name = method_name.encode("ascii")
+
+        # If the CRUD method is permitted, add it to the API operations list
+        # so that perform_api_operation knows to use it.
+        if method_name in crud_methods:
+            crud_method = getattr(cls, method_name)
+            cls._available_api_methods[method][None] = crud_method
+
         dispatcher.__name__ = method_name
         dispatcher.__doc__ = (
             "The actual operation to execute depends on the value of the '%s' "
@@ -318,6 +338,14 @@ def api_operations(cls):
 
         # Add {'create','read','update','delete'} method.
         setattr(cls, method_name, dispatcher)
+
+    # Define allowed_methods as the union of HTTP methods corresponding to
+    # enabled CRUD methods, and the HTTP methods upon which custom operations
+    # piggyback. If no CRUD methods are explicitly specified, allow them all.
+    cls.allowed_methods = frozenset().union(
+        (crud_http_methods[method] for method in crud_methods),
+        cls._available_api_methods)
+
     return cls
 
 
@@ -441,7 +469,7 @@ DISPLAYED_NODE_FIELDS = (
 @api_operations
 class NodeHandler(BaseHandler):
     """Manage individual Nodes."""
-    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+    crud_methods = {"read", "update", "delete"}
     model = Node
     fields = DISPLAYED_NODE_FIELDS
 
@@ -589,7 +617,7 @@ def create_node(request):
 @api_operations
 class AnonNodesHandler(AnonymousBaseHandler):
     """Create Nodes."""
-    allowed_methods = ('GET', 'POST',)
+    crud_methods = ()
     fields = DISPLAYED_NODE_FIELDS
 
     @api_exported('POST')
@@ -660,7 +688,7 @@ def extract_constraints(request_params):
 @api_operations
 class NodesHandler(BaseHandler):
     """Manage collection of Nodes."""
-    allowed_methods = ('GET', 'POST',)
+    crud_methods = ()
     anonymous = AnonNodesHandler
 
     @api_exported('POST')
@@ -782,7 +810,7 @@ class NodeMacsHandler(BaseHandler):
     for a Node.
 
     """
-    allowed_methods = ('GET', 'POST',)
+    crud_methods = {"read", "create"}
 
     def read(self, request, system_id):
         """Read all MAC addresses related to a Node."""
@@ -805,7 +833,7 @@ class NodeMacsHandler(BaseHandler):
 
 class NodeMacHandler(BaseHandler):
     """Manage a MAC address linked to a Node."""
-    allowed_methods = ('GET', 'DELETE')
+    crud_methods = {"read", "delete"}
     fields = ('mac_address',)
     model = MACAddress
 
@@ -868,7 +896,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
       without credentials.
 
     """
-    allowed_methods = ('GET',)
+    crud_methods = ()
 
     get = api_exported('GET', exported_as='get')(get_file)
 
@@ -876,7 +904,7 @@ class AnonFilesHandler(AnonymousBaseHandler):
 @api_operations
 class FilesHandler(BaseHandler):
     """File management operations."""
-    allowed_methods = ('GET', 'POST',)
+    crud_methods = ()
     anonymous = AnonFilesHandler
 
     get = api_exported('GET', exported_as='get')(get_file)
@@ -917,7 +945,7 @@ DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
 @api_operations
 class AnonNodeGroupsHandler(AnonymousBaseHandler):
     """Anon Node-groups API."""
-    allowed_methods = ('GET', 'POST')
+    crud_methods = ()
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1003,7 +1031,7 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
 class NodeGroupsHandler(BaseHandler):
     """Node-groups API."""
     anonymous = AnonNodeGroupsHandler
-    allowed_methods = ('GET', 'POST')
+    crud_methods = ()
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1073,7 +1101,7 @@ def check_nodegroup_access(request, nodegroup):
 class NodeGroupHandler(BaseHandler):
     """Node-group API."""
 
-    allowed_methods = ('GET', 'POST')
+    crud_methods = {"read"}
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid):
@@ -1109,7 +1137,7 @@ DISPLAYED_NODEGROUP_FIELDS = (
 @api_operations
 class NodeGroupInterfacesHandler(BaseHandler):
     """NodeGroupInterfaces API."""
-    allowed_methods = ('GET', 'POST')
+    crud_methods = ()
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     @api_exported('GET')
@@ -1158,7 +1186,7 @@ class NodeGroupInterfacesHandler(BaseHandler):
 
 class NodeGroupInterfaceHandler(BaseHandler):
     """NodeGroupInterface API."""
-    allowed_methods = ('GET', 'PUT')
+    crud_methods = {"read", "update"}
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid, interface):
@@ -1215,7 +1243,7 @@ class NodeGroupInterfaceHandler(BaseHandler):
 @api_operations
 class AccountHandler(BaseHandler):
     """Manage the current logged-in user."""
-    allowed_methods = ('POST',)
+    crud_methods = ()
 
     @api_exported('POST')
     def create_authorisation_token(self, request):
@@ -1255,7 +1283,7 @@ class AccountHandler(BaseHandler):
 @api_operations
 class TagHandler(BaseHandler):
     """Manage individual Tags."""
-    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+    crud_methods = {"read", "update", "delete"}
     model = Tag
     fields = (
         'name',
@@ -1317,7 +1345,7 @@ class TagHandler(BaseHandler):
 @api_operations
 class TagsHandler(BaseHandler):
     """Manage collection of Tags."""
-    allowed_methods = ('GET', 'POST')
+    crud_methods = ()
 
     @api_exported('POST')
     def new(self, request):
@@ -1360,7 +1388,7 @@ def create_tag(request):
 @api_operations
 class MAASHandler(BaseHandler):
     """Manage the MAAS' itself."""
-    allowed_methods = ('POST', 'GET')
+    crud_methods = ()
 
     @api_exported('POST')
     def set_config(self, request):

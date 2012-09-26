@@ -356,9 +356,7 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', 'invalid'],
             })
 
-        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        self.assertIn('text/html', response['Content-Type'])
-        self.assertEqual("Unknown operation.", response.content)
+        self.assertEqual(httplib.METHOD_NOT_ALLOWED, response.status_code)
 
     def test_POST_fails_if_mac_duplicated(self):
         # Mac Addresses should be unique.
@@ -789,7 +787,7 @@ class NodeAnonAPITest(APIv10TestMixin, TestCase):
         # get a "Bad Request" response.
         response = self.client.get(self.get_uri('nodes/'))
 
-        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertEqual(httplib.METHOD_NOT_ALLOWED, response.status_code)
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
