@@ -24,9 +24,9 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from maasserver.api import (
     api_exported,
-    api_operations,
     extract_oauth_key,
     get_mandatory_param,
+    OperationsHandler,
     )
 from maasserver.enum import (
     NODE_STATUS,
@@ -53,7 +53,6 @@ from metadataserver.models import (
     NodeKey,
     NodeUserData,
     )
-from piston.handler import BaseHandler
 from piston.utils import rc
 
 
@@ -131,7 +130,7 @@ def check_version(version):
         raise UnknownMetadataVersion("Unknown metadata version: %s" % version)
 
 
-class MetadataViewHandler(BaseHandler):
+class MetadataViewHandler(OperationsHandler):
     allowed_methods = ('GET',)
 
     def read(self, request, mac=None):
@@ -144,7 +143,6 @@ class IndexHandler(MetadataViewHandler):
     fields = ('latest', '2012-03-01')
 
 
-@api_operations
 class VersionIndexHandler(MetadataViewHandler):
     """Listing for a given metadata version."""
     allowed_methods = ('GET', 'POST')
@@ -332,7 +330,7 @@ class UserDataHandler(MetadataViewHandler):
             raise MAASAPINotFound("No user data available for this node.")
 
 
-class EnlistMetaDataHandler(BaseHandler):
+class EnlistMetaDataHandler(OperationsHandler):
     """this has to handle the 'meta-data' portion of the meta-data api
     for enlistment only.  It should mimic the read-only portion
     of /VersionIndexHandler"""
@@ -357,7 +355,7 @@ class EnlistMetaDataHandler(BaseHandler):
         return make_text_response(self.data[item])
 
 
-class EnlistUserDataHandler(BaseHandler):
+class EnlistUserDataHandler(OperationsHandler):
     """User-data for the enlistment environment"""
 
     def read(self, request, version):
@@ -365,7 +363,7 @@ class EnlistUserDataHandler(BaseHandler):
         return HttpResponse(get_enlist_userdata(), mimetype="text/plain")
 
 
-class EnlistVersionIndexHandler(BaseHandler):
+class EnlistVersionIndexHandler(OperationsHandler):
     allowed_methods = ('GET',)
     fields = ('meta-data', 'user-data')
 
@@ -373,7 +371,6 @@ class EnlistVersionIndexHandler(BaseHandler):
         return make_list_response(sorted(self.fields))
 
 
-@api_operations
 class AnonMetaDataHandler(VersionIndexHandler):
     """Anonymous metadata."""
 
