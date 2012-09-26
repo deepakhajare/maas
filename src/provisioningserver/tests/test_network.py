@@ -233,19 +233,16 @@ class TestNetworks(TestCase):
         expected['ip'] = None
         self.assertEqual(expected, info.as_dict())
 
-    def test_parse_stanza_reads_loopback(self):
+    def test_parse_stanza_returns_nothing_for_loopback(self):
         parms = {
             'interface': 'lo',
             'ip': '127.1.2.3',
             'mask': '255.0.0.0',
+            'encapsulation': 'Local Loopback',
             'broadcast': '',
             'interrupt': '',
         }
-        info = network.parse_stanza(make_stanza(**parms))
-        expected = parms.copy()
-        del expected['broadcast']
-        del expected['interrupt']
-        self.assertEqual(parms, info.as_dict())
+        self.assertIsNone(network.parse_stanza(make_stanza(**parms)))
 
     def test_split_stanzas_returns_empty_for_empty_input(self):
         self.assertEqual([], network.split_stanzas(''))
