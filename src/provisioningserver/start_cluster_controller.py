@@ -31,6 +31,7 @@ from apiclient.maas_client import (
     NoAuth,
     )
 from provisioningserver.logging import task_logger
+from provisioningserver.network import discover_networks
 
 
 class ClusterControllerRejected(Exception):
@@ -41,6 +42,8 @@ def add_arguments(parser):
     """For use by :class:`MainScript`."""
     parser.add_argument(
         'server_url', metavar='URL', help="URL to the MAAS region controller.")
+    parser.add_argument(
+        '--uuid', metavar='UUID', help="UUID for this cluster controller.")
 
 
 def log_error(exception):
@@ -54,12 +57,14 @@ def make_anonymous_api_client(server_url):
     return MAASClient(NoAuth(), MAASDispatcher(), server_url)
 
 
-def register(server_url):
+def register(server_url, uuid):
     """Request Rabbit connection details from the domain controller.
 
     Offers this machine to the region controller as a potential cluster
     controller.
 
+    :param server_url: URL to the region controller's MAAS API.
+    :param uuid: UUID for this cluster controller.
     :return: A dict of connection details if this cluster controller has been
         accepted, or `None` if there is no definite response yet.  If there
         is no definite response, retry this call later.
@@ -67,9 +72,13 @@ def register(server_url):
         cluster controller.
     """
     known_responses = {httplib.OK, httplib.FORBIDDEN, httplib.ACCEPTED}
+
+    interfaces = json.dumps(discover_networks())
     client = make_anonymous_api_client(server_url)
     try:
-        response = client.post('api/1.0/nodegroups/', 'register')
+        response = client.post(
+            'api/1.0/nodegroups/', 'register',
+            uuid=uuid, interfaces=interfaces)
     except HTTPError as e:
         status_code = e.code
         if e.code not in known_responses:
@@ -150,7 +159,7 @@ def run(args):
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
-    connection_details = register(args.server_url)
+    connection_details = register(args.server_url, args.uuid)
     while connection_details is None:
         sleep(60)
         connection_details = register(args.server_url)
