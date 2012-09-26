@@ -81,29 +81,38 @@ class TagTest(TestCase):
         self.assertItemsEqual([tag1.name], node1.tag_names())
         self.assertItemsEqual([tag2.name], node2.tag_names())
 
-    def test_get_nodes_respects_privacy(self):
-        # User1 owns node1, user2 owns node2, user3 owns nothing, and node3 is
-        # unowned. user4 is a superuser and can see everything.
+    def test_get_nodes_returns_unowned_nodes(self):
+        user1 = factory.make_user()
+        node1 = factory.make_node()
+        tag = factory.make_tag()
+        node1.tags.add(tag)
+        self.assertItemsEqual([node1], Tag.objects.get_nodes(tag.name, user1))
+
+    def test_get_nodes_returns_self_owned_nodes(self):
+        user1 = factory.make_user()
+        node1 = factory.make_node(owner=user1)
+        tag = factory.make_tag()
+        node1.tags.add(tag)
+        self.assertItemsEqual([node1], Tag.objects.get_nodes(tag.name, user1))
+
+    def test_get_nodes_doesnt_return_other_owned_nodes(self):
         user1 = factory.make_user()
         user2 = factory.make_user()
-        user3 = factory.make_user()
-        user4 = factory.make_user()
-        user4.is_superuser = True
         node1 = factory.make_node(owner=user1)
-        node2 = factory.make_node(owner=user2)
-        node3 = factory.make_node()
-        tag = factory.make_tag(definition='/node/foo')
+        tag = factory.make_tag()
+        node1.tags.add(tag)
+        self.assertItemsEqual([], Tag.objects.get_nodes(tag.name, user2))
+
+    def test_get_nodes_returns_everything_for_superuser(self):
+        user1 = factory.make_user()
+        user2 = factory.make_user()
+        node1 = factory.make_node(owner=user1)
+        node2 = factory.make_node()
+        tag = factory.make_tag()
         node1.tags.add(tag)
         node2.tags.add(tag)
-        node3.tags.add(tag)
-        self.assertItemsEqual([node1, node3],
-                              Tag.objects.get_nodes(tag.name, user1))
-        self.assertItemsEqual([node2, node3],
+        self.assertItemsEqual([node1, node2],
                               Tag.objects.get_nodes(tag.name, user2))
-        self.assertItemsEqual([node3],
-                              Tag.objects.get_nodes(tag.name, user3))
-        self.assertItemsEqual([node1, node2, node3],
-                              Tag.objects.get_nodes(tag.name, user4))
 
 
 class TestTagTransactions(TransactionTestCase):
