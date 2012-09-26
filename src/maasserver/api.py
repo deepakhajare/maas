@@ -238,28 +238,24 @@ class OperationsHandlerType(HandlerMetaClass):
         cls = super(OperationsHandlerType, metaclass).__new__(
             metaclass, name, bases, namespace)
 
-        # Create an http-method:function mapping for CRUD operations.
+        # Create a signature:function mapping for CRUD operations.
         crud = {
-            http_method: getattr(cls, method)
+            (http_method, None): getattr(cls, method)
             for http_method, method in OperationsResource.crudmap.items()
             if getattr(cls, method, None) is not None
             }
 
-        # Create a set of functions for non-CRUD operations. These functions
-        # contain an _export attribute that will be used later on.
+        # Create a signature:function mapping for non-CRUD operations.
         operations = {
-            attribute for attribute in vars(cls).values()
+            attribute._export: attribute
+            for attribute in vars(cls).values()
             if getattr(attribute, "_export", None) is not None
             }
 
         # Create the exports mapping.
         exports = {}
-        exports.update(
-            ((http_method, None), function)
-            for http_method, function in crud.items())
-        exports.update(
-            (function._export, function)
-            for function in operations)
+        exports.update(crud)
+        exports.update(operations)
 
         # Update the class.
         cls.exports = exports
