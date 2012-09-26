@@ -226,11 +226,11 @@ class TestNetworks(TestCase):
         parms = {
             'interface': factory.make_name('eth'),
             'ip': '',
-            'mask': '255.255.255.128',
         }
         info = network.parse_stanza(make_stanza(**parms))
         expected = parms.copy()
         expected['ip'] = None
+        expected['mask'] = None
         self.assertEqual(expected, info.as_dict())
 
     def test_parse_stanza_returns_nothing_for_loopback(self):
@@ -271,9 +271,13 @@ class TestNetworks(TestCase):
         disabled_interface = make_stanza(ip='', broadcast='', mask='')
 
         text = join_stanzas([regular_interface, loopback, disabled_interface])
-        info = network.parse_ifconfig(text)
-        self.assertEqual(1, len(info))
-        self.assertEqual(params, info[0].as_dict())
+        self.patch(network, 'run_ifconfig').return_value = text
+
+        interfaces = network.discover_networks()
+
+        self.assertEqual(
+            [params],
+            [interface.as_dict() for interface in interfaces])
 
     def test_discover_networks_processes_real_ifconfig_output(self):
         self.patch(network, 'run_ifconfig').return_value = sample_output
