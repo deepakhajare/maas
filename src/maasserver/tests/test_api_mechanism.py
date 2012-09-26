@@ -34,9 +34,7 @@ class TestOperationDecorator(TestCase):
         decorate = operation(
             idempotent=False, exported_as=random_exported_name)
         decorated = decorate(lambda: None)
-        self.assertEqual(
-            [random_exported_name],
-            decorated._api_exported.values())
+        self.assertEqual(random_exported_name, decorated._export[1])
 
     def test_exported_as_is_optional(self):
         # If exported_as is not passed then we expect the function to be
@@ -47,7 +45,15 @@ class TestOperationDecorator(TestCase):
 
         decorate = operation(idempotent=True)
         decorated = decorate(exported_function)
+        self.assertEqual("exported_function", decorated._export[1])
 
+    def test_idempotent_defines_signature(self):
+        # The value of the idempotent argument determines the signature of the
+        # exported function.
+        func = lambda: None
         self.assertEqual(
-            ["exported_function"],
-            decorated._api_exported.values())
+            ("POST", func.__name__),
+            operation(idempotent=False)(func)._export)
+        self.assertEqual(
+            ("GET", func.__name__),
+            operation(idempotent=True)(func)._export)

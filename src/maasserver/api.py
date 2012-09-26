@@ -215,9 +215,9 @@ def operation(idempotent, exported_as=None):
     method = "GET" if idempotent else "POST"
     def _decorator(func):
         if exported_as is None:
-            func._api_exported = {method: func.__name__}
+            func._export = method, func.__name__
         else:
-            func._api_exported = {method: exported_as}
+            func._export = method, exported_as
         return func
     return _decorator
 
@@ -245,12 +245,11 @@ class OperationsHandlerType(HandlerMetaClass):
             if getattr(cls, method, None) is not None
             }
 
-        # Create a operation-name:function mapping for non-CRUD operations.
-        # These functions contain an _api_exported attribute that will be
-        # used later on.
+        # Create a set of functions for non-CRUD operations. These functions
+        # contain an _export attribute that will be used later on.
         operations = {
-            name: attribute for name, attribute in vars(cls).items()
-            if getattr(attribute, "_api_exported", None) is not None
+            attribute for attribute in vars(cls).values()
+            if getattr(attribute, "_export", None) is not None
             }
 
         # Create the exports mapping.
@@ -259,9 +258,8 @@ class OperationsHandlerType(HandlerMetaClass):
             ((http_method, None), function)
             for http_method, function in crud.items())
         exports.update(
-            (signature, function)
-            for name, function in operations.items()
-            for signature in function._api_exported.items())
+            (function._export, function)
+            for function in operations)
 
         # Update the class.
         cls.exports = exports
