@@ -108,7 +108,8 @@ def make_stanza(**kwargs):
     kwargs.setdefault('txbytes', make_payload_stats('TX', **kwargs))
     kwargs.setdefault('interrupt', randint(1, 30))
 
-    header = "%(interface)s Link encap:%(encapsulation)s  HWaddr %(mac)s"
+    # The real-life output seems to have two trailing spaces here.
+    header = "%(interface)s Link encap:%(encapsulation)s  HWaddr %(mac)s  "
     body_lines = [
         "UP BROADCAST MULTICAST  MTU:%(mtu)d  Metric:1",
         ]
@@ -117,7 +118,8 @@ def make_stanza(**kwargs):
     body_lines += [
         "%(rxline)s",
         "%(txline)s",
-        "collisions:%(collisions)d txqueuelen:%(txqueuelen)d",
+        # This line has a trailing space in the real-life output.
+        "collisions:%(collisions)d txqueuelen:%(txqueuelen)d ",
         "%(rxbytes)s  %(txbytes)s",
         ]
     if kwargs['interrupt'] != '':
@@ -132,6 +134,55 @@ def make_stanza(**kwargs):
 def join_stanzas(stanzas):
     """Format a sequence of interface stanzas like ifconfig does."""
     return '\n'.join(stanzas) + '\n'
+
+
+# Tragically can't afford to indent and then dedent() this.  This output
+# isn't entirely realistic: the real output has trailing spaces here and
+# there, which we don't tolerate in our source code.
+sample_output = """\
+eth0      Link encap:Ethernet  HWaddr 00:25:bc:e6:0b:c2
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+eth1      Link encap:Ethernet  HWaddr 00:14:73:ad:29:62
+          inet addr:192.168.12.103  Bcast:192.168.12.255  Mask:255.255.255.0
+          inet6 addr: fe81::210:9ff:fcd3:6120/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:5272 errors:1 dropped:0 overruns:0 frame:3274
+          TX packets:5940 errors:2 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:2254714 (2.2 MB)  TX bytes:4045385 (4.0 MB)
+          Interrupt:22
+
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:297493 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:297493 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:43708 (43.7 KB)  TX bytes:43708 (43.7 KB)
+
+maasbr0   Link encap:Ethernet  HWaddr 46:a1:20:8b:77:14
+          inet addr:192.168.64.1  Bcast:192.168.64.255  Mask:255.255.255.0
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+virbr0    Link encap:Ethernet  HWaddr 68:14:23:c0:6d:bf
+          inet addr:192.168.80.1  Bcast:192.168.80.255  Mask:255.255.255.0
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+    """
 
 
 class TestNetworks(TestCase):
@@ -196,6 +247,17 @@ class TestNetworks(TestCase):
         del expected['interrupt']
         self.assertEqual(parms, info.as_dict())
 
+    def split_stanzas_returns_empty_for_empty_input(self):
+        self.assertEqual([], network.split_stanzas(''))
+
+    def split_stanzas_returns_single_stanza(self):
+        stanza = make_stanza()
+        self.assertEqual([stanza], network.split_stanzas(stanza))
+
+    def split_stanzas_splits_multiple_stanzas(self):
+        stanzas = [make_stanza() for counter in range(3)]
+        self.assertEqual(stanzas, network.split_stanzas(stanzas))
+
     def test_discover_networks_returns_suitable_interfaces(self):
         params = {
             'interface': factory.make_name('eth'),
@@ -212,3 +274,9 @@ class TestNetworks(TestCase):
         info = network.parse_ifconfig(text)
         self.assertEqual(1, len(info))
         self.assertEqual(params, info[0].as_dict())
+
+    def test_discover_networks_processes_real_ifconfig_output(self):
+        info = network.parse_ifconfig(sample_output)
+        self.assertEqual(
+            ['eth1', 'maasbr0', 'virbr0'],
+            [interface.interface for interface in info])
