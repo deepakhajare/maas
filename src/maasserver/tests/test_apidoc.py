@@ -17,7 +17,7 @@ import new
 from django.conf import settings
 from maasserver.api import (
     api_exported,
-    api_operations,
+    OperationsHandler,
     )
 from maasserver.apidoc import (
     describe_handler,
@@ -135,8 +135,7 @@ class TestDescribingAPI(TestCase):
         # describe_handler() returns a description of a handler that can be
         # readily serialised into JSON, for example.
 
-        @api_operations
-        class MegadethHandler(BaseHandler):
+        class MegadethHandler(OperationsHandler):
             """The mighty 'deth."""
 
             allowed_methods = "GET", "POST", "PUT"

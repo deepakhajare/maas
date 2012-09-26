@@ -110,8 +110,8 @@ def describe_actions(handler):
 def describe_handler(handler):
     """Return a serialisable description of a handler.
 
-    :type handler: :class:`BaseHandler` instance that has been decorated by
-        `api_operations`.
+    :type handler: :class:`OperationsHandler` or
+        :class:`AnonymousOperationsHandler` instance.
     """
     uri_template = generate_doc(handler).resource_uri_template
     if uri_template is None:
