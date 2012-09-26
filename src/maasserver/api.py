@@ -83,6 +83,7 @@ from datetime import (
     timedelta,
     )
 import httplib
+from inspect import getdoc
 import json
 import sys
 from textwrap import dedent
@@ -1387,11 +1388,22 @@ def render_api_docs():
         ]
     handlers = find_api_handlers(module)
     for doc in generate_api_docs(handlers):
-        for method in doc.get_methods():
-            messages.append(
-                "%s %s\n  %s\n" % (
-                    method.http_name, doc.resource_uri_template,
-                    method.doc))
+        uri_template = doc.resource_uri_template
+        exports = doc.handler.exports.items()
+        for (http_method, operation), function in sorted(exports):
+            if operation is None:
+                messages.append("``%s %s``" % (http_method, uri_template))
+            else:
+                messages.append(
+                    "``%s %s`` ``op=%s``" % (
+                        http_method, uri_template, operation))
+            messages.append("")
+            docstring = getdoc(function)
+            if docstring is not None:
+                # Indent each line so that it is rendered thus.
+                lines = docstring.splitlines()
+                messages.extend("  %s" % line for line in lines)
+                messages.append("")
     return '\n'.join(messages)
 
 
