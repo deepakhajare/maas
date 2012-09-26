@@ -28,6 +28,7 @@ class InterfaceInfo:
         self.mask = None
 
     def may_be_subnet(self):
+        """Could this be a subnet that MAAS is interested in?"""
         return all([
             self.interface != 'lo',
             self.ip is not None,
