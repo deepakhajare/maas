@@ -53,6 +53,10 @@ def run_ifconfig():
 
 def parse_stanza(stanza):
     """Return a :class:`InterfaceInfo` representing this ifconfig stanza."""
+    lines = [line.strip() for line in stanza.splitlines()]
+    header = lines[0]
+    info = InterfaceInfo(header.split()[0])
+    return info
 
 
 def split_stanzas(output):
