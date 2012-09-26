@@ -106,6 +106,7 @@ class TagTest(TestCase):
     def test_get_nodes_returns_everything_for_superuser(self):
         user1 = factory.make_user()
         user2 = factory.make_user()
+        user2.is_superuser = True
         node1 = factory.make_node(owner=user1)
         node2 = factory.make_node()
         tag = factory.make_tag()
