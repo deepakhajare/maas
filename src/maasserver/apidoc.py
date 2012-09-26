@@ -119,7 +119,7 @@ def describe_handler(handler):
     else:
         uri_template = urljoin(settings.DEFAULT_MAAS_URL, uri_template)
 
-    resource_uri = getattr(handler, "resource_url", lambda: ())
+    resource_uri = getattr(handler, "resource_uri", lambda: ())
     view_name, uri_params, uri_kw = merge(resource_uri(), (None, (), {}))
     assert uri_kw == {}, (
         "Resource URI specifications with keyword parameters are not yet "
