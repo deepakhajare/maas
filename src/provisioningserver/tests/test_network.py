@@ -197,8 +197,12 @@ class TestNetworks(TestCase):
         self.assertEqual(parms, info.as_dict())
 
     def test_discover_networks_returns_suitable_interfaces(self):
-        eth = factory.make_name('eth')
-        regular_interface = make_stanza(interface=eth)
+        params = {
+            'interface': factory.make_name('eth'),
+            'ip': factory.getRandomIPAddress(),
+            'mask': '255.255.255.0',
+        }
+        regular_interface = make_stanza(**params)
         loopback = make_stanza(
             interface='lo', encapsulation='Local loopback', broadcast='',
             interrupt='')
@@ -207,4 +211,4 @@ class TestNetworks(TestCase):
         text = join_stanzas([regular_interface, loopback, disabled_interface])
         info = network.parse_ifconfig(text)
         self.assertEqual(1, len(info))
-        self.assertEqual(eth, info[0].interface)
+        self.assertEqual(params, info[0].as_dict())
