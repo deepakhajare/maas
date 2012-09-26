@@ -92,6 +92,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.db.utils import DatabaseError
 from django.forms.models import model_to_dict
 from django.http import (
     HttpResponse,
@@ -1277,11 +1278,14 @@ class TagHandler(BaseHandler):
         data = get_overrided_query_dict(model_dict, request.data)
         form = TagForm(data, instance=tag)
         if form.is_valid():
-            new_tag = form.save(commit=False)
-            new_tag.save()
-            if new_tag.definition != old_definition:
-                new_tag.populate_nodes()
-            form.save_m2m()
+            try:
+                new_tag = form.save(commit=False)
+                new_tag.save()
+                if new_tag.definition != old_definition:
+                    new_tag.populate_nodes()
+                form.save_m2m()
+            except DatabaseError as e:
+                raise ValidationError(e)
             return new_tag
         else:
             raise ValidationError(form.errors)
