@@ -18,9 +18,8 @@ __all__ = [
     'discover_networks',
     ]
 
-from io import BytesIO
 import os
-from subprocess import check_call
+from subprocess import check_output
 
 
 class InterfaceInfo:
@@ -55,10 +54,8 @@ class InterfaceInfo:
 def run_ifconfig():
     """Run `ifconfig` to list active interfaces.  Return output."""
     env = dict(os.environ, LC_ALL='C')
-    stdout = BytesIO()
-    check_call(['/sbin/ifconfig'], env=env, stdout=stdout)
-    stdout.seek(0)
-    return stdout.read().decode('ascii')
+    output = check_output(['/sbin/ifconfig'], env=env)
+    return output.decode('ascii')
 
 
 def extract_ip_and_subnet_mask(line):

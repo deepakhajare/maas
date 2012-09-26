@@ -22,19 +22,6 @@ from maastesting.testcase import TestCase
 from provisioningserver import network
 
 
-class FakeCheckCall:
-    """Test double for `check_call`."""
-
-    def __init__(self, output_text):
-        self.output_text = output_text
-        self.calls = []
-
-    def __call__(self, command, stdout=None, env=None):
-        stdout.write(self.output_text.encode('ascii'))
-        self.calls.append(dict(command=command, env=env))
-        return 0
-
-
 def make_address_line(**kwargs):
     """Create an inet address line."""
     # First word on this line is inet or inet6.
@@ -189,7 +176,7 @@ class TestNetworks(TestCase):
 
     def test_run_ifconfig_returns_ifconfig_output(self):
         text = join_stanzas([make_stanza()])
-        self.patch(network, 'check_call', FakeCheckCall(text))
+        self.patch(network, 'check_output').return_value = text.encode('ascii')
         self.assertEqual(text, network.run_ifconfig())
 
     def test_parse_ifconfig_produces_interface_info(self):
@@ -257,6 +244,10 @@ class TestNetworks(TestCase):
         self.assertEqual(
             [stanza.strip() for stanza in stanzas],
             network.split_stanzas(full_output))
+
+    def test_discover_networks_runs_in_real_life(self):
+        interfaces = network.discover_networks()
+        self.assertIsInstance(interfaces, list)
 
     def test_discover_networks_returns_suitable_interfaces(self):
         params = {
