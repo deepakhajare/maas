@@ -15,9 +15,10 @@ cd "$(dirname "$0")/../.."
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
 # Run celeryd.
-export PYTHONPATH=$PYTHONPATH:`pwd`/src:`pwd`/etc
-export CELERY_CONFIG_MODULE=democeleryconfig
+export PYTHONPATH="$(pwd)/src:$(pwd)/etc:${PYTHONPATH:-}"
 
 # XXX JeroenVermeulen 2012-08-23, bug=1040529: Use fghack to kludge around
 # hanging celery shutdown.
-exec fghack "$(type -p celeryd)" -l INFO --beat --queues celery
+exec fghack "$(type -p celeryd)" \
+    --loglevel INFO --beat --queues celery \
+    --config democeleryconfig
