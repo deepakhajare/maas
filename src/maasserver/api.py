@@ -78,10 +78,12 @@ __all__ = [
     ]
 
 from base64 import b64decode
+from cStringIO import StringIO
 from datetime import (
     datetime,
     timedelta,
     )
+from functools import partial
 import httplib
 from inspect import getdoc
 import json
@@ -1378,33 +1380,32 @@ def render_api_docs():
     :rtype: :class:`unicode`
     """
     module = sys.modules[__name__]
-    messages = [
-        __doc__.strip(),
-        '',
-        '',
-        'Operations',
-        '----------',
-        '',
-        ]
+    output = StringIO()
+    line = partial(print, file=output)
+
+    line(getdoc(module))
+    line()
+    line()
+    line('Operations')
+    line('----------')
+    line()
+
     handlers = find_api_handlers(module)
     for doc in generate_api_docs(handlers):
         uri_template = doc.resource_uri_template
         exports = doc.handler.exports.items()
         for (http_method, operation), function in sorted(exports):
-            if operation is None:
-                messages.append("``%s %s``" % (http_method, uri_template))
-            else:
-                messages.append(
-                    "``%s %s`` ``op=%s``" % (
-                        http_method, uri_template, operation))
-            messages.append("")
+            line("``%s %s``" % (http_method, uri_template), end="")
+            if operation is not None:
+                line(" ``op=%s``" % operation)
+            line()
             docstring = getdoc(function)
             if docstring is not None:
-                # Indent each line so that it is rendered thus.
-                lines = docstring.splitlines()
-                messages.extend("  %s" % line for line in lines)
-                messages.append("")
-    return '\n'.join(messages)
+                for docline in docstring.splitlines():
+                    line("  ", docline, sep="")
+                line()
+
+    return output.getvalue()
 
 
 def reST_to_html_fragment(a_str):
