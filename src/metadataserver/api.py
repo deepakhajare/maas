@@ -131,7 +131,7 @@ def check_version(version):
 
 
 class MetadataViewHandler(OperationsHandler):
-    allowed_methods = ('GET',)
+    create = update = delete = None
 
     def read(self, request, mac=None):
         return make_list_response(sorted(self.fields))
@@ -145,7 +145,7 @@ class IndexHandler(MetadataViewHandler):
 
 class VersionIndexHandler(MetadataViewHandler):
     """Listing for a given metadata version."""
-    allowed_methods = ('GET', 'POST')
+    create = update = delete = None
     fields = ('meta-data', 'user-data')
 
     # States in which a node is allowed to signal commissioning status.
@@ -335,7 +335,7 @@ class EnlistMetaDataHandler(OperationsHandler):
     for enlistment only.  It should mimic the read-only portion
     of /VersionIndexHandler"""
 
-    allowed_methods = ('GET',)
+    create = update = delete = None
 
     data = {
         'instance-id': 'i-maas-enlistment',
@@ -364,7 +364,7 @@ class EnlistUserDataHandler(OperationsHandler):
 
 
 class EnlistVersionIndexHandler(OperationsHandler):
-    allowed_methods = ('GET',)
+    create = update = delete = None
     fields = ('meta-data', 'user-data')
 
     def read(self, request, version):
