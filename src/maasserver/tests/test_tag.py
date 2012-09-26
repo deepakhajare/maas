@@ -15,6 +15,8 @@ __all__ = []
 from django.db import transaction
 from django.db.utils import DatabaseError
 from maastesting.djangotestcase import TransactionTestCase
+from maasserver.enum import NODE_STATUS
+from maasserver.models import Tag
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
@@ -78,6 +80,30 @@ class TagTest(TestCase):
         tag2.populate_nodes()
         self.assertItemsEqual([tag1.name], node1.tag_names())
         self.assertItemsEqual([tag2.name], node2.tag_names())
+
+    def test_get_nodes_respects_privacy(self):
+        # User1 owns node1, user2 owns node2, user3 owns nothing, and node3 is
+        # unowned. user4 is a superuser and can see everything.
+        user1 = factory.make_user()
+        user2 = factory.make_user()
+        user3 = factory.make_user()
+        user4 = factory.make_user()
+        user4.is_superuser = True
+        node1 = factory.make_node(owner=user1)
+        node2 = factory.make_node(owner=user2)
+        node3 = factory.make_node()
+        tag = factory.make_tag(definition='/node/foo')
+        node1.tags.add(tag)
+        node2.tags.add(tag)
+        node3.tags.add(tag)
+        self.assertItemsEqual([node1, node3],
+                              Tag.objects.get_nodes(tag.name, user1))
+        self.assertItemsEqual([node2, node3],
+                              Tag.objects.get_nodes(tag.name, user2))
+        self.assertItemsEqual([node3],
+                              Tag.objects.get_nodes(tag.name, user3))
+        self.assertItemsEqual([node1, node2, node3],
+                              Tag.objects.get_nodes(tag.name, user4))
 
 
 class TestTagTransactions(TransactionTestCase):
