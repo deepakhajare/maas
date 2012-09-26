@@ -54,7 +54,8 @@ def parse_stanza(stanza):
 
 
 def split_stanzas(output):
-    return output.strip().split('\n\n')
+    stanzas = [stanza.strip() for stanza in output.strip().split('\n\n')]
+    return [stanza for stanza in stanzas if len(stanza) > 0]
 
 
 def parse_ifconfig(output):
