@@ -28,15 +28,15 @@ class TestOperationDecorator(TestCase):
         decorated = decorate(lambda: value)
         self.assertEqual(value, decorated())
 
-    def test_can_pass_exported_as(self):
+    def test_can_passexported_as(self):
         # Test that passing the optional "exported_as" works as expected.
-        random_exported_name = factory.make_name("exportedas", sep='')
+        randomexported_name = factory.make_name("exportedas", sep='')
         decorate = operation(
-            idempotent=False, exported_as=random_exported_name)
+            idempotent=False, exported_as=randomexported_name)
         decorated = decorate(lambda: None)
-        self.assertEqual(random_exported_name, decorated._export[1])
+        self.assertEqual(randomexported_name, decorated.export[1])
 
-    def test_exported_as_is_optional(self):
+    def testexported_as_is_optional(self):
         # If exported_as is not passed then we expect the function to be
         # exported in the API using the actual function name itself.
 
@@ -45,7 +45,7 @@ class TestOperationDecorator(TestCase):
 
         decorate = operation(idempotent=True)
         decorated = decorate(exported_function)
-        self.assertEqual("exported_function", decorated._export[1])
+        self.assertEqual("exported_function", decorated.export[1])
 
     def test_idempotent_defines_signature(self):
         # The value of the idempotent argument determines the signature of the
@@ -53,7 +53,7 @@ class TestOperationDecorator(TestCase):
         func = lambda: None
         self.assertEqual(
             ("POST", func.__name__),
-            operation(idempotent=False)(func)._export)
+            operation(idempotent=False)(func).export)
         self.assertEqual(
             ("GET", func.__name__),
-            operation(idempotent=True)(func)._export)
+            operation(idempotent=True)(func).export)

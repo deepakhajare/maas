@@ -215,9 +215,9 @@ def operation(idempotent, exported_as=None):
     method = "GET" if idempotent else "POST"
     def _decorator(func):
         if exported_as is None:
-            func._export = method, func.__name__
+            func.export = method, func.__name__
         else:
-            func._export = method, exported_as
+            func.export = method, exported_as
         return func
     return _decorator
 
@@ -247,9 +247,9 @@ class OperationsHandlerType(HandlerMetaClass):
 
         # Create a signature:function mapping for non-CRUD operations.
         operations = {
-            attribute._export: attribute
+            attribute.export: attribute
             for attribute in vars(cls).values()
-            if getattr(attribute, "_export", None) is not None
+            if getattr(attribute, "export", None) is not None
             }
 
         # Create the exports mapping.
