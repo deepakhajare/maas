@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from datetime import timedelta
+
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
@@ -145,10 +147,13 @@ class TestNodeGroupManager(TestCase):
         first_nodegroup = NodeGroup.objects.new(
             factory.make_name('nodegroup'), factory.make_name('uuid'),
             factory.getRandomIPAddress())
-        NodeGroup.objects.new(
+        second_nodegroup = NodeGroup.objects.new(
             factory.make_name('nodegroup'), factory.make_name('uuid'),
             factory.getRandomIPAddress())
-        self.assertEqual(first_nodegroup, NodeGroup.objects.ensure_master())
+        created = first_nodegroup.created - timedelta(seconds=10)
+        NodeGroup.objects.filter(
+            id=second_nodegroup.id).update(created=created)
+        self.assertEqual(second_nodegroup, NodeGroup.objects.ensure_master())
 
     def test_ensure_master_preserves_existing_attributes(self):
         master = NodeGroup.objects.ensure_master()
