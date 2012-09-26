@@ -29,17 +29,6 @@ class TestApiExported(TestCase):
         decorate = api_exported(random_method)
         self.assertRaises(ValueError, decorate, lambda: None)
 
-    def test_defaulted_names_are_checked_for_validity(self):
-        # When not using exported_as, the validity check should apply to
-        # the method name too.
-
-        def read():
-            # 'read' is prohibited for "GET"
-            pass
-
-        decorate = api_exported("GET")
-        self.assertRaises(ValueError, decorate, read)
-
     def test_valid_decoration(self):
         value = "value" + factory.getRandomString()
         decorate = api_exported()
