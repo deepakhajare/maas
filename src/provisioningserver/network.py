@@ -100,6 +100,6 @@ def discover_networks():
     """Find the networks attached to this system."""
     output = run_ifconfig()
     return [
-        interface
+        interface.as_dict()
         for interface in parse_ifconfig(output)
             if interface.may_be_subnet()]
