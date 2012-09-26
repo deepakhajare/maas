@@ -168,7 +168,11 @@ from provisioningserver.kernel_opts import KernelParameters
 
 
 class OperationsResource(Resource):
-    """A resource supporting operation dispatch."""
+    """A resource supporting operation dispatch.
+
+    All requests are passed onto the handler's `dispatch` method. See
+    :class:`OperationsHandler`.
+    """
 
     crudmap = Resource.callmap
     callmap = dict.fromkeys(crudmap, "dispatch")
@@ -216,7 +220,16 @@ def api_exported(method='POST', exported_as=None):
 
 
 class OperationsHandlerType(HandlerMetaClass):
-    """Type for handlers that dispatch operations."""
+    """Type for handlers that dispatch operations.
+
+    Collects all the exported operations, CRUD and custom, into the class's
+    `exports` attribute. This is a signature:function mapping, where signature
+    is an (http-method, operation-name) tuple. If operation-name is None, it's
+    a CRUD method.
+
+    The `allowed_methods` attribute is calculated as the union of all HTTP
+    methods required for the exported CRUD and custom operations.
+    """
 
     def __new__(metaclass, name, bases, namespace):
         cls = super(OperationsHandlerType, metaclass).__new__(
@@ -237,23 +250,15 @@ class OperationsHandlerType(HandlerMetaClass):
             if getattr(attribute, "_api_exported", None) is not None
             }
 
-        # Create a signature:function mapping, where signature is an
-        # (http-method, operation-name) tuple. If operation-name is None, it's
-        # a CRUD method.
-        crud_exports = {
-            (http_method, None): function
-            for http_method, function in crud.items()
-            }
-        operations_exports = {
-            signature: function
-            for name, function in operations.items()
-            for signature in function._api_exported.items()
-            }
-
-        # Combine.
+        # Create the exports mapping.
         exports = {}
-        exports.update(crud_exports)
-        exports.update(operations_exports)
+        exports.update(
+            ((http_method, None), function)
+            for http_method, function in crud.items())
+        exports.update(
+            (signature, function)
+            for name, function in operations.items()
+            for signature in function._api_exported.items())
 
         # Update the class.
         cls.exports = exports
