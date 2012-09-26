@@ -278,7 +278,7 @@ class NodeManager(Manager):
                 available_nodes = available_nodes.filter(**q)
         tag_expression = constraints.get('tags')
         if tag_expression:
-            tag_names = tag_expression.replace(",", " ").split()
+            tag_names = tag_expression.replace(",", " ").strip().split()
             for tag_name in tag_names:
                 # GZ 2012-09-26: Below results in a generic "Not Found" body
                 #                rather than something useful with tag name.
