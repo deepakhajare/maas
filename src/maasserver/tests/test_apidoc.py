@@ -138,7 +138,7 @@ class TestDescribingAPI(TestCase):
         class MegadethHandler(OperationsHandler):
             """The mighty 'deth."""
 
-            allowed_methods = "GET", "POST", "PUT"
+            create = read = delete = None
 
             @api_exported("POST")
             def peace_sells_but_whos_buying(self, request, vic, rattlehead):
@@ -180,7 +180,7 @@ class TestDescribingAPI(TestCase):
         self.assertEqual(MegadethHandler.__doc__, observed["doc"])
         self.assertEqual(MegadethHandler.__name__, observed["name"])
         self.assertEqual(["vic", "rattlehead"], observed["params"])
-        self.assertSequenceEqual(expected_actions, observed["actions"])
+        self.assertItemsEqual(expected_actions, observed["actions"])
 
     def test_describe_handler_with_maas_handler(self):
         # Ensure that describe_handler() yields something sensible with a
