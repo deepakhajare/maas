@@ -1489,6 +1489,8 @@ def pxeconfig(request):
 
 class BootImagesHandler(OperationsHandler):
 
+    create = replace = update = delete = None
+
     @classmethod
     def resource_uri(cls):
         return ('boot_images_handler', [])
