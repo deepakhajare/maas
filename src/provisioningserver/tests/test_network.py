@@ -40,13 +40,13 @@ def make_address_line(**kwargs):
     # First word on this line is inet or inet6.
     kwargs.setdefault('inet', 'inet')
     kwargs.setdefault('broadcast', '10.255.255.255')
-    kwargs.setdefault('mask', '255.0.0.0')
+    kwargs.setdefault('subnet_mask', '255.0.0.0')
     items = [
         "%(inet)s addr:%(ip)s"
         ]
     if len(kwargs['broadcast']) > 0:
         items.append("Bcast:%(broadcast)s")
-    items.append("Mask:%(mask)s")
+    items.append("Mask:%(subnet_mask)s")
     return '  '.join(items) % kwargs
 
 
@@ -205,7 +205,7 @@ class TestNetworks(TestCase):
         parms = {
             'interface': factory.make_name('eth'),
             'ip': factory.getRandomIPAddress(),
-            'mask': '255.255.255.128',
+            'subnet_mask': '255.255.255.128',
         }
         info = network.parse_stanza(make_stanza(**parms))
         self.assertEqual(parms, info.as_dict())
@@ -214,7 +214,7 @@ class TestNetworks(TestCase):
         parms = {
             'interface': factory.make_name('eth'),
             'ip': factory.getRandomIPAddress(),
-            'mask': '255.255.255.128',
+            'subnet_mask': '255.255.255.128',
             'interrupt': '',
         }
         info = network.parse_stanza(make_stanza(**parms))
@@ -230,14 +230,14 @@ class TestNetworks(TestCase):
         info = network.parse_stanza(make_stanza(**parms))
         expected = parms.copy()
         expected['ip'] = None
-        expected['mask'] = None
+        expected['subnet_mask'] = None
         self.assertEqual(expected, info.as_dict())
 
     def test_parse_stanza_returns_nothing_for_loopback(self):
         parms = {
             'interface': 'lo',
             'ip': '127.1.2.3',
-            'mask': '255.0.0.0',
+            'subnet_mask': '255.0.0.0',
             'encapsulation': 'Local Loopback',
             'broadcast': '',
             'interrupt': '',
@@ -262,13 +262,13 @@ class TestNetworks(TestCase):
         params = {
             'interface': factory.make_name('eth'),
             'ip': factory.getRandomIPAddress(),
-            'mask': '255.255.255.0',
+            'subnet_mask': '255.255.255.0',
         }
         regular_interface = make_stanza(**params)
         loopback = make_stanza(
             interface='lo', encapsulation='Local loopback', broadcast='',
             interrupt='')
-        disabled_interface = make_stanza(ip='', broadcast='', mask='')
+        disabled_interface = make_stanza(ip='', broadcast='', subnet_mask='')
 
         text = join_stanzas([regular_interface, loopback, disabled_interface])
         self.patch(network, 'run_ifconfig').return_value = text
