@@ -133,6 +133,8 @@ class TestActionReSTful(TestCase):
         )
 
     def test_prepare_payload_without_data(self):
+        # prepare_payload() is almost a no-op for ReSTful methods that don't
+        # specify any extra data.
         uri_base = "http://example.com/MAAS/api/1.0/"
         uri, body, headers = api.Action.prepare_payload(
             method=self.method, is_restful=True, uri=uri_base, data=[])
