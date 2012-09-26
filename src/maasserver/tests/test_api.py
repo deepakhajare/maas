@@ -1678,17 +1678,6 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(
             node.hostname, json.loads(response.content)['hostname'])
 
-    def test_POST_acquire_constrains_by_name(self):
-        # Negative test for name constraint.
-        # If a name constraint is given, "acquire" will only consider a
-        # node with that name.
-        factory.make_node(status=NODE_STATUS.READY, owner=None)
-        response = self.client.post(self.get_uri('nodes/'), {
-            'op': 'acquire',
-            'name': factory.getRandomString(),
-        })
-        self.assertEqual(httplib.CONFLICT, response.status_code)
-
     def test_POST_acquire_treats_unknown_name_as_resource_conflict(self):
         # A name constraint naming an unknown node produces a resource
         # conflict: most likely the node existed but has changed or
@@ -1699,6 +1688,27 @@ class TestNodesAPI(APITestCase):
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',
             'name': factory.getRandomString(),
+        })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+
+    def test_POST_acquire_allocates_node_by_arch(self):
+        # Asking for a particular arch acquires a node with that arch.
+        node = factory.make_node(
+            status=NODE_STATUS.READY, architecture=ARCHITECTURE.i386)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'i386',
+        })
+        self.assertEqual(httplib.OK, response.status_code)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.architecture, response_json['architecture'])
+
+    def test_POST_acquire_treats_unknown_arch_as_resource_conflict(self):
+        # Asking for an unknown arch returns an HTTP conflict
+        factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'arch': 'sparc',
         })
         self.assertEqual(httplib.CONFLICT, response.status_code)
 
@@ -2176,14 +2186,14 @@ class TestTagAPI(APITestCase):
         tag = factory.make_tag()
         response = self.client.delete(self.get_tag_uri(tag))
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
-        self.assertEqual(1, Tag.objects.filter(id=tag.id).count())
+        self.assertItemsEqual([tag], Tag.objects.filter(id=tag.id))
 
     def test_DELETE_removes_tag(self):
         self.become_admin()
         tag = factory.make_tag()
         response = self.client.delete(self.get_tag_uri(tag))
         self.assertEqual(httplib.NO_CONTENT, response.status_code)
-        self.assertEqual(0, Tag.objects.filter(id=tag.id).count())
+        self.assertFalse(Tag.objects.filter(id=tag.id).exists())
 
     def test_DELETE_404(self):
         self.become_admin()
@@ -2194,9 +2204,9 @@ class TestTagAPI(APITestCase):
         # The api allows for fetching a single Node (using system_id).
         tag = factory.make_tag('tag-name')
         response = self.client.get(self.get_uri('tags/tag-name/'))
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertEqual(tag.name, parsed_result['name'])
         self.assertEqual(tag.definition, parsed_result['definition'])
         self.assertEqual(tag.comment, parsed_result['comment'])
@@ -2225,8 +2235,8 @@ class TestTagAPI(APITestCase):
         self.assertEqual('new-tag-name', parsed_result['name'])
         self.assertEqual('A random comment', parsed_result['comment'])
         self.assertEqual(tag.definition, parsed_result['definition'])
-        self.assertEqual(0, Tag.objects.filter(name=tag.name).count())
-        self.assertEqual(1, Tag.objects.filter(name='new-tag-name').count())
+        self.assertFalse(Tag.objects.filter(name=tag.name).exists())
+        self.assertTrue(Tag.objects.filter(name='new-tag-name').exists())
 
     def test_PUT_updates_node_associations(self):
         node1 = factory.make_node()
@@ -2307,7 +2317,7 @@ class TestTagsAPI(APITestCase):
                 'definition': factory.getRandomString(),
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
-        self.assertEqual(0, Tag.objects.filter(name=name).count())
+        self.assertFalse(Tag.objects.filter(name=name).exists())
 
     def test_POST_new_creates_tag(self):
         self.become_admin()
@@ -2322,12 +2332,12 @@ class TestTagsAPI(APITestCase):
                 'comment': comment,
                 'definition': definition,
             })
-        parsed_result = json.loads(response.content)
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertEqual(name, parsed_result['name'])
         self.assertEqual(comment, parsed_result['comment'])
         self.assertEqual(definition, parsed_result['definition'])
-        self.assertEqual(1, Tag.objects.filter(name=name).count())
+        self.assertTrue(Tag.objects.filter(name=name).exists())
 
     def test_POST_new_populates_nodes(self):
         self.become_admin()

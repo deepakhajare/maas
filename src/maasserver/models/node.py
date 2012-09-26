@@ -13,8 +13,10 @@ __metaclass__ = type
 __all__ = [
     "NODE_TRANSITIONS",
     "Node",
+    "update_hardware_details",
     ]
 
+import contextlib
 import os
 from string import whitespace
 from uuid import uuid1
@@ -25,6 +27,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
+from django.db import connection
 from django.db.models import (
     BooleanField,
     CharField,
@@ -49,7 +52,10 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES_DICT,
     )
 from maasserver.exceptions import NodeStateViolation
-from maasserver.fields import JSONObjectField, XMLField
+from maasserver.fields import (
+    JSONObjectField,
+    XMLField,
+    )
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
 from maasserver.models.tag import Tag
@@ -253,6 +259,11 @@ class NodeManager(Manager):
         if constraints.get('name'):
             available_nodes = available_nodes.filter(
                 hostname=constraints['name'])
+        if constraints.get('arch'):
+            # GZ 2012-09-11: This only supports an exact match on arch type,
+            #                using an i386 image on amd64 hardware will wait.
+            available_nodes = available_nodes.filter(
+                architecture=constraints['arch'])
 
         return get_first(available_nodes)
 
@@ -276,7 +287,9 @@ class NodeManager(Manager):
             node_power_type = node.get_effective_power_type()
             # WAKE_ON_LAN does not support poweroff.
             if node_power_type != POWER_TYPE.WAKE_ON_LAN:
-                power_off.delay(node_power_type, **power_params)
+                power_off.apply_async(
+                    queue=node.work_queue, args=[node_power_type],
+                    kwargs=power_params)
             processed_nodes.append(node)
         return processed_nodes
 
@@ -313,9 +326,51 @@ class NodeManager(Manager):
             else:
                 do_start = True
             if do_start:
-                power_on.delay(node_power_type, **power_params)
+                power_on.apply_async(
+                    queue=node.work_queue, args=[node_power_type],
+                    kwargs=power_params)
                 processed_nodes.append(node)
         return processed_nodes
+
+
+def update_hardware_details(node, xmlbytes):
+    """Set node hardware_details from lshw output and update related fields
+
+    This is designed to be called with individual nodes on commissioning and
+    is not optimised for batch updates.
+
+    There are a bunch of suboptimal things here:
+    * Is a function rather than method in hope south migration can reuse.
+    * Doing UPDATE then transaction.commit_unless_managed doesn't work?
+    * Scalar returns from xpath() work in postgres 9.2 or later only.
+    """
+    node.hardware_details = xmlbytes
+    node.save()
+    with contextlib.closing(connection.cursor()) as cursor:
+        cursor.execute("SELECT"
+            " array_length(xpath(%s, hardware_details), 1) AS count,"
+            " (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
+            " FROM maasserver_node"
+            " WHERE id = %s",
+            [
+                "//node[@id='core']/node[@class='processor']",
+                "//node[@id='memory']/size[@units='bytes']/text()",
+                node.id,
+            ])
+        cpu_count, memory = cursor.fetchone()
+        node.cpu_count = cpu_count or 0
+        node.memory = memory or 0
+        for tag in Tag.objects.all():
+            cursor.execute(
+                "SELECT xpath_exists(%s, hardware_details)"
+                " FROM maasserver_node WHERE id = %s",
+                [tag.definition,  node.id])
+            has_tag, = cursor.fetchone()
+            if has_tag:
+                node.tags.add(tag)
+            else:
+                node.tags.remove(tag)
+    node.save()
 
 
 class Node(CleanSave, TimestampedModel):
@@ -575,6 +630,11 @@ class Node(CleanSave, TimestampedModel):
         else:
             return None
 
+    @property
+    def work_queue(self):
+        """The name of the queue for tasks specific to this node."""
+        return self.nodegroup.work_queue
+
     def get_distro_series(self):
         """Return the distro series to install that node."""
         use_default_distro_series = (
@@ -638,5 +698,4 @@ class Node(CleanSave, TimestampedModel):
 
     def set_hardware_details(self, xmlbytes):
         """Set the `lshw -xml` output"""
-        self.hardware_details = xmlbytes
-        self.save()
+        update_hardware_details(self, xmlbytes)

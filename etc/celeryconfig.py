@@ -35,14 +35,27 @@ DNS_CONFIG_DIR = '/etc/bind/maas'
 DNS_RNDC_PORT = 954
 
 # DHCP leases file, as maintained by ISC dhcpd.
-DHCP_LEASES_FILE = '/var/lib/dhcp/dhcpd.leases'
+DHCP_LEASES_FILE = '/var/lib/maas/dhcpd.leases'
 
 # ISC dhcpd configuration file.
-DHCP_CONFIG_FILE = '/etc/dhcp/dhcpd.conf'
+DHCP_CONFIG_FILE = '/etc/maas/dhcpd.conf'
 
-# Broken connection information.
-# Format: transport://userid:password@hostname:port/virtual_host
+# List of interfaces that the dhcpd should service (if managed by MAAS).
+DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
+
+# Broker connection information.  This is read by the region controller
+# and sent to connecting cluster controllers.
+# The cluster controllers currently read this same configuration file,
+# but the broker URL they receive from the region controller overrides
+# this setting.
 BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+
+
+WORKER_QUEUE_DNS = 'celery'
+WORKER_QUEUE_BOOT_IMAGES = 'celery'
+# XXX rvb 2012-09-25, bug=1056250: the WORKER_QUEUE_CLUSTER should be
+# the uuid of the cluster controller.
+WORKER_QUEUE_CLUSTER = 'celery'
 
 try:
     import maas_local_celeryconfig
@@ -50,6 +63,10 @@ except ImportError:
     pass
 else:
     import_settings(maas_local_celeryconfig)
+
+
+# Each cluster should have its own queue created automatically by Celery.
+CELERY_CREATE_MISSING_QUEUES = True
 
 
 CELERY_IMPORTS = (
@@ -69,17 +86,17 @@ CELERY_IGNORE_RESULT = True
 
 
 CELERYBEAT_SCHEDULE = {
-    # XXX JeroenVermeulen 2012-08-24, bug=1039366: once we have multiple
-    # workers, make sure each worker gets one of these.
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
+        'options': {'queue': WORKER_QUEUE_CLUSTER},
     },
 
-    # XXX JeroenVermeulen 2012-09-12, bug=1039366: this task should run
+    # XXX rvb 2012-09-25, bug=1056250: this task should
     # only on the master worker.
     'report-boot-images': {
         'task': 'provisioningserver.tasks.report_boot_images',
         'schedule': timedelta(minutes=5),
+        'options': {'queue': WORKER_QUEUE_BOOT_IMAGES},
     },
 }

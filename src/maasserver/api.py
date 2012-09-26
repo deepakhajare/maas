@@ -651,11 +651,10 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    name = request_params.get('name', None)
-    if name is None:
-        return {}
-    else:
-        return {'name': name}
+    supported_constraints = ('name', 'arch')
+    return {constraint: request_params[constraint]
+        for constraint in supported_constraints
+            if constraint in request_params}
 
 
 @api_operations
@@ -1297,10 +1296,16 @@ class TagHandler(BaseHandler):
         tag.delete()
         return rc.DELETED
 
+    # XXX: JAM 2012-09-25 This is currently a POST because of bug:
+    #      http://pad.lv/1049933
+    #      Essentially, if you have one 'GET' op, then you can no longer get
+    #      the Tag object itself from a plain 'GET' without op.
     @api_exported('POST')
     def nodes(self, request, name):
         """Get the list of nodes that have this tag."""
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        # XXX: JAM 2012-09-25 We need to filter the node set returned by the
+        #      visibility defined by the user.
         return tag.node_set.all()
 
     @classmethod
@@ -1312,7 +1317,6 @@ class TagHandler(BaseHandler):
         return ('tag_handler', (tag_name, ))
 
 
-# TODO: Add AnonTagsHandler/AnonTagHandler?
 @api_operations
 class TagsHandler(BaseHandler):
     """Manage collection of Tags."""

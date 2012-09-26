@@ -20,6 +20,7 @@ from django.core.exceptions import (
     ValidationError,
     )
 from maasserver.enum import (
+    ARCHITECTURE,
     DISTRO_SERIES,
     NODE_PERMISSION,
     NODE_STATUS,
@@ -31,13 +32,17 @@ from maasserver.models import (
     Config,
     MACAddress,
     Node,
+    node as node_module,
     )
 from maasserver.models.node import NODE_TRANSITIONS
 from maasserver.models.user import create_auth_token
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maasserver.utils import map_enum
+from maasserver.utils import (
+    ignore_unused,
+    map_enum,
+    )
 from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
@@ -57,6 +62,11 @@ class NodeTest(TestCase):
         node = factory.make_node()
         self.assertEqual(len(node.system_id), 41)
         self.assertTrue(node.system_id.startswith('node-'))
+
+    def test_work_queue_returns_nodegroup_uuid(self):
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        self.assertEqual(nodegroup.uuid, node.work_queue)
 
     def test_display_status_shows_default_status(self):
         node = factory.make_node()
@@ -453,6 +463,48 @@ class NodeTest(TestCase):
         node.set_hardware_details(xmlbytes)
         self.assertEqual(xmlbytes, node.hardware_details)
 
+    def test_hardware_updates_cpu_count(self):
+        node = factory.make_node()
+        xmlbytes = (
+            '<node id="core">'
+                '<node id="cpu:0" class="processor"/>'
+                '<node id="cpu:1" class="processor"/>'
+            '</node>')
+        node.set_hardware_details(xmlbytes)
+        node = reload_object(node)
+        self.assertEqual(2, node.cpu_count)
+
+    def test_hardware_updates_memory(self):
+        node = factory.make_node()
+        xmlbytes = (
+            '<node id="memory">'
+                '<size units="bytes">4294967296</size>'
+            '</node>')
+        node.set_hardware_details(xmlbytes)
+        node = reload_object(node)
+        self.assertEqual(4096, node.memory)
+
+    def test_hardware_updates_tags_match(self):
+        tag1 = factory.make_tag(factory.getRandomString(10), "/node")
+        tag2 = factory.make_tag(factory.getRandomString(10), "//node")
+        node = factory.make_node()
+        xmlbytes = '<node/>'
+        node.set_hardware_details(xmlbytes)
+        node = reload_object(node)
+        self.assertEqual([tag1, tag2], list(node.tags.all()))
+
+    def test_hardware_updates_tags_no_match(self):
+        tag1 = factory.make_tag(factory.getRandomString(10), "/missing")
+        ignore_unused(tag1)
+        tag2 = factory.make_tag(factory.getRandomString(10), "/nothing")
+        node = factory.make_node()
+        node.tags = [tag2]
+        node.save()
+        xmlbytes = '<node/>'
+        node.set_hardware_details(xmlbytes)
+        node = reload_object(node)
+        self.assertEqual([], list(node.tags.all()))
+
 
 class NodeTransitionsTests(TestCase):
     """Test the structure of NODE_TRANSITIONS."""
@@ -635,7 +687,8 @@ class NodeManagerTest(TestCase):
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': node.system_id}))
 
-    def test_get_available_node_constrains_by_name(self):
+    def test_get_available_node_with_name(self):
+        """A single available node can be selected using its hostname"""
         user = factory.make_user()
         nodes = [self.make_node() for counter in range(3)]
         self.assertEqual(
@@ -643,12 +696,31 @@ class NodeManagerTest(TestCase):
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': nodes[1].hostname}))
 
-    def test_get_available_node_returns_None_if_name_is_unknown(self):
+    def test_get_available_node_with_unknown_name(self):
+        """None is returned if there is no node with a given name"""
         user = factory.make_user()
         self.assertEqual(
             None,
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': factory.getRandomString()}))
+
+    def test_get_available_node_with_arch(self):
+        """An available node can be selected of a given architecture"""
+        user = factory.make_user()
+        nodes = [self.make_node(architecture=s)
+            for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
+        available_node = Node.objects.get_available_node_for_acquisition(
+                user, {'arch': "i386"})
+        self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
+        self.assertEqual(nodes[1], available_node)
+
+    def test_get_available_node_with_unknown_arch(self):
+        """None is returned if an arch not used by MaaS is given"""
+        user = factory.make_user()
+        self.assertEqual(
+            None,
+            Node.objects.get_available_node_for_acquisition(
+                user, {'arch': "sparc"}))
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go
@@ -656,8 +728,7 @@ class NodeManagerTest(TestCase):
         # run shell commands.
         self.patch(PowerAction, 'run_shell', lambda *args, **kwargs: ('', ''))
         user = factory.make_user()
-        node, mac = self.make_node_with_mac(
-                user, power_type=POWER_TYPE.VIRSH)
+        node, mac = self.make_node_with_mac(user, power_type=POWER_TYPE.VIRSH)
         output = Node.objects.stop_nodes([node.system_id], user)
 
         self.assertItemsEqual([node], output)
@@ -667,6 +738,14 @@ class NodeManagerTest(TestCase):
                 len(self.celery.tasks),
                 self.celery.tasks[0]['task'].name,
             ))
+
+    def test_stop_nodes_task_routed_to_nodegroup_worker(self):
+        user = factory.make_user()
+        node, mac = self.make_node_with_mac(user, power_type=POWER_TYPE.VIRSH)
+        task = self.patch(node_module, 'power_off')
+        Node.objects.stop_nodes([node.system_id], user)
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(node.work_queue, kwargs['queue'])
 
     def test_stop_nodes_ignores_uneditable_nodes(self):
         nodes = [
@@ -693,6 +772,15 @@ class NodeManagerTest(TestCase):
                 self.celery.tasks[0]['task'].name,
                 self.celery.tasks[0]['kwargs']['mac_address'],
             ))
+
+    def test_start_nodes_task_routed_to_nodegroup_worker(self):
+        user = factory.make_user()
+        node, mac = self.make_node_with_mac(
+            user, power_type=POWER_TYPE.WAKE_ON_LAN)
+        task = self.patch(node_module, 'power_on')
+        Node.objects.start_nodes([node.system_id], user)
+        args, kwargs = task.apply_async.call_args
+        self.assertEqual(node.work_queue, kwargs['queue'])
 
     def test_start_nodes_uses_default_power_type_if_not_node_specific(self):
         # If the node has a power_type set to POWER_TYPE.DEFAULT,
