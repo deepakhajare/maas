@@ -1501,12 +1501,12 @@ def pxeconfig(request):
         # Default to i386 as a works-for-all solution. This will not support
         # non-x86 architectures, but for now this assumption holds.
         node = None
-        arch, subarch = ARCHITECTURE.i386, "generic"
+        arch, subarch = ARCHITECTURE.i386.split('/')
         preseed_url = compose_enlistment_preseed_url()
         hostname = 'maas-enlist'
     else:
         node = macaddress.node
-        arch, subarch = node.architecture, "generic"
+        arch, subarch = node.architecture.split('/')
         preseed_url = compose_preseed_url(node)
         hostname = node.hostname
 
