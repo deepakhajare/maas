@@ -86,7 +86,7 @@ class NodeGroupManager(Manager):
 
         try:
             # Get the first created nodegroup if it exists.
-            master = self.all().order_by('created')[0:1].get()
+            master = self.all().order_by('id')[0:1].get()
         except NodeGroup.DoesNotExist:
             # The master did not exist yet; create it on demand.
             master = self.new(

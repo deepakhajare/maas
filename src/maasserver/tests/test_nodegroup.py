@@ -147,13 +147,10 @@ class TestNodeGroupManager(TestCase):
         first_nodegroup = NodeGroup.objects.new(
             factory.make_name('nodegroup'), factory.make_name('uuid'),
             factory.getRandomIPAddress())
-        second_nodegroup = NodeGroup.objects.new(
+        NodeGroup.objects.new(
             factory.make_name('nodegroup'), factory.make_name('uuid'),
             factory.getRandomIPAddress())
-        created = first_nodegroup.created - timedelta(seconds=10)
-        NodeGroup.objects.filter(
-            id=second_nodegroup.id).update(created=created)
-        self.assertEqual(second_nodegroup, NodeGroup.objects.ensure_master())
+        self.assertEqual(first_nodegroup, NodeGroup.objects.ensure_master())
 
     def test_ensure_master_preserves_existing_attributes(self):
         master = NodeGroup.objects.ensure_master()
