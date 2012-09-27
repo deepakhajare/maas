@@ -289,7 +289,7 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
     def test_POST_new_creates_node_with_arch_only(self):
         architecture = factory.getRandomChoice(
-            filter(lambda choice: choice[1].endswith('/generic'),
+            filter(lambda choice: choice[0].endswith('/generic'),
                    ARCHITECTURE_CHOICES))
         response = self.client.post(
             self.get_uri('nodes/'),
