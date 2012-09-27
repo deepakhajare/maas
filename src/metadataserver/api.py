@@ -18,6 +18,8 @@ __all__ = [
     'VersionIndexHandler',
     ]
 
+import json
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
@@ -191,26 +193,16 @@ class VersionIndexHandler(MetadataViewHandler):
     def _store_power_parameters(self, node, request):
         """Store power parameters passed back in commissioning result."""
         type = request.POST.get("power_type", None)
-        address = request.POST.get("power_address", None)
-        user = request.POST.get("power_user", None)
-        password = request.POST.get("power_pass", None)
-
         if type is None:
             return
+
+        params = request.POST.get("power_parameters", None)
 
         type_dict = map_enum(POWER_TYPE)
         if type.upper() not in type_dict:
             raise MAASAPIBadRequest("Bad power_type '%s'" % type)
-        if password is None:
-            raise MAASAPIBadRequest("Missing power_pass parameter")
-        if user is None:
-            raise MAASAPIBadRequest("Missing power_user parameter")
-        if address is None:
-            raise MAASAPIBadRequest("Missing power_address parameter")
 
-        node.power_parameters = dict(
-            power_type=type, power_address=address, power_user=user,
-            power_pass=password)
+        node.power_parameters = json.loads(params)
         node.save()
 
     @api_exported('POST')

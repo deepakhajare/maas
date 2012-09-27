@@ -15,6 +15,7 @@ __all__ = []
 from collections import namedtuple
 import httplib
 from io import BytesIO
+import json
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -512,49 +513,16 @@ class TestViews(DjangoTestCase):
             (httplib.BAD_REQUEST, "Bad power_type 'foo'"),
             (response.status_code, response.content))
 
-    def test_signal_requires_power_pass(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        client = self.make_node_client(node=node)
-        response = self.call_signal(
-            client, power_type="IPMI",
-            power_address=factory.getRandomString(),
-            power_user=factory.getRandomString())
-        self.assertEqual(
-            (httplib.BAD_REQUEST, "Missing power_pass parameter"),
-            (response.status_code, response.content))
-
-    def test_signal_requires_power_user(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        client = self.make_node_client(node=node)
-        response = self.call_signal(
-            client, power_type="IPMI",
-            power_address=factory.getRandomString(),
-            power_pass=factory.getRandomString())
-        self.assertEqual(
-            (httplib.BAD_REQUEST, "Missing power_user parameter"),
-            (response.status_code, response.content))
-
-    def test_signal_requires_power_address(self):
-        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
-        client = self.make_node_client(node=node)
-        response = self.call_signal(
-            client, power_type="IPMI",
-            power_user=factory.getRandomString(),
-            power_pass=factory.getRandomString())
-        self.assertEqual(
-            (httplib.BAD_REQUEST, "Missing power_address parameter"),
-            (response.status_code, response.content))
-
     def test_signal_power_type_stores_params(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = self.make_node_client(node=node)
         params = dict(
             power_address=factory.getRandomString(),
             power_user=factory.getRandomString(),
-            power_pass=factory.getRandomString(),
-            power_type="IPMI")
-        response = self.call_signal(client, **params)
-        self.assertEqual(httplib.OK, response.status_code)
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="IPMI", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
         node = reload_object(node)
         self.assertEqual(
             params, node.power_parameters)
@@ -565,10 +533,10 @@ class TestViews(DjangoTestCase):
         params = dict(
             power_address=factory.getRandomString(),
             power_user=factory.getRandomString(),
-            power_pass=factory.getRandomString(),
-            power_type="ipmi")
-        response = self.call_signal(client, **params)
-        self.assertEqual(httplib.OK, response.status_code)
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
         node = reload_object(node)
         self.assertEqual(
             params, node.power_parameters)
