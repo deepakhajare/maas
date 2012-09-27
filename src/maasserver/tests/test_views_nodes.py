@@ -506,7 +506,9 @@ class TestGetLongpollContext(TestCase):
         self.patch(nodes_views, 'messaging', messages.get_messaging())
         self.assertEqual({}, get_longpoll_context())
 
-    @skip("Causes test failures in unrelated parts of the test suite.")
+    @skip(
+        "XXX: GavinPanella 2012-09-27 bug=1057250: Causes test "
+        "failures in unrelated parts of the test suite.")
     @uses_rabbit_fixture
     def test_get_longpoll_context(self):
         longpoll = factory.getRandomString()
