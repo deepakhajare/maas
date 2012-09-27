@@ -12,8 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from datetime import timedelta
-
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
