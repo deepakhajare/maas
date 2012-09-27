@@ -55,7 +55,6 @@ from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
-    DISTRO_SERIES,
     DISTRO_SERIES_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
@@ -120,12 +119,6 @@ class NodeForm(ModelForm):
         label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
-
-    distro_series = forms.ChoiceField(
-        choices=DISTRO_SERIES_CHOICES, required=False,
-        initial=DISTRO_SERIES.default,
-        label="Release",
-        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
 
     architecture = forms.ChoiceField(
         choices=ARCHITECTURE_CHOICES, required=True,
@@ -576,6 +569,10 @@ class CommissioningForm(ConfigForm):
     after_commissioning = forms.ChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         label="After commissioning")
+    commissioning_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for commissioning",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
 
 
 class UbuntuForm(ConfigForm):
@@ -583,6 +580,10 @@ class UbuntuForm(ConfigForm):
     fallback_master_archive = forms.BooleanField(
         label="Fallback to Ubuntu master archive",
         required=False)
+    default_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for deployment",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
     keep_mirror_list_uptodate = forms.BooleanField(
         label="Keep mirror list up to date",
         required=False)
