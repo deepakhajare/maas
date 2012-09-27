@@ -545,8 +545,33 @@ class TestViews(DjangoTestCase):
             (httplib.BAD_REQUEST, "Missing power_address parameter"),
             (response.status_code, response.content))
 
-    def test_signal_power_type_lower_case(self):
-        pass
+    def test_signal_power_type_stores_params(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString(),
+            power_type="IPMI")
+        response = self.call_signal(client, **params)
+        self.assertEqual(httplib.OK, response.status_code)
+        node = reload_object(node)
+        self.assertEqual(
+            params, node.power_parameters)
+
+    def test_signal_power_type_lower_case_works(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString(),
+            power_type="ipmi")
+        response = self.call_signal(client, **params)
+        self.assertEqual(httplib.OK, response.status_code)
+        node = reload_object(node)
+        self.assertEqual(
+            params, node.power_parameters)
 
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()

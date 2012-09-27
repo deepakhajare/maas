@@ -199,7 +199,7 @@ class VersionIndexHandler(MetadataViewHandler):
             return
 
         type_dict = map_enum(POWER_TYPE)
-        if type not in type_dict:
+        if type.upper() not in type_dict:
             raise MAASAPIBadRequest("Bad power_type '%s'" % type)
         if password is None:
             raise MAASAPIBadRequest("Missing power_pass parameter")
@@ -208,6 +208,10 @@ class VersionIndexHandler(MetadataViewHandler):
         if address is None:
             raise MAASAPIBadRequest("Missing power_address parameter")
 
+        node.power_parameters = dict(
+            power_type=type, power_address=address, power_user=user,
+            power_pass=password)
+        node.save()
 
     @api_exported('POST')
     def signal(self, request, version=None, mac=None):
