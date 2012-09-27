@@ -68,7 +68,7 @@ class Tag(CleanSave, TimestampedModel):
     :ivar objects: The :class:`TagManager`.
     """
 
-    _tag_name_regex = '^[\w_-]+$'
+    _tag_name_regex = '^[\w-]+$'
 
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
