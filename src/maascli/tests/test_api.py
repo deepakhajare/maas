@@ -133,8 +133,11 @@ class TestAction(TestCase):
     """Tests for :class:`maascli.api.Action`."""
 
     def test_name_value_pair_returns_2_tuple(self):
-        # The tuple is important because this is used as input to urlencode,
-        # which refuses to let ducks quack.
+        # The tuple is important because this is used as input to
+        # urllib.urlencode, which doesn't let the data it consumes walk and
+        # quack like a duck. It insists that the first item in a non-dict
+        # sequence is a tuple. Of any size. It does this in the name of
+        # avoiding *string* input.
         result = api.Action.name_value_pair("foo=bar")
         self.assertThat(
             result, MatchesAll(
