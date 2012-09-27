@@ -710,7 +710,7 @@ class NodeManagerTest(TestCase):
         nodes = [self.make_node(architecture=s)
             for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
         available_node = Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "i386"})
+                user, {'arch': "i386/generic"})
         self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
         self.assertEqual(nodes[1], available_node)
 
@@ -720,7 +720,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             None,
             Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "sparc"}))
+                user, {'arch': "sparc/generic"}))
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go

@@ -1697,7 +1697,7 @@ class TestNodesAPI(APITestCase):
             status=NODE_STATUS.READY, architecture=ARCHITECTURE.i386)
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',
-            'arch': 'i386',
+            'arch': 'i386/generic',
         })
         self.assertEqual(httplib.OK, response.status_code)
         response_json = json.loads(response.content)
@@ -2594,9 +2594,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
     def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
         # As a lowest-common-denominator, i386 is chosen when the node is not
         # yet known to MAAS.
+        expected_arch = ARCHITECTURE.i386.split('/')
         params_out = self.get_pxeconfig()
-        self.assertEqual(ARCHITECTURE.i386, params_out["arch"])
-        self.assertEqual("generic", params_out["subarch"])
+        self.assertEqual(expected_arch[0], params_out["arch"])
+        self.assertEqual(expected_arch[1], params_out["subarch"])
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
