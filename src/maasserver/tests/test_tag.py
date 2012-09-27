@@ -44,7 +44,8 @@ class TagTest(TestCase):
 
     def test_validate_traps_invalid_tag_name(self):
         for invalid in ['invalid:name', 'no spaces', 'no\ttabs',
-                        'no&ampersand', 'no!shouting', '']:
+                        'no&ampersand', 'no!shouting', '',
+                        'too-long'*33]:
             self.assertRaises(ValidationError, factory.make_tag, name=invalid)
 
     def test_populate_nodes_applies_tags_to_nodes(self):
