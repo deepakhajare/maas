@@ -110,17 +110,12 @@ def start_celery(connection_details):
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
 
-    queues = [
-        'common',
-        'update_dhcp_queue',
-        CLUSTER_UUID,
-        ]
     command = [
         'celeryd',
         '--logfile=/var/log/maas/celery.log',
         '--loglevel=INFO',
         '--beat',
-        '-Q', ','.join(queues),
+        '-Q', CLUSTER_UUID,
         ]
     Popen(command, env=env)
 
