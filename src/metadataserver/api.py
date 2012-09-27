@@ -202,7 +202,10 @@ class VersionIndexHandler(MetadataViewHandler):
         if type.upper() not in type_dict:
             raise MAASAPIBadRequest("Bad power_type '%s'" % type)
 
-        node.power_parameters = json.loads(params)
+        try:
+            node.power_parameters = json.loads(params)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse json power_parameters")
         node.save()
 
     @api_exported('POST')

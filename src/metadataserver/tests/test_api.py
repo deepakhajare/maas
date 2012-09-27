@@ -541,6 +541,15 @@ class TestViews(DjangoTestCase):
         self.assertEqual(
             params, node.power_parameters)
 
+    def test_signal_invalid_power_parameters(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters="badjson")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Failed to parse json power_parameters"),
+            (response.status_code, response.content))
+
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
         url = reverse(
