@@ -56,6 +56,7 @@ from maasserver.enum import (
     ARCHITECTURE,
     ARCHITECTURE_CHOICES,
     DISTRO_SERIES_CHOICES,
+DISTRO_SERIES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODEGROUPINTERFACE_MANAGEMENT,
@@ -119,6 +120,12 @@ class NodeForm(ModelForm):
         label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
         empty_value=NODE_AFTER_COMMISSIONING_ACTION.DEFAULT)
+
+    distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        initial=DISTRO_SERIES.default,
+        label="Release",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
 
     architecture = forms.ChoiceField(
         choices=ARCHITECTURE_CHOICES, required=True,
