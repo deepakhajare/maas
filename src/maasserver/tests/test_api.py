@@ -267,7 +267,6 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         ]
 
     def test_POST_new_creates_node(self):
-        # The API allows a Node to be created.
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
         response = self.client.post(
             self.get_uri('nodes/'),
@@ -287,6 +286,70 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_creates_node_with_arch_only(self):
+        architecture = factory.getRandomChoice(
+            filter(lambda choice: choice[1].endswith('/generic'),
+                   ARCHITECTURE_CHOICES))
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'architecture': architecture.split('/')[0],
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual('diane', parsed_result['hostname'])
+        self.assertNotEqual(0, len(parsed_result.get('system_id')))
+        [diane] = Node.objects.filter(hostname='diane')
+        self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_creates_node_with_subarchitecture(self):
+        # The API allows a Node to be created.
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'architecture': architecture.split('/')[0],
+                'subarchitecture': architecture.split('/')[1],
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertEqual('diane', parsed_result['hostname'])
+        self.assertNotEqual(0, len(parsed_result.get('system_id')))
+        [diane] = Node.objects.filter(hostname='diane')
+        self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_fails_node_with_double_subarchitecture(self):
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': 'diane',
+                'architecture': architecture,
+                'subarchitecture': architecture.split('/')[1],
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+            })
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn('text/plain; charset=utf-8', response['Content-Type'])
+        self.assertEqual("Subarchitecture cannot be specified twice",
+            response.content)
 
     def test_POST_new_power_type_defaults_to_asking_config(self):
         architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
