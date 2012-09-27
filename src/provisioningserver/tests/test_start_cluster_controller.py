@@ -49,15 +49,13 @@ def make_url(name_hint='host'):
         )
 
 
-FakeArgs = namedtuple('FakeArgs', ['server_url', 'uuid'])
+FakeArgs = namedtuple('FakeArgs', ['server_url'])
 
 
-def make_args(server_url=None, uuid=None):
+def make_args(server_url=None):
     if server_url is None:
         server_url = make_url('region')
-    if uuid is None:
-        uuid = factory.getRandomUUID()
-    return FakeArgs(server_url, uuid)
+    return FakeArgs(server_url)
 
 
 class FakeURLOpenResponse:
@@ -130,10 +128,7 @@ class TestStartClusterController(PservTestCase):
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
-        start_cluster_controller.run(parser.parse_args((
-            make_url(),
-            '--uuid', factory.getRandomUUID(),
-            )))
+        start_cluster_controller.run(parser.parse_args((make_url(),)))
         self.assertNotEqual(0, start_cluster_controller.Popen.call_count)
 
     def test_uses_given_url(self):
@@ -186,7 +181,8 @@ class TestStartClusterController(PservTestCase):
         headers, body = kwargs["headers"], kwargs["data"]
         post, files = self.parse_headers_and_body(headers, body)
         self.assertEqual([interface], json.loads(post['interfaces']))
-        self.assertEqual(uuid, post['uuid'])
+        # XXX JeroenVermeulen 2012-09-27, bug=1055523: Reinstate this.
+        #self.assertEqual(uuid, post['uuid'])
 
     def test_starts_up_once_accepted(self):
         self.patch(start_cluster_controller, 'start_up')
