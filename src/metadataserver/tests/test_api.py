@@ -512,6 +512,42 @@ class TestViews(DjangoTestCase):
             (httplib.BAD_REQUEST, "Bad power_type 'foo'"),
             (response.status_code, response.content))
 
+    def test_signal_requires_power_pass(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="IPMI",
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString())
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Missing power_pass parameter"),
+            (response.status_code, response.content))
+
+    def test_signal_requires_power_user(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="IPMI",
+            power_address=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Missing power_user parameter"),
+            (response.status_code, response.content))
+
+    def test_signal_requires_power_address(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="IPMI",
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Missing power_address parameter"),
+            (response.status_code, response.content))
+
+    def test_signal_power_type_lower_case(self):
+        pass
+
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
         url = reverse(

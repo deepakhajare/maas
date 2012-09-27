@@ -200,8 +200,13 @@ class VersionIndexHandler(MetadataViewHandler):
 
         type_dict = map_enum(POWER_TYPE)
         if type not in type_dict:
-            raise MAASAPIBadRequest(
-                "Bad power_type '%s'" % type)
+            raise MAASAPIBadRequest("Bad power_type '%s'" % type)
+        if password is None:
+            raise MAASAPIBadRequest("Missing power_pass parameter")
+        if user is None:
+            raise MAASAPIBadRequest("Missing power_user parameter")
+        if address is None:
+            raise MAASAPIBadRequest("Missing power_address parameter")
 
 
     @api_exported('POST')
