@@ -1280,8 +1280,6 @@ class TagHandler(BaseHandler):
             try:
                 new_tag = form.save(commit=False)
                 new_tag.save()
-                if new_tag.definition != old_definition:
-                    new_tag.populate_nodes()
                 form.save_m2m()
             except DatabaseError as e:
                 raise ValidationError(e)
@@ -1351,11 +1349,7 @@ def create_tag(request):
         raise PermissionDenied()
     form = TagForm(request.data)
     if form.is_valid():
-        new_tag = form.save(commit=False)
-        new_tag.save()
-        new_tag.populate_nodes()
-        form.save_m2m()
-        return new_tag
+        return form.save()
     else:
         raise ValidationError(form.errors)
 
