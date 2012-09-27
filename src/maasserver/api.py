@@ -984,7 +984,7 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
         if existing_nodegroup is None:
             master = NodeGroup.objects.ensure_master()
             # Does master.uuid look like it's a proper uuid?
-            if len(master.uuid) != 36:
+            if master.uuid in ('master', ''):
                 # Master nodegroup not yet configured, configure it.
                 form = NodeGroupWithInterfacesForm(
                     data=request.data, instance=master)
