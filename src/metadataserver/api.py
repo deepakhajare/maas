@@ -47,6 +47,7 @@ from maasserver.preseed import (
     get_enlist_userdata,
     get_preseed,
     )
+from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from metadataserver.models import (
     NodeCommissionResult,
@@ -55,6 +56,7 @@ from metadataserver.models import (
     )
 from piston.handler import BaseHandler
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 
 
 class UnknownMetadataVersion(MAASAPINotFound):
@@ -186,6 +188,22 @@ class VersionIndexHandler(MetadataViewHandler):
             contents = raw_content.decode('utf-8')
             NodeCommissionResult.objects.store_data(node, name, contents)
 
+    def _store_power_parameters(self, node, request):
+        """Store power parameters passed back in commissioning result."""
+        type = request.POST.get("power_type", None)
+        address = request.POST.get("power_address", None)
+        user = request.POST.get("power_user", None)
+        password = request.POST.get("power_pass", None)
+
+        if type is None:
+            return
+
+        type_dict = map_enum(POWER_TYPE)
+        if type not in type_dict:
+            raise MAASAPIBadRequest(
+                "Bad power_type '%s'" % type)
+
+
     @api_exported('POST')
     def signal(self, request, version=None, mac=None):
         """Signal commissioning status.
@@ -222,6 +240,7 @@ class VersionIndexHandler(MetadataViewHandler):
             return rc.ALL_OK
 
         self._store_commissioning_results(node, request)
+        self._store_power_parameters(node, request)
 
         target_status = self.signaling_statuses.get(status)
         if target_status in (None, node.status):

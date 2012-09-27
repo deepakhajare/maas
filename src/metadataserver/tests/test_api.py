@@ -504,6 +504,14 @@ class TestViews(DjangoTestCase):
         self.assertEqual(xmlbytes, node.hardware_details)
         self.assertEqual(0, node.memory)
 
+    def test_signal_refuses_bad_power_type(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, power_type="foo")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Bad power_type 'foo'"),
+            (response.status_code, response.content))
+
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
         url = reverse(
