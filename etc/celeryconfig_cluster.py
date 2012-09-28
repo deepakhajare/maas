@@ -20,7 +20,7 @@ from datetime import timedelta
 import celeryconfig_common
 from maas import import_settings
 
-# Silent lint, this will be defined by maas_local_celeryconfig.
+# Silence lint, this will be defined by maas_local_celeryconfig.
 CLUSTER_UUID = None
 
 import_settings(celeryconfig_common)

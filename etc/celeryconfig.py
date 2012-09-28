@@ -20,7 +20,7 @@ from datetime import timedelta
 import celeryconfig_common
 from maas import import_settings
 
-# Silent lint, this will be defined by celeryconfig_common.
+# Silence lint, this will be defined by celeryconfig_common.
 WORKER_QUEUE_BOOT_IMAGES = None
 
 import_settings(celeryconfig_common)

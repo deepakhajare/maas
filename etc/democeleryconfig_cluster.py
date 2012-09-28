@@ -18,7 +18,7 @@ import celeryconfig_cluster
 import democeleryconfig_common
 from maas import import_settings
 
-# Silent lint, this will be defined by democeleryconfig_common.
+# Silence lint, this will be defined by democeleryconfig_common.
 DEV_ROOT_DIRECTORY = None
 
 # Extend base settings.
