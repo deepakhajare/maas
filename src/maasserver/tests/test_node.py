@@ -38,10 +38,7 @@ from maasserver.models import (
     Node,
     node as node_module,
     )
-from maasserver.models.node import (
-    AcquisitionConstrainer,
-    NODE_TRANSITIONS,
-    )
+from maasserver.models.node import NODE_TRANSITIONS
 from maasserver.models.user import create_auth_token
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
@@ -703,16 +700,8 @@ class NodeManagerTest(TestCase):
             Node.objects.get_available_node_for_acquisition(
                 user, {'name': nodes[1].hostname}))
 
-    def test_get_available_node_with_unknown_name(self):
-        """None is returned if there is no node with a given name"""
-        user = factory.make_user()
-        self.assertEqual(
-            None,
-            Node.objects.get_available_node_for_acquisition(
-                user, {'name': factory.getRandomString()}))
-
     def test_get_available_node_with_arch(self):
-        """An available node can be selected of a given architecture"""
+        """An available node can be selected off a given architecture"""
         user = factory.make_user()
         nodes = [self.make_node(architecture=s)
             for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
@@ -721,95 +710,14 @@ class NodeManagerTest(TestCase):
         self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
         self.assertEqual(nodes[1], available_node)
 
-    def test_get_available_node_with_unknown_arch(self):
-        """None is returned if an arch not used by MaaS is given"""
-        user = factory.make_user()
-        self.assertEqual(
-            None,
-            Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "sparc"}))
-
-    def test_get_available_node_with_cpu_enough(self):
-        user = factory.make_user()
-        node = self.make_node(cpu_count=2)
+    def test_get_available_node_with_tag(self):
+        """An available node can be selected off a given tag"""
+        nodes = [self.make_node() for i in range(2)]
+        tag = factory.make_tag('strong')
+        nodes[1].tags.add(tag)
         available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'cpu_count': "2"})
-        self.assertEqual(node, available_node)
-
-    def test_get_available_node_with_cpu_not_enough(self):
-        user = factory.make_user()
-        node = self.make_node(cpu_count=1)
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'cpu_count': "2"})
-        self.assertEqual(None, available_node)
-
-    def test_get_available_node_with_cpu_invalid(self):
-        user = factory.make_user()
-        err = self.assertRaises(InvalidConstraint,
-            Node.objects.get_available_node_for_acquisition,
-            user, {'cpu_count': "lots"})
-        self.assertEqual(("cpu_count", "lots"), err.args)
-
-    def test_get_available_node_with_mem_enough(self):
-        user = factory.make_user()
-        node = self.make_node(memory=4096)
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'memory': "2048"})
-        self.assertEqual(node, available_node)
-
-    def test_get_available_node_with_mem_not_enough(self):
-        user = factory.make_user()
-        node = self.make_node(memory=4096)
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'memory': "4097"})
-        self.assertEqual(None, available_node)
-
-    def test_get_available_node_with_mem_invalid(self):
-        user = factory.make_user()
-        err = self.assertRaises(InvalidConstraint,
-            Node.objects.get_available_node_for_acquisition,
-            user, {'memory': "forgetful"})
-        self.assertEqual(("memory", "forgetful"), err.args)
-
-    def test_get_available_node_with_single_matching_tag(self):
-        user = factory.make_user()
-        node = self.make_node()
-        node.tags = [factory.make_tag("happy")]
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'tags': "happy"})
-        self.assertEqual(node, available_node)
-
-    def test_get_available_node_with_multiple_matching_tags(self):
-        user = factory.make_user()
-        node = self.make_node()
-        node.tags = [factory.make_tag("happy"), factory.make_tag("friendly")]
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'tags': "happy, friendly"})
-        self.assertEqual(node, available_node)
-
-    def test_get_available_node_with_single_mismatching_tag(self):
-        user = factory.make_user()
-        node = self.make_node()
-        node.tags = [factory.make_tag("happy")]
-        factory.make_tag("unhappy")
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'tags': "unhappy"})
-        self.assertEqual(None, available_node)
-
-    def test_get_available_node_with_partially_mismatching_tags(self):
-        user = factory.make_user()
-        node = self.make_node()
-        node.tags = [factory.make_tag("happy"), factory.make_tag("friendly")]
-        factory.make_tag("unfriendly")
-        available_node = Node.objects.get_available_node_for_acquisition(
-            user, {'tags': "happy, unfriendly"})
-        self.assertEqual(None, available_node)
-
-    def test_get_available_node_with_single_missing_tag(self):
-        user = factory.make_user()
-        self.assertRaises(Http404,
-            Node.objects.get_available_node_for_acquisition,
-            user, {'tags': "lonely"})
+                user, {'tags': "strong"})
+        self.assertEqual(nodes[1], available_node)
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go
@@ -986,84 +894,3 @@ class NodeManagerTest(TestCase):
         node = factory.make_node(netboot=True)
         node.set_netboot(False)
         self.assertFalse(node.netboot)
-
-
-class TestAcquisitionConstrainer(TestCase):
-
-    def assertConstrainedNodes(self, expected_nodes, constraints):
-        nodes = Node.objects.all()
-        constrainer = AcquisitionConstrainer(nodes, constraints)
-        nodes = constrainer.apply()
-        self.assertItemsEqual(expected_nodes, nodes)
-
-    def test_no_constraints(self):
-        node1 = factory.make_node()
-        node2 = factory.make_node()
-        self.assertConstrainedNodes([node1, node2], None)
-        self.assertConstrainedNodes([node1, node2], {})
-
-    def test_name(self):
-        node1 = factory.make_node(set_hostname=True)
-        node2 = factory.make_node(set_hostname=True)
-        self.assertConstrainedNodes([node1], {'name': node1.hostname})
-        self.assertConstrainedNodes([node2], {'name': node2.hostname})
-
-    def test_architecture(self):
-        node1 = factory.make_node(architecture=ARCHITECTURE.i386)
-        node2 = factory.make_node(architecture=ARCHITECTURE.armhf)
-        self.assertConstrainedNodes([node1], {'architecture': 'i386'})
-        self.assertConstrainedNodes([node2], {'architecture': 'armhf'})
-
-    def test_cpu_count(self):
-        node1 = factory.make_node(cpu_count=1)
-        node2 = factory.make_node(cpu_count=2)
-        self.assertConstrainedNodes([node1, node2], {'cpu_count': '0'})
-        self.assertConstrainedNodes([node1, node2], {'cpu_count': '1'})
-        self.assertConstrainedNodes([node2], {'cpu_count': '2'})
-        self.assertConstrainedNodes([], {'cpu_count': '4'})
-        self.assertRaises(InvalidConstraint,
-            self.assertConstrainedNodes, [], {'cpu_count': 'notint'})
-
-    def test_memory(self):
-        node1 = factory.make_node(memory=1024)
-        node2 = factory.make_node(memory=4096)
-        self.assertConstrainedNodes([node1, node2], {'memory': '512'})
-        self.assertConstrainedNodes([node1, node2], {'memory': '1024'})
-        self.assertConstrainedNodes([node2], {'memory': '2048'})
-        self.assertConstrainedNodes([node2], {'memory': '4096'})
-        self.assertConstrainedNodes([], {'memory': '8192'})
-        self.assertRaises(InvalidConstraint,
-            self.assertConstrainedNodes, [], {'memory': 'notint'})
-
-    def test_tags(self):
-        tag_big = factory.make_tag(name='big')
-        tag_burly = factory.make_tag(name='burly')
-        node_big = factory.make_node()
-        node_big.tags.add(tag_big)
-        node_burly = factory.make_node()
-        node_burly.tags.add(tag_burly)
-        node_bignburly = factory.make_node()
-        node_bignburly.tags.add(tag_big)
-        node_bignburly.tags.add(tag_burly)
-        self.assertConstrainedNodes([node_big, node_bignburly],
-                                    {'tags': 'big'})
-        self.assertConstrainedNodes([node_burly, node_bignburly],
-                                    {'tags': 'burly'})
-        self.assertConstrainedNodes([node_bignburly],
-                                    {'tags': 'big,burly'})
-        self.assertConstrainedNodes([node_bignburly],
-                                    {'tags': 'big burly'})
-        self.assertRaises(InvalidConstraint,
-            self.assertConstrainedNodes, [], {'tags': 'big unknown'})
-
-    def test_combined_constraints(self):
-        tag_big = factory.make_tag(name='big')
-        node_big = factory.make_node(architecture=ARCHITECTURE.i386)
-        node_big.tags.add(tag_big)
-        node_small = factory.make_node(architecture=ARCHITECTURE.i386)
-        node_big_arm = factory.make_node(architecture=ARCHITECTURE.armhf)
-        node_big_arm.tags.add(tag_big)
-        self.assertConstrainedNodes([node_big, node_big_arm],
-                                    {'tags': 'big'})
-        self.assertConstrainedNodes([node_big],
-                                    {'architecture': 'i386', 'tags': 'big'})

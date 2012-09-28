@@ -51,10 +51,7 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
     )
-from maasserver.exceptions import (
-    InvalidConstraint,
-    NodeStateViolation,
-    )
+from maasserver.exceptions import NodeStateViolation
 from maasserver.fields import (
     JSONObjectField,
     XMLField,
@@ -64,7 +61,7 @@ from maasserver.models.config import Config
 from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.utils import get_db_state
-from maasserver.utils.orm import get_first, get_one
+from maasserver.utils.orm import get_first
 from piston.models import Token
 from provisioningserver.enum import (
     POWER_TYPE,
@@ -253,11 +250,10 @@ class NodeManager(Manager):
         :type constraints: :class:`dict`
         :return: A matching `Node`, or None if none are available.
         """
+        from maasserver.models.node_constraint_filter import constrain_nodes
         available_nodes = self.get_nodes(for_user, NODE_PERMISSION.VIEW)
         available_nodes = available_nodes.filter(status=NODE_STATUS.READY)
-        constrainer = AcquisitionConstrainer(available_nodes, constraints)
-        available_nodes = constrainer.apply()
-
+        available_nodes = constrain_nodes(available_nodes, constraints)
         return get_first(available_nodes)
 
     def stop_nodes(self, ids, by_user):
@@ -364,61 +360,6 @@ def update_hardware_details(node, xmlbytes):
             else:
                 node.tags.remove(tag)
     node.save()
-
-
-class AcquisitionConstrainer:
-    """Add filters to a query for nodes, based on a constraints dict.
-    """
-
-    _known_constraints = ['name', 'architecture', 'cpu_count', 'memory',
-                          'tags']
-
-    def __init__(self, nodes, constraints):
-        self.nodes = nodes
-        self.constraints = constraints
-
-    def apply(self):
-        if not self.constraints:
-            return self.nodes
-
-        for constraint_name in self._known_constraints:
-            value = self.constraints.get(constraint_name)
-            if value:
-                attr_name = '_' + constraint_name
-                getattr(self, attr_name)(value)
-        return self.nodes
-
-    def _architecture(self, arch):
-        # GZ 2012-09-11: This only supports an exact match on arch type,
-        #                using an i386 image on amd64 hardware will wait.
-        self.nodes = self.nodes.filter(architecture=arch)
-
-    def _name(self, name):
-        self.nodes = self.nodes.filter(hostname=name)
-
-    def _int_gte_constraint(self, key, str_value):
-        try:
-            int_value = int(str_value)
-        except ValueError as e:
-            raise InvalidConstraint(key, str_value, e)
-        q = {key + "__gte": int_value}
-        self.nodes = self.nodes.filter(**q)
-
-    def _cpu_count(self, cpu_count):
-        self._int_gte_constraint('cpu_count', cpu_count)
-
-    def _memory(self, mem):
-        self._int_gte_constraint('memory', mem)
-
-    def _tags(self, tag_expression):
-        # We use ',' separated or space ' ' separated values.
-        tag_names = tag_expression.replace(",", " ").strip().split()
-        for tag_name in tag_names:
-            tag = get_one(Tag.objects.filter(name=tag_name))
-            if tag is None:
-                raise InvalidConstraint('tags', tag_name, 'No such tag')
-            self.nodes = self.nodes.filter(tags=tag)
-
 
 
 class Node(CleanSave, TimestampedModel):
