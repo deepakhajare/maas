@@ -278,9 +278,9 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
                     NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual('diane', parsed_result['hostname'])
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
@@ -301,9 +301,9 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
                     NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual('diane', parsed_result['hostname'])
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
@@ -324,9 +324,9 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
                     NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
-        parsed_result = json.loads(response.content)
 
         self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual('diane', parsed_result['hostname'])
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
