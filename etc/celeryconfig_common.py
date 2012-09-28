@@ -39,19 +39,12 @@ DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
 # this setting.
 BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 
-# Cluster UUID.  Will be overridden by the customized setting in the
-# local MAAS Celery config.
-CLUSTER_UUID = None
-
 # Location for log file.
 MAAS_CELERY_LOG = '/var/log/maas/celery.log'
 
 
 WORKER_QUEUE_DNS = 'celery'
 WORKER_QUEUE_BOOT_IMAGES = 'celery'
-# The CLUSTER_UUID will be defined in the local configuration file of
-# the cluster controller (maas_local_celeryconfig.py).
-CLUSTER_UUID = None
 
 # Each cluster should have its own queue created automatically by Celery.
 CELERY_CREATE_MISSING_QUEUES = True

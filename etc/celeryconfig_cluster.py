@@ -20,7 +20,8 @@ from datetime import timedelta
 import celeryconfig_common
 from maas import import_settings
 
-# Silence lint, this will be defined by maas_local_celeryconfig.
+# Cluster UUID.  Will be overridden by the customized setting in the
+# local MAAS Celery config.
 CLUSTER_UUID = None
 
 import_settings(celeryconfig_common)
