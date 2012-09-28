@@ -200,7 +200,7 @@ class TestModuleHelpers(TestCase):
     def test_extract_constraints_extracts_name(self):
         name = factory.getRandomString()
         self.assertEqual(
-            {'name': name},
+            {'hostname': name},
             extract_constraints(QueryDict('name=%s' % name)))
 
     def test_get_overrided_query_dict_returns_QueryDict(self):
