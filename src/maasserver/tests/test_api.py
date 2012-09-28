@@ -1790,7 +1790,7 @@ class TestNodesAPI(APITestCase):
             'op': 'acquire',
             'tags': 'fast, hairy',
         })
-        self.assertResponseCode(httplib.NOT_FOUND, response)
+        self.assertResponseCode(httplib.BAD_REQUEST, response)
 
     def test_POST_acquire_sets_a_token(self):
         # "acquire" should set the Token being used in the request on

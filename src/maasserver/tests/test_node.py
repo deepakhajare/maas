@@ -714,6 +714,7 @@ class NodeManagerTest(TestCase):
         """An available node can be selected off a given tag"""
         nodes = [self.make_node() for i in range(2)]
         tag = factory.make_tag('strong')
+        user = factory.make_user()
         nodes[1].tags.add(tag)
         available_node = Node.objects.get_available_node_for_acquisition(
                 user, {'tags': "strong"})

@@ -664,7 +664,7 @@ def extract_constraints(request_params):
     """
     constraints = {}
     for request_name in _constraints_map:
-        if request_name in request:
+        if request_name in request_params:
             db_name = _constraints_map[request_name]
             constraints[db_name] = request_params[request_name]
     return constraints
