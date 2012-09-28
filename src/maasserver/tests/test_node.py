@@ -19,7 +19,6 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.http import Http404
 from maasserver.enum import (
     ARCHITECTURE,
     DISTRO_SERIES,
@@ -28,10 +27,7 @@ from maasserver.enum import (
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
     )
-from maasserver.exceptions import (
-    InvalidConstraint,
-    NodeStateViolation,
-    )
+from maasserver.exceptions import NodeStateViolation
 from maasserver.models import (
     Config,
     MACAddress,
@@ -706,7 +702,7 @@ class NodeManagerTest(TestCase):
         nodes = [self.make_node(architecture=s)
             for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
         available_node = Node.objects.get_available_node_for_acquisition(
-                user, {'architecture': "i386"})
+                user, {'architecture': "i386/generic"})
         self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
         self.assertEqual(nodes[1], available_node)
 

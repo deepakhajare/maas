@@ -113,12 +113,12 @@ from maasserver.apidoc import (
     generate_api_docs,
     )
 from maasserver.components import (
-    COMPONENT,
     discard_persistent_error,
     register_persistent_error,
     )
 from maasserver.enum import (
     ARCHITECTURE,
+    COMPONENT,
     NODE_PERMISSION,
     NODE_STATUS,
     NODEGROUP_STATUS,
@@ -578,8 +578,34 @@ def create_node(request):
     :rtype: :class:`maasserver.models.Node`.
     :raises: ValidationError
     """
+
+    # For backwards compatibilty reasons, requests may be sent with:
+    #     architecture with a '/' in it: use normally
+    #     architecture without a '/' and no subarchitecture: assume 'generic'
+    #     architecture without a '/' and a subarchitecture: use as specified
+    #     architecture with a '/' and a subarchitecture: error
+    given_arch = request.data.get('architecture', None)
+    given_subarch = request.data.get('subarchitecture', None)
+    altered_query_data = request.data.copy()
+    if given_arch and '/' in given_arch:
+        if given_subarch:
+            # Architecture with a '/' and a subarchitecture: error.
+            raise ValidationError('Subarchitecture cannot be specified twice.')
+        # Architecture with a '/' in it: use normally.
+    elif given_arch:
+        if given_subarch:
+            # Architecture without a '/' and a subarchitecture:
+            # use as specified.
+            altered_query_data['architecture'] = '/'.join(
+                [given_arch, given_subarch])
+            del altered_query_data['subarchitecture']
+        else:
+            # Architecture without a '/' and no subarchitecture:
+            # assume 'generic'.
+            altered_query_data['architecture'] += '/generic'
+
     Form = get_node_create_form(request.user)
-    form = Form(request.data)
+    form = Form(altered_query_data)
     if form.is_valid():
         return form.save()
     else:
@@ -1514,12 +1540,12 @@ def pxeconfig(request):
         # Default to i386 as a works-for-all solution. This will not support
         # non-x86 architectures, but for now this assumption holds.
         node = None
-        arch, subarch = ARCHITECTURE.i386, "generic"
+        arch, subarch = ARCHITECTURE.i386.split('/')
         preseed_url = compose_enlistment_preseed_url()
         hostname = 'maas-enlist'
     else:
         node = macaddress.node
-        arch, subarch = node.architecture, "generic"
+        arch, subarch = node.architecture.split('/')
         preseed_url = compose_preseed_url(node)
         hostname = node.hostname
 
