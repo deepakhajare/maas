@@ -20,7 +20,6 @@ from datetime import timedelta
 import celeryconfig_common
 from maas import import_settings
 
-
 WORKER_QUEUE_BOOT_IMAGES = None
 
 import_settings(celeryconfig_common)
