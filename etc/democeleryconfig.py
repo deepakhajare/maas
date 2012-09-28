@@ -12,14 +12,20 @@ from __future__ import (
 __metaclass__ = type
 
 
+import os
+
 import celeryconfig
 import democeleryconfig_common
 from maas import import_settings
+
+
+DEV_ROOT_DIRECTORY = None
 
 # Extend base settings.
 import_settings(celeryconfig)
 
 import_settings(democeleryconfig_common)
 
-
+MAAS_CELERY_LOG = os.path.join(
+    DEV_ROOT_DIRECTORY, 'logs/region-worker/current')
 

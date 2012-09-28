@@ -21,7 +21,7 @@ import celeryconfig_common
 from maas import import_settings
 
 
-WORKER_QUEUE_CLUSTER = None
+CLUSTER_UUID = None
 
 import_settings(celeryconfig_common)
 
@@ -37,6 +37,6 @@ CELERYBEAT_SCHEDULE = {
     'unconditional-dhcp-lease-upload': {
         'task': 'provisioningserver.tasks.upload_dhcp_leases',
         'schedule': timedelta(minutes=1),
-        'options': {'queue': WORKER_QUEUE_CLUSTER},
+        'options': {'queue': CLUSTER_UUID},
     },
 }

@@ -12,24 +12,21 @@ from __future__ import (
 __metaclass__ = type
 
 
+import os
+
 import celeryconfig_cluster
 import democeleryconfig_common
 from maas import import_settings
+
+
+DEV_ROOT_DIRECTORY = None
 
 # Extend base settings.
 import_settings(celeryconfig_cluster)
 
 import_settings(democeleryconfig_common)
 
-# This can be removed once the call to
-# ./bin/maas-provision start-cluster-controller is in place.
-# Right now, it is simply used to override CELERYBEAT_SCHEDULE
-# so that the proper queue ('demo-UUID') is used.
-from datetime import timedelta
-CELERYBEAT_SCHEDULE = {
-    'unconditional-dhcp-lease-upload': {
-        'task': 'provisioningserver.tasks.upload_dhcp_leases',
-        'schedule': timedelta(minutes=1),
-        'options': {'queue': 'demo-UUID'},
-    },
-}
+
+MAAS_CELERY_LOG = os.path.join(
+    DEV_ROOT_DIRECTORY, 'logs/cluster-worker/current')
+

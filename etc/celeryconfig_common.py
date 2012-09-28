@@ -49,13 +49,12 @@ MAAS_CELERY_LOG = '/var/log/maas/celery.log'
 
 WORKER_QUEUE_DNS = 'celery'
 WORKER_QUEUE_BOOT_IMAGES = 'celery'
-# XXX rvb 2012-09-25, bug=1056250: the WORKER_QUEUE_CLUSTER should be
-# the uuid of the cluster controller.
-WORKER_QUEUE_CLUSTER = 'celery'
+# The CLUSTER_UUID will be defined in the local configuration file of
+# the cluster controller (maas_local_celeryconfig.py).
+CLUSTER_UUID = None
 
 # Each cluster should have its own queue created automatically by Celery.
 CELERY_CREATE_MISSING_QUEUES = True
-
 
 CELERY_IMPORTS = (
     # Tasks.
