@@ -18,8 +18,8 @@ __all__ = [
 from django.db.models import (
     CharField,
     ForeignKey,
+    GenericIPAddressField,
     IntegerField,
-    IPAddressField,
     )
 from maasserver import DefaultMeta
 from maasserver.enum import (
@@ -35,7 +35,8 @@ class NodeGroupInterface(TimestampedModel):
         unique_together = ('nodegroup', 'interface')
 
     # Static IP of the interface.
-    ip = IPAddressField(null=False, editable=True)
+    ip = GenericIPAddressField(
+        null=False, editable=True, unpack_ipv4=True)
 
     # The `NodeGroup` this interface belongs to.
     nodegroup = ForeignKey(
@@ -48,16 +49,21 @@ class NodeGroupInterface(TimestampedModel):
     # DHCP server settings.
     interface = CharField(
         blank=True, editable=True, max_length=255, default='')
-    subnet_mask = IPAddressField(
-        editable=True, unique=False, blank=True, null=True, default=None)
-    broadcast_ip = IPAddressField(
-        editable=True, unique=False, blank=True, null=True, default=None)
-    router_ip = IPAddressField(
-        editable=True, unique=False, blank=True, null=True, default=None)
-    ip_range_low = IPAddressField(
-        editable=True, unique=True, blank=True, null=True, default=None)
-    ip_range_high = IPAddressField(
-        editable=True, unique=True, blank=True, null=True, default=None)
+    subnet_mask = GenericIPAddressField(
+        editable=True, unique=False, blank=True, null=True, default=None,
+        unpack_ipv4=True)
+    broadcast_ip = GenericIPAddressField(
+        editable=True, unique=False, blank=True, null=True, default=None,
+        unpack_ipv4=True)
+    router_ip = GenericIPAddressField(
+        editable=True, unique=False, blank=True, null=True, default=None,
+        unpack_ipv4=True)
+    ip_range_low = GenericIPAddressField(
+        editable=True, unique=True, blank=True, null=True, default=None,
+        unpack_ipv4=True)
+    ip_range_high = GenericIPAddressField(
+        editable=True, unique=True, blank=True, null=True, default=None,
+        unpack_ipv4=True)
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
