@@ -59,6 +59,7 @@ from maasserver.enum import (
     )
 from maasserver.exceptions import Unauthorized
 from maasserver.fields import mac_error_msg
+from maasserver.forms import DEFAULT_ZONE_NAME
 from maasserver.models import (
     BootImage,
     Config,
@@ -200,7 +201,7 @@ class TestModuleHelpers(TestCase):
     def test_extract_constraints_extracts_name(self):
         name = factory.getRandomString()
         self.assertEqual(
-            {'name': name},
+            {'hostname': name},
             extract_constraints(QueryDict('name=%s' % name)))
 
     def test_get_overrided_query_dict_returns_QueryDict(self):
@@ -890,6 +891,11 @@ class APITestCase(APIv10TestMixin, TestCase):
         """Promote the logged-in user to admin."""
         self.logged_in_user.is_superuser = True
         self.logged_in_user.save()
+
+    def assertResponseCode(self, expected_code, response):
+        if response.status_code != expected_code:
+            self.fail("Expected %s response, got %s:\n%s" % (
+                expected_code, response.status_code, response.content))
 
 
 def extract_system_ids(parsed_result):
@@ -1775,6 +1781,81 @@ class TestNodesAPI(APITestCase):
         })
         self.assertEqual(httplib.CONFLICT, response.status_code)
 
+    def test_POST_acquire_allocates_node_by_cpu(self):
+        # Asking for enough cpu acquires a node with at least that.
+        node = factory.make_node(status=NODE_STATUS.READY, cpu_count=3)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'cpu_count': 2,
+        })
+        self.assertResponseCode(httplib.OK, response)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.system_id, response_json['system_id'])
+
+    def test_POST_acquire_fails_with_invalid_cpu(self):
+        # Asking for an invalid amount of cpu returns a bad request.
+        factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'cpu_count': 'plenty',
+        })
+        self.assertResponseCode(httplib.BAD_REQUEST, response)
+
+    def test_POST_acquire_allocates_node_by_mem(self):
+        # Asking for enough memory acquires a node with at least that.
+        node = factory.make_node(status=NODE_STATUS.READY, memory=1024)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'mem': 1024,
+        })
+        self.assertResponseCode(httplib.OK, response)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.system_id, response_json['system_id'])
+
+    def test_POST_acquire_fails_with_invalid_mem(self):
+        # Asking for an invalid amount of cpu returns a bad request.
+        factory.make_node(status=NODE_STATUS.READY)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'mem': 'bags',
+        })
+        self.assertResponseCode(httplib.BAD_REQUEST, response)
+
+    def test_POST_acquire_allocates_node_by_tags(self):
+        # Asking for particular tags acquires a node with those tags.
+        node = factory.make_node(status=NODE_STATUS.READY)
+        node_tag_names = ["fast", "stable", "cute"]
+        node.tags = [factory.make_tag(t) for t in node_tag_names]
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'tags': 'fast, stable',
+        })
+        self.assertResponseCode(httplib.OK, response)
+        response_json = json.loads(response.content)
+        self.assertEqual(node_tag_names, response_json['tag_names'])
+
+    def test_POST_acquire_fails_without_all_tags(self):
+        # Asking for particular tags does not acquire if no node has all tags.
+        node1 = factory.make_node(status=NODE_STATUS.READY)
+        node1.tags = [factory.make_tag(t) for t in ("fast", "stable", "cute")]
+        node2 = factory.make_node(status=NODE_STATUS.READY)
+        node2.tags = [factory.make_tag("cheap")]
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'tags': 'fast, cheap',
+        })
+        self.assertResponseCode(httplib.CONFLICT, response)
+
+    def test_POST_acquire_fails_with_unknown_tags(self):
+        # Asking for a tag that does not exist gives a specific error.
+        node = factory.make_node(status=NODE_STATUS.READY)
+        node.tags = [factory.make_tag("fast")]
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'tags': 'fast, hairy',
+        })
+        self.assertResponseCode(httplib.BAD_REQUEST, response)
+
     def test_POST_acquire_sets_a_token(self):
         # "acquire" should set the Token being used in the request on
         # the Node that is allocated.
@@ -2424,6 +2505,27 @@ class TestTagsAPI(APITestCase):
         self.assertEqual(definition, parsed_result['definition'])
         self.assertTrue(Tag.objects.filter(name=name).exists())
 
+    def test_POST_new_invalid_tag_name(self):
+        self.become_admin()
+        # We do not check the full possible set of invalid names here, a more
+        # thorough check is done in test_tag, we just check that we get a
+        # reasonable error here.
+        invalid = 'invalid:name'
+        definition = '//node'
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': invalid,
+                'comment': comment,
+                'definition': definition,
+            })
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code,
+            'We did not get BAD_REQUEST for an invalid tag name: %r'
+            % (invalid,))
+        self.assertFalse(Tag.objects.filter(name=invalid).exists())
+
     def test_POST_new_populates_nodes(self):
         self.become_admin()
         node1 = factory.make_node()
@@ -2854,6 +2956,19 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             MatchesStructure.byEquality(**interface))
         self.assertEqual(NODEGROUP_STATUS.ACCEPTED, master.status)
 
+    def test_register_nodegroup_uses_default_zone_name(self):
+        uuid = factory.getRandomUUID()
+        self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'uuid': uuid,
+            })
+        master = NodeGroup.objects.ensure_master()
+        self.assertEqual(
+            (NODEGROUP_STATUS.ACCEPTED, DEFAULT_ZONE_NAME),
+            (master.status, master.name))
+
     def test_register_accepts_only_one_managed_interface(self):
         self.create_configured_master()
         name = factory.make_name('name')
@@ -3013,7 +3128,7 @@ class TestNodeGroupInterfacesAPI(APITestCase):
         self.assertEqual(
             (
                 httplib.BAD_REQUEST,
-                {'ip': ["Enter a valid IPv4 address."]},
+                {'ip': ["Enter a valid IPv4 or IPv6 address."]},
             ),
             (response.status_code, json.loads(response.content)))
 
