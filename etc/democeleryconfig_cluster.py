@@ -18,14 +18,13 @@ import celeryconfig_cluster
 import democeleryconfig_common
 from maas import import_settings
 
-
+# Silent lint, this will be defined by democeleryconfig_common.
 DEV_ROOT_DIRECTORY = None
 
 # Extend base settings.
 import_settings(celeryconfig_cluster)
 
 import_settings(democeleryconfig_common)
-
 
 MAAS_CELERY_LOG = os.path.join(
     DEV_ROOT_DIRECTORY, 'logs/cluster-worker/current')
