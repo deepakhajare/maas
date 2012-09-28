@@ -42,6 +42,11 @@ class TagTest(TestCase):
         self.assertEqual([tag.id], [t.id for t in node.tags.all()])
         self.assertEqual([node.id], [n.id for n in tag.node_set.all()])
 
+    def test_valid_tag_names(self):
+        for valid in ['valid-dash', 'under_score', 'long'*50]:
+            tag = factory.make_tag(name=valid)
+            self.assertEqual(valid, tag.name)
+
     def test_validate_traps_invalid_tag_name(self):
         for invalid in ['invalid:name', 'no spaces', 'no\ttabs',
                         'no&ampersand', 'no!shouting', '',
