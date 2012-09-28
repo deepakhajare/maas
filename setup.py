@@ -58,6 +58,8 @@ setup(
              'etc/maas_cluster.conf',
              'etc/txlongpoll.yaml',
              'etc/celeryconfig.py',
+             'etc/celeryconfig_cluster.py',
+             'etc/celeryconfig_common.py',
              'contrib/maas_local_celeryconfig.py',
              'etc/maas/import_ephemerals',
              'etc/maas/import_pxe_files',
