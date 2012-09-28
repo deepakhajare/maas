@@ -646,9 +646,9 @@ class AnonNodesHandler(AnonymousBaseHandler):
 # Map the constraint as passed in the request to the name of the constraint in
 # the database. Many of them have the same name
 _constraints_map = {
-    'name': 'name',
+    'name': 'hostname',
     'tags': 'tags',
-    'arch': 'arch',
+    'arch': 'architecture',
     'cpu_count': 'cpu_count',
     'mem': 'memory',
     }

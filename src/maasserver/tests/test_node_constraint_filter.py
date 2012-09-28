@@ -33,19 +33,19 @@ class TestConstrainNodes(TestCase):
         self.assertConstrainedNodes([node1, node2], None)
         self.assertConstrainedNodes([node1, node2], {})
 
-    def test_name(self):
+    def test_hostname(self):
         node1 = factory.make_node(set_hostname=True)
         node2 = factory.make_node(set_hostname=True)
-        self.assertConstrainedNodes([node1], {'name': node1.hostname})
-        self.assertConstrainedNodes([node2], {'name': node2.hostname})
-        self.assertConstrainedNodes([], {'name': 'unknown-name'})
+        self.assertConstrainedNodes([node1], {'hostname': node1.hostname})
+        self.assertConstrainedNodes([node2], {'hostname': node2.hostname})
+        self.assertConstrainedNodes([], {'hostname': 'unknown-name'})
 
     def test_architecture(self):
         node1 = factory.make_node(architecture=ARCHITECTURE.i386)
         node2 = factory.make_node(architecture=ARCHITECTURE.armhf)
-        self.assertConstrainedNodes([node1], {'arch': 'i386'})
-        self.assertConstrainedNodes([node2], {'arch': 'armhf'})
-        self.assertConstrainedNodes([], {'arch': 'sparc'})
+        self.assertConstrainedNodes([node1], {'architecture': 'i386'})
+        self.assertConstrainedNodes([node2], {'architecture': 'armhf'})
+        self.assertConstrainedNodes([], {'architecture': 'sparc'})
 
     def test_cpu_count(self):
         node1 = factory.make_node(cpu_count=1)
@@ -99,4 +99,4 @@ class TestConstrainNodes(TestCase):
         self.assertConstrainedNodes([node_big, node_big_arm],
                                     {'tags': 'big'})
         self.assertConstrainedNodes([node_big],
-                                    {'arch': 'i386', 'tags': 'big'})
+                                    {'architecture': 'i386', 'tags': 'big'})

@@ -19,14 +19,9 @@ from maasserver.models import Tag
 from maasserver.utils.orm import get_one
 
 
-def constrain_architecture(nodes, key, value):
-    """Match the 'architecture' field against the 'arch' key."""
-    return nodes.filter(architecture=value)
-
-
-def constrain_hostname(nodes, key, value):
-    """The 'name' constraint actually constrains on the 'hostname' field."""
-    return nodes.filter(hostname=value)
+def constrain_identical(nodes, key, value):
+    """Match the field 'key' to exactly match 'value'"""
+    return nodes.filter(**{key: value})
 
 
 def constrain_int_greater_or_equal(nodes, key, str_value):
@@ -59,8 +54,8 @@ constraint_filters = {
     # Currently architecture only supports exact matching. Eventually, we will
     # probably want more logic to note that eg, amd64 can be used for an i386
     # request
-    'arch': constrain_architecture,
-    'name': constrain_hostname,
+    'architecture': constrain_identical,
+    'hostname': constrain_identical,
     'cpu_count': constrain_int_greater_or_equal,
     'memory': constrain_int_greater_or_equal,
     'tags': constrain_tags,

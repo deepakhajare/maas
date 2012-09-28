@@ -689,7 +689,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             None,
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': node.system_id}))
+                user, {'hostname': node.system_id}))
 
     def test_get_available_node_with_name(self):
         """A single available node can be selected using its hostname"""
@@ -698,7 +698,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             nodes[1],
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': nodes[1].hostname}))
+                user, {'hostname': nodes[1].hostname}))
 
     def test_get_available_node_with_arch(self):
         """An available node can be selected off a given architecture"""
@@ -706,7 +706,7 @@ class NodeManagerTest(TestCase):
         nodes = [self.make_node(architecture=s)
             for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
         available_node = Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "i386"})
+                user, {'architecture': "i386"})
         self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
         self.assertEqual(nodes[1], available_node)
 
