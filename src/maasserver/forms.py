@@ -576,6 +576,10 @@ class CommissioningForm(ConfigForm):
     after_commissioning = forms.ChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         label="After commissioning")
+    commissioning_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for commissioning",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
 
 
 class UbuntuForm(ConfigForm):
@@ -583,6 +587,10 @@ class UbuntuForm(ConfigForm):
     fallback_master_archive = forms.BooleanField(
         label="Fallback to Ubuntu master archive",
         required=False)
+    default_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for deployment",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
     keep_mirror_list_uptodate = forms.BooleanField(
         label="Keep mirror list up to date",
         required=False)
@@ -686,6 +694,10 @@ INTERFACES_VALIDATION_ERROR_MESSAGE = (
     "the information needed to initialize an interface.")
 
 
+# The zone name used for nodegroups when none is explicitly provided.
+DEFAULT_ZONE_NAME = 'master'
+
+
 class NodeGroupWithInterfacesForm(ModelForm):
     """Create a NodeGroup with unmanaged interfaces."""
 
@@ -701,6 +713,13 @@ class NodeGroupWithInterfacesForm(ModelForm):
     def __init__(self, status=None, *args, **kwargs):
         super(NodeGroupWithInterfacesForm, self).__init__(*args, **kwargs)
         self.status = status
+
+    def clean_name(self):
+        data = self.cleaned_data['name']
+        if data == '':
+            return DEFAULT_ZONE_NAME
+        else:
+            return data
 
     def clean_interfaces(self):
         data = self.cleaned_data['interfaces']
@@ -759,7 +778,3 @@ class TagForm(ModelForm):
             'comment',
             'definition',
             )
-
-    def clean(self):
-        cleaned_data = super(TagForm, self).clean()
-        return cleaned_data
