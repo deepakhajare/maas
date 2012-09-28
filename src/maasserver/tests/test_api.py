@@ -347,7 +347,7 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
                 'mac_addresses': ['aa:bb:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
             })
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        self.assertIn('text/plain; charset=utf-8', response['Content-Type'])
+        self.assertIn('text/plain', response['Content-Type'])
         self.assertEqual("Subarchitecture cannot be specified twice",
             response.content)
 
