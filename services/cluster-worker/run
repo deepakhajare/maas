@@ -14,21 +14,7 @@ cd "$(dirname "$0")/../.."
 # because there are race issues when restarting.
 [ -z "${logdir:-}" ] || exec &>> "${logdir}/current"
 
-# Simulate what the package does:
-# - generate a uuid
-# - create a maas_local_celeryconfig.py file with CLUSTER_UUID=$uuid and
-#   make sure that file is on the path.
-# - run bin/maas-provision start-cluster-controller
-local_config="run/cluster-worker/maas_local_celeryconfig.py"
-if [ ! -f $local_config ];
-then
-uuid=`uuidgen`
-mkdir -p run/cluster-worker/
-cat <<EOF > "$local_config"
-CLUSTER_UUID='$uuid'
-EOF
-fi
-export PYTHONPATH=run/cluster-worker/:etc/:src/
+export PYTHONPATH=etc/:src/
 export CELERY_CONFIG_MODULE=democeleryconfig_cluster
 script="$(readlink -f bin/maas-provision)"
 exec fghack "${script}" start-cluster-controller http://0.0.0.0:5240/
