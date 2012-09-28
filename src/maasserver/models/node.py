@@ -370,7 +370,7 @@ class AcquisitionConstrainer:
     """Add filters to a query for nodes, based on a constraints dict.
     """
 
-    _known_constraints = ['architecture', 'name', 'cpu_count', 'memory',
+    _known_constraints = ['name', 'architecture', 'cpu_count', 'memory',
                           'tags']
 
     def __init__(self, nodes, constraints):
