@@ -2275,6 +2275,28 @@ class TestTagAPI(APITestCase):
         self.assertEqual([node1.system_id],
                          [r['system_id'] for r in parsed_result])
 
+    def test_POST_nodes_hides_invisible_nodes(self):
+        user2 = factory.make_user()
+        node1 = factory.make_node()
+        node1.set_hardware_details('<node><foo /></node>')
+        node2 = factory.make_node(status=NODE_STATUS.ALLOCATED, owner=user2)
+        node2.set_hardware_details('<node><bar /></node>')
+        tag = factory.make_tag(definition='/node')
+        tag.populate_nodes()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([node1.system_id],
+                         [r['system_id'] for r in parsed_result])
+        # However, for the other user, they should see the result
+        client2 = OAuthAuthenticatedClient(user2)
+        response = client2.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([node1.system_id, node2.system_id],
+                              [r['system_id'] for r in parsed_result])
+
     def test_PUT_invalid_definition(self):
         self.become_admin()
         node = factory.make_node()
@@ -2704,6 +2726,11 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
+    def create_configured_master(self):
+        master = NodeGroup.objects.ensure_master()
+        master.uuid = factory.getRandomUUID()
+        master.save()
+
     def test_refresh_calls_refresh_worker(self):
         nodegroup = factory.make_node_group()
         response = self.client.post(
@@ -2722,6 +2749,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             (response.status_code, response.content))
 
     def test_register_nodegroup_creates_nodegroup_and_interfaces(self):
+        self.create_configured_master()
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interface = make_interface_settings()
@@ -2746,7 +2774,45 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         # validated by an admin.
         self.assertEqual(httplib.ACCEPTED, response.status_code)
 
+    def test_register_nodegroup_returns_credentials_if_master(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        fake_broker_url = factory.make_name('fake-broker_url')
+        celery_conf = app_or_default().conf
+        self.patch(celery_conf, 'BROKER_URL', fake_broker_url)
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code, response)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(
+            ({'BROKER_URL': fake_broker_url}, uuid),
+            (parsed_result, NodeGroup.objects.ensure_master().uuid))
+
+    def test_register_nodegroup_configures_master_if_unconfigured(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        interface = make_interface_settings()
+        self.client.post(
+            reverse('nodegroups_handler'),
+            {
+                'op': 'register',
+                'name': name,
+                'uuid': uuid,
+                'interfaces': json.dumps([interface]),
+            })
+        master = NodeGroup.objects.ensure_master()
+        self.assertThat(
+            master.nodegroupinterface_set.all()[0],
+            MatchesStructure.byEquality(**interface))
+        self.assertEqual(NODEGROUP_STATUS.ACCEPTED, master.status)
+
     def test_register_accepts_only_one_managed_interface(self):
+        self.create_configured_master()
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         # This will try to create 2 "managed" interfaces.
@@ -2773,6 +2839,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             (response.status_code, json.loads(response.content)))
 
     def test_register_nodegroup_validates_data(self):
+        self.create_configured_master()
         response = self.client.post(
             reverse('nodegroups_handler'),
             {
@@ -3196,12 +3263,6 @@ class TestBootImagesAPI(APITestCase):
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([], client=client)
         self.assertEqual(httplib.OK, response.status_code)
-
-    def test_report_boot_images_does_not_work_for_other_workers(self):
-        NodeGroup.objects.ensure_master()
-        client = make_worker_client(factory.make_node_group())
-        response = self.report_images([], client=client)
-        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_report_boot_images_stores_images(self):
         image = make_boot_image_params()

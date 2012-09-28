@@ -35,7 +35,7 @@ DNS_CONFIG_DIR = '/etc/bind/maas'
 DNS_RNDC_PORT = 954
 
 # DHCP leases file, as maintained by ISC dhcpd.
-DHCP_LEASES_FILE = '/var/lib/maas/dhcpd.leases'
+DHCP_LEASES_FILE = '/var/lib/maas/dhcp/dhcpd.leases'
 
 # ISC dhcpd configuration file.
 DHCP_CONFIG_FILE = '/etc/maas/dhcpd.conf'
@@ -49,6 +49,10 @@ DHCP_INTERFACES_FILE = '/var/lib/maas/dhcpd-interfaces'
 # but the broker URL they receive from the region controller overrides
 # this setting.
 BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+
+# Cluster UUID.  Will be overridden by the customized setting in the
+# local MAAS Celery config.
+CLUSTER_UUID = None
 
 
 WORKER_QUEUE_DNS = 'celery'
