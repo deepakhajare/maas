@@ -1055,3 +1055,15 @@ class TestAcquisitionConstrainer(TestCase):
                                     {'tags': 'big burly'})
         self.assertRaises(InvalidConstraint,
             self.assertConstrainedNodes, [], {'tags': 'big unknown'})
+
+    def test_combined_constraints(self):
+        tag_big = factory.make_tag(name='big')
+        node_big = factory.make_node(architecture=ARCHITECTURE.i386)
+        node_big.tags.add(tag_big)
+        node_small = factory.make_node(architecture=ARCHITECTURE.i386)
+        node_big_arm = factory.make_node(architecture=ARCHITECTURE.armhf)
+        node_big_arm.tags.add(tag_big)
+        self.assertConstrainedNodes([node_big, node_big_arm],
+                                    {'tags': 'big'})
+        self.assertConstrainedNodes([node_big],
+                                    {'architecture': 'i386', 'tags': 'big'})
