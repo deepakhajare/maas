@@ -29,6 +29,6 @@ CLUSTER_UUID='$uuid'
 EOF
 fi
 export PYTHONPATH=run/cluster-worker/:etc/:src/
- CELERY_CONFIG_MODULE=democeleryconfig_cluster
+export CELERY_CONFIG_MODULE=democeleryconfig_cluster
 script="$(readlink -f bin/maas-provision)"
 exec fghack "${script}" start-cluster-controller http://0.0.0.0:5240/
