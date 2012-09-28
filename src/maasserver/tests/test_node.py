@@ -38,7 +38,10 @@ from maasserver.models import (
     Node,
     node as node_module,
     )
-from maasserver.models.node import NODE_TRANSITIONS
+from maasserver.models.node import (
+    AcquisitionConstrainer,
+    NODE_TRANSITIONS,
+    )
 from maasserver.models.user import create_auth_token
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
@@ -983,3 +986,72 @@ class NodeManagerTest(TestCase):
         node = factory.make_node(netboot=True)
         node.set_netboot(False)
         self.assertFalse(node.netboot)
+
+
+class TestAcquisitionConstrainer(TestCase):
+
+    def assertConstrainedNodes(self, expected_nodes, constraints):
+        nodes = Node.objects.all()
+        constrainer = AcquisitionConstrainer(nodes, constraints)
+        nodes = constrainer.apply()
+        self.assertItemsEqual(expected_nodes, nodes)
+
+    def test_no_constraints(self):
+        node1 = factory.make_node()
+        node2 = factory.make_node()
+        self.assertConstrainedNodes([node1, node2], None)
+        self.assertConstrainedNodes([node1, node2], {})
+
+    def test_name(self):
+        node1 = factory.make_node(set_hostname=True)
+        node2 = factory.make_node(set_hostname=True)
+        self.assertConstrainedNodes([node1], {'name': node1.hostname})
+        self.assertConstrainedNodes([node2], {'name': node2.hostname})
+
+    def test_architecture(self):
+        node1 = factory.make_node(architecture=ARCHITECTURE.i386)
+        node2 = factory.make_node(architecture=ARCHITECTURE.armhf)
+        self.assertConstrainedNodes([node1], {'architecture': 'i386'})
+        self.assertConstrainedNodes([node2], {'architecture': 'armhf'})
+
+    def test_cpu_count(self):
+        node1 = factory.make_node(cpu_count=1)
+        node2 = factory.make_node(cpu_count=2)
+        self.assertConstrainedNodes([node1, node2], {'cpu_count': '0'})
+        self.assertConstrainedNodes([node1, node2], {'cpu_count': '1'})
+        self.assertConstrainedNodes([node2], {'cpu_count': '2'})
+        self.assertConstrainedNodes([], {'cpu_count': '4'})
+        self.assertRaises(InvalidConstraint,
+            self.assertConstrainedNodes, [], {'cpu_count': 'notint'})
+
+    def test_memory(self):
+        node1 = factory.make_node(memory=1024)
+        node2 = factory.make_node(memory=4096)
+        self.assertConstrainedNodes([node1, node2], {'memory': '512'})
+        self.assertConstrainedNodes([node1, node2], {'memory': '1024'})
+        self.assertConstrainedNodes([node2], {'memory': '2048'})
+        self.assertConstrainedNodes([node2], {'memory': '4096'})
+        self.assertConstrainedNodes([], {'memory': '8192'})
+        self.assertRaises(InvalidConstraint,
+            self.assertConstrainedNodes, [], {'memory': 'notint'})
+
+    def test_tags(self):
+        tag_big = factory.make_tag(name='big')
+        tag_burly = factory.make_tag(name='burly')
+        node_big = factory.make_node()
+        node_big.tags.add(tag_big)
+        node_burly = factory.make_node()
+        node_burly.tags.add(tag_burly)
+        node_bignburly = factory.make_node()
+        node_bignburly.tags.add(tag_big)
+        node_bignburly.tags.add(tag_burly)
+        self.assertConstrainedNodes([node_big, node_bignburly],
+                                    {'tags': 'big'})
+        self.assertConstrainedNodes([node_burly, node_bignburly],
+                                    {'tags': 'burly'})
+        self.assertConstrainedNodes([node_bignburly],
+                                    {'tags': 'big,burly'})
+        self.assertConstrainedNodes([node_bignburly],
+                                    {'tags': 'big burly'})
+        self.assertRaises(InvalidConstraint,
+            self.assertConstrainedNodes, [], {'tags': 'big unknown'})

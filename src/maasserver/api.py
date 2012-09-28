@@ -643,8 +643,15 @@ class AnonNodesHandler(AnonymousBaseHandler):
         return ('nodes_handler', [])
 
 
-_constraints_map = {s: s for s in ('name', 'tags', 'arch', 'cpu_count')}
-_constraints_map['mem'] = "memory"
+# Map the constraint as passed in the request to the name of the constraint in
+# the database. Many of them have the same name
+_constraints_map = {
+    'name': 'name',
+    'tags': 'tags',
+    'arch': 'arch',
+    'cpu_count': 'cpu_count',
+    'mem': 'memory',
+    }
 
 
 def extract_constraints(request_params):
@@ -655,9 +662,12 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    return {_constraints_map[constraint]: request_params[constraint]
-        for constraint in _constraints_map
-            if constraint in request_params}
+    constraints = {}
+    for request_name in _constraints_map:
+        if request_name in request:
+            db_name = _constraints_map[request_name]
+            constraints[db_name] = request_params[request_name]
+    return constraints
 
 
 @api_operations

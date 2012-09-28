@@ -64,7 +64,7 @@ from maasserver.models.config import Config
 from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.utils import get_db_state
-from maasserver.utils.orm import get_first
+from maasserver.utils.orm import get_first, get_one
 from piston.models import Token
 from provisioningserver.enum import (
     POWER_TYPE,
@@ -253,37 +253,10 @@ class NodeManager(Manager):
         :type constraints: :class:`dict`
         :return: A matching `Node`, or None if none are available.
         """
-        if constraints is None:
-            constraints = {}
-        available_nodes = (
-            self.get_nodes(for_user, NODE_PERMISSION.VIEW)
-                .filter(status=NODE_STATUS.READY))
-
-        if constraints.get('name'):
-            available_nodes = available_nodes.filter(
-                hostname=constraints['name'])
-        if constraints.get('arch'):
-            # GZ 2012-09-11: This only supports an exact match on arch type,
-            #                using an i386 image on amd64 hardware will wait.
-            available_nodes = available_nodes.filter(
-                architecture=constraints['arch'])
-        for key in ('cpu_count', 'memory'):
-            string = constraints.get(key)
-            if string:
-                try:
-                    value = int(string)
-                except ValueError as e:
-                    raise InvalidConstraint(key, string, e)
-                q = {key + "__gte": value}
-                available_nodes = available_nodes.filter(**q)
-        tag_expression = constraints.get('tags')
-        if tag_expression:
-            tag_names = tag_expression.replace(",", " ").strip().split()
-            for tag_name in tag_names:
-                # GZ 2012-09-26: Below results in a generic "Not Found" body
-                #                rather than something useful with tag name.
-                tag = Tag.objects.get_tag_or_404(tag_name, for_user)
-                available_nodes = available_nodes.filter(tags=tag)
+        available_nodes = self.get_nodes(for_user, NODE_PERMISSION.VIEW)
+        available_nodes = available_nodes.filter(status=NODE_STATUS.READY)
+        constrainer = AcquisitionConstrainer(available_nodes, constraints)
+        available_nodes = constrainer.apply()
 
         return get_first(available_nodes)
 
@@ -391,6 +364,61 @@ def update_hardware_details(node, xmlbytes):
             else:
                 node.tags.remove(tag)
     node.save()
+
+
+class AcquisitionConstrainer:
+    """Add filters to a query for nodes, based on a constraints dict.
+    """
+
+    _known_constraints = ['architecture', 'name', 'cpu_count', 'memory',
+                          'tags']
+
+    def __init__(self, nodes, constraints):
+        self.nodes = nodes
+        self.constraints = constraints
+
+    def apply(self):
+        if not self.constraints:
+            return self.nodes
+
+        for constraint_name in self._known_constraints:
+            value = self.constraints.get(constraint_name)
+            if value:
+                attr_name = '_' + constraint_name
+                getattr(self, attr_name)(value)
+        return self.nodes
+
+    def _architecture(self, arch):
+        # GZ 2012-09-11: This only supports an exact match on arch type,
+        #                using an i386 image on amd64 hardware will wait.
+        self.nodes = self.nodes.filter(architecture=arch)
+
+    def _name(self, name):
+        self.nodes = self.nodes.filter(hostname=name)
+
+    def _int_gte_constraint(self, key, str_value):
+        try:
+            int_value = int(str_value)
+        except ValueError as e:
+            raise InvalidConstraint(key, str_value, e)
+        q = {key + "__gte": int_value}
+        self.nodes = self.nodes.filter(**q)
+
+    def _cpu_count(self, cpu_count):
+        self._int_gte_constraint('cpu_count', cpu_count)
+
+    def _memory(self, mem):
+        self._int_gte_constraint('memory', mem)
+
+    def _tags(self, tag_expression):
+        # We use ',' separated or space ' ' separated values.
+        tag_names = tag_expression.replace(",", " ").strip().split()
+        for tag_name in tag_names:
+            tag = get_one(Tag.objects.filter(name=tag_name))
+            if tag is None:
+                raise InvalidConstraint('tags', tag_name, 'No such tag')
+            self.nodes = self.nodes.filter(tags=tag)
+
 
 
 class Node(CleanSave, TimestampedModel):
