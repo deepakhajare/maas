@@ -666,8 +666,7 @@ class TestNodeGroupInterfaceForm(TestCase):
     def test_NodeGroupInterfaceForm_can_save_fields_being_None(self):
         settings = make_interface_settings()
         for field_name in nullable_fields:
-            pass
-            #del settings[field_name]
+            del settings[field_name]
         form = NodeGroupInterfaceForm(data=settings)
         nodegroup = factory.make_node_group(
             management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
