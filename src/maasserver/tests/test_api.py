@@ -348,7 +348,7 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
             })
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/plain', response['Content-Type'])
-        self.assertEqual("Subarchitecture cannot be specified twice",
+        self.assertEqual("Subarchitecture cannot be specified twice.",
             response.content)
 
     def test_POST_new_power_type_defaults_to_asking_config(self):

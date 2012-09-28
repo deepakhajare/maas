@@ -590,7 +590,7 @@ def create_node(request):
     if given_arch and '/' in given_arch:
         if given_subarch:
             # architecture with a '/' and a subarchitecture: error
-            raise ValidationError('Subarchitecture cannot be specified twice')
+            raise ValidationError('Subarchitecture cannot be specified twice.')
         # architecture with a '/' in it: use normally
     elif given_arch:
         if given_subarch:
