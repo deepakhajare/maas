@@ -2657,10 +2657,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
     def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
         # As a lowest-common-denominator, i386 is chosen when the node is not
         # yet known to MAAS.
-        expected_arch = ARCHITECTURE.i386.split('/')
+        expected_arch = tuple(ARCHITECTURE.i386.split('/'))
         params_out = self.get_pxeconfig()
-        self.assertEqual(expected_arch[0], params_out["arch"])
-        self.assertEqual(expected_arch[1], params_out["subarch"])
+        observed_arch = params_out["arch"], params_out["subarch"]
+        self.assertEqual(expected_arch, observed_arch)
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
