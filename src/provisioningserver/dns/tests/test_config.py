@@ -217,16 +217,14 @@ class TestDNSForwardZoneConfig(TestCase):
         ip = factory.getRandomIPInNetwork(network)
         mapping = {hostname: ip}
         dns_zone_config = DNSForwardZoneConfig(
-            zone_name, serial, mapping, ip_range_low=str(network.first),
-            ip_range_high=str(network.last))
+            zone_name, serial, mapping, network=network)
         self.assertThat(
             dns_zone_config,
             MatchesStructure.byEquality(
                 zone_name=zone_name,
                 serial=serial,
                 mapping=mapping,
-                ip_range_low=str(network.first),
-                ip_range_high=str(network.last),
+                network=network,
                 )
             )
 
@@ -246,9 +244,7 @@ class TestDNSForwardZoneConfig(TestCase):
     def test_DNSForwardZoneConfig_get_generated_mapping(self):
         name = factory.getRandomString()
         network = IPNetwork('192.12.0.1/30')
-        dns_zone_config = DNSForwardZoneConfig(
-            name, ip_range_low=str(network.first),
-            ip_range_high=str(network.last))
+        dns_zone_config = DNSForwardZoneConfig(name, network=network)
         self.assertEqual(
             {
                 generated_hostname('192.12.0.0'): '192.12.0.0',
@@ -268,8 +264,7 @@ class TestDNSForwardZoneConfig(TestCase):
         ip = factory.getRandomIPInNetwork(network)
         dns_zone_config = DNSForwardZoneConfig(
             zone_name, serial=random.randint(1, 100),
-            mapping={hostname: ip}, ip_range_low=str(network.first),
-            ip_range_high=str(network.last))
+            mapping={hostname: ip}, network=network)
         dns_zone_config.write_config()
         self.assertThat(
             os.path.join(target_dir, 'zone.%s' % zone_name),
@@ -287,8 +282,7 @@ class TestDNSForwardZoneConfig(TestCase):
         dns_ip = factory.getRandomIPAddress()
         dns_zone_config = DNSForwardZoneConfig(
             factory.getRandomString(), serial=random.randint(1, 100),
-            dns_ip=dns_ip, ip_range_low=str(network.first),
-            ip_range_high=str(network.last))
+            dns_ip=dns_ip, network=network)
         dns_zone_config.write_config()
         self.assertThat(
             os.path.join(target_dir, 'zone.%s' % dns_zone_config.zone_name),
@@ -304,8 +298,7 @@ class TestDNSForwardZoneConfig(TestCase):
         network = factory.getRandomNetwork()
         dns_zone_config = DNSForwardZoneConfig(
             factory.getRandomString(), serial=random.randint(1, 100),
-            dns_ip=factory.getRandomIPAddress(),
-            ip_range_low=str(network.first), ip_range_high=str(network.last))
+            dns_ip=factory.getRandomIPAddress(), network=network)
         dns_zone_config.write_config()
         filepath = FilePath(dns_zone_config.target_path)
         self.assertTrue(filepath.getPermissions().other.read)

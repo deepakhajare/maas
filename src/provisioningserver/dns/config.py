@@ -23,6 +23,7 @@ from abc import (
     abstractproperty,
     )
 from datetime import datetime
+from itertools import imap
 import os.path
 from subprocess import (
     check_call,
@@ -216,13 +217,12 @@ class DNSForwardZoneConfig(DNSConfigBase):
     template_file_name = 'zone.template'
 
     def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
-                 ip_range_low=None, ip_range_high=None):
+                 network=None):
         self.zone_name = zone_name
         self.serial = serial
         self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
-        self.ip_range_low = ip_range_low
-        self.ip_range_high = ip_range_high
+        self.network = network
 
     def get_mapping(self):
         """Return the mapping: hostname->generated hostname."""
@@ -238,8 +238,8 @@ class DNSForwardZoneConfig(DNSConfigBase):
         and the IP addresses for all the possible IP addresses in zone.
         """
         return {
-            generated_hostname(str(ip)): str(ip)
-            for ip in IPRange(self.ip_range_low, self.ip_range_high)
+            generated_hostname(ip): ip
+            for ip in imap(str, self.network)
         }
 
     @property
