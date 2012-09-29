@@ -256,29 +256,23 @@ class DNSForwardZoneConfig(DNSConfigBase):
         return os.path.join(
             self.target_dir, 'zone.%s' % self.zone_name)
 
-    def get_base_context(self):
-        """Return the dict used to render both zone files."""
-        return {
-            'domain': self.zone_name,
-            'serial': self.serial,
-            'modified': unicode(datetime.today()),
-        }
-
     def get_context(self):
         """Return the dict used to render the DNS zone file.
 
         That context dict is used to render the DNS zone file.
         """
-        context = self.get_base_context()
         mapping = self.get_generated_mapping()
         # Add A record for the name server's IP.
         mapping['%s.' % self.zone_name] = self.dns_ip
-        mappings = {
-            'CNAME': self.get_mapping(),
-            'A': mapping,
-        }
-        context.update(mappings=mappings)
-        return context
+        return {
+            'domain': self.zone_name,
+            'serial': self.serial,
+            'modified': unicode(datetime.today()),
+            'mappings': {
+                'CNAME': self.get_mapping(),
+                'A': mapping,
+                }
+            }
 
     def write_config(self, **kwargs):
         """Write out the DNS config file for this zone."""
@@ -337,23 +331,19 @@ class DNSReverseZoneConfig(DNSConfigBase):
         return os.path.join(
             self.target_dir, 'zone.rev.%s' % self.reverse_zone_name)
 
-    def get_base_context(self):
-        """Return the dict used to render both zone files."""
-        return {
-            'domain': self.zone_name,
-            'serial': self.serial,
-            'modified': unicode(datetime.today()),
-        }
-
     def get_context(self):
         """Return the dict used to render the DNS reverse zone file.
 
         That context dict is used to render the DNS reverse zone file.
         """
-        context = self.get_base_context()
-        mappings = {'PTR': self.get_generated_mapping()}
-        context.update(mappings=mappings)
-        return context
+        return {
+            'domain': self.zone_name,
+            'serial': self.serial,
+            'modified': unicode(datetime.today()),
+            'mappings': {
+                'PTR': self.get_generated_mapping(),
+                }
+            }
 
     def write_config(self, **kwargs):
         """Write out the DNS reverse config file for this zone."""
