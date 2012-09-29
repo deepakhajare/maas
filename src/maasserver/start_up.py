@@ -66,15 +66,12 @@ def update_import_script_error():
     have_boot_images = BootImage.objects.all().exists()
     if not have_boot_images and get_persistent_error(import_script) is None:
         warning = dedent("""\
-            No boot images have been registered yet.  This may mean that the
-            maas-import-pxe-files script has not been run yet, or that it
-            failed.  Alternatively, there may be a communication problem
-            between the master cluster manager and the MAAS server.
-
-            Try running maas-import-pxe-files manually.  If it succeeds, this
-            message should disappear within 5 minutes.  If it does not, check
-            the master cluster manager's logs for signs that it was unable to
-            report to the MAAS API.
+            The region controller does not know whether any boot images have
+            been imported yet.  If this message does not disappear in 5
+            minutes, there may be a communication problem between the region
+            worker process and the region controller.  Check the region
+            worker's logs for signs that it was unable to report to the MAAS
+            API.
             """)
         register_persistent_error(import_script, warning)
 
