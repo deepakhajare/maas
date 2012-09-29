@@ -1,7 +1,7 @@
 include "{{named_rndc_conf_path}}";
 
 # Zone declarations.
-{{for zone in zones}}
+{{for zone in forward_zones}}
 zone "{{zone.zone_name}}" {
     type master;
     file "{{zone.target_path}}";
@@ -9,9 +9,9 @@ zone "{{zone.zone_name}}" {
 {{endfor}}
 
 # Reverse zone declarations.
-{{for zone in zones}}
+{{for zone in reverse_zones}}
 zone "{{zone.reverse_zone_name}}" {
     type master;
-    file "{{zone.target_reverse_path}}";
+    file "{{zone.target_path}}";
 };
 {{endfor}}

@@ -152,10 +152,15 @@ class TestDNSConfig(TestCase):
         zone_name = factory.getRandomString()
         network = IPNetwork('192.168.0.3/24')
         ip = factory.getRandomIPInNetwork(network)
-        zone = DNSForwardZoneConfig(
+        forward_zone = DNSForwardZoneConfig(
             zone_name, mapping={factory.getRandomString(): ip},
-            **network_infos(network))
-        dnsconfig = DNSConfig(zones=[zone])
+            network=network)
+        reverse_zone = DNSReverseZoneConfig(
+            zone_name, mapping={factory.getRandomString(): ip},
+            network=network)
+        dnsconfig = DNSConfig(
+            forward_zones=[forward_zone],
+            reverse_zones=[reverse_zone])
         dnsconfig.write_config()
         self.assertThat(
             os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
