@@ -230,19 +230,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
         self.ip_range_low = ip_range_low
         self.ip_range_high = ip_range_high
 
-    @property
-    def byte_num(self):
-        """Number of significant octets for the IPs of this zone."""
-        return 4 - len(
-            [byte for byte in self.subnet_mask.split('.')
-             if byte == '255'])
-
-    @property
-    def reverse_zone_name(self):
-        """Return the name of the reverse zone."""
-        significant_bits = self.broadcast_ip.split('.')[:4 - self.byte_num]
-        return '%s.in-addr.arpa' % '.'.join(reversed(significant_bits))
-
     def get_mapping(self):
         """Return the mapping: hostname->generated hostname."""
         return {
@@ -261,19 +248,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
             for ip in IPRange(self.ip_range_low, self.ip_range_high)
         }
 
-    def get_generated_reverse_mapping(self):
-        """Return the reverse generated mapping: (shortened) ip->fqdn.
-
-        The reverse generated mapping is the mapping between the IP addresses
-        and the generated hostnames for all the possible IP addresses in zone.
-        """
-        return dict(
-            (
-                shortened_reversed_ip(ip, self.byte_num),
-                '%s.%s.' % (hostname, self.zone_name)
-            )
-            for hostname, ip in self.get_generated_mapping().items())
-
     @property
     def template_path(self):
         return os.path.join(self.template_dir, self.template_file_name)
@@ -283,12 +257,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
         """Return the full path of the DNS zone config file."""
         return os.path.join(
             self.target_dir, 'zone.%s' % self.zone_name)
-
-    @property
-    def target_reverse_path(self):
-        """Return the full path of the DNS reverse zone config file."""
-        return os.path.join(
-            self.target_dir, 'zone.rev.%s' % self.reverse_zone_name)
 
     def get_base_context(self):
         """Return the dict used to render both zone files."""
@@ -314,16 +282,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
         context.update(mappings=mappings)
         return context
 
-    def get_reverse_context(self):
-        """Return the dict used to render the DNS reverse zone file.
-
-        That context dict is used to render the DNS reverse zone file.
-        """
-        context = self.get_base_context()
-        mappings = {'PTR': self.get_generated_reverse_mapping()}
-        context.update(mappings=mappings)
-        return context
-
     def write_config(self, **kwargs):
         """Write out the DNS config file for this zone."""
         template = self.get_template()
@@ -331,14 +289,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
         rendered = self.render_template(template, **kwargs)
         incremental_write(
             rendered, self.target_path, mode=self.access_permissions)
-
-    def write_reverse_config(self, **kwargs):
-        """Write out the DNS reverse config file for this zone."""
-        template = self.get_template()
-        kwargs.update(self.get_reverse_context())
-        rendered = self.render_template(template, **kwargs)
-        incremental_write(
-            rendered, self.target_reverse_path, mode=self.access_permissions)
 
 
 class DNSReverseZoneConfig(DNSConfigBase):

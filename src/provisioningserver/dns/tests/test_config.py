@@ -233,7 +233,6 @@ class TestDNSForwardZoneConfig(TestCase):
 
     def test_DNSForwardZoneConfig_computes_dns_config_file_paths(self):
         zone_name = factory.make_name('zone')
-        reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
         dns_zone_config = DNSForwardZoneConfig(
             zone_name, broadcast_ip='192.168.0.255',
             subnet_mask='255.255.252.0',
@@ -242,54 +241,10 @@ class TestDNSForwardZoneConfig(TestCase):
             (
                 os.path.join(TEMPLATES_PATH, 'zone.template'),
                 os.path.join(conf.DNS_CONFIG_DIR, 'zone.%s' % zone_name),
-                os.path.join(conf.DNS_CONFIG_DIR, reverse_file_name)
             ),
             (
                 dns_zone_config.template_path,
                 dns_zone_config.target_path,
-                dns_zone_config.target_reverse_path,
-            ))
-
-    def test_DNSForwardZoneConfig_reverse_data_slash_24(self):
-        # DNSForwardZoneConfig calculates the reverse data correctly for
-        # a /24 network.
-        zone_name = factory.make_name('zone')
-        hostname = factory.getRandomString()
-        ip = '192.168.0.5'
-        network = IPNetwork('192.168.0.1/24')
-        dns_zone_config = DNSForwardZoneConfig(
-            zone_name, mapping={hostname: ip}, **network_infos(network))
-        self.assertEqual(
-            (
-                1,
-                {hostname: generated_hostname(ip)},
-                '0.168.192.in-addr.arpa',
-            ),
-            (
-                dns_zone_config.byte_num,
-                dns_zone_config.get_mapping(),
-                dns_zone_config.reverse_zone_name,
-            ))
-
-    def test_DNSForwardZoneConfig_reverse_data_slash_22(self):
-        # DNSForwardZoneConfig calculates the reverse data correctly for
-        # a /22 network.
-        zone_name = factory.getRandomString()
-        hostname = factory.getRandomString()
-        ip = '192.168.0.10'
-        network = IPNetwork('192.168.0.1/22')
-        dns_zone_config = DNSForwardZoneConfig(
-            zone_name, mapping={hostname: ip}, **network_infos(network))
-        self.assertEqual(
-            (
-                2,
-                {hostname: generated_hostname(ip)},
-                '168.192.in-addr.arpa',
-            ),
-            (
-                dns_zone_config.byte_num,
-                dns_zone_config.get_mapping(),
-                dns_zone_config.reverse_zone_name,
             ))
 
     def test_DNSForwardZoneConfig_get_generated_mapping(self):
@@ -305,21 +260,6 @@ class TestDNSForwardZoneConfig(TestCase):
                 generated_hostname('192.12.0.3'): '192.12.0.3',
              },
             dns_zone_config.get_generated_mapping(),
-            )
-
-    def test_DNSForwardZoneConfig_get_generated_reverse_mapping(self):
-        name = factory.getRandomString()
-        network = IPNetwork('192.12.0.1/30')
-        dns_zone_config = DNSForwardZoneConfig(
-            name, **network_infos(network))
-        self.assertEqual(
-            {
-                '0': '%s.' % generated_hostname('192.12.0.0', name),
-                '1': '%s.' % generated_hostname('192.12.0.1', name),
-                '2': '%s.' % generated_hostname('192.12.0.2', name),
-                '3': '%s.' % generated_hostname('192.12.0.3', name),
-             },
-            dns_zone_config.get_generated_reverse_mapping(),
             )
 
     def test_DNSForwardZoneConfig_writes_dns_zone_config(self):
@@ -360,28 +300,6 @@ class TestDNSForwardZoneConfig(TestCase):
                         '%s. IN A %s' % (dns_zone_config.zone_name, dns_ip),
                     ])))
 
-    def test_DNSForwardZoneConfig_writes_reverse_dns_zone_config(self):
-        target_dir = self.make_dir()
-        self.patch(DNSForwardZoneConfig, 'target_dir', target_dir)
-        zone_name = factory.getRandomString()
-        network = IPNetwork('192.168.0.1/22')
-        dns_zone_config = DNSForwardZoneConfig(
-            zone_name, serial=random.randint(1, 100), **network_infos(network))
-        dns_zone_config.write_reverse_config()
-        reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
-        self.assertThat(
-            os.path.join(target_dir, reverse_file_name),
-            FileContains(
-                matcher=ContainsAll(
-                    ['%s IN PTR %s' % (
-                        '10.0',
-                        generated_hostname('192.168.0.10'),
-                        )
-                    ]
-                )
-            )
-        )
-
     def test_DNSForwardZoneConfig_config_file_is_world_readable(self):
         self.patch(DNSForwardZoneConfig, 'target_dir', self.make_dir())
         dns_zone_config = DNSForwardZoneConfig(
@@ -390,16 +308,6 @@ class TestDNSForwardZoneConfig(TestCase):
             **network_infos(factory.getRandomNetwork()))
         dns_zone_config.write_config()
         filepath = FilePath(dns_zone_config.target_path)
-        self.assertTrue(filepath.getPermissions().other.read)
-
-    def test_DNSForwardZoneConfig_reverse_config_file_is_world_readable(self):
-        self.patch(DNSForwardZoneConfig, 'target_dir', self.make_dir())
-        dns_zone_config = DNSForwardZoneConfig(
-            factory.getRandomString(), serial=random.randint(1, 100),
-            dns_ip=factory.getRandomIPAddress(),
-            **network_infos(factory.getRandomNetwork()))
-        dns_zone_config.write_reverse_config()
-        filepath = FilePath(dns_zone_config.target_reverse_path)
         self.assertTrue(filepath.getPermissions().other.read)
 
 
