@@ -311,16 +311,11 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
     """Writes reverse zone files."""
 
     @property
-    def byte_num(self):
-        """Number of significant octets for the IPs of this zone."""
-        return 4 - self.network.netmask.words.count(255)
-
-    @property
     def zone_name(self):
         """Return the name of the reverse zone."""
-        significant_octets = imap(unicode, islice(
-                reversed(self.network.broadcast.words), self.byte_num, None))
-        return '%s.in-addr.arpa' % '.'.join(significant_octets)
+        broadcast, netmask = self.network.broadcast, self.network.netmask
+        octets = broadcast.words[:netmask.words.count(255)]
+        return '%s.in-addr.arpa' % '.'.join(imap(unicode, reversed(octets)))
 
     def get_generated_mapping(self):
         """Return the reverse generated mapping: (shortened) ip->fqdn.
@@ -328,7 +323,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         The reverse generated mapping is the mapping between the IP addresses
         and the generated hostnames for all the possible IP addresses in zone.
         """
-        byte_num = self.byte_num
+        byte_num = 4 - self.network.netmask.words.count(255)
         return {
             shortened_reversed_ip(ip, byte_num):
                 '%s.%s.' % (generated_hostname(ip), self.domain)

@@ -23,7 +23,10 @@ from maastesting.matchers import (
     MatchesAll,
     )
 from maastesting.testcase import TestCase
-from netaddr import IPNetwork, IPAddress
+from netaddr import (
+    IPAddress,
+    IPNetwork,
+    )
 from provisioningserver.dns import config
 from provisioningserver.dns.config import (
     DNSConfig,
@@ -356,14 +359,8 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config = DNSReverseZoneConfig(
             domain, mapping={hostname: ip}, network=network)
         self.assertEqual(
-            (
-                1,
-                '0.168.192.in-addr.arpa',
-            ),
-            (
-                dns_zone_config.byte_num,
-                dns_zone_config.zone_name,
-            ))
+            '0.168.192.in-addr.arpa',
+            dns_zone_config.zone_name)
 
     def test_DNSReverseZoneConfig_reverse_data_slash_22(self):
         # DNSReverseZoneConfig calculates the reverse data correctly for
@@ -375,14 +372,8 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config = DNSReverseZoneConfig(
             domain, mapping={hostname: ip}, network=network)
         self.assertEqual(
-            (
-                2,
-                '168.192.in-addr.arpa',
-            ),
-            (
-                dns_zone_config.byte_num,
-                dns_zone_config.zone_name,
-            ))
+            '168.192.in-addr.arpa',
+            dns_zone_config.zone_name)
 
     def test_DNSReverseZoneConfig_get_generated_mapping(self):
         name = factory.getRandomString()
