@@ -222,6 +222,15 @@ class DNSZoneConfigBase(DNSConfigBase):
 
     def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
                  network=None):
+        """
+        :param zone_name: The name of the forward zone, i.e. the domain name.
+        :param serial: The serial to use in the zone file. This must increment
+            on each change.
+        :param mapping: A hostname:ip-address mapping for all known hosts in
+            the zone.
+        :param dns_ip: The IP address of the DNS server authoritative for this
+            zone.
+        """
         self.zone_name = zone_name
         self.serial = serial
         self.mapping = {} if mapping is None else mapping
