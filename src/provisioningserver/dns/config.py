@@ -212,7 +212,7 @@ def shortened_reversed_ip(ip, byte_num):
     """
     assert 0 <= byte_num <= 4, ("byte_num should be >=0 and <= 4.")
     significant_octets = islice(reversed(ip.words), byte_num)
-    return '.'.join(imap(str, significant_octets))
+    return '.'.join(imap(unicode, significant_octets))
 
 
 class DNSZoneConfigBase(DNSConfigBase):
@@ -318,7 +318,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
     @property
     def zone_name(self):
         """Return the name of the reverse zone."""
-        significant_octets = imap(str, islice(
+        significant_octets = imap(unicode, islice(
                 reversed(self.network.broadcast.words), self.byte_num, None))
         return '%s.in-addr.arpa' % '.'.join(significant_octets)
 
@@ -331,7 +331,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         byte_num = self.byte_num
         return {
             shortened_reversed_ip(ip, byte_num):
-                '%s.%s.' % (generated_hostname(str(ip)), self.domain)
+                '%s.%s.' % (generated_hostname(ip), self.domain)
             for ip in self.network
             }
 
