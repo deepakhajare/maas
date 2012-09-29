@@ -93,6 +93,7 @@ class TestTagTransactions(TransactionTestCase):
             transaction.commit()
             return tag, node
         tag, node = setup()
+
         @transaction.commit_manually
         def trigger_invalid():
             tag.definition = 'invalid::tag'

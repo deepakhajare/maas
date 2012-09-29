@@ -1273,7 +1273,6 @@ class TagHandler(BaseHandler):
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
             to_edit=True)
         model_dict = model_to_dict(tag)
-        old_definition = model_dict['definition']
         data = get_overrided_query_dict(model_dict, request.data)
         form = TagForm(data, instance=tag)
         if form.is_valid():
