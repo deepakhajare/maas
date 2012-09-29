@@ -174,9 +174,8 @@ class DNSConfig(DNSConfigBase):
     template_file_name = 'named.conf.template'
     target_file_name = MAAS_NAMED_CONF_NAME
 
-    def __init__(self, forward_zones=(), reverse_zones=()):
-        self.forward_zones = forward_zones
-        self.reverse_zones = reverse_zones
+    def __init__(self, zones=()):
+        self.zones = zones
         return super(DNSConfig, self).__init__()
 
     @property
@@ -189,8 +188,7 @@ class DNSConfig(DNSConfigBase):
 
     def get_context(self):
         return {
-            'forward_zones': self.forward_zones,
-            'reverse_zones': self.reverse_zones,
+            'zones': self.zones,
             'DNS_CONFIG_DIR': conf.DNS_CONFIG_DIR,
             'named_rndc_conf_path':  get_named_rndc_conf_path(),
             'modified': unicode(datetime.today()),

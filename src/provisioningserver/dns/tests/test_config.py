@@ -160,9 +160,7 @@ class TestDNSConfig(TestCase):
         reverse_zone = DNSReverseZoneConfig(
             domain, mapping={factory.getRandomString(): ip},
             network=network)
-        dnsconfig = DNSConfig(
-            forward_zones=[forward_zone],
-            reverse_zones=[reverse_zone])
+        dnsconfig = DNSConfig((forward_zone, reverse_zone))
         dnsconfig.write_config()
         self.assertThat(
             os.path.join(target_dir, MAAS_NAMED_CONF_NAME),
