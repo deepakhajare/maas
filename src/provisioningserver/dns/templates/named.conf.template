@@ -10,7 +10,7 @@ zone "{{zone.zone_name}}" {
 
 # Reverse zone declarations.
 {{for zone in reverse_zones}}
-zone "{{zone.reverse_zone_name}}" {
+zone "{{zone.zone_name}}" {
     type master;
     file "{{zone.target_path}}";
 };

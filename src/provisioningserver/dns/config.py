@@ -220,10 +220,10 @@ class DNSZoneConfigBase(DNSConfigBase):
 
     template_file_name = 'zone.template'
 
-    def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
+    def __init__(self, domain, serial=None, mapping=None, dns_ip=None,
                  network=None):
         """
-        :param zone_name: The name of the forward zone, i.e. the domain name.
+        :param domain: The domain name of the forward zone.
         :param serial: The serial to use in the zone file. This must increment
             on each change.
         :param mapping: A hostname:ip-address mapping for all known hosts in
@@ -231,11 +231,15 @@ class DNSZoneConfigBase(DNSConfigBase):
         :param dns_ip: The IP address of the DNS server authoritative for this
             zone.
         """
-        self.zone_name = zone_name
+        self.domain = domain
         self.serial = serial
         self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
         self.network = network
+
+    @abstractproperty
+    def zone_name(self):
+        """Return the zone's fully-qualified name."""
 
     @property
     def template_path(self):
@@ -252,6 +256,11 @@ class DNSZoneConfigBase(DNSConfigBase):
 
 class DNSForwardZoneConfig(DNSZoneConfigBase):
     """Writes forward zone files."""
+
+    @property
+    def zone_name(self):
+        """Return the name of the forward zone."""
+        return self.domain
 
     def get_mapping(self):
         """Return the mapping: hostname->generated hostname."""
@@ -284,9 +293,9 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
         """
         mapping = self.get_generated_mapping()
         # Add A record for the name server's IP.
-        mapping['%s.' % self.zone_name] = self.dns_ip
+        mapping['%s.' % self.domain] = self.dns_ip
         return {
-            'domain': self.zone_name,
+            'domain': self.domain,
             'serial': self.serial,
             'modified': unicode(datetime.today()),
             'mappings': {
@@ -305,7 +314,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         return 4 - self.network.netmask.words.count(255)
 
     @property
-    def reverse_zone_name(self):
+    def zone_name(self):
         """Return the name of the reverse zone."""
         significant_octets = imap(str, islice(
                 reversed(self.network.broadcast.words), self.byte_num, None))
@@ -320,7 +329,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         byte_num = self.byte_num
         return {
             shortened_reversed_ip(ip, byte_num):
-                '%s.%s.' % (generated_hostname(ip), self.zone_name)
+                '%s.%s.' % (generated_hostname(ip), self.domain)
             for ip in imap(str, self.network)
             }
 
@@ -328,7 +337,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
     def target_path(self):
         """Return the full path of the DNS reverse zone config file."""
         return os.path.join(
-            self.target_dir, 'zone.rev.%s' % self.reverse_zone_name)
+            self.target_dir, 'zone.rev.%s' % self.zone_name)
 
     def get_context(self):
         """Return the dict used to render the DNS reverse zone file.
@@ -336,7 +345,7 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         That context dict is used to render the DNS reverse zone file.
         """
         return {
-            'domain': self.zone_name,
+            'domain': self.domain,
             'serial': self.serial,
             'modified': unicode(datetime.today()),
             'mappings': {
