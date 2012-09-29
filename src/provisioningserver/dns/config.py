@@ -245,6 +245,12 @@ class DNSZoneConfigBase(DNSConfigBase):
     def template_path(self):
         return os.path.join(self.template_dir, self.template_file_name)
 
+    @property
+    def target_path(self):
+        """Return the full path of the DNS zone file."""
+        return os.path.join(
+            self.target_dir, 'zone.%s' % self.zone_name)
+
     def write_config(self, **kwargs):
         """Write out the DNS config file for this zone."""
         template = self.get_template()
@@ -279,12 +285,6 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
             generated_hostname(ip): ip
             for ip in imap(str, self.network)
         }
-
-    @property
-    def target_path(self):
-        """Return the full path of the DNS zone config file."""
-        return os.path.join(
-            self.target_dir, 'zone.%s' % self.zone_name)
 
     def get_context(self):
         """Return the dict used to render the DNS zone file.
@@ -332,12 +332,6 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
                 '%s.%s.' % (generated_hostname(ip), self.domain)
             for ip in imap(str, self.network)
             }
-
-    @property
-    def target_path(self):
-        """Return the full path of the DNS reverse zone config file."""
-        return os.path.join(
-            self.target_dir, 'zone.rev.%s' % self.zone_name)
 
     def get_context(self):
         """Return the dict used to render the DNS reverse zone file.

@@ -168,7 +168,7 @@ class TestDNSConfig(TestCase):
                 matcher=ContainsAll(
                     [
                         'zone.%s' % domain,
-                        'zone.rev.0.168.192.in-addr.arpa',
+                        'zone.0.168.192.in-addr.arpa',
                         MAAS_NAMED_RNDC_CONF_NAME,
                     ])))
 
@@ -333,7 +333,7 @@ class TestDNSReverseZoneConfig(TestCase):
 
     def test_DNSReverseZoneConfig_computes_dns_config_file_paths(self):
         domain = factory.make_name('zone')
-        reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
+        reverse_file_name = 'zone.168.192.in-addr.arpa'
         dns_zone_config = DNSReverseZoneConfig(
             domain, network=IPNetwork("192.168.0.0/22"))
         self.assertEqual(
@@ -409,7 +409,7 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config.write_config()
         self.assertThat(
             os.path.join(
-                target_dir, 'zone.rev.%s' % dns_zone_config.zone_name),
+                target_dir, 'zone.%s' % dns_zone_config.zone_name),
             FileContains(
                 matcher=Contains('IN  NS  %s.' % dns_zone_config.domain)))
 
@@ -421,7 +421,7 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config = DNSReverseZoneConfig(
             domain, serial=random.randint(1, 100), network=network)
         dns_zone_config.write_config()
-        reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
+        reverse_file_name = 'zone.168.192.in-addr.arpa'
         self.assertThat(
             os.path.join(target_dir, reverse_file_name),
             FileContains(
