@@ -230,6 +230,8 @@ class DNSZoneConfigBase(DNSConfigBase):
             the zone.
         :param dns_ip: The IP address of the DNS server authoritative for this
             zone.
+        :param network: The network that the mapping exists within.
+        :type network: :class:`netaddr.IPNetwork`
         """
         self.domain = domain
         self.serial = serial
