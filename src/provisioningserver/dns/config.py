@@ -341,10 +341,6 @@ class DNSReverseZoneConfig(DNSConfigBase):
 
     @property
     def target_path(self):
-        raise NotImplementedError
-
-    @property
-    def target_reverse_path(self):
         """Return the full path of the DNS reverse zone config file."""
         return os.path.join(
             self.target_dir, 'zone.rev.%s' % self.reverse_zone_name)
@@ -358,9 +354,6 @@ class DNSReverseZoneConfig(DNSConfigBase):
         }
 
     def get_context(self):
-        raise NotImplementedError
-
-    def get_reverse_context(self):
         """Return the dict used to render the DNS reverse zone file.
 
         That context dict is used to render the DNS reverse zone file.
@@ -371,12 +364,9 @@ class DNSReverseZoneConfig(DNSConfigBase):
         return context
 
     def write_config(self, **kwargs):
-        raise NotImplementedError
-
-    def write_reverse_config(self, **kwargs):
         """Write out the DNS reverse config file for this zone."""
         template = self.get_template()
-        kwargs.update(self.get_reverse_context())
+        kwargs.update(self.get_context())
         rendered = self.render_template(template, **kwargs)
         incremental_write(
-            rendered, self.target_reverse_path, mode=self.access_permissions)
+            rendered, self.target_path, mode=self.access_permissions)

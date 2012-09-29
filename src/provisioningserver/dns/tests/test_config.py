@@ -343,7 +343,7 @@ class TestDNSReverseZoneConfig(TestCase):
             ),
             (
                 dns_zone_config.template_path,
-                dns_zone_config.target_reverse_path,
+                dns_zone_config.target_path,
             ))
 
     def test_DNSReverseZoneConfig_reverse_data_slash_24(self):
@@ -407,7 +407,7 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config = DNSReverseZoneConfig(
             factory.getRandomString(), serial=random.randint(1, 100),
             dns_ip=dns_ip, **network_infos(network))
-        dns_zone_config.write_reverse_config()
+        dns_zone_config.write_config()
         self.assertThat(
             os.path.join(target_dir, 'zone.rev.%s' % dns_zone_config.reverse_zone_name),
             FileContains(
@@ -420,7 +420,7 @@ class TestDNSReverseZoneConfig(TestCase):
         network = IPNetwork('192.168.0.1/22')
         dns_zone_config = DNSReverseZoneConfig(
             zone_name, serial=random.randint(1, 100), **network_infos(network))
-        dns_zone_config.write_reverse_config()
+        dns_zone_config.write_config()
         reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
         self.assertThat(
             os.path.join(target_dir, reverse_file_name),
@@ -441,6 +441,6 @@ class TestDNSReverseZoneConfig(TestCase):
             factory.getRandomString(), serial=random.randint(1, 100),
             dns_ip=factory.getRandomIPAddress(),
             **network_infos(factory.getRandomNetwork()))
-        dns_zone_config.write_reverse_config()
-        filepath = FilePath(dns_zone_config.target_reverse_path)
+        dns_zone_config.write_config()
+        filepath = FilePath(dns_zone_config.target_path)
         self.assertTrue(filepath.getPermissions().other.read)
