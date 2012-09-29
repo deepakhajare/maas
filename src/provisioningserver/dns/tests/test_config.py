@@ -43,7 +43,6 @@ from provisioningserver.dns.config import (
     TEMPLATES_PATH,
     )
 from provisioningserver.dns.utils import generated_hostname
-from provisioningserver.testing import network_infos
 import tempita
 from testtools.matchers import (
     Contains,
