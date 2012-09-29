@@ -216,17 +216,11 @@ class DNSForwardZoneConfig(DNSConfigBase):
     template_file_name = 'zone.template'
 
     def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
-                 subnet_mask=None, broadcast_ip=None, ip_range_low=None,
-                 ip_range_high=None):
+                 ip_range_low=None, ip_range_high=None):
         self.zone_name = zone_name
         self.serial = serial
-        if mapping is None:
-            self.mapping = {}
-        else:
-            self.mapping = mapping
+        self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
-        self.subnet_mask = subnet_mask
-        self.broadcast_ip = broadcast_ip
         self.ip_range_low = ip_range_low
         self.ip_range_high = ip_range_high
 
