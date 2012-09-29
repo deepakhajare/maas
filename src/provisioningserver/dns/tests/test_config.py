@@ -315,17 +315,14 @@ class TestDNSReverseZoneConfig(TestCase):
         ip = factory.getRandomIPInNetwork(network)
         mapping = {hostname: ip}
         dns_zone_config = DNSReverseZoneConfig(
-            zone_name, serial, mapping, **network_infos(network))
+            zone_name, serial, mapping, network=network)
         self.assertThat(
             dns_zone_config,
             MatchesStructure.byEquality(
                 zone_name=zone_name,
                 serial=serial,
                 mapping=mapping,
-                subnet_mask=str(network.netmask),
-                broadcast_ip=str(network.broadcast),
-                ip_range_low=str(network.first),
-                ip_range_high=str(network.last),
+                network=network,
                 )
             )
 
@@ -333,9 +330,7 @@ class TestDNSReverseZoneConfig(TestCase):
         zone_name = factory.make_name('zone')
         reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
         dns_zone_config = DNSReverseZoneConfig(
-            zone_name, broadcast_ip='192.168.0.255',
-            subnet_mask='255.255.252.0',
-            )
+            zone_name, network=IPNetwork("192.168.0.0/22"))
         self.assertEqual(
             (
                 os.path.join(TEMPLATES_PATH, 'zone.template'),
@@ -354,7 +349,7 @@ class TestDNSReverseZoneConfig(TestCase):
         ip = '192.168.0.5'
         network = IPNetwork('192.168.0.1/24')
         dns_zone_config = DNSReverseZoneConfig(
-            zone_name, mapping={hostname: ip}, **network_infos(network))
+            zone_name, mapping={hostname: ip}, network=network)
         self.assertEqual(
             (
                 1,
@@ -373,7 +368,7 @@ class TestDNSReverseZoneConfig(TestCase):
         ip = '192.168.0.10'
         network = IPNetwork('192.168.0.1/22')
         dns_zone_config = DNSReverseZoneConfig(
-            zone_name, mapping={hostname: ip}, **network_infos(network))
+            zone_name, mapping={hostname: ip}, network=network)
         self.assertEqual(
             (
                 2,
@@ -387,8 +382,7 @@ class TestDNSReverseZoneConfig(TestCase):
     def test_DNSReverseZoneConfig_get_generated_reverse_mapping(self):
         name = factory.getRandomString()
         network = IPNetwork('192.12.0.1/30')
-        dns_zone_config = DNSReverseZoneConfig(
-            name, **network_infos(network))
+        dns_zone_config = DNSReverseZoneConfig(name, network=network)
         self.assertEqual(
             {
                 '0': '%s.' % generated_hostname('192.12.0.0', name),
@@ -406,10 +400,11 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_ip = factory.getRandomIPAddress()
         dns_zone_config = DNSReverseZoneConfig(
             factory.getRandomString(), serial=random.randint(1, 100),
-            dns_ip=dns_ip, **network_infos(network))
+            dns_ip=dns_ip, network=network)
         dns_zone_config.write_config()
         self.assertThat(
-            os.path.join(target_dir, 'zone.rev.%s' % dns_zone_config.reverse_zone_name),
+            os.path.join(
+                target_dir, 'zone.rev.%s' % dns_zone_config.reverse_zone_name),
             FileContains(
                 matcher=Contains('IN  NS  %s.' % dns_zone_config.zone_name)))
 
@@ -419,7 +414,7 @@ class TestDNSReverseZoneConfig(TestCase):
         zone_name = factory.getRandomString()
         network = IPNetwork('192.168.0.1/22')
         dns_zone_config = DNSReverseZoneConfig(
-            zone_name, serial=random.randint(1, 100), **network_infos(network))
+            zone_name, serial=random.randint(1, 100), network=network)
         dns_zone_config.write_config()
         reverse_file_name = 'zone.rev.168.192.in-addr.arpa'
         self.assertThat(
@@ -440,7 +435,7 @@ class TestDNSReverseZoneConfig(TestCase):
         dns_zone_config = DNSReverseZoneConfig(
             factory.getRandomString(), serial=random.randint(1, 100),
             dns_ip=factory.getRandomIPAddress(),
-            **network_infos(factory.getRandomNetwork()))
+            network=factory.getRandomNetwork())
         dns_zone_config.write_config()
         filepath = FilePath(dns_zone_config.target_path)
         self.assertTrue(filepath.getPermissions().other.read)

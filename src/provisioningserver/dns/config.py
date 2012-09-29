@@ -23,7 +23,10 @@ from abc import (
     abstractproperty,
     )
 from datetime import datetime
-from itertools import imap
+from itertools import (
+    imap,
+    islice,
+    )
 import os.path
 from subprocess import (
     check_call,
@@ -31,7 +34,6 @@ from subprocess import (
     )
 
 from celery.conf import conf
-from netaddr import IPRange
 from provisioningserver.dns.utils import generated_hostname
 from provisioningserver.utils import (
     atomic_write,
@@ -291,32 +293,24 @@ class DNSReverseZoneConfig(DNSConfigBase):
     template_file_name = 'zone.template'
 
     def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
-                 subnet_mask=None, broadcast_ip=None, ip_range_low=None,
-                 ip_range_high=None):
+                 network=None):
         self.zone_name = zone_name
         self.serial = serial
-        if mapping is None:
-            self.mapping = {}
-        else:
-            self.mapping = mapping
+        self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
-        self.subnet_mask = subnet_mask
-        self.broadcast_ip = broadcast_ip
-        self.ip_range_low = ip_range_low
-        self.ip_range_high = ip_range_high
+        self.network = network
 
     @property
     def byte_num(self):
         """Number of significant octets for the IPs of this zone."""
-        return 4 - len(
-            [byte for byte in self.subnet_mask.split('.')
-             if byte == '255'])
+        return 4 - self.network.netmask.words.count(255)
 
     @property
     def reverse_zone_name(self):
         """Return the name of the reverse zone."""
-        significant_bits = self.broadcast_ip.split('.')[:4 - self.byte_num]
-        return '%s.in-addr.arpa' % '.'.join(reversed(significant_bits))
+        significant_octets = imap(str, islice(
+                reversed(self.network.broadcast.words), self.byte_num, None))
+        return '%s.in-addr.arpa' % '.'.join(significant_octets)
 
     def get_generated_reverse_mapping(self):
         """Return the reverse generated mapping: (shortened) ip->fqdn.
@@ -325,8 +319,8 @@ class DNSReverseZoneConfig(DNSConfigBase):
         and the generated hostnames for all the possible IP addresses in zone.
         """
         generated_mapping = {
-            generated_hostname(str(ip)): str(ip)
-            for ip in IPRange(self.ip_range_low, self.ip_range_high)
+            generated_hostname(ip): ip
+            for ip in imap(str, self.network)
         }
         return dict(
             (
