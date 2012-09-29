@@ -215,8 +215,8 @@ def shortened_reversed_ip(ip, byte_num):
     return '.'.join(significant_octets)
 
 
-class DNSForwardZoneConfig(DNSConfigBase):
-    """Writes forward zone files."""
+class DNSZoneConfigBase(DNSConfigBase):
+    """Base class for zone writers."""
 
     template_file_name = 'zone.template'
 
@@ -227,6 +227,22 @@ class DNSForwardZoneConfig(DNSConfigBase):
         self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
         self.network = network
+
+    @property
+    def template_path(self):
+        return os.path.join(self.template_dir, self.template_file_name)
+
+    def write_config(self, **kwargs):
+        """Write out the DNS config file for this zone."""
+        template = self.get_template()
+        kwargs.update(self.get_context())
+        rendered = self.render_template(template, **kwargs)
+        incremental_write(
+            rendered, self.target_path, mode=self.access_permissions)
+
+
+class DNSForwardZoneConfig(DNSZoneConfigBase):
+    """Writes forward zone files."""
 
     def get_mapping(self):
         """Return the mapping: hostname->generated hostname."""
@@ -245,10 +261,6 @@ class DNSForwardZoneConfig(DNSConfigBase):
             generated_hostname(ip): ip
             for ip in imap(str, self.network)
         }
-
-    @property
-    def template_path(self):
-        return os.path.join(self.template_dir, self.template_file_name)
 
     @property
     def target_path(self):
@@ -274,27 +286,9 @@ class DNSForwardZoneConfig(DNSConfigBase):
                 }
             }
 
-    def write_config(self, **kwargs):
-        """Write out the DNS config file for this zone."""
-        template = self.get_template()
-        kwargs.update(self.get_context())
-        rendered = self.render_template(template, **kwargs)
-        incremental_write(
-            rendered, self.target_path, mode=self.access_permissions)
 
-
-class DNSReverseZoneConfig(DNSConfigBase):
+class DNSReverseZoneConfig(DNSZoneConfigBase):
     """Writes reverse zone files."""
-
-    template_file_name = 'zone.template'
-
-    def __init__(self, zone_name, serial=None, mapping=None, dns_ip=None,
-                 network=None):
-        self.zone_name = zone_name
-        self.serial = serial
-        self.mapping = {} if mapping is None else mapping
-        self.dns_ip = dns_ip
-        self.network = network
 
     @property
     def byte_num(self):
@@ -322,10 +316,6 @@ class DNSReverseZoneConfig(DNSConfigBase):
             }
 
     @property
-    def template_path(self):
-        return os.path.join(self.template_dir, self.template_file_name)
-
-    @property
     def target_path(self):
         """Return the full path of the DNS reverse zone config file."""
         return os.path.join(
@@ -344,11 +334,3 @@ class DNSReverseZoneConfig(DNSConfigBase):
                 'PTR': self.get_generated_mapping(),
                 }
             }
-
-    def write_config(self, **kwargs):
-        """Write out the DNS reverse config file for this zone."""
-        template = self.get_template()
-        kwargs.update(self.get_context())
-        rendered = self.render_template(template, **kwargs)
-        incremental_write(
-            rendered, self.target_path, mode=self.access_permissions)
