@@ -384,7 +384,7 @@ class TestDNSReverseZoneConfig(TestCase):
                 dns_zone_config.reverse_zone_name,
             ))
 
-    def test_DNSReverseZoneConfig_get_generated_reverse_mapping(self):
+    def test_DNSReverseZoneConfig_get_generated_mapping(self):
         name = factory.getRandomString()
         network = IPNetwork('192.12.0.1/30')
         dns_zone_config = DNSReverseZoneConfig(name, network=network)
@@ -395,7 +395,7 @@ class TestDNSReverseZoneConfig(TestCase):
                 '2': '%s.' % generated_hostname('192.12.0.2', name),
                 '3': '%s.' % generated_hostname('192.12.0.3', name),
              },
-            dns_zone_config.get_generated_reverse_mapping(),
+            dns_zone_config.get_generated_mapping(),
             )
 
     def test_DNSReverseZoneConfig_writes_dns_zone_config_with_NS_record(self):

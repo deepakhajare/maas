@@ -314,22 +314,18 @@ class DNSReverseZoneConfig(DNSConfigBase):
                 reversed(self.network.broadcast.words), self.byte_num, None))
         return '%s.in-addr.arpa' % '.'.join(significant_octets)
 
-    def get_generated_reverse_mapping(self):
+    def get_generated_mapping(self):
         """Return the reverse generated mapping: (shortened) ip->fqdn.
 
         The reverse generated mapping is the mapping between the IP addresses
         and the generated hostnames for all the possible IP addresses in zone.
         """
-        generated_mapping = {
-            generated_hostname(ip): ip
+        byte_num = self.byte_num
+        return {
+            shortened_reversed_ip(ip, byte_num):
+                '%s.%s.' % (generated_hostname(ip), self.zone_name)
             for ip in imap(str, self.network)
-        }
-        return dict(
-            (
-                shortened_reversed_ip(ip, self.byte_num),
-                '%s.%s.' % (hostname, self.zone_name)
-            )
-            for hostname, ip in generated_mapping.items())
+            }
 
     @property
     def template_path(self):
@@ -355,7 +351,7 @@ class DNSReverseZoneConfig(DNSConfigBase):
         That context dict is used to render the DNS reverse zone file.
         """
         context = self.get_base_context()
-        mappings = {'PTR': self.get_generated_reverse_mapping()}
+        mappings = {'PTR': self.get_generated_mapping()}
         context.update(mappings=mappings)
         return context
 
