@@ -207,12 +207,12 @@ def shortened_reversed_ip(ip, byte_num):
 
     >>> shortened_reversed_ip('192.156.0.3', 2)
     '3.0'
+
+    :type ip: :class:`netaddr.IPAddress`
     """
     assert 0 <= byte_num <= 4, ("byte_num should be >=0 and <= 4.")
-    ip_octets = ip.split('.')
-    significant_octets = list(
-    reversed(ip_octets))[:byte_num]
-    return '.'.join(significant_octets)
+    significant_octets = islice(reversed(ip.words), byte_num)
+    return '.'.join(imap(str, significant_octets))
 
 
 class DNSZoneConfigBase(DNSConfigBase):
@@ -329,8 +329,8 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         byte_num = self.byte_num
         return {
             shortened_reversed_ip(ip, byte_num):
-                '%s.%s.' % (generated_hostname(ip), self.domain)
-            for ip in imap(str, self.network)
+                '%s.%s.' % (generated_hostname(str(ip)), self.domain)
+            for ip in self.network
             }
 
     def get_context(self):

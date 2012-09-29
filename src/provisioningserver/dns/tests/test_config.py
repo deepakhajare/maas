@@ -23,7 +23,7 @@ from maastesting.matchers import (
     MatchesAll,
     )
 from maastesting.testcase import TestCase
-from netaddr import IPNetwork
+from netaddr import IPNetwork, IPAddress
 from provisioningserver.dns import config
 from provisioningserver.dns.config import (
     DNSConfig,
@@ -198,17 +198,17 @@ class TestUtilities(TestCase):
     def test_shortened_reversed_ip_2(self):
         self.assertEqual(
             '3.0',
-            shortened_reversed_ip('192.156.0.3', 2))
+            shortened_reversed_ip(IPAddress('192.156.0.3'), 2))
 
     def test_shortened_reversed_ip_0(self):
         self.assertEqual(
             '',
-            shortened_reversed_ip('192.156.0.3', 0))
+            shortened_reversed_ip(IPAddress('192.156.0.3'), 0))
 
     def test_shortened_reversed_ip_4(self):
         self.assertEqual(
             '3.0.156.192',
-            shortened_reversed_ip('192.156.0.3', 4))
+            shortened_reversed_ip(IPAddress('192.156.0.3'), 4))
 
 
 class TestDNSForwardZoneConfig(TestCase):
