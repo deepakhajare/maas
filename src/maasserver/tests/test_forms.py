@@ -66,7 +66,11 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from provisioningserver.enum import POWER_TYPE_CHOICES
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    AllMatch,
+    Equals,
+    MatchesStructure,
+    )
 from testtools.testcase import ExpectedException
 
 
@@ -638,6 +642,11 @@ def make_interface_settings():
     }
 
 
+nullable_fields = [
+    'subnet_mask', 'broadcast_ip', 'router_ip', 'ip_range_low',
+    'ip_range_high']
+
+
 class TestNodeGroupInterfaceForm(TestCase):
 
     def test_NodeGroupInterfaceForm_save_sets_nodegroup(self):
@@ -652,7 +661,19 @@ class TestNodeGroupInterfaceForm(TestCase):
         form = NodeGroupInterfaceForm(data={'ip': factory.getRandomString()})
         self.assertFalse(form.is_valid())
         self.assertEquals(
-            {'ip': ['Enter a valid IPv4 address.']}, form._errors)
+            {'ip': ['Enter a valid IPv4 or IPv6 address.']}, form._errors)
+
+    def test_NodeGroupInterfaceForm_can_save_fields_being_None(self):
+        settings = make_interface_settings()
+        for field_name in nullable_fields:
+            del settings[field_name]
+        form = NodeGroupInterfaceForm(data=settings)
+        nodegroup = factory.make_node_group(
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+        interface = form.save(nodegroup=nodegroup)
+        field_values = [
+            getattr(interface, field_name) for field_name in nullable_fields]
+        self.assertThat(field_values, AllMatch(Equals('')))
 
 
 class TestNodeGroupWithInterfacesForm(TestCase):
@@ -672,6 +693,16 @@ class TestNodeGroupWithInterfacesForm(TestCase):
                 nodegroup.status,
                 nodegroup.nodegroupinterface_set.count(),
             ))
+
+    def test_NodeGroupWithInterfacesForm_creates_nodegroup_with_status(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'name': name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertEqual(NODEGROUP_STATUS.ACCEPTED, nodegroup.status)
 
     def test_NodeGroupWithInterfacesForm_validates_parameters(self):
         name = factory.make_name('name')
@@ -719,7 +750,8 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid, 'interfaces': interfaces})
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "Enter a valid IPv4 address", form._errors['interfaces'][0])
+            "Enter a valid IPv4 or IPv6 address",
+            form._errors['interfaces'][0])
 
     def test_NodeGroupWithInterfacesForm_creates_interface_from_params(self):
         name = factory.make_name('name')

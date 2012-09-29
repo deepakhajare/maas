@@ -30,7 +30,9 @@ from apiclient.maas_client import (
     MAASDispatcher,
     NoAuth,
     )
+from celery.app import app_or_default
 from provisioningserver.logging import task_logger
+from provisioningserver.network import discover_networks
 
 
 class ClusterControllerRejected(Exception):
@@ -54,12 +56,23 @@ def make_anonymous_api_client(server_url):
     return MAASClient(NoAuth(), MAASDispatcher(), server_url)
 
 
+def get_cluster_uuid():
+    """Read this cluster's UUID from the config."""
+    return app_or_default().conf.CLUSTER_UUID
+
+
+def get_maas_celery_log():
+    """Read location for MAAS Celery log file from the config."""
+    return app_or_default().conf.MAAS_CELERY_LOG
+
+
 def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
     Offers this machine to the region controller as a potential cluster
     controller.
 
+    :param server_url: URL to the region controller's MAAS API.
     :return: A dict of connection details if this cluster controller has been
         accepted, or `None` if there is no definite response yet.  If there
         is no definite response, retry this call later.
@@ -67,9 +80,14 @@ def register(server_url):
         cluster controller.
     """
     known_responses = {httplib.OK, httplib.FORBIDDEN, httplib.ACCEPTED}
+
+    interfaces = json.dumps(discover_networks())
     client = make_anonymous_api_client(server_url)
+    cluster_uuid = get_cluster_uuid()
     try:
-        response = client.post('api/1.0/nodegroups/', 'register')
+        response = client.post(
+            'api/1.0/nodegroups/', 'register',
+            interfaces=interfaces, uuid=cluster_uuid)
     except HTTPError as e:
         status_code = e.code
         if e.code not in known_responses:
@@ -100,25 +118,15 @@ def register(server_url):
 def start_celery(connection_details):
     broker_url = connection_details['BROKER_URL']
 
-    # XXX JeroenVermeulen 2012-09-24, bug=1055523: Fill in proper
-    # cluster-specific queue name once we have those (based on cluster
-    # uuid).
-    queue = 'celery'
-
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
 
-    queues = [
-        'common',
-        'update_dhcp_queue',
-        queue,
-        ]
     command = [
         'celeryd',
-        '--logfile=/var/log/maas/celery.log',
+        '--logfile=%s' % get_maas_celery_log(),
         '--loglevel=INFO',
         '--beat',
-        '-Q', ','.join(queues),
+        '-Q', get_cluster_uuid(),
         ]
     Popen(command, env=env)
 

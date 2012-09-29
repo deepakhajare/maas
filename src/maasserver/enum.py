@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = [
     'ARCHITECTURE',
     'ARCHITECTURE_CHOICES',
+    'COMPONENT',
     'NODEGROUP_STATUS',
     'NODEGROUP_STATUS_CHOICES',
     'NODEGROUPINTERFACE_MANAGEMENT',
@@ -27,6 +28,12 @@ __all__ = [
     ]
 
 from collections import OrderedDict
+
+
+class COMPONENT:
+    """Major moving parts of the application that may have failure states."""
+    PSERV = 'provisioning server'
+    IMPORT_PXE_FILES = 'maas-import-pxe-files script'
 
 
 class NODE_STATUS:
@@ -104,18 +111,18 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class ARCHITECTURE:
     """List of supported architectures."""
     #:
-    i386 = 'i386'
+    i386 = 'i386/generic'
     #:
-    amd64 = 'amd64'
+    amd64 = 'amd64/generic'
     #:
-    armhf = 'armhf'
+    armhf_highbank = 'armhf/highbank'
 
 
 # Architecture names.
 ARCHITECTURE_CHOICES = (
     (ARCHITECTURE.i386, "i386"),
     (ARCHITECTURE.amd64, "amd64"),
-    (ARCHITECTURE.armhf, "armhf"),
+    (ARCHITECTURE.armhf_highbank, "armhf/highbank"),
 )
 
 
