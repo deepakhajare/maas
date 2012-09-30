@@ -119,8 +119,10 @@ class NodeViewsTest(LoggedInTestCase):
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(tag_a.name, content_text)
         self.assertIn(tag_b.name, content_text)
-        # tag_link = reverse('tags', args=[tag.name])
-        # self.assertIn(tag_link, get_content_links(response))
+        self.assertItemsEqual(
+            [reverse('tag-view', args=[t.name]) for t in (tag_a, tag_b)],
+            [link for link in get_content_links(response)
+                if link.startswith('/tags/')])
 
     def test_view_node_displays_node_info_no_owner(self):
         # If the node has no owner, the Owner 'slot' does not exist.
