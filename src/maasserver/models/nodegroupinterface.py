@@ -15,6 +15,9 @@ __all__ = [
     ]
 
 
+from collections import defaultdict
+
+from django.core.exceptions import ValidationError
 from django.db.models import (
     CharField,
     ForeignKey,
@@ -26,11 +29,15 @@ from maasserver.enum import (
     NODEGROUPINTERFACE_MANAGEMENT,
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
+from maasserver.models.cleansave import CleanSave
 from maasserver.models.timestampedmodel import TimestampedModel
-from netaddr import IPNetwork
+from netaddr import (
+    IPAddress,
+    IPNetwork,
+    )
 
 
-class NodeGroupInterface(TimestampedModel):
+class NodeGroupInterface(CleanSave, TimestampedModel):
 
     class Meta(DefaultMeta):
         unique_together = ('nodegroup', 'interface')
@@ -62,9 +69,33 @@ class NodeGroupInterface(TimestampedModel):
 
     @property
     def network(self):
-        return IPNetwork("%s/%s" % (self.ip, self.subnet_mask))
+        return IPNetwork("%s/%s" % (self.broadcast_ip, self.subnet_mask))
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
 
-    # TODO: validate that the network settings are all correct before save.
+    def clean_network(self):
+        """Ensure that the network settings are all congruent.
+
+        Specifically, it ensures that the interface address, router address,
+        and the address range, all fall within the network defined by the
+        broadcast address and subnet mask.
+        """
+        network = self.network
+        network_settings = (
+            ("ip", self.ip),
+            ("router_ip", self.router_ip),
+            ("ip_range_low", self.ip_range_low),
+            ("ip_range_high", self.ip_range_high),
+            )
+        network_errors = defaultdict(list)
+        for field, address in network_settings:
+            if IPAddress(address) not in network:
+                network_errors[field].append(
+                    "%s not in the %s network" % (address, network))
+        if len(network_errors) != 0:
+            raise ValidationError(network_errors)
+
+    def clean(self, *args, **kwargs):
+        super(NodeGroupInterface, self).clean(*args, **kwargs)
+        self.clean_network()

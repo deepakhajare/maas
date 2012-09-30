@@ -283,6 +283,7 @@ class TestDNSConfigModifications(TestCase):
         interface = nodegroup.get_managed_interface()
         # Edit nodegroup's network information to '192.168.44.1/24'
         interface.ip = '192.168.44.7'
+        interface.router_ip = '192.168.44.14'
         interface.broadcast_ip = '192.168.44.255'
         interface.netmask = '255.255.255.0'
         interface.ip_range_low = '192.168.44.0'
