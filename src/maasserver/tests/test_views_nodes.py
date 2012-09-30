@@ -107,6 +107,21 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(node.display_status(), content_text)
         self.assertIn(self.logged_in_user.username, content_text)
 
+    def test_view_node_contains_tag_names(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        tag_a = factory.make_tag(name='special-tag-name')
+        tag_b = factory.make_tag(name='alternative-tag-name')
+        node.tags.add(tag_a)
+        node.tags.add(tag_b)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        content_text = doc.cssselect('#content')[0].text_content()
+        self.assertIn(tag_a.name, content_text)
+        self.assertIn(tag_b.name, content_text)
+        # tag_link = reverse('tags', args=[tag.name])
+        # self.assertIn(tag_link, get_content_links(response))
+
     def test_view_node_displays_node_info_no_owner(self):
         # If the node has no owner, the Owner 'slot' does not exist.
         node = factory.make_node()

@@ -165,6 +165,7 @@ class NodeView(NodeViewMixin, UpdateView):
             node.error if node.status == NODE_STATUS.FAILED_TESTS else None)
         context['status_text'] = (
             node.error if node.status != NODE_STATUS.FAILED_TESTS else None)
+        context['tag_names'] = node.tags
         return context
 
     def dispatch(self, *args, **kwargs):
