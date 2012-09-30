@@ -71,9 +71,13 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
     def network(self):
         """Return the network defined by the broadcast address and net mask.
 
+        If either the broadcast address or the subnet mask is unset, returns
+        None.
+
         :return: :class:`IPNetwork`
         """
-        return IPNetwork("%s/%s" % (self.broadcast_ip, self.subnet_mask))
+        network = self.broadcast_ip, self.subnet_mask
+        return IPNetwork("%s/%s" % network) if all(network) else None
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
@@ -86,6 +90,8 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
         broadcast address and subnet mask.
         """
         network = self.network
+        if network is None:
+            return
         network_settings = (
             ("ip", self.ip),
             ("router_ip", self.router_ip),
