@@ -154,10 +154,10 @@ def gen_zones(nodegroups, serial=None):
                 for mapping in mappings.values()
                 for hostname, ip in mapping.items()
                 },
-            network={
+            networks={
                 interface.network
                 for interface in interfaces.values()
-                }.pop(),
+                },
             )
         # A reverse zone for each managed interface.
         for nodegroup, interface in interfaces.items():

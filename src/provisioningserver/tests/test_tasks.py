@@ -322,7 +322,7 @@ class TestDNSTasks(PservTestCase):
         ip = factory.getRandomIPInNetwork(network)
         forward_zone = DNSForwardZoneConfig(
             domain, serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): ip}, network=network)
+            mapping={factory.getRandomString(): ip}, networks=[network])
         reverse_zone = DNSReverseZoneConfig(
             domain, serial=random.randint(1, 100),
             mapping={factory.getRandomString(): ip}, network=network)
@@ -433,7 +433,7 @@ class TestDNSTasks(PservTestCase):
             DNSForwardZoneConfig(
                 domain, serial=random.randint(1, 100),
                 mapping={factory.getRandomString(): ip},
-                network=network),
+                networks=[network]),
             DNSReverseZoneConfig(
                 domain, serial=random.randint(1, 100),
                 mapping={factory.getRandomString(): ip},

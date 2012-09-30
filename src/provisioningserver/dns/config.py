@@ -24,6 +24,7 @@ from abc import (
     )
 from datetime import datetime
 from itertools import (
+    chain,
     imap,
     islice,
     )
@@ -218,8 +219,7 @@ class DNSZoneConfigBase(DNSConfigBase):
 
     template_file_name = 'zone.template'
 
-    def __init__(self, domain, serial=None, mapping=None, dns_ip=None,
-                 network=None):
+    def __init__(self, domain, serial=None, mapping=None, dns_ip=None):
         """
         :param domain: The domain name of the forward zone.
         :param serial: The serial to use in the zone file. This must increment
@@ -228,14 +228,12 @@ class DNSZoneConfigBase(DNSConfigBase):
             the zone.
         :param dns_ip: The IP address of the DNS server authoritative for this
             zone.
-        :param network: The network that the mapping exists within.
-        :type network: :class:`netaddr.IPNetwork`
         """
+        super(DNSZoneConfigBase, self).__init__()
         self.domain = domain
         self.serial = serial
         self.mapping = {} if mapping is None else mapping
         self.dns_ip = dns_ip
-        self.network = network
 
     @abstractproperty
     def zone_name(self):
@@ -263,6 +261,16 @@ class DNSZoneConfigBase(DNSConfigBase):
 class DNSForwardZoneConfig(DNSZoneConfigBase):
     """Writes forward zone files."""
 
+    def __init__(self, *args, **kwargs):
+        """See `DNSZoneConfigBase.__init__`.
+
+        :param networks: The networks that the mapping exists within.
+        :type networks: Sequence of :class:`netaddr.IPNetwork`
+        """
+        networks = kwargs.pop("networks", None)
+        self.networks = [] if networks is None else networks
+        super(DNSForwardZoneConfig, self).__init__(*args, **kwargs)
+
     @property
     def zone_name(self):
         """Return the name of the forward zone."""
@@ -281,10 +289,8 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
         The generated mapping is the mapping between the generated hostnames
         and the IP addresses for all the possible IP addresses in zone.
         """
-        return {
-            generated_hostname(ip): ip
-            for ip in imap(str, self.network)
-        }
+        ips = imap(unicode, chain.from_iterable(self.networks))
+        return {generated_hostname(ip): ip for ip in ips}
 
     def get_context(self):
         """Return the dict used to render the DNS zone file.
@@ -307,6 +313,15 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
 
 class DNSReverseZoneConfig(DNSZoneConfigBase):
     """Writes reverse zone files."""
+
+    def __init__(self, *args, **kwargs):
+        """See `DNSZoneConfigBase.__init__`.
+
+        :param network: The network that the mapping exists within.
+        :type network: :class:`netaddr.IPNetwork`
+        """
+        self.network = kwargs.pop("network", None)
+        super(DNSReverseZoneConfig, self).__init__(*args, **kwargs)
 
     @property
     def zone_name(self):
