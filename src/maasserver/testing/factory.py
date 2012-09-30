@@ -131,9 +131,6 @@ class Factory(maastesting.factory.Factory):
         subnet_mask, broadcast_ip, ip_range_low, ip_range_high, router_ip and
         worker_ip. This is a convenience to setup a coherent network all in
         one go.
-
-        Otherwise, use the provided values for these values or use random IP
-        addresses if they are not provided.
         """
         if status is None:
             status = factory.getRandomEnum(NODEGROUP_STATUS)

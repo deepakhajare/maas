@@ -69,6 +69,10 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
 
     @property
     def network(self):
+        """Return the network defined by the broadcast address and net mask.
+
+        :return: :class:`IPNetwork`
+        """
         return IPNetwork("%s/%s" % (self.broadcast_ip, self.subnet_mask))
 
     def __repr__(self):
