@@ -143,26 +143,20 @@ class Factory(maastesting.factory.Factory):
             name = self.make_name('nodegroup')
         if uuid is None:
             uuid = factory.getRandomUUID()
-        if network is not None:
+        if network is None:
+            network = factory.getRandomNetwork()
+        if subnet_mask is None:
             subnet_mask = str(network.netmask)
+        if broadcast_ip is None:
             broadcast_ip = str(network.broadcast)
+        if ip_range_low is None:
             ip_range_low = str(IPAddress(network.first))
+        if ip_range_high is None:
             ip_range_high = str(IPAddress(network.last))
+        if router_ip is None:
             router_ip = factory.getRandomIPInNetwork(network)
+        if ip is None:
             ip = factory.getRandomIPInNetwork(network)
-        else:
-            if subnet_mask is None:
-                subnet_mask = self.getRandomIPAddress()
-            if broadcast_ip is None:
-                broadcast_ip = self.getRandomIPAddress()
-            if ip_range_low is None:
-                ip_range_low = self.getRandomIPAddress()
-            if ip_range_high is None:
-                ip_range_high = self.getRandomIPAddress()
-            if router_ip is None:
-                router_ip = self.getRandomIPAddress()
-            if ip is None:
-                ip = self.getRandomIPAddress()
         if interface is None:
             interface = self.make_name('interface')
         ng = NodeGroup.objects.new(
