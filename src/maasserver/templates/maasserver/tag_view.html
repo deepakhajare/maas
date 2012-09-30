@@ -1,0 +1,43 @@
+{% extends "maasserver/base.html" %}
+
+{% block nav-active-settings %}active{% endblock %}
+{% block title %}Tag: {{ tag.name}}{% endblock %}
+{% block page-title %}Tag: {{ tag.name}}{% endblock %}
+
+{% block content %}
+  <ul class="data-list">
+    <li class="block size2 first">
+      <h4>Name</h4>
+      <span>{{ tag.name }}</span>
+    </li>
+    <li class="block size2 first">
+      <h4>Comment</h4>
+      <span>{{ tag.comment }}</span>
+    </li>
+    <li class="block size2 first">
+      <h4>Definition</h4>
+      <span>{{ tag.definition }}</span>
+    </li>
+    <li class="block size3">
+      <h4>Nodes</h4>
+      <span>
+          {% for node in tag.node_set.all %}
+          {{ node }}{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+      </span>
+    </li>
+    {% if error_text %}
+    <li class="block first">
+      <h4>Error output</h4>
+      <span>{{ error_text }}</span>
+    </li>
+    {% endif %}
+    {% if status_text %}
+    <li class="block first">
+      <h4>Console output</h4>
+      <span>{{ status_text }}</span>
+    </li>
+    {% endif %}
+  </ul>
+{% endblock %}
+

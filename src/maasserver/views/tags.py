@@ -15,19 +15,25 @@ __all__ = [
     ]
 
 from maasserver.models import Tag
+from django.views.generic import (
+    # ListView,
+    UpdateView,
+    )
 
 
-class TagView:
+class TagView(UpdateView):
     """Basic view of a tag.
     """
 
+    template_name = 'maasserver/tag_view.html'
     context_object_name = 'tag'
 
     def get_object(self):
-        system_id = self.kwargs.get('name', None)
+        name = self.kwargs.get('name', None)
         tag = Tag.objects.get_tag_or_404(
             name=name, user=self.request.user,
             to_edit=False)
         return tag
 
-
+    def get_success_url(self):
+        return reverse('tag-view', args=[self.get_object().name])
