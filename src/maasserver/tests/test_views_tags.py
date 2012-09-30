@@ -58,3 +58,4 @@ class TagViewsTest(LoggedInTestCase):
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(node.hostname, content_text)
+        self.assertIn(node_link, get_content_links(response))

@@ -22,7 +22,9 @@
       <h4>Nodes</h4>
       <span>
           {% for node in tag.node_set.all %}
-          {{ node }}{% if not forloop.last %}, {% endif %}
+              <a href="{% url 'node-view' node.system_id %}">{{ node }}
+              {% if not forloop.last %}, {% endif %}
+              </a>
           {% endfor %}
       </span>
     </li>
