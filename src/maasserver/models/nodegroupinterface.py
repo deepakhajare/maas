@@ -27,6 +27,7 @@ from maasserver.enum import (
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
 from maasserver.models.timestampedmodel import TimestampedModel
+from netaddr import IPNetwork
 
 
 class NodeGroupInterface(TimestampedModel):
@@ -59,5 +60,11 @@ class NodeGroupInterface(TimestampedModel):
     ip_range_high = GenericIPAddressField(
         editable=True, unique=True, blank=True, null=True, default=None)
 
+    @property
+    def network(self):
+        return IPNetwork("%s/%s" % (self.ip, self.subnet_mask))
+
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
+
+    # TODO: validate that the network settings are all correct before save.

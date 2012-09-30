@@ -14,7 +14,6 @@ __all__ = []
 
 
 from itertools import islice
-import random
 import socket
 
 from celery.task import task
@@ -28,7 +27,6 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.models.dhcplease import DHCPLease
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.bindfixture import BINDServer
@@ -42,7 +40,7 @@ from netaddr import (
 from provisioningserver import tasks
 from provisioningserver.dns.config import (
     conf,
-    DNSZoneConfig,
+    DNSZoneConfigBase,
     )
 from provisioningserver.dns.utils import generated_hostname
 from rabbitfixture.server import allocate_ports
@@ -91,25 +89,6 @@ class TestDNSUtilities(TestCase):
             FakeMethod(failure=socket.error))
         self.patch_DEFAULT_MAAS_URL_with_random_values()
         self.assertRaises(dns.DNSException, dns.get_dns_server_address)
-
-    def test_get_zone_creates_DNSZoneConfig(self):
-        nodegroup = factory.make_node_group(
-            status=NODEGROUP_STATUS.ACCEPTED,
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
-        interface = nodegroup.get_managed_interface()
-        serial = random.randint(1, 100)
-        zone = dns.get_zone(nodegroup, serial)
-        self.assertAttributes(
-            zone,
-            dict(
-                zone_name=nodegroup.name,
-                serial=serial,
-                subnet_mask=interface.subnet_mask,
-                broadcast_ip=interface.broadcast_ip,
-                ip_range_low=interface.ip_range_low,
-                ip_range_high=interface.ip_range_high,
-                mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
-                ))
 
     def test_is_dns_managed(self):
         nodegroups_with_expected_results = {
@@ -303,6 +282,7 @@ class TestDNSConfigModifications(TestCase):
                 management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         interface = nodegroup.get_managed_interface()
         # Edit nodegroup's network information to '192.168.44.1/24'
+        interface.ip = '192.168.44.7'
         interface.broadcast_ip = '192.168.44.255'
         interface.netmask = '255.255.255.0'
         interface.ip_range_low = '192.168.44.0'
@@ -349,7 +329,7 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, "DNS_CONNECT", True)
         nodegroup, node, lease = self.create_nodegroup_with_lease()
         recorder = FakeMethod()
-        self.patch(DNSZoneConfig, 'write_config', recorder)
+        self.patch(DNSZoneConfigBase, 'write_config', recorder)
         node.error = factory.getRandomString()
         node.save()
         self.assertEqual(0, recorder.call_count)

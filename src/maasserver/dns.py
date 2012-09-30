@@ -21,6 +21,7 @@ __all__ = [
 
 
 import collections
+from itertools import groupby
 import logging
 import socket
 
@@ -44,7 +45,10 @@ from netaddr import (
     IPNetwork,
     )
 from provisioningserver import tasks
-from provisioningserver.dns.config import DNSZoneConfig
+from provisioningserver.dns.config import (
+    DNSForwardZoneConfig,
+    DNSReverseZoneConfig,
+    )
 
 # A DNS zone's serial is a 32-bit integer.  Also, we start with the
 # value 1 because 0 has special meaning for some DNS servers.  Even if
@@ -108,39 +112,59 @@ def get_dns_server_address():
     return ip
 
 
-def get_zone(nodegroup, serial=None):
-    """Create a :class:`DNSZoneConfig` object from a nodegroup.
-
-    Return a :class:`DNSZoneConfig` if DHCP is enabled on the
-    nodegroup or None if it is not the case.
+def gen_zones(nodegroups, serial=None):
+    """Create ...
 
     This method also accepts a serial to reuse the same serial when
-    we are creating DNSZoneConfig objects in bulk.
+    we are creating config objects in bulk.
     """
-    if not is_dns_managed(nodegroup):
-        return None
-    interface = nodegroup.get_managed_interface()
-
+    # Narrow down to the managed nodegroups.
+    nodegroups = {
+        nodegroup for nodegroup in nodegroups
+        if is_dns_managed(nodegroup)
+        }
+    if len(nodegroups) == 0:
+        return
+    # Handy stuff for later.
     if serial is None:
         serial = next_zone_serial()
     dns_ip = get_dns_server_address()
-    return DNSZoneConfig(
-        zone_name=nodegroup.name, serial=serial, dns_ip=dns_ip,
-        subnet_mask=interface.subnet_mask,
-        broadcast_ip=interface.broadcast_ip,
-        ip_range_low=interface.ip_range_low,
-        ip_range_high=interface.ip_range_high,
-        mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup))
-
-
-def get_zones(nodegroups, serial):
-    """Return a list of non-None :class:`DNSZoneConfig` from nodegroups."""
-    return filter(
-        None,
-        [
-            get_zone(nodegroup, serial)
+    # Functions on nodegroups.
+    get_domain = lambda nodegroup: nodegroup.name
+    get_interface = lambda nodegroup: nodegroup.get_managed_interface()
+    get_mapping = DHCPLease.objects.get_hostname_ip_mapping
+    # Sort then collate by domain name.
+    nodegroups = sorted(nodegroups, key=get_domain)
+    for domain, nodegroups in groupby(nodegroups, get_domain):
+        nodegroups = list(nodegroups)
+        mappings = {
+            nodegroup: get_mapping(nodegroup)
             for nodegroup in nodegroups
-        ])
+            }
+        interfaces = {
+            nodegroup: get_interface(nodegroup)
+            for nodegroup in nodegroups
+            }
+        assert len(interfaces) == 1, "Too many managed interfaces."
+        # A forward zone encompassing all nodes in the same domain.
+        yield DNSForwardZoneConfig(
+            domain, serial=serial, dns_ip=dns_ip,
+            mapping={
+                hostname: ip
+                for mapping in mappings.values()
+                for hostname, ip in mapping.items()
+                },
+            network={
+                interface.network
+                for interface in interfaces.values()
+                }.pop(),
+            )
+        # A reverse zone for each managed interface.
+        for nodegroup, interface in interfaces.items():
+            yield DNSReverseZoneConfig(
+                domain, serial=serial, dns_ip=dns_ip,
+                mapping=mappings[nodegroup],
+                network=interface.network)
 
 
 def change_dns_zones(nodegroups):
@@ -155,15 +179,12 @@ def change_dns_zones(nodegroups):
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
     serial = next_zone_serial()
-    zones = get_zones(nodegroups, serial)
+    zones = gen_zones(nodegroups, serial)
     for zone in zones:
-        reverse_zone_reload_subtask = tasks.rndc_command.subtask(
-            args=[['reload', zone.reverse_zone_name]])
         zone_reload_subtask = tasks.rndc_command.subtask(
-            args=[['reload', zone.zone_name]],
-            callback=reverse_zone_reload_subtask)
+            args=[['reload', zone.zone_name]])
         tasks.write_dns_zone_config.delay(
-            zone=zone, callback=zone_reload_subtask)
+            zones=[zone], callback=zone_reload_subtask)
 
 
 def add_zone(nodegroup):
@@ -178,17 +199,17 @@ def add_zone(nodegroup):
     """
     if not is_dns_enabled():
         return
-    zone = get_zone(nodegroup)
-    if zone is None:
+    zones_to_add = list(gen_zones([nodegroup]))
+    if len(zones_to_add) == 0:
         return None
     serial = next_zone_serial()
     # Compute non-None zones.
-    zones = get_zones(NodeGroup.objects.all(), serial)
+    zones = list(gen_zones(NodeGroup.objects.all(), serial))
     reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
     write_dns_config_subtask = tasks.write_dns_config.subtask(
         zones=zones, callback=reconfig_subtask)
     tasks.write_dns_zone_config.delay(
-        zone=zone, callback=write_dns_config_subtask)
+        zones=zones_to_add, callback=write_dns_config_subtask)
 
 
 def write_full_dns_config(active=True, reload_retry=False):
@@ -205,8 +226,7 @@ def write_full_dns_config(active=True, reload_retry=False):
     if not is_dns_enabled():
         return
     if active:
-        serial = next_zone_serial()
-        zones = get_zones(NodeGroup.objects.all(), serial)
+        zones = list(gen_zones(NodeGroup.objects.all()))
     else:
         zones = []
     tasks.write_full_dns_config.delay(
