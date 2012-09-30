@@ -113,7 +113,7 @@ def get_dns_server_address():
 
 
 def gen_zones(nodegroups, serial=None):
-    """Create ...
+    """Generate zones describing those relating to the given node groups.
 
     This method also accepts a serial to reuse the same serial when
     we are creating config objects in bulk.
