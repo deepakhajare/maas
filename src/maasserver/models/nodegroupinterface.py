@@ -100,7 +100,7 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
             )
         network_errors = defaultdict(list)
         for field, address in network_settings:
-            if IPAddress(address) not in network:
+            if address and IPAddress(address) not in network:
                 network_errors[field].append(
                     "%s not in the %s network" % (address, network))
         if len(network_errors) != 0:
