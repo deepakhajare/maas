@@ -10,21 +10,24 @@
       <h4>Name</h4>
       <span>{{ tag.name }}</span>
     </li>
-    <li class="block size2 first">
+    <li class="block size2">
       <h4>Comment</h4>
       <span>{{ tag.comment }}</span>
     </li>
-    <li class="block size2 first">
+    <li class="block size2">
       <h4>Definition</h4>
       <span>{{ tag.definition }}</span>
     </li>
-    <li class="block size3">
+    <li class="block size2 first">
       <h4>Nodes</h4>
       <span>
-          {% for node in tag.node_set.all %}
-              <a href="{% url 'node-view' node.system_id %}">{{ node }}
-              {% if not forloop.last %}, {% endif %}
+          {% for node in nodes %}
+              <a href="{% url 'node-view' node.system_id %}">
+                {% for macaddress in node.macaddress_set.reverse %}
+                  {{ macaddress }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
               </a>
+              ({{ node.hostname }})
           {% endfor %}
       </span>
     </li>

@@ -35,5 +35,11 @@ class TagView(UpdateView):
             to_edit=False)
         return tag
 
+    def get_context_data(self, **kwargs):
+        context = super(TagView, self).get_context_data(**kwargs)
+        context['nodes'] = Tag.objects.get_nodes(self.kwargs['name'],
+                                                 self.request.user)
+        return context
+
     def get_success_url(self):
         return reverse('tag-view', args=[self.get_object().name])
