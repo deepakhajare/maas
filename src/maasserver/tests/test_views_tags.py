@@ -14,6 +14,7 @@ __all__ = []
 
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
+from maastesting.matchers import ContainsAll
 from maasserver.testing import (
     get_content_links,
     )
@@ -34,9 +35,8 @@ class TagViewsTest(LoggedInTestCase):
         response = self.client.get(tag_link)
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
-        self.assertIn(tag.name, content_text)
-        self.assertIn(tag.comment, content_text)
-        self.assertIn(tag.definition, content_text)
+        self.assertThat(content_text,
+                        ContainsAll([tag.name, tag.comment, tag.definition]))
 
     def test_view_tag_includes_node_links(self):
         tag = factory.make_tag()
@@ -48,8 +48,8 @@ class TagViewsTest(LoggedInTestCase):
         response = self.client.get(tag_link)
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
-        self.assertIn('(%s)' % node.hostname, content_text)
-        self.assertIn(mac, content_text)
+        self.assertThat(content_text,
+                        ContainsAll([mac, '(%s)' % node.hostname]))
         self.assertNotIn(node.system_id, content_text)
         self.assertIn(node_link, get_content_links(response))
 
