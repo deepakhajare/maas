@@ -137,13 +137,11 @@ class ZoneGenerator:
         """
         :param serial: A serial to reuse when creating zones in bulk.
         """
-        nodegroups = sequence(nodegroups)
-        self._forward_nodegroups = self._get_forward_nodegroups(nodegroups)
-        self._reverse_nodegroups = self._get_reverse_nodegroups(nodegroups)
-        self._prepare_caches()
-        self._serial = serial
+        self.nodegroups = sequence(nodegroups)
+        self.serial = serial
 
-    def _get_forward_nodegroups(self, nodegroups):
+    @staticmethod
+    def _get_forward_nodegroups(nodegroups):
         """Return a set of all forward nodegroups.
 
         This is the set of all managed nodegroups with the same domain as the
@@ -156,7 +154,8 @@ class ZoneGenerator:
             if is_dns_managed(nodegroup)
             }
 
-    def _get_reverse_nodegroups(self, nodegroups):
+    @staticmethod
+    def _get_reverse_nodegroups(nodegroups):
         """Return a set of all reverse nodegroups.
 
         This is the subset of the given nodegroups that are managed.
@@ -166,29 +165,26 @@ class ZoneGenerator:
             if is_dns_managed(nodegroup)
             }
 
-    def _prepare_caches(self):
-        """Prepare mapping, interface, and network caches."""
-        nodegroups = set().union(
-            self._forward_nodegroups, self._reverse_nodegroups)
-        self.mappings = {
+    @staticmethod
+    def _get_mappings(nodegroups):
+        return {
             nodegroup: DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
             for nodegroup in nodegroups
             }
-        self.interfaces = {
-            nodegroup: nodegroup.get_managed_interface()
+
+    @staticmethod
+    def _get_networks(nodegroups):
+        return {
+            nodegroup: nodegroup.get_managed_interface().network
             for nodegroup in nodegroups
             }
-        self.networks = {
-            nodegroup: interface.network
-            for nodegroup, interface in self.interfaces.items()
-            }
 
-    def _gen_forward_zones(self):
+    @staticmethod
+    def _gen_forward_zones(nodegroups, serial, mappings, networks):
         """Generator of forward zones, collated by domain name."""
         get_domain = lambda nodegroup: nodegroup.name
-        serial = self._serial or next_zone_serial()
         dns_ip = get_dns_server_address()
-        forward_nodegroups = sorted(self._forward_nodegroups, key=get_domain)
+        forward_nodegroups = sorted(nodegroups, key=get_domain)
         for domain, nodegroups in groupby(forward_nodegroups, get_domain):
             nodegroups = list(nodegroups)
             # A forward zone encompassing all nodes in the same domain.
@@ -197,36 +193,41 @@ class ZoneGenerator:
                 mapping={
                     hostname: ip
                     for nodegroup in nodegroups
-                    for hostname, ip in self.mappings[nodegroup].items()
+                    for hostname, ip in mappings[nodegroup].items()
                     },
                 networks={
-                    self.networks[nodegroup]
+                    networks[nodegroup]
                     for nodegroup in nodegroups
                     },
                 )
 
-    def _gen_reverse_zones(self):
+    @staticmethod
+    def _gen_reverse_zones(nodegroups, serial, mappings, networks):
         """Generator of reverse zones, sorted by network."""
         get_domain = lambda nodegroup: nodegroup.name
-        serial = self._serial or next_zone_serial()
         dns_ip = get_dns_server_address()
-        reverse_nodegroups = sorted(
-            self._reverse_nodegroups, key=self.networks.get)
+        reverse_nodegroups = sorted(nodegroups, key=networks.get)
         for nodegroup in reverse_nodegroups:
             yield DNSReverseZoneConfig(
                 get_domain(nodegroup), serial=serial, dns_ip=dns_ip,
-                mapping=self.mappings[nodegroup],
-                network=self.networks[nodegroup])
+                mapping=mappings[nodegroup], network=networks[nodegroup])
 
     def __iter__(self):
+        forward_nodegroups = self._get_forward_nodegroups(self.nodegroups)
+        reverse_nodegroups = self._get_reverse_nodegroups(self.nodegroups)
+        all_nodegroups = set().union(forward_nodegroups, reverse_nodegroups)
+        mappings = self._get_mappings(all_nodegroups)
+        networks = self._get_networks(all_nodegroups)
+        serial = self.serial or next_zone_serial()
         return chain(
-            self._gen_forward_zones(),
-            self._gen_reverse_zones())
-
-    def __nonzero__(self):
-        return self._forward_nodegroups or self._reverse_nodegroups
+            self._gen_forward_zones(
+                forward_nodegroups, serial, mappings, networks),
+            self._gen_reverse_zones(
+                reverse_nodegroups, serial, mappings, networks),
+            )
 
     def as_list(self):
+        """Return the zones as a list."""
         return list(self)
 
 
@@ -239,8 +240,6 @@ def change_dns_zones(nodegroups):
     """
     if not is_dns_enabled():
         return
-    if not isinstance(nodegroups, collections.Iterable):
-        nodegroups = [nodegroups]
     serial = next_zone_serial()
     for zone in ZoneGenerator(nodegroups, serial):
         zone_reload_subtask = tasks.rndc_command.subtask(
