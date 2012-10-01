@@ -130,6 +130,24 @@ def sequence(thing):
         return [thing]
 
 
+class lazydict(dict):
+    """A `dict` that lazily populates itself.
+
+    Somewhat like a :class:`collections.defaultdict`, but that the factory
+    function is called with the missing key, and the value returned is saved.
+    """
+
+    __slots__ = ("factory", )
+
+    def __init__(self, factory):
+        super(lazydict, self).__init__()
+        self.factory = factory
+
+    def __missing__(self, key):
+        value = self[key] = self.factory(key)
+        return value
+
+
 class ZoneGenerator:
     """Generate zones describing those relating to the given node groups."""
 
@@ -166,18 +184,12 @@ class ZoneGenerator:
             }
 
     @staticmethod
-    def _get_mappings(nodegroups):
-        return {
-            nodegroup: DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
-            for nodegroup in nodegroups
-            }
+    def _get_mapping(nodegroup):
+        return DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
 
     @staticmethod
-    def _get_networks(nodegroups):
-        return {
-            nodegroup: nodegroup.get_managed_interface().network
-            for nodegroup in nodegroups
-            }
+    def _get_network(nodegroup):
+        return nodegroup.get_managed_interface().network
 
     @staticmethod
     def _gen_forward_zones(nodegroups, serial, mappings, networks):
@@ -215,9 +227,8 @@ class ZoneGenerator:
     def __iter__(self):
         forward_nodegroups = self._get_forward_nodegroups(self.nodegroups)
         reverse_nodegroups = self._get_reverse_nodegroups(self.nodegroups)
-        all_nodegroups = set().union(forward_nodegroups, reverse_nodegroups)
-        mappings = self._get_mappings(all_nodegroups)
-        networks = self._get_networks(all_nodegroups)
+        mappings = lazydict(self._get_mapping)
+        networks = lazydict(self._get_network)
         serial = self.serial or next_zone_serial()
         return chain(
             self._gen_forward_zones(
