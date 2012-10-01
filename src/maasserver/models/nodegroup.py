@@ -68,8 +68,10 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
+        description = NODEGROUP_DESCRIPTION_TEMPLATE % uuid
         nodegroup = NodeGroup(
-            name=name, uuid=uuid, dhcp_key=dhcp_key, status=status)
+            name=name, uuid=uuid, description=description, dhcp_key=dhcp_key,
+            status=status)
         nodegroup.save()
         nginterface = NodeGroupInterface(
             nodegroup=nodegroup, ip=ip, subnet_mask=subnet_mask,
@@ -109,12 +111,18 @@ class NodeGroupManager(Manager):
             refresh_worker(nodegroup)
 
 
+NODEGROUP_DESCRIPTION_TEMPLATE = "Cluster %s"
+
+
 class NodeGroup(TimestampedModel):
 
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
 
     objects = NodeGroupManager()
+
+    description = CharField(
+        max_length=100, unique=False, editable=True, blank=False, null=False)
 
     # A node group's name is also used for the group's DNS zone.
     name = CharField(
