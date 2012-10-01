@@ -76,8 +76,9 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
 
         :return: :class:`IPNetwork`
         """
-        network = self.broadcast_ip, self.subnet_mask
-        return IPNetwork("%s/%s" % network) if all(network) else None
+        if self.broadcast_ip is not None and self.subnet_mask is not None:
+            return IPNetwork("%s/%s" % (self.broadcast_ip, self.subnet_mask))
+        return None
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
