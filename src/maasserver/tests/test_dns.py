@@ -343,14 +343,14 @@ class TestDNSConfigModifications(TestCase):
         self.assertEqual(0, recorder.call_count)
 
 
-class TestZoneGeneration(TestCase):
-    """Tests for `dns.gen_zones`."""
+class TestZoneGenerator(TestCase):
+    """Tests for :class:x`dns.ZoneGenerator`."""
 
-    def test_gen_zones_with_no_nodegroups_yields_nothing(self):
-        self.assertEqual([], list(dns.gen_zones(())))
+    def test_with_no_nodegroups_yields_nothing(self):
+        self.assertEqual([], dns.ZoneGenerator(()).as_list())
 
-    def test_gen_zones_with_many_nodegroups(self):
-        # This demonstrates gen_zones in all-singing all-dancing mode.
+    def test_with_many_nodegroups(self):
+        # This demonstrates ZoneGenerator in all-singing all-dancing mode.
         make_node_group = partial(
             factory.make_node_group, status=NODEGROUP_STATUS.ACCEPTED,
             management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
@@ -364,11 +364,11 @@ class TestZoneGeneration(TestCase):
             make_node_group(name="one", network=IPNetwork("12/32")),
             make_node_group(name="two", network=IPNetwork("22/32")),
             ]
-        zones = list(dns.gen_zones(nodegroups))
+        zones = dns.ZoneGenerator(nodegroups).as_list()
         self.assertEqual(6, len(zones), zones)
         f_one, f_two, r_one_0, r_one_1, r_two_0, r_two_1 = zones
         # For the forward zones, all nodegroups sharing a domain name, even
-        # those not passed into gen_zones(), are consolidated into a single
+        # those not passed into ZoneGenerator, are consolidated into a single
         # forward zone description.
         self.assertThat(
             f_one, MatchesAll(

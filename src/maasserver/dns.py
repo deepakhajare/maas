@@ -115,6 +115,21 @@ def get_dns_server_address():
     return ip
 
 
+def sequence(thing):
+    """Make a sequence from `thing`.
+
+    If `thing` is a sequence, return it unaltered. If it's iterable, return a
+    list of its elements. Otherwise, return `thing` as the sole element in a
+    new list.
+    """
+    if isinstance(thing, collections.Sequence):
+        return thing
+    elif isinstance(thing, collections.Iterable):
+        return list(thing)
+    else:
+        return [thing]
+
+
 class ZoneGenerator:
     """Generate zones describing those relating to the given node groups."""
 
@@ -122,6 +137,7 @@ class ZoneGenerator:
         """
         :param serial: A serial to reuse when creating zones in bulk.
         """
+        nodegroups = sequence(nodegroups)
         self._forward_nodegroups = self._get_forward_nodegroups(nodegroups)
         self._reverse_nodegroups = self._get_reverse_nodegroups(nodegroups)
         self._prepare_caches()
@@ -214,10 +230,6 @@ class ZoneGenerator:
         return list(self)
 
 
-# Alias for compatibility.
-gen_zones = ZoneGenerator
-
-
 def change_dns_zones(nodegroups):
     """Update the zone configuration for the given list of Nodegroups.
 
@@ -230,8 +242,7 @@ def change_dns_zones(nodegroups):
     if not isinstance(nodegroups, collections.Iterable):
         nodegroups = [nodegroups]
     serial = next_zone_serial()
-    zones = gen_zones(nodegroups, serial)
-    for zone in zones:
+    for zone in ZoneGenerator(nodegroups, serial):
         zone_reload_subtask = tasks.rndc_command.subtask(
             args=[['reload', zone.zone_name]])
         tasks.write_dns_zone_config.delay(
@@ -250,12 +261,12 @@ def add_zone(nodegroup):
     """
     if not is_dns_enabled():
         return
-    zones_to_write = list(gen_zones([nodegroup]))
+    zones_to_write = ZoneGenerator(nodegroup).as_list()
     if len(zones_to_write) == 0:
         return None
     serial = next_zone_serial()
     # Compute non-None zones.
-    zones = list(gen_zones(NodeGroup.objects.all(), serial))
+    zones = ZoneGenerator(NodeGroup.objects.all(), serial).as_list()
     reconfig_subtask = tasks.rndc_command.subtask(args=[['reconfig']])
     write_dns_config_subtask = tasks.write_dns_config.subtask(
         zones=zones, callback=reconfig_subtask)
@@ -277,7 +288,7 @@ def write_full_dns_config(active=True, reload_retry=False):
     if not is_dns_enabled():
         return
     if active:
-        zones = list(gen_zones(NodeGroup.objects.all()))
+        zones = ZoneGenerator(NodeGroup.objects.all()).as_list()
     else:
         zones = []
     tasks.write_full_dns_config.delay(
