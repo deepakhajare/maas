@@ -16,7 +16,6 @@ __all__ = [
 
 from maasserver.models import Tag
 from django.views.generic import (
-    # ListView,
     UpdateView,
     )
 
@@ -40,6 +39,3 @@ class TagView(UpdateView):
         context['node_list'] = Tag.objects.get_nodes(self.kwargs['name'],
                                                      self.request.user)
         return context
-
-    def get_success_url(self):
-        return reverse('tag-view', args=[self.get_object().name])

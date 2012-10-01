@@ -14,22 +14,12 @@ __all__ = []
 
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-# from maasserver.models import (
-#     MACAddress,
-#     Node,
-#     Tag,
-#     )
 from maasserver.testing import (
-    extract_redirect,
     get_content_links,
-    reload_object,
     )
 from maasserver.testing.factory import factory
-from maasserver.testing.rabbit import uses_rabbit_fixture
 from maasserver.testing.testcase import (
-    AdminLoggedInTestCase,
     LoggedInTestCase,
-    TestCase,
     )
 
 
