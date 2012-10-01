@@ -51,6 +51,7 @@ from testresources import FixtureResource
 from testtools.matchers import (
     IsInstance,
     MatchesAll,
+    MatchesListwise,
     MatchesStructure,
     )
 
@@ -343,39 +344,51 @@ class TestDNSConfigModifications(TestCase):
         self.assertEqual(0, recorder.call_count)
 
 
+def forward_zone(domain, *networks):
+    """
+    Returns a matcher for a :class:`DNSForwardZoneConfig` with the given
+    domain and networks.
+    """
+    networks = {IPNetwork(network) for network in networks}
+    return MatchesAll(
+        IsInstance(DNSForwardZoneConfig),
+        MatchesStructure.byEquality(
+            domain=domain, networks=networks))
+
+
+def reverse_zone(domain, network):
+    """
+    Returns a matcher for a :class:`DNSReverseZoneConfig` with the given
+    domain and network.
+    """
+    network = network if network is None else IPNetwork(network)
+    return MatchesAll(
+        IsInstance(DNSReverseZoneConfig),
+        MatchesStructure.byEquality(
+            domain=domain, network=network))
+
+
 class TestZoneGenerator(TestCase):
     """Tests for :class:x`dns.ZoneGenerator`."""
 
+    # Factory to return an accepted nodegroup with a managed interface.
     make_node_group = partial(
         factory.make_node_group, status=NODEGROUP_STATUS.ACCEPTED,
         management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
-
-    def assertForwardZone(self, zone, domain, *networks):
-        networks = {IPNetwork(network) for network in networks}
-        expected = MatchesAll(
-            IsInstance(DNSForwardZoneConfig),
-            MatchesStructure.byEquality(
-                domain=domain, networks=networks))
-        self.assertThat(zone, expected)
-
-    def assertReverseZone(self, zone, domain, network):
-        network = network if network is None else IPNetwork(network)
-        expected = MatchesAll(
-            IsInstance(DNSReverseZoneConfig),
-            MatchesStructure.byEquality(
-                domain=domain, network=network))
-        self.assertThat(zone, expected)
 
     def test_with_no_nodegroups_yields_nothing(self):
         self.assertEqual([], dns.ZoneGenerator(()).as_list())
 
     def test_with_one_nodegroup_yields_forward_and_reverse_zone(self):
-        forward_zone, reverse_zone = dns.ZoneGenerator(
-            self.make_node_group(name="henry", network=IPNetwork("10/32")))
-        self.assertForwardZone(forward_zone, "henry", "10/32")
-        self.assertReverseZone(reverse_zone, "henry", "10/32")
+        nodegroup = self.make_node_group(
+            name="henry", network=IPNetwork("10/32"))
+        zones = dns.ZoneGenerator(nodegroup).as_list()
+        self.assertThat(
+            zones, MatchesListwise(
+                (forward_zone("henry", "10/32"),
+                 reverse_zone("henry", "10/32"))))
 
-    def test_with_many_nodegroups(self):
+    def test_with_many_nodegroups_yields_many_zones(self):
         # This demonstrates ZoneGenerator in all-singing all-dancing mode.
         nodegroups = [
             self.make_node_group(name="one", network=IPNetwork("10/32")),
@@ -387,17 +400,19 @@ class TestZoneGenerator(TestCase):
             self.make_node_group(name="one", network=IPNetwork("12/32")),
             self.make_node_group(name="two", network=IPNetwork("22/32")),
             ]
-        zones = dns.ZoneGenerator(nodegroups).as_list()
-        self.assertEqual(6, len(zones), zones)
-        f_one, f_two, r_one_0, r_one_1, r_two_0, r_two_1 = zones
-        # For the forward zones, all nodegroups sharing a domain name, even
-        # those not passed into ZoneGenerator, are consolidated into a single
-        # forward zone description.
-        self.assertForwardZone(f_one, "one", "10/32", "11/32", "12/32")
-        self.assertForwardZone(f_two, "two", "20/32", "21/32", "22/32")
-        # For the reverse zones, a single reverse zone description is
-        # generated for each nodegroup passed in, in network order.
-        self.assertReverseZone(r_one_0, "one", "10/32")
-        self.assertReverseZone(r_one_1, "one", "11/32")
-        self.assertReverseZone(r_two_0, "two", "20/32")
-        self.assertReverseZone(r_two_1, "two", "21/32")
+        expected_zones = (
+            # For the forward zones, all nodegroups sharing a domain name,
+            # even those not passed into ZoneGenerator, are consolidated into
+            # a single forward zone description.
+            forward_zone("one", "10/32", "11/32", "12/32"),
+            forward_zone("two", "20/32", "21/32", "22/32"),
+            # For the reverse zones, a single reverse zone description is
+            # generated for each nodegroup passed in, in network order.
+            reverse_zone("one", "10/32"),
+            reverse_zone("one", "11/32"),
+            reverse_zone("two", "20/32"),
+            reverse_zone("two", "21/32"),
+            )
+        self.assertThat(
+            dns.ZoneGenerator(nodegroups).as_list(),
+            MatchesListwise(expected_zones))
