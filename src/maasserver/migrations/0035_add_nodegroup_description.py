@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import datetime
+
+from django.db import models
 from south.db import db
 from south.v2 import SchemaMigration
-from django.db import models
 
 
 class Migration(SchemaMigration):
@@ -10,7 +11,7 @@ class Migration(SchemaMigration):
     def forwards(self, orm):
         # Adding field 'NodeGroup.description'
         db.add_column(u'maasserver_nodegroup', 'description',
-                      self.gf('django.db.models.fields.CharField')(default='', max_length=100),
+                      self.gf('django.db.models.fields.CharField')(default='', max_length=100, blank=True),
                       keep_default=False)
 
 
@@ -117,7 +118,7 @@ class Migration(SchemaMigration):
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-812b2188-0bba-11e2-8f21-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-599ba154-0bdf-11e2-8c46-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
             'tags': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Tag']", 'symmetrical': 'False'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
@@ -127,7 +128,7 @@ class Migration(SchemaMigration):
             'api_key': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '18'}),
             'api_token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'unique': 'True'}),
             'created': ('django.db.models.fields.DateTimeField', [], {}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
             'dhcp_key': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '80', 'blank': 'True'}),
@@ -191,7 +192,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1349090630L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1349106468L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
