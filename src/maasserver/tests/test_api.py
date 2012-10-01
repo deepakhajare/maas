@@ -2768,10 +2768,24 @@ class TestPXEConfigAPI(AnonAPITestCase):
         self.assertEqual(expected_arch, observed_arch)
 
     def test_pxeconfig_splits_domain_from_hostname(self):
-        self.fail("TEST THIS")
+        host = factory.make_name('host')
+        domain = factory.make_name('domain')
+        full_hostname = '.'.join([host, domain])
+        node = factory.make_node(hostname=full_hostname)
+        mac = factory.make_mac_address(node=node)
+        pxe_config = self.get_pxeconfig(params={'mac': mac})
+        self.assertEqual(
+            (host, domain),
+            (pxe_config.get('hostname'), pxe_config.get('domain')))
 
     def test_pxeconfig_omits_domain_if_not_included_in_hostname(self):
-        self.fail("TEST THIS")
+        hostname = factory.make_name('host')
+        node = factory.make_node(hostname=hostname)
+        mac = factory.make_mac_address(node=node)
+        pxe_config = self.get_pxeconfig(params={'mac': mac})
+        self.assertEqual(
+            (hostname, None),
+            (pxe_config.get('hostname'), pxe_config.get('domain')))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
