@@ -1529,7 +1529,14 @@ def pxeconfig(request):
         series = node.get_distro_series()
 
     purpose = get_boot_purpose(node)
-    domain = 'local.lan'  # TODO: This is probably not enough!
+
+    host_and_domain = hostname.split('.', 1)
+    if len(host_and_domain) == 1:
+        [hostname] = host_and_domain
+        domain = None
+    else:
+        hostname, domain = host_and_domain
+
     server_address = get_maas_facing_server_address()
 
     params = KernelParameters(

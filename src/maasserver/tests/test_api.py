@@ -2773,7 +2773,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         full_hostname = '.'.join([host, domain])
         node = factory.make_node(hostname=full_hostname)
         mac = factory.make_mac_address(node=node)
-        pxe_config = self.get_pxeconfig(params={'mac': mac})
+        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
         self.assertEqual(
             (host, domain),
             (pxe_config.get('hostname'), pxe_config.get('domain')))
@@ -2782,7 +2782,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         hostname = factory.make_name('host')
         node = factory.make_node(hostname=hostname)
         mac = factory.make_mac_address(node=node)
-        pxe_config = self.get_pxeconfig(params={'mac': mac})
+        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
         self.assertEqual(
             (hostname, None),
             (pxe_config.get('hostname'), pxe_config.get('domain')))

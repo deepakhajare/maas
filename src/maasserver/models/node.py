@@ -389,6 +389,7 @@ class Node(CleanSave, TimestampedModel):
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
+    # Fully-qualified host name (so including the domain).
     hostname = CharField(max_length=255, default='', blank=True)
 
     status = IntegerField(
@@ -586,7 +587,7 @@ class Node(CleanSave, TimestampedModel):
 
     def set_mac_based_hostname(self, mac_address):
         """Set default `hostname` based on `mac_address`
-        
+
         The hostname will include the `enlistment_domain` if set.
         """
         mac_hostname = mac_address.replace(':', '').lower()
