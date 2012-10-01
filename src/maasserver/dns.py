@@ -121,9 +121,10 @@ def gen_zones(nodegroups, serial=None):
     get_domain = lambda nodegroup: nodegroup.name
     # Generate forward zones for all managed nodegroups with the same domain
     # as the domain of any of the given nodegroups.
+    forward_domains = {get_domain(nodegroup) for nodegroup in nodegroups}
+    forward_nodegroups = NodeGroup.objects.filter(name__in=forward_domains)
     forward_nodegroups = {
-        nodegroup for nodegroup in NodeGroup.objects.filter(
-            name__in={get_domain(nodegroup) for nodegroup in nodegroups})
+        nodegroup for nodegroup in forward_nodegroups
         if is_dns_managed(nodegroup)
         }
     # Generate only reverse zones for the given nodegroups; no searching for
