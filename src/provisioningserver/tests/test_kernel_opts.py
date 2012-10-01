@@ -81,8 +81,7 @@ class TestKernelOpts(TestCase):
                 ]))
 
     def test_install_compose_kernel_command_line_omits_domain_if_omitted(self):
-        params = make_kernel_parameters(purpose="install")._replace(
-            domain=None)
+        params = make_kernel_parameters(purpose="install", domain=None)
         kernel_command_line = compose_kernel_command_line(params)
         self.assertIn("hostname=%s" % params.hostname, kernel_command_line)
         self.assertNotIn('domain=', kernel_command_line)
