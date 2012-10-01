@@ -117,12 +117,12 @@ from maasserver.apidoc import (
     generate_api_docs,
     )
 from maasserver.components import (
-    COMPONENT,
     discard_persistent_error,
     register_persistent_error,
     )
 from maasserver.enum import (
     ARCHITECTURE,
+    COMPONENT,
     NODE_PERMISSION,
     NODE_STATUS,
     NODEGROUP_STATUS,
@@ -555,8 +555,34 @@ def create_node(request):
     :rtype: :class:`maasserver.models.Node`.
     :raises: ValidationError
     """
+
+    # For backwards compatibilty reasons, requests may be sent with:
+    #     architecture with a '/' in it: use normally
+    #     architecture without a '/' and no subarchitecture: assume 'generic'
+    #     architecture without a '/' and a subarchitecture: use as specified
+    #     architecture with a '/' and a subarchitecture: error
+    given_arch = request.data.get('architecture', None)
+    given_subarch = request.data.get('subarchitecture', None)
+    altered_query_data = request.data.copy()
+    if given_arch and '/' in given_arch:
+        if given_subarch:
+            # Architecture with a '/' and a subarchitecture: error.
+            raise ValidationError('Subarchitecture cannot be specified twice.')
+        # Architecture with a '/' in it: use normally.
+    elif given_arch:
+        if given_subarch:
+            # Architecture without a '/' and a subarchitecture:
+            # use as specified.
+            altered_query_data['architecture'] = '/'.join(
+                [given_arch, given_subarch])
+            del altered_query_data['subarchitecture']
+        else:
+            # Architecture without a '/' and no subarchitecture:
+            # assume 'generic'.
+            altered_query_data['architecture'] += '/generic'
+
     Form = get_node_create_form(request.user)
-    form = Form(request.data)
+    form = Form(altered_query_data)
     if form.is_valid():
         return form.save()
     else:
@@ -619,6 +645,17 @@ class AnonNodesHandler(AnonymousOperationsHandler):
         return ('nodes_handler', [])
 
 
+# Map the constraint as passed in the request to the name of the constraint in
+# the database. Many of them have the same name
+_constraints_map = {
+    'name': 'hostname',
+    'tags': 'tags',
+    'arch': 'architecture',
+    'cpu_count': 'cpu_count',
+    'mem': 'memory',
+    }
+
+
 def extract_constraints(request_params):
     """Extract a dict of node allocation constraints from http parameters.
 
@@ -627,10 +664,12 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    supported_constraints = ('name', 'arch')
-    return {constraint: request_params[constraint]
-        for constraint in supported_constraints
-            if constraint in request_params}
+    constraints = {}
+    for request_name in _constraints_map:
+        if request_name in request_params:
+            db_name = _constraints_map[request_name]
+            constraints[db_name] = request_params[request_name]
+    return constraints
 
 
 class NodesHandler(OperationsHandler):
@@ -884,6 +923,14 @@ class FilesHandler(OperationsHandler):
         return ('files_handler', [])
 
 
+def get_celery_credentials():
+    """Return the credentials needed to connect to the broker."""
+    celery_conf = app_or_default().conf
+    return {
+        'BROKER_URL': celery_conf.BROKER_URL,
+    }
+
+
 DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
 
 
@@ -946,24 +993,33 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
         uuid = get_mandatory_param(request.data, 'uuid')
         existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
         if existing_nodegroup is None:
-            # This nodegroup (identified by its uuid), does not exist yet,
-            # create it if the data validates.
-            form = NodeGroupWithInterfacesForm(request.data)
-            if form.is_valid():
-                form.save()
-                return HttpResponse(
-                    "Cluster registered.  Awaiting admin approval.",
-                    status=httplib.ACCEPTED)
+            master = NodeGroup.objects.ensure_master()
+            # Does master.uuid look like it's a proper uuid?
+            if master.uuid in ('master', ''):
+                # Master nodegroup not yet configured, configure it.
+                form = NodeGroupWithInterfacesForm(
+                    data=request.data, instance=master)
+                if form.is_valid():
+                    form.save()
+                    return get_celery_credentials()
+                else:
+                    raise ValidationError(form.errors)
             else:
-                raise ValidationError(form.errors)
+                # This nodegroup (identified by its uuid), does not exist yet,
+                # create it if the data validates.
+                form = NodeGroupWithInterfacesForm(
+                    data=request.data, status=NODEGROUP_STATUS.PENDING)
+                if form.is_valid():
+                    form.save()
+                    return HttpResponse(
+                        "Cluster registered.  Awaiting admin approval.",
+                        status=httplib.ACCEPTED)
+                else:
+                    raise ValidationError(form.errors)
         else:
             if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
                 # The nodegroup exists and is validated, return the RabbitMQ
-                # credentials as JSON.
-                celery_conf = app_or_default().conf
-                return {
-                    'BROKER_URL': celery_conf.BROKER_URL,
-                }
+                return get_celery_credentials()
             elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
                 raise PermissionDenied('Rejected cluster.')
             elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
@@ -1240,15 +1296,12 @@ class TagHandler(OperationsHandler):
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
             to_edit=True)
         model_dict = model_to_dict(tag)
-        old_definition = model_dict['definition']
         data = get_overrided_query_dict(model_dict, request.data)
         form = TagForm(data, instance=tag)
         if form.is_valid():
             try:
                 new_tag = form.save(commit=False)
                 new_tag.save()
-                if new_tag.definition != old_definition:
-                    new_tag.populate_nodes()
                 form.save_m2m()
             except DatabaseError as e:
                 raise ValidationError(e)
@@ -1275,7 +1328,7 @@ class TagHandler(OperationsHandler):
     @classmethod
     def resource_uri(cls, tag=None):
         # See the comment in NodeHandler.resource_uri
-        tag_name = 'tag_name'
+        tag_name = 'name'
         if tag is not None:
             tag_name = tag.name
         return ('tag_handler', (tag_name, ))
@@ -1314,11 +1367,7 @@ def create_tag(request):
         raise PermissionDenied()
     form = TagForm(request.data)
     if form.is_valid():
-        new_tag = form.save(commit=False)
-        new_tag.save()
-        new_tag.populate_nodes()
-        form.save_m2m()
-        return new_tag
+        return form.save()
     else:
         raise ValidationError(form.errors)
 
@@ -1459,12 +1508,12 @@ def pxeconfig(request):
         # Default to i386 as a works-for-all solution. This will not support
         # non-x86 architectures, but for now this assumption holds.
         node = None
-        arch, subarch = ARCHITECTURE.i386, "generic"
+        arch, subarch = ARCHITECTURE.i386.split('/')
         preseed_url = compose_enlistment_preseed_url()
         hostname = 'maas-enlist'
     else:
         node = macaddress.node
-        arch, subarch = node.architecture, "generic"
+        arch, subarch = node.architecture.split('/')
         preseed_url = compose_preseed_url(node)
         hostname = node.hostname
 

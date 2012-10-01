@@ -15,6 +15,7 @@ __all__ = []
 from collections import namedtuple
 import httplib
 from io import BytesIO
+import json
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -504,6 +505,51 @@ class TestViews(DjangoTestCase):
         self.assertEqual(xmlbytes, node.hardware_details)
         self.assertEqual(0, node.memory)
 
+    def test_signal_refuses_bad_power_type(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, power_type="foo")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Bad power_type 'foo'"),
+            (response.status_code, response.content))
+
+    def test_signal_power_type_stores_params(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="IPMI", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        node = reload_object(node)
+        self.assertEqual(
+            params, node.power_parameters)
+
+    def test_signal_power_type_lower_case_works(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        node = reload_object(node)
+        self.assertEqual(
+            params, node.power_parameters)
+
+    def test_signal_invalid_power_parameters(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters="badjson")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Failed to parse json power_parameters"),
+            (response.status_code, response.content))
+
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
         url = reverse(
@@ -617,14 +663,25 @@ class TestEnlistViews(DjangoTestCase):
 
     def test_get_hostname(self):
         # instance-id must be available
-        md_url = reverse('enlist-metadata-meta-data',
-            args=['latest', 'local-hostname'])
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'local-hostname'])
         response = self.client.get(md_url)
         self.assertEqual(
             (httplib.OK, "text/plain"),
             (response.status_code, response["Content-Type"]))
         # just insist content is non-empty. It doesn't matter what it is.
         self.assertTrue(response.content)
+
+    def test_public_keys_returns_404_but_does_not_raise_exception(self):
+        # An enlisting node has no SSH keys, but it does request them
+        # (bug 1058313).  The request should fail, but without the log
+        # noise of an exception.
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'public-keys'])
+        response = self.client.get(md_url)
+        self.assertEqual(
+            (httplib.NOT_FOUND, "No SSH keys available for this node."),
+            (response.status_code, response.content))
 
     def test_metadata_bogus_is_404(self):
         md_url = reverse('enlist-metadata-meta-data',

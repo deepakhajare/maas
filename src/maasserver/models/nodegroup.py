@@ -85,7 +85,8 @@ class NodeGroupManager(Manager):
         from maasserver.models import Node
 
         try:
-            master = self.get(uuid='master')
+            # Get the first created nodegroup if it exists.
+            master = self.all().order_by('id')[0:1].get()
         except NodeGroup.DoesNotExist:
             # The master did not exist yet; create it on demand.
             master = self.new(
@@ -117,7 +118,7 @@ class NodeGroup(TimestampedModel):
 
     # A node group's name is also used for the group's DNS zone.
     name = CharField(
-        max_length=80, unique=True, editable=True, blank=False, null=False)
+        max_length=80, unique=False, editable=True, blank=True, null=False)
 
     status = IntegerField(
         choices=NODEGROUP_STATUS_CHOICES, editable=False,

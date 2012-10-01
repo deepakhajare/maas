@@ -18,9 +18,14 @@ __all__ = [
     'VersionIndexHandler',
     ]
 
+import json
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseNotFound,
+    )
 from django.shortcuts import get_object_or_404
 from maasserver.api import (
     extract_oauth_key,
@@ -47,6 +52,7 @@ from maasserver.preseed import (
     get_enlist_userdata,
     get_preseed,
     )
+from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from metadataserver.models import (
     NodeCommissionResult,
@@ -54,6 +60,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 
 
 class UnknownMetadataVersion(MAASAPINotFound):
@@ -184,6 +191,24 @@ class VersionIndexHandler(MetadataViewHandler):
             contents = raw_content.decode('utf-8')
             NodeCommissionResult.objects.store_data(node, name, contents)
 
+    def _store_power_parameters(self, node, request):
+        """Store power parameters passed back in commissioning result."""
+        type = request.POST.get("power_type", None)
+        if type is None:
+            return
+
+        params = request.POST.get("power_parameters", None)
+
+        type_dict = map_enum(POWER_TYPE)
+        if type.upper() not in type_dict:
+            raise MAASAPIBadRequest("Bad power_type '%s'" % type)
+
+        try:
+            node.power_parameters = json.loads(params)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse json power_parameters")
+        node.save()
+
     @operation(idempotent=False)
     def signal(self, request, version=None, mac=None):
         """Signal commissioning status.
@@ -220,6 +245,7 @@ class VersionIndexHandler(MetadataViewHandler):
             return rc.ALL_OK
 
         self._store_commissioning_results(node, request)
+        self._store_power_parameters(node, request)
 
         target_status = self.signaling_statuses.get(status)
         if target_status in (None, node.status):
@@ -349,6 +375,10 @@ class EnlistMetaDataHandler(OperationsHandler):
         if item is None or len(item) == 0:
             return make_list_response(sorted(self.data.keys()))
 
+        # Enlistment asks for SSH keys.  We don't give it any, but it's
+        # not an error either.
+        if item == 'public-keys':
+            return HttpResponseNotFound("No SSH keys available for this node.")
         if item not in self.data:
             raise MAASAPINotFound("Unknown metadata attribute: %s" % item)
 

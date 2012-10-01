@@ -18,7 +18,6 @@ from getpass import getpass
 import httplib
 import json
 import sys
-from urllib import urlencode
 from urlparse import (
     urljoin,
     urlparse,
@@ -42,6 +41,7 @@ from maascli.utils import (
     handler_command_name,
     parse_docstring,
     safe_name,
+    urlencode,
     )
 
 
@@ -241,7 +241,7 @@ class Action(Command):
     def name_value_pair(string):
         parts = string.split("=", 1)
         if len(parts) == 2:
-            return parts
+            return tuple(parts)
         else:
             raise CommandError(
                 "%r is not a name=value pair" % string)

@@ -77,7 +77,8 @@ bin/test.maastesting: bin/buildout buildout.cfg versions.cfg setup.py
 	$(buildout) install maastesting-test
 	@touch --no-create $@
 
-bin/twistd.pserv: bin/buildout buildout.cfg versions.cfg setup.py
+bin/celeryd bin/maas-provision bin/twistd.pserv: \
+    bin/buildout buildout.cfg versions.cfg setup.py
 	$(buildout) install pserv
 	@touch --no-create $@
 
@@ -191,8 +192,8 @@ endef
 # Development services.
 #
 
-service_names_region := database dns reloader txlongpoll web webapp
-service_names_cluster := celeryd pserv reloader
+service_names_region := database dns region-worker reloader txlongpoll web webapp
+service_names_cluster := cluster-worker pserv reloader
 service_names_all := $(service_names_region) $(service_names_cluster)
 
 # The following template is intended to be used with `call`, and it
@@ -276,7 +277,9 @@ services/%/@supervise: services/%/@deps
 
 services/dns/@deps: bin/py
 
-services/celeryd/@deps:
+services/cluster-worker/@deps: bin/celeryd
+
+services/region-worker/@deps: bin/celeryd
 
 services/database/@deps: bin/database
 

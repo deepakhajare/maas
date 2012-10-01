@@ -12,37 +12,42 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "discard_persistent_error",
+    "get_persistent_error",
     "get_persistent_errors",
     "register_persistent_error",
     ]
 
-import threading
-
-
-class COMPONENT:
-    PSERV = 'provisioning server'
-    IMPORT_PXE_FILES = 'maas-import-pxe-files script'
-
-
-# Persistent errors are global to a MAAS instance.
-# This is a mapping: component -> error message.
-_PERSISTENT_ERRORS = {}
-
-
-_PERSISTENT_ERRORS_LOCK = threading.Lock()
-
-
-def register_persistent_error(component, error_message):
-    with _PERSISTENT_ERRORS_LOCK:
-        global _PERSISTENT_ERRORS
-        _PERSISTENT_ERRORS[component] = error_message
+from maasserver.models import ComponentError
+from maasserver.utils.orm import get_one
 
 
 def discard_persistent_error(component):
-    with _PERSISTENT_ERRORS_LOCK:
-        global _PERSISTENT_ERRORS
-        _PERSISTENT_ERRORS.pop(component, None)
+    """Drop the persistent error for `component`.
+
+    :param component: An enum value of :class:`COMPONENT`.
+    """
+    ComponentError.objects.filter(component=component).delete()
+
+
+def register_persistent_error(component, error_message):
+    """Register a persistent error for `component`.
+
+    :param component: An enum value of :class:`COMPONENT`.
+    :param error_message: Human-readable error text.
+    """
+    discard_persistent_error(component)
+    ComponentError.objects.create(component=component, error=error_message)
+
+
+def get_persistent_error(component):
+    """Return persistent error for `component`, or None."""
+    err = get_one(ComponentError.objects.filter(component=component))
+    if err is None:
+        return None
+    else:
+        return err.error
 
 
 def get_persistent_errors():
-    return _PERSISTENT_ERRORS.values()
+    """Return list of current persistent error messages."""
+    return sorted(err.error for err in ComponentError.objects.all())
