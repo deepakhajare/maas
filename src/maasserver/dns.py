@@ -132,7 +132,6 @@ def gen_zones(nodegroups, serial=None):
         nodegroup for nodegroup in nodegroups
         if is_dns_managed(nodegroup)
         }
-
     # Skip out now if there are no nodegroups to deal with.
     if len(forward_nodegroups) == 0 and len(reverse_nodegroups) == 0:
         return
@@ -212,8 +211,8 @@ def add_zone(nodegroup):
     """
     if not is_dns_enabled():
         return
-    zones_to_add = list(gen_zones([nodegroup]))
-    if len(zones_to_add) == 0:
+    zones_to_write = list(gen_zones([nodegroup]))
+    if len(zones_to_write) == 0:
         return None
     serial = next_zone_serial()
     # Compute non-None zones.
@@ -222,7 +221,7 @@ def add_zone(nodegroup):
     write_dns_config_subtask = tasks.write_dns_config.subtask(
         zones=zones, callback=reconfig_subtask)
     tasks.write_dns_zone_config.delay(
-        zones=zones_to_add, callback=write_dns_config_subtask)
+        zones=zones_to_write, callback=write_dns_config_subtask)
 
 
 def write_full_dns_config(active=True, reload_retry=False):
