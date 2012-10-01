@@ -118,53 +118,66 @@ def gen_zones(nodegroups, serial=None):
     This method also accepts a serial to reuse the same serial when
     we are creating config objects in bulk.
     """
-    # Narrow down to the managed nodegroups.
-    nodegroups = {
+    get_domain = lambda nodegroup: nodegroup.name
+    # Generate forward zones for all managed nodegroups with the same domain
+    # as the domain of any of the given nodegroups.
+    forward_nodegroups = {
+        nodegroup for nodegroup in NodeGroup.objects.filter(
+            name__in={get_domain(nodegroup) for nodegroup in nodegroups})
+        if is_dns_managed(nodegroup)
+        }
+    # Generate only reverse zones for the given nodegroups; no searching for
+    # overlapping networks or anything like that... for now.
+    reverse_nodegroups = {
         nodegroup for nodegroup in nodegroups
         if is_dns_managed(nodegroup)
         }
-    if len(nodegroups) == 0:
+
+    # Skip out now if there are no nodegroups to deal with.
+    if len(forward_nodegroups) == 0 and len(reverse_nodegroups) == 0:
         return
-    # Handy stuff for later.
-    if serial is None:
-        serial = next_zone_serial()
+    # Assemble the set of all nodegroups to be operated on.
+    nodegroups = set().union(forward_nodegroups, reverse_nodegroups)
+    # Caches for various things.
+    mappings = {
+        nodegroup: DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
+        for nodegroup in nodegroups
+        }
+    interfaces = {
+        nodegroup: nodegroup.get_managed_interface()
+        for nodegroup in nodegroups
+        }
+    networks = {
+        nodegroup: interface.network
+        for nodegroup, interface in interfaces.items()
+        }
+    # Useful stuff.
+    serial = next_zone_serial() if serial is None else serial
     dns_ip = get_dns_server_address()
-    # Functions on nodegroups.
-    get_domain = lambda nodegroup: nodegroup.name
-    get_interface = lambda nodegroup: nodegroup.get_managed_interface()
-    get_mapping = DHCPLease.objects.get_hostname_ip_mapping
-    # Sort then collate by domain name.
-    nodegroups = sorted(nodegroups, key=get_domain)
-    for domain, nodegroups in groupby(nodegroups, get_domain):
+    # Forward zones, collated by domain name.
+    forward_nodegroups = sorted(forward_nodegroups, key=get_domain)
+    for domain, nodegroups in groupby(forward_nodegroups, get_domain):
         nodegroups = list(nodegroups)
-        mappings = {
-            nodegroup: get_mapping(nodegroup)
-            for nodegroup in nodegroups
-            }
-        interfaces = {
-            nodegroup: get_interface(nodegroup)
-            for nodegroup in nodegroups
-            }
-        assert len(interfaces) == 1, "Too many managed interfaces."
         # A forward zone encompassing all nodes in the same domain.
         yield DNSForwardZoneConfig(
             domain, serial=serial, dns_ip=dns_ip,
             mapping={
                 hostname: ip
-                for mapping in mappings.values()
-                for hostname, ip in mapping.items()
+                for nodegroup in nodegroups
+                for hostname, ip in mappings[nodegroup].items()
                 },
             networks={
-                interface.network
-                for interface in interfaces.values()
+                networks[nodegroup]
+                for nodegroup in nodegroups
                 },
             )
-        # A reverse zone for each managed interface.
-        for nodegroup, interface in interfaces.items():
-            yield DNSReverseZoneConfig(
-                domain, serial=serial, dns_ip=dns_ip,
-                mapping=mappings[nodegroup],
-                network=interface.network)
+    # Reverse zones, sorted by network.
+    reverse_nodegroups = sorted(reverse_nodegroups, key=networks.get)
+    for nodegroup in reverse_nodegroups:
+        yield DNSReverseZoneConfig(
+            get_domain(nodegroup), serial=serial, dns_ip=dns_ip,
+            mapping=mappings[nodegroup],
+            network=networks[nodegroup])
 
 
 def change_dns_zones(nodegroups):
