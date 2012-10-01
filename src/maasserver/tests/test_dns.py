@@ -346,23 +346,46 @@ class TestDNSConfigModifications(TestCase):
 class TestZoneGenerator(TestCase):
     """Tests for :class:x`dns.ZoneGenerator`."""
 
+    make_node_group = partial(
+        factory.make_node_group, status=NODEGROUP_STATUS.ACCEPTED,
+        management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+
+    def assertForwardZone(self, zone, domain, *networks):
+        networks = {IPNetwork(network) for network in networks}
+        expected = MatchesAll(
+            IsInstance(DNSForwardZoneConfig),
+            MatchesStructure.byEquality(
+                domain=domain, networks=networks))
+        self.assertThat(zone, expected)
+
+    def assertReverseZone(self, zone, domain, network):
+        network = network if network is None else IPNetwork(network)
+        expected = MatchesAll(
+            IsInstance(DNSReverseZoneConfig),
+            MatchesStructure.byEquality(
+                domain=domain, network=network))
+        self.assertThat(zone, expected)
+
     def test_with_no_nodegroups_yields_nothing(self):
         self.assertEqual([], dns.ZoneGenerator(()).as_list())
 
+    def test_with_one_nodegroup_yields_forward_and_reverse_zone(self):
+        forward_zone, reverse_zone = dns.ZoneGenerator(
+            self.make_node_group(name="henry", network=IPNetwork("10/32")))
+        self.assertForwardZone(forward_zone, "henry", "10/32")
+        self.assertReverseZone(reverse_zone, "henry", "10/32")
+
     def test_with_many_nodegroups(self):
         # This demonstrates ZoneGenerator in all-singing all-dancing mode.
-        make_node_group = partial(
-            factory.make_node_group, status=NODEGROUP_STATUS.ACCEPTED,
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         nodegroups = [
-            make_node_group(name="one", network=IPNetwork("10/32")),
-            make_node_group(name="one", network=IPNetwork("11/32")),
-            make_node_group(name="two", network=IPNetwork("20/32")),
-            make_node_group(name="two", network=IPNetwork("21/32")),
+            self.make_node_group(name="one", network=IPNetwork("10/32")),
+            self.make_node_group(name="one", network=IPNetwork("11/32")),
+            self.make_node_group(name="two", network=IPNetwork("20/32")),
+            self.make_node_group(name="two", network=IPNetwork("21/32")),
             ]
         [  # Other nodegroups.
-            make_node_group(name="one", network=IPNetwork("12/32")),
-            make_node_group(name="two", network=IPNetwork("22/32")),
+            self.make_node_group(name="one", network=IPNetwork("12/32")),
+            self.make_node_group(name="two", network=IPNetwork("22/32")),
             ]
         zones = dns.ZoneGenerator(nodegroups).as_list()
         self.assertEqual(6, len(zones), zones)
@@ -370,47 +393,11 @@ class TestZoneGenerator(TestCase):
         # For the forward zones, all nodegroups sharing a domain name, even
         # those not passed into ZoneGenerator, are consolidated into a single
         # forward zone description.
-        self.assertThat(
-            f_one, MatchesAll(
-                IsInstance(DNSForwardZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="one",
-                    networks={
-                        IPNetwork("10/32"),
-                        IPNetwork("11/32"),
-                        IPNetwork("12/32"),
-                        }
-                    )))
-        self.assertThat(
-            f_two, MatchesAll(
-                IsInstance(DNSForwardZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="two",
-                    networks={
-                        IPNetwork("20/32"),
-                        IPNetwork("21/32"),
-                        IPNetwork("22/32"),
-                        }
-                    )))
+        self.assertForwardZone(f_one, "one", "10/32", "11/32", "12/32")
+        self.assertForwardZone(f_two, "two", "20/32", "21/32", "22/32")
         # For the reverse zones, a single reverse zone description is
         # generated for each nodegroup passed in, in network order.
-        self.assertThat(
-            r_one_0, MatchesAll(
-                IsInstance(DNSReverseZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="one", network=IPNetwork("10/32"))))
-        self.assertThat(
-            r_one_1, MatchesAll(
-                IsInstance(DNSReverseZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="one", network=IPNetwork("11/32"))))
-        self.assertThat(
-            r_two_0, MatchesAll(
-                IsInstance(DNSReverseZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="two", network=IPNetwork("20/32"))))
-        self.assertThat(
-            r_two_1, MatchesAll(
-                IsInstance(DNSReverseZoneConfig),
-                MatchesStructure.byEquality(
-                    domain="two", network=IPNetwork("21/32"))))
+        self.assertReverseZone(r_one_0, "one", "10/32")
+        self.assertReverseZone(r_one_1, "one", "11/32")
+        self.assertReverseZone(r_two_0, "two", "20/32")
+        self.assertReverseZone(r_two_1, "two", "21/32")
