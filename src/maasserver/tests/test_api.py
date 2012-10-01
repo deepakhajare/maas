@@ -22,6 +22,7 @@ from datetime import (
     datetime,
     timedelta,
     )
+from functools import partial
 import httplib
 from itertools import izip
 import json
@@ -422,7 +423,9 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/html', response['Content-Type'])
-        self.assertEqual("Unknown operation.", response.content)
+        self.assertEqual(
+            "Unrecognised signature: POST None",
+            response.content)
 
     def test_POST_fails_if_mac_duplicated(self):
         # Mac Addresses should be unique.
@@ -458,7 +461,8 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual(
-            "Unknown operation: 'invalid_operation'.", response.content)
+            "Unrecognised signature: POST invalid_operation",
+            response.content)
 
     def test_POST_new_rejects_invalid_data(self):
         # If the data provided to create a node with an invalid MAC
@@ -2764,6 +2768,34 @@ class TestPXEConfigAPI(AnonAPITestCase):
         observed_arch = params_out["arch"], params_out["subarch"]
         self.assertEqual(expected_arch, observed_arch)
 
+    def test_pxeconfig_uses_fixed_hostname_for_enlisting_node(self):
+        new_mac = factory.getRandomMACAddress()
+        self.assertEqual(
+            'maas-enlist',
+            self.get_pxeconfig({'mac': new_mac}).get('hostname'))
+
+    def test_pxeconfig_uses_enlistment_domain_for_enlisting_node(self):
+        new_mac = factory.getRandomMACAddress()
+        self.assertEqual(
+            Config.objects.get_config('enlistment_domain'),
+            self.get_pxeconfig({'mac': new_mac}).get('domain'))
+
+    def test_pxeconfig_splits_domain_from_node_hostname(self):
+        host = factory.make_name('host')
+        domain = factory.make_name('domain')
+        full_hostname = '.'.join([host, domain])
+        node = factory.make_node(hostname=full_hostname)
+        mac = factory.make_mac_address(node=node)
+        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
+        self.assertEqual(host, pxe_config.get('hostname'))
+        self.assertNotIn(domain, pxe_config.values())
+
+    def test_pxeconfig_uses_nodegroup_domain_for_node(self):
+        mac = factory.make_mac_address()
+        self.assertEqual(
+            mac.node.nodegroup.name,
+            self.get_pxeconfig({'mac': mac.mac_address}).get('domain'))
+
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
         params = self.get_params()
@@ -3159,7 +3191,11 @@ class TestNodeGroupInterfaceAPI(APITestCase):
         self.become_admin()
         nodegroup = factory.make_node_group()
         interface = nodegroup.get_managed_interface()
-        new_ip_range_high = factory.getRandomIPAddress()
+        get_ip_in_network = partial(
+            factory.getRandomIPInNetwork, interface.network)
+        new_ip_range_high = next(
+            ip for ip in iter(get_ip_in_network, None)
+            if ip != interface.ip_range_high)
         response = self.client.put(
             reverse(
                 'nodegroupinterface_handler',

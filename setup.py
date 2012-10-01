@@ -59,6 +59,7 @@ setup(
              'etc/txlongpoll.yaml',
              'contrib/maas_local_celeryconfig.py',
              'etc/maas/import_squashfs',
+             'contrib/maas_local_celeryconfig_cluster.py',
              'etc/maas/import_ephemerals',
              'etc/maas/import_pxe_files',
              'etc/maas/commissioning-user-data',

@@ -22,13 +22,16 @@ import json
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseNotFound,
+    )
 from django.shortcuts import get_object_or_404
 from maasserver.api import (
-    api_exported,
-    api_operations,
     extract_oauth_key,
     get_mandatory_param,
+    operation,
+    OperationsHandler,
     )
 from maasserver.enum import (
     NODE_STATUS,
@@ -56,7 +59,6 @@ from metadataserver.models import (
     NodeKey,
     NodeUserData,
     )
-from piston.handler import BaseHandler
 from piston.utils import rc
 from provisioningserver.enum import POWER_TYPE
 
@@ -135,8 +137,8 @@ def check_version(version):
         raise UnknownMetadataVersion("Unknown metadata version: %s" % version)
 
 
-class MetadataViewHandler(BaseHandler):
-    allowed_methods = ('GET',)
+class MetadataViewHandler(OperationsHandler):
+    create = update = delete = None
 
     def read(self, request, mac=None):
         return make_list_response(sorted(self.fields))
@@ -148,10 +150,9 @@ class IndexHandler(MetadataViewHandler):
     fields = ('latest', '2012-03-01')
 
 
-@api_operations
 class VersionIndexHandler(MetadataViewHandler):
     """Listing for a given metadata version."""
-    allowed_methods = ('GET', 'POST')
+    create = update = delete = None
     fields = ('meta-data', 'user-data')
 
     # States in which a node is allowed to signal commissioning status.
@@ -208,7 +209,7 @@ class VersionIndexHandler(MetadataViewHandler):
             raise MAASAPIBadRequest("Failed to parse json power_parameters")
         node.save()
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def signal(self, request, version=None, mac=None):
         """Signal commissioning status.
 
@@ -260,7 +261,7 @@ class VersionIndexHandler(MetadataViewHandler):
 
         return rc.ALL_OK
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def netboot_off(self, request, version=None, mac=None):
         """Turn off netboot on the node.
 
@@ -271,7 +272,7 @@ class VersionIndexHandler(MetadataViewHandler):
         node.set_netboot(False)
         return rc.ALL_OK
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def netboot_on(self, request, version=None, mac=None):
         """Turn on netboot on the node."""
         node = get_queried_node(request, for_mac=mac)
@@ -355,12 +356,12 @@ class UserDataHandler(MetadataViewHandler):
             raise MAASAPINotFound("No user data available for this node.")
 
 
-class EnlistMetaDataHandler(BaseHandler):
+class EnlistMetaDataHandler(OperationsHandler):
     """this has to handle the 'meta-data' portion of the meta-data api
     for enlistment only.  It should mimic the read-only portion
     of /VersionIndexHandler"""
 
-    allowed_methods = ('GET',)
+    create = update = delete = None
 
     data = {
         'instance-id': 'i-maas-enlistment',
@@ -374,13 +375,17 @@ class EnlistMetaDataHandler(BaseHandler):
         if item is None or len(item) == 0:
             return make_list_response(sorted(self.data.keys()))
 
+        # Enlistment asks for SSH keys.  We don't give it any, but it's
+        # not an error either.
+        if item == 'public-keys':
+            return HttpResponseNotFound("No SSH keys available for this node.")
         if item not in self.data:
             raise MAASAPINotFound("Unknown metadata attribute: %s" % item)
 
         return make_text_response(self.data[item])
 
 
-class EnlistUserDataHandler(BaseHandler):
+class EnlistUserDataHandler(OperationsHandler):
     """User-data for the enlistment environment"""
 
     def read(self, request, version):
@@ -388,30 +393,29 @@ class EnlistUserDataHandler(BaseHandler):
         return HttpResponse(get_enlist_userdata(), mimetype="text/plain")
 
 
-class EnlistVersionIndexHandler(BaseHandler):
-    allowed_methods = ('GET',)
+class EnlistVersionIndexHandler(OperationsHandler):
+    create = update = delete = None
     fields = ('meta-data', 'user-data')
 
     def read(self, request, version):
         return make_list_response(sorted(self.fields))
 
 
-@api_operations
 class AnonMetaDataHandler(VersionIndexHandler):
     """Anonymous metadata."""
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def get_enlist_preseed(self, request, version=None):
         """Render and return a preseed script for enlistment."""
         return HttpResponse(get_enlist_preseed(), mimetype="text/plain")
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def get_preseed(self, request, version=None, system_id=None):
         """Render and return a preseed script for the given node."""
         node = get_object_or_404(Node, system_id=system_id)
         return HttpResponse(get_preseed(node), mimetype="text/plain")
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def netboot_off(self, request, version=None, system_id=None):
         """Turn off netboot on the node.
 
