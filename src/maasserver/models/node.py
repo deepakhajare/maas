@@ -389,7 +389,6 @@ class Node(CleanSave, TimestampedModel):
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
-    # Fully-qualified host name (so including the domain).
     hostname = CharField(max_length=255, default='', blank=True)
 
     status = IntegerField(

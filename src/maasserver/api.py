@@ -1533,7 +1533,6 @@ def pxeconfig(request):
         series = node.get_distro_series()
 
     purpose = get_boot_purpose(node)
-
     server_address = get_maas_facing_server_address()
 
     params = KernelParameters(
