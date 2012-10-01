@@ -99,6 +99,9 @@ class NodeViewsTest(LoggedInTestCase):
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
         node = factory.make_node(owner=self.logged_in_user)
+        node.cpu_count = 123
+        node.memory = 512
+        node.save()
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
         doc = fromstring(response.content)
@@ -107,6 +110,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(node.display_status(), content_text)
         self.assertIn(node.architecture, content_text)
         self.assertIn('%d MB' % (node.memory,), content_text)
+        self.assertIn('%d' % (node.cpu_count,), content_text)
         self.assertIn(self.logged_in_user.username, content_text)
 
     def test_view_node_displays_node_info_no_owner(self):
