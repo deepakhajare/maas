@@ -122,7 +122,7 @@ class NodeGroup(TimestampedModel):
     objects = NodeGroupManager()
 
     description = CharField(
-        max_length=100, unique=False, editable=True, blank=False, null=False)
+        max_length=100, unique=False, editable=True, blank=True, null=False)
 
     # A node group's name is also used for the group's DNS zone.
     name = CharField(
