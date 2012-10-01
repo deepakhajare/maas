@@ -184,12 +184,14 @@ class ZoneGenerator:
             }
 
     @staticmethod
-    def _get_mapping(nodegroup):
-        return DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
+    def _get_mappings():
+        """Return a lazily evaluated nodegroup:mapping dict."""
+        return lazydict(DHCPLease.objects.get_hostname_ip_mapping)
 
     @staticmethod
-    def _get_network(nodegroup):
-        return nodegroup.get_managed_interface().network
+    def _get_networks():
+        """Return a lazily evaluated nodegroup:network dict."""
+        return lazydict(lambda ng: ng.get_managed_interface().network)
 
     @staticmethod
     def _gen_forward_zones(nodegroups, serial, mappings, networks):
@@ -227,8 +229,8 @@ class ZoneGenerator:
     def __iter__(self):
         forward_nodegroups = self._get_forward_nodegroups(self.nodegroups)
         reverse_nodegroups = self._get_reverse_nodegroups(self.nodegroups)
-        mappings = lazydict(self._get_mapping)
-        networks = lazydict(self._get_network)
+        mappings = self._get_mappings()
+        networks = self._get_networks()
         serial = self.serial or next_zone_serial()
         return chain(
             self._gen_forward_zones(
