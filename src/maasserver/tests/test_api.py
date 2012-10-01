@@ -2767,6 +2767,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
         observed_arch = params_out["arch"], params_out["subarch"]
         self.assertEqual(expected_arch, observed_arch)
 
+    def test_pxeconfig_splits_domain_from_hostname(self):
+        self.fail("TEST THIS")
+
+    def test_pxeconfig_omits_domain_if_not_included_in_hostname(self):
+        self.fail("TEST THIS")
+
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
         params = self.get_params()
