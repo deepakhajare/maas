@@ -31,12 +31,14 @@
 
 {% block content %}
   <div id="nodes">
-    {% comment %}
-      <!-- To be enabled when we have search functionality -->
-      <form action="" method="get" class="block full-width inline-form">
-        <input type="text" name="query" class="search-box" value="Search nodes" />
-      </form>
-    {% endcomment %}
+    <form action="{% url 'node-list' %}" method="get" class="block full-width search">
+      <input type="search" name="query" placeholder="Search nodes" class="search-input" />
+      <input type="submit" value="Search" class="search-submit" />
+    </form>
+    <p>
+      Results for cpu:8, mem:32G. There are 6 Pooled, 3 Reserved, 0 Allocated,
+      2 Declared and 0 Retired nodes.
+    </p>
     {% if node_list|length %}
       <table class="list">
         <thead>
