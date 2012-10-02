@@ -69,9 +69,9 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
-        description = NODEGROUP_DESCRIPTION_TEMPLATE % {'uuid': uuid}
+        cluster_name = NODEGROUP_DESCRIPTION_TEMPLATE % {'uuid': uuid}
         nodegroup = NodeGroup(
-            name=name, uuid=uuid, description=description, dhcp_key=dhcp_key,
+            name=name, uuid=uuid, cluster_name=cluster_name, dhcp_key=dhcp_key,
             status=status)
         nodegroup.save()
         nginterface = NodeGroupInterface(
@@ -122,8 +122,8 @@ class NodeGroup(TimestampedModel):
 
     objects = NodeGroupManager()
 
-    description = CharField(
-        max_length=100, unique=True, editable=True, blank=False, null=False)
+    cluster_name = CharField(
+        max_length=100, unique=True, editable=True, blank=True, null=False)
 
     # A node group's name is also used for the group's DNS zone.
     name = CharField(
