@@ -703,13 +703,13 @@ class NodeGroupWithInterfacesForm(ModelForm):
     """Create a NodeGroup with unmanaged interfaces."""
 
     interfaces = forms.CharField(required=False)
-    description = forms.CharField(required=False)
+    cluster_name = forms.CharField(required=False)
 
     class Meta:
         model = NodeGroup
         fields = (
             'name',
-            'description',
+            'cluster_name',
             'uuid',
             )
 
@@ -726,10 +726,10 @@ class NodeGroupWithInterfacesForm(ModelForm):
 
     def clean(self):
         cleaned_data = super(NodeGroupWithInterfacesForm, self).clean()
-        description = cleaned_data.get("description")
+        cluster_name = cleaned_data.get("cluster_name")
         uuid = cleaned_data.get("uuid")
-        if uuid and not description:
-            cleaned_data["description"] = (
+        if uuid and not cluster_name:
+            cleaned_data["cluster_name"] = (
                 NODEGROUP_DESCRIPTION_TEMPLATE % {'uuid': uuid})
         return cleaned_data
 
