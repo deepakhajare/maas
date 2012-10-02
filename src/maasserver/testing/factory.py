@@ -139,6 +139,8 @@ class Factory(maastesting.factory.Factory):
             router_ip = factory.getRandomIPInNetwork(network)
         if ip is None:
             ip = factory.getRandomIPInNetwork(network)
+        if management is None:
+            management = factory.getRandomEnum(NODEGROUPINTERFACE_MANAGEMENT)
         if interface is None:
             interface = self.make_name('interface')
         return dict(
@@ -148,6 +150,7 @@ class Factory(maastesting.factory.Factory):
             ip_range_high=ip_range_high,
             router_ip=router_ip,
             ip=ip,
+            management=management,
             interface=interface)
 
     def make_node_group(self, name=None, uuid=None, ip=None,
@@ -175,7 +178,7 @@ class Factory(maastesting.factory.Factory):
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
             ip_range_low=ip_range_low, ip_range_high=ip_range_high,
             interface=interface, management=management)
-        interface_settings.update(**kwargs)
+        interface_settings.update(kwargs)
         ng = NodeGroup.objects.new(
             name=name, uuid=uuid, **interface_settings)
         ng.status = status
@@ -183,10 +186,10 @@ class Factory(maastesting.factory.Factory):
         return ng
 
     def make_node_group_interface(self, nodegroup, ip=None,
-                        router_ip=None, network=None, subnet_mask=None,
-                        broadcast_ip=None, ip_range_low=None,
-                        ip_range_high=None, interface=None, management=None,
-                        **kwargs):
+                                  router_ip=None, network=None,
+                                  subnet_mask=None, broadcast_ip=None,
+                                  ip_range_low=None, ip_range_high=None,
+                                  interface=None, management=None, **kwargs):
         interface_settings = self.get_interface_fields(
             ip=ip, router_ip=router_ip, network=network,
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
