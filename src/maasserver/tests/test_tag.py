@@ -13,8 +13,6 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from lxml import etree
 from maasserver.models import Tag
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -125,7 +123,6 @@ class TagTest(TestCase):
         node2.tags.add(tag)
         self.assertItemsEqual([node1, node2],
                               Tag.objects.get_nodes(tag.name, user2))
-
 
     def test_rollsback_invalid_xpath(self):
         node = factory.make_node()
