@@ -55,9 +55,9 @@ class NodeGroupInterface(TimestampedModel):
     router_ip = GenericIPAddressField(
         editable=True, unique=False, blank=True, null=True, default=None)
     ip_range_low = GenericIPAddressField(
-        editable=True, unique=True, blank=True, null=True, default=None)
+        editable=True, unique=False, blank=True, null=True, default=None)
     ip_range_high = GenericIPAddressField(
-        editable=True, unique=True, blank=True, null=True, default=None)
+        editable=True, unique=False, blank=True, null=True, default=None)
 
     def __repr__(self):
         return "<NodeGroupInterface %r,%s>" % (self.nodegroup, self.interface)
