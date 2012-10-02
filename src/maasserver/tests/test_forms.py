@@ -800,7 +800,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
         nodegroup = NodeGroup.objects.get(uuid=uuid)
         self.assertEqual(2,  nodegroup.nodegroupinterface_set.count())
 
-    def test_NodeGroupWithInterfacesForm_populates_description(self):
+    def test_NodeGroupWithInterfacesForm_populates_cluster_name(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         form = NodeGroupWithInterfacesForm(
@@ -808,7 +808,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid})
         self.assertTrue(form.is_valid(), form._errors)
         nodegroup = form.save()
-        self.assertIn(uuid, nodegroup.description)
+        self.assertIn(uuid, nodegroup.cluter_name)
 
     def test_NodeGroupWithInterfacesForm_creates_unmanaged_interfaces(self):
         name = factory.make_name('name')
