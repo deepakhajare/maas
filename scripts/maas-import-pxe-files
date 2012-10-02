@@ -77,7 +77,12 @@ compose_installer_download_url() {
         armhf/*)
             # No ARM server installers were available in precise, so always go for -updates for now
             # A better general fix is LP: #1052397
-            local installer_url="$PORTS_ARCHIVE/dists/$release-updates/main/installer-${arch%%/*}"
+            if [ "$release" = "precise" ]; then
+                updates=-updates
+            else
+                updates=
+            fi
+            local installer_url="$PORTS_ARCHIVE/dists/${release}${updates}/main/installer-${arch%%/*}"
             echo "$installer_url/current/images/${arch#*/}/netboot/"
             ;;
         *)
