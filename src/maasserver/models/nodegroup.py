@@ -121,7 +121,7 @@ class NodeGroup(TimestampedModel):
 
     objects = NodeGroupManager()
 
-    description = CharField(
+    cluster_name = CharField(
         max_length=100, unique=False, editable=True, blank=True, null=False)
 
     # A node group's name is also used for the group's DNS zone.
