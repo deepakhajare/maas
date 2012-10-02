@@ -1666,17 +1666,6 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             required_node_ids, extract_system_ids(parsed_result))
 
-    def test_GET_list_with_nodegroup(self):
-        group_a = factory.make_nodegroup()
-        group_b = factory.make_nodegroup()
-        node_in_a = factory.make_node(nodegroup=group_a)
-        node_in_b = factory.make_node(nodegroup=group_b)
-
-        response = self.client.get(self.get_uri('nodes/'), {
-            'op': 'list',
-            'id': required_node_ids,
-        })
-
     def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.
         available_status = NODE_STATUS.READY
