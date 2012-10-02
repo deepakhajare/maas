@@ -15,34 +15,30 @@ __all__ = []
 import httplib
 
 from django.core.urlresolvers import reverse
-from lxml.html import fromstring
 from maasserver.enum import (
     NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.models import (
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.testing import (
     extract_redirect,
     get_content_links,
     reload_object,
-    reload_objects,
     )
 from maasserver.testing.factory import factory
-from maasserver.testing.rabbit import uses_rabbit_fixture
 from maasserver.testing.testcase import (
     AdminLoggedInTestCase,
-    LoggedInTestCase,
-    TestCase,
     )
 from maastesting.matchers import ContainsAll
-from testtools.matchers import MatchesListwise, Contains
-from provisioningserver.enum import POWER_TYPE_CHOICES
+from testtools.matchers import MatchesStructure
 
 
 class ClusterListingTest(AdminLoggedInTestCase):
 
-    def test_settings_lists_accepted_clusters(self):
+    def test_settings_contains_links_to_edit_and_delete_clusters(self):
         nodegroups = {
             factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
             factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
@@ -52,17 +48,102 @@ class ClusterListingTest(AdminLoggedInTestCase):
         nodegroup_edit_links = [
             reverse('cluster-edit', args=[nodegroup.uuid])
             for nodegroup in nodegroups]
+        nodegroup_delete_links = [
+            reverse('cluster-delete', args=[nodegroup.uuid])
+            for nodegroup in nodegroups]
         self.assertThat(
             links,
-            ContainsAll(nodegroup_edit_links))
+            ContainsAll(nodegroup_edit_links + nodegroup_delete_links))
 
-class ClusterEditTest(AdminLoggedInTestCase):
+
+class ClusterDeleteTest(AdminLoggedInTestCase):
 
     def test_can_delete_cluster(self):
         nodegroup = factory.make_node_group()
         delete_link = reverse('cluster-delete', args=[nodegroup.uuid])
         response = self.client.post(delete_link, {'post': 'yes'})
-        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            (httplib.FOUND, reverse('settings')),
+            (response.status_code, extract_redirect(response)))
         self.assertFalse(
             NodeGroup.objects.filter(uuid=nodegroup.uuid).exists())
 
+
+class ClusterEditTest(AdminLoggedInTestCase):
+
+    def test_cluster_page_contains_links_to_edit_and_delete_interfaces(self):
+        nodegroup = factory.make_node_group()
+        interfaces = {
+            factory.make_node_group_interface(
+                nodegroup=nodegroup,
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
+            factory.make_node_group_interface(
+                nodegroup=nodegroup,
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
+            factory.make_node_group_interface(
+                nodegroup=nodegroup,
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
+            }
+        links = get_content_links(
+            self.client.get(reverse('cluster-edit', args=[nodegroup.uuid])))
+        interface_edit_links = [
+            reverse('cluster-interface-edit',
+            args=[nodegroup.uuid, interface.interface])
+            for interface in interfaces]
+        interface_delete_links = [
+            reverse('cluster-interface-delete',
+            args=[nodegroup.uuid, interface.interface])
+            for interface in interfaces]
+        self.assertThat(
+            links,
+            ContainsAll(interface_edit_links + interface_delete_links))
+
+    def test_can_edit_cluster(self):
+        nodegroup = factory.make_node_group()
+        edit_link = reverse('cluster-edit', args=[nodegroup.uuid])
+        data = {
+            'cluster_name': factory.make_name('cluster_name'),
+            'name': factory.make_name('name'),
+            'status': factory.getRandomEnum(NODEGROUP_STATUS),
+            }
+        response = self.client.post(edit_link, data)
+        self.assertEqual(httplib.FOUND, response.status_code, response.content)
+        self.assertThat(
+            reload_object(nodegroup),
+            MatchesStructure.byEquality(**data))
+
+
+class ClusterInterfaceDeleteTest(AdminLoggedInTestCase):
+
+    def test_can_delete_cluster_interface(self):
+        nodegroup = factory.make_node_group()
+        interface = factory.make_node_group_interface(
+            nodegroup=nodegroup,
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+        delete_link = reverse(
+            'cluster-interface-delete',
+            args=[nodegroup.uuid, interface.interface])
+        response = self.client.post(delete_link, {'post': 'yes'})
+        self.assertEqual(
+            (httplib.FOUND, reverse('cluster-edit', args=[nodegroup.uuid])),
+            (response.status_code, extract_redirect(response)))
+        self.assertFalse(
+            NodeGroupInterface.objects.filter(id=interface.id).exists())
+
+
+class ClusterInterfaceEditTest(AdminLoggedInTestCase):
+
+    def test_can_edit_cluster_interface(self):
+        nodegroup = factory.make_node_group(
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+        interface = factory.make_node_group_interface(
+            nodegroup=nodegroup)
+        edit_link = reverse(
+            'cluster-interface-edit',
+            args=[nodegroup.uuid, interface.interface])
+        data = factory.get_interface_fields()
+        response = self.client.post(edit_link, data)
+        self.assertEqual(httplib.FOUND, response.status_code, response.content)
+        self.assertThat(
+            reload_object(interface),
+            MatchesStructure.byEquality(**data))

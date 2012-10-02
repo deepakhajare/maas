@@ -36,7 +36,7 @@
           <td>{{ interface.network|default_if_none:"Not configured" }}</td>
           <td>{{ interface.display_management }}</td>
           <td>
-            <a href="{% url 'cluster-interface-edit' cluster.uuid interface.interface%}"
+            <a href="{% url 'cluster-interface-edit' uuid=cluster.uuid interface=interface.interface %}"
                title="Edit interface {{ interface.interface }}">
               <img src="{{ STATIC_URL }}img/edit.png"
                    alt="edit"

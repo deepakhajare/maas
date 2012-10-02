@@ -105,7 +105,8 @@ class ClusterInterfaceEdit(UpdateView):
     context_object_name = 'interface'
 
     def get_success_url(self):
-        return reverse('cluster-edit', args=[self.get_object().nodegroup.uuid])
+        uuid = self.kwargs.get('uuid', None)
+        return reverse('cluster-edit', args=[uuid])
 
     def form_valid(self, form):
         messages.info(self.request, "Interface updated.")
