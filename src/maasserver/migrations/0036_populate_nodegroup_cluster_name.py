@@ -122,7 +122,7 @@ class Migration(DataMigration):
             'api_key': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '18'}),
             'api_token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'unique': 'True'}),
             'created': ('django.db.models.fields.DateTimeField', [], {}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'cluster_name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
             'dhcp_key': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '80', 'blank': 'True'}),
