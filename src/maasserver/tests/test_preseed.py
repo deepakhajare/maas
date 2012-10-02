@@ -30,6 +30,7 @@ from maasserver.preseed import (
     get_preseed_context,
     get_preseed_filenames,
     get_preseed_template,
+    is_squashfs_image_present,
     load_preseed_template,
     PreseedTemplate,
     render_preseed,
@@ -295,7 +296,8 @@ class TestPreseedContext(TestCase):
         self.assertItemsEqual(
             ['node', 'release', 'metadata_enlist_url',
              'server_host', 'server_url', 'preseed_data',
-             'node_disable_pxe_url', 'node_disable_pxe_data'],
+             'node_disable_pxe_url', 'node_disable_pxe_data',
+             'use_squashfs'],
             context)
 
     def test_get_preseed_context_if_node_None(self):
@@ -307,6 +309,14 @@ class TestPreseedContext(TestCase):
         self.assertItemsEqual(
             ['release', 'metadata_enlist_url', 'server_host', 'server_url'],
             context)
+
+
+class TestSquashfsAvailable(TestCase):
+
+    def test_is_squashfs_image_present_false(self):
+        node = factory.make_node(distro_series="quantal")
+        exists = is_squashfs_image_present(node)
+        self.assertFalse(exists)
 
 
 class TestPreseedTemplate(TestCase):

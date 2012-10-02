@@ -31,7 +31,13 @@ from maasserver.enum import (
 from maasserver.models import Config
 from maasserver.server_address import get_maas_facing_server_host
 from maasserver.utils import absolute_reverse
+from provisioningserver.config import Config as PConfig
+from provisioningserver.pxe.tftppath import (
+    compose_image_path,
+    locate_tftp_path,
+)
 import tempita
+import os
 
 
 GENERIC_FILENAME = 'generic'
@@ -228,10 +234,20 @@ def get_preseed_context(node, release=''):
             'preseed_data': compose_preseed(node),
             'node_disable_pxe_url': node_disable_pxe_url,
             'node_disable_pxe_data': node_disable_pxe_data,
+            'use_squashfs': is_squashfs_image_present(node),
         }
         context.update(node_context)
 
     return context
+
+
+def is_squashfs_image_present(node):
+    tftproot = PConfig.load_from_cache()['tftp']['root']
+    arch, subarch = node.architecture.split("/")
+    path = compose_image_path(arch, subarch, node.get_distro_series(), "filesystem")
+    path = locate_tftp_path(path, tftproot)
+    path = os.path.join(path, "filesystem.squashfs")
+    return os.path.exists(path)
 
 
 def render_preseed(node, prefix, release=''):
