@@ -28,16 +28,13 @@ from maasserver.enum import (
     NODE_STATUS,
     PRESEED_TYPE,
     )
-from maasserver.models import Config
+from maasserver.models import (
+    BootImage,
+    Config,
+    )
 from maasserver.server_address import get_maas_facing_server_host
 from maasserver.utils import absolute_reverse
-from provisioningserver.config import Config as PConfig
-from provisioningserver.pxe.tftppath import (
-    compose_image_path,
-    locate_tftp_path,
-)
 import tempita
-import os
 
 
 GENERIC_FILENAME = 'generic'
@@ -242,12 +239,10 @@ def get_preseed_context(node, release=''):
 
 
 def is_squashfs_image_present(node):
-    tftproot = PConfig.load_from_cache()['tftp']['root']
+    """Whether or not the SquashFS image can be used during installation."""
     arch, subarch = node.architecture.split("/")
-    path = compose_image_path(arch, subarch, node.get_distro_series(), "filesystem")
-    path = locate_tftp_path(path, tftproot)
-    path = os.path.join(path, "filesystem.squashfs")
-    return os.path.exists(path)
+    return BootImage.objects.have_image(
+        arch, subarch, node.get_distro_series(), "filesystem")
 
 
 def render_preseed(node, prefix, release=''):
