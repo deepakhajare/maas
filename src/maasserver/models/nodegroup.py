@@ -68,9 +68,9 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
-        description = NODEGROUP_DESCRIPTION_TEMPLATE % uuid
+        cluster_name = NODEGROUP_DESCRIPTION_TEMPLATE % uuid
         nodegroup = NodeGroup(
-            name=name, uuid=uuid, description=description, dhcp_key=dhcp_key,
+            name=name, uuid=uuid, cluster_name=cluster_name, dhcp_key=dhcp_key,
             status=status)
         nodegroup.save()
         nginterface = NodeGroupInterface(
