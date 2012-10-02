@@ -18,7 +18,6 @@ from lxml import etree
 from maasserver.models import Tag
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maastesting.djangotestcase import TransactionTestCase
 
 
 class TagTest(TestCase):
@@ -128,25 +127,11 @@ class TagTest(TestCase):
                               Tag.objects.get_nodes(tag.name, user2))
 
 
-class TestTagTransactions(TransactionTestCase):
-
     def test_rollsback_invalid_xpath(self):
-        @transaction.commit_manually
-        def setup():
-            node = factory.make_node()
-            node.set_hardware_details('<node><foo /></node>')
-            tag = factory.make_tag(definition='/node/foo')
-            self.assertItemsEqual([tag.name], node.tag_names())
-            transaction.commit()
-            return tag, node
-        tag, node = setup()
-
-        @transaction.commit_manually
-        def trigger_invalid():
-            tag.definition = 'invalid::tag'
-            self.assertRaises(etree.XPathSyntaxError, tag.save)
-            transaction.rollback()
-        # Because the definition is invalid, the db should not have been
-        # updated
-        trigger_invalid()
+        node = factory.make_node()
+        node.set_hardware_details('<node><foo /></node>')
+        tag = factory.make_tag(definition='/node/foo')
+        self.assertItemsEqual([tag.name], node.tag_names())
+        tag.definition = 'invalid::tag'
+        self.assertRaises(ValidationError, tag.save)
         self.assertItemsEqual([tag.name], node.tag_names())
