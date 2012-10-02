@@ -22,6 +22,7 @@ from datetime import (
     datetime,
     timedelta,
     )
+from functools import partial
 import httplib
 from itertools import izip
 import json
@@ -34,7 +35,6 @@ from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
-from django.db.utils import DatabaseError
 from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
@@ -2455,18 +2455,10 @@ class TestTagAPI(APITestCase):
             {'definition': 'invalid::tag'})
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        # Note: JAM 2012-09-26 we'd like to assert that the state in the DB is
-        #       properly aborted. However, the transactions are being handled
-        #       by TransactionMiddleware and are not hooked up in the test
-        #       suite. And the DB is currently in 'pending rollback' state, so
-        #       we cannot inspect it. So we test that we get a proper error
-        #       back, and test that the DB is in abort state. To test that
-        #       TransactionMiddleware is properly functioning needs a higher
-        #       level test.
-        self.assertRaises(DatabaseError, Tag.objects.all().count)
-        # tag = reload_object(tag)
-        # self.assertItemsEqual([tag.name], node.tag_names())
-        # self.assertEqual('/node/foo', tag.definition)
+        # The tag should not be modified
+        tag = reload_object(tag)
+        self.assertItemsEqual([tag.name], node.tag_names())
+        self.assertEqual('//child', tag.definition)
 
 
 class TestTagsAPI(APITestCase):
@@ -2766,6 +2758,34 @@ class TestPXEConfigAPI(AnonAPITestCase):
         params_out = self.get_pxeconfig()
         observed_arch = params_out["arch"], params_out["subarch"]
         self.assertEqual(expected_arch, observed_arch)
+
+    def test_pxeconfig_uses_fixed_hostname_for_enlisting_node(self):
+        new_mac = factory.getRandomMACAddress()
+        self.assertEqual(
+            'maas-enlist',
+            self.get_pxeconfig({'mac': new_mac}).get('hostname'))
+
+    def test_pxeconfig_uses_enlistment_domain_for_enlisting_node(self):
+        new_mac = factory.getRandomMACAddress()
+        self.assertEqual(
+            Config.objects.get_config('enlistment_domain'),
+            self.get_pxeconfig({'mac': new_mac}).get('domain'))
+
+    def test_pxeconfig_splits_domain_from_node_hostname(self):
+        host = factory.make_name('host')
+        domain = factory.make_name('domain')
+        full_hostname = '.'.join([host, domain])
+        node = factory.make_node(hostname=full_hostname)
+        mac = factory.make_mac_address(node=node)
+        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
+        self.assertEqual(host, pxe_config.get('hostname'))
+        self.assertNotIn(domain, pxe_config.values())
+
+    def test_pxeconfig_uses_nodegroup_domain_for_node(self):
+        mac = factory.make_mac_address()
+        self.assertEqual(
+            mac.node.nodegroup.name,
+            self.get_pxeconfig({'mac': mac.mac_address}).get('domain'))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
@@ -3177,7 +3197,11 @@ class TestNodeGroupInterfaceAPI(APITestCase):
         self.become_admin()
         nodegroup = factory.make_node_group()
         interface = nodegroup.get_managed_interface()
-        new_ip_range_high = factory.getRandomIPAddress()
+        get_ip_in_network = partial(
+            factory.getRandomIPInNetwork, interface.network)
+        new_ip_range_high = next(
+            ip for ip in iter(get_ip_in_network, None)
+            if ip != interface.ip_range_high)
         response = self.client.put(
             reverse(
                 'nodegroupinterface_handler',
@@ -3186,6 +3210,19 @@ class TestNodeGroupInterfaceAPI(APITestCase):
         self.assertEqual(
             (httplib.OK, new_ip_range_high),
             (response.status_code, reload_object(interface).ip_range_high))
+
+    def test_delete_interface(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.get_managed_interface()
+        response = self.client.delete(
+            reverse(
+                'nodegroupinterface_handler',
+                args=[nodegroup.uuid, interface.interface]))
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+        self.assertFalse(
+            NodeGroupInterface.objects.filter(
+                interface=interface.interface, nodegroup=nodegroup).exists())
 
 
 def explain_unexpected_response(expected_status, response):
