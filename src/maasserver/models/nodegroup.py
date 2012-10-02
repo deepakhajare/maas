@@ -12,7 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'NodeGroup',
-    'NODEGROUP_DESCRIPTION_TEMPLATE',
+    'NODEGROUP_CLUSTER_NAME_TEMPLATE',
     ]
 
 
@@ -69,7 +69,7 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
-        cluster_name = NODEGROUP_DESCRIPTION_TEMPLATE % {'uuid': uuid}
+        cluster_name = NODEGROUP_CLUSTER_NAME_TEMPLATE % {'uuid': uuid}
         nodegroup = NodeGroup(
             name=name, uuid=uuid, cluster_name=cluster_name, dhcp_key=dhcp_key,
             status=status)
@@ -112,7 +112,7 @@ class NodeGroupManager(Manager):
             refresh_worker(nodegroup)
 
 
-NODEGROUP_DESCRIPTION_TEMPLATE = "Cluster %(uuid)s"
+NODEGROUP_CLUSTER_NAME_TEMPLATE = "Cluster %(uuid)s"
 
 
 class NodeGroup(TimestampedModel):

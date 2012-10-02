@@ -75,7 +75,7 @@ from maasserver.models import (
     SSHKey,
     Tag,
     )
-from maasserver.models.nodegroup import NODEGROUP_DESCRIPTION_TEMPLATE
+from maasserver.models.nodegroup import NODEGROUP_CLUSTER_NAME_TEMPLATE
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
 from provisioningserver.enum import (
@@ -730,7 +730,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
         uuid = cleaned_data.get("uuid")
         if uuid and not cluster_name:
             cleaned_data["cluster_name"] = (
-                NODEGROUP_DESCRIPTION_TEMPLATE % {'uuid': uuid})
+                NODEGROUP_CLUSTER_NAME_TEMPLATE % {'uuid': uuid})
         return cleaned_data
 
     def clean_interfaces(self):
