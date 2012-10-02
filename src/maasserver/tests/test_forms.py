@@ -808,7 +808,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid})
         self.assertTrue(form.is_valid(), form._errors)
         nodegroup = form.save()
-        self.assertIn(uuid, nodegroup.cluter_name)
+        self.assertIn(uuid, nodegroup.cluster_name)
 
     def test_NodeGroupWithInterfacesForm_creates_unmanaged_interfaces(self):
         name = factory.make_name('name')
