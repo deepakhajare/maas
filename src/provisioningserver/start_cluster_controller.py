@@ -155,7 +155,7 @@ def request_refresh(server_url):
             % e.reason)
 
 
-def start_up(server_url, connection_details, user='maas', group='maas'):
+def start_up(server_url, connection_details, user, group):
     """We've been accepted as a cluster controller; start doing the job.
 
     This starts up celeryd, listening to the broker that the region

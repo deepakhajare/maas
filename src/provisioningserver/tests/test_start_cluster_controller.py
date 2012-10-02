@@ -233,7 +233,9 @@ class TestStartClusterController(PservTestCase):
         self.patch(start_cluster_controller, 'sleep')
         self.prepare_success_response()
 
-        start_cluster_controller.start_up(url, connection_details)
+        start_cluster_controller.start_up(
+            url, connection_details,
+            factory.make_name('user'), factory.make_name('group'))
 
         (args, kwargs) = MAASDispatcher.dispatch_query.call_args
         self.assertEqual(url + 'api/1.0/nodegroups/', args[0])
@@ -250,6 +252,7 @@ class TestStartClusterController(PservTestCase):
             "Simulated HTTP failure.")
 
         start_cluster_controller.start_up(
-            make_url(), self.make_connection_details())
+            make_url(), self.make_connection_details(),
+            factory.make_name('user'), factory.make_name('group'))
 
         self.assertEqual(1, os.fork.call_count)
