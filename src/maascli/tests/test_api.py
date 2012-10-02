@@ -13,7 +13,6 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
-from itertools import chain
 import json
 import sys
 
@@ -260,17 +259,15 @@ class TestPayloadPreparation(TestCase):
           "expected_headers": sentinel.headers}),
         )
 
-    # Set an "op" for all scenarios.
-    for name, scenario in scenarios_without_op:
-        scenario["op"] = None
-    for name, scenario in scenarios_with_op:
-        scenario["op"] = "something"
+    scenarios_without_op = tuple(
+        ("%s-without-op" % name, dict(scenario, op=None))
+        for name, scenario in scenarios_without_op)
 
-    scenarios = tuple(
-        chain((("%s-without-op" % name, scenario)
-               for name, scenario in scenarios_without_op),
-              (("%s-with-op" % name, scenario)
-               for name, scenario in scenarios_with_op)))
+    scenarios_with_op = tuple(
+        ("%s-with-op" % name, dict(scenario, op="something"))
+        for name, scenario in scenarios_with_op)
+
+    scenarios = scenarios_without_op + scenarios_with_op
 
     def test_prepare_payload(self):
         # Patch encode_multipart_data to match the scenarios.
