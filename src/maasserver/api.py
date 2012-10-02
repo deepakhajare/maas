@@ -1335,6 +1335,11 @@ class TagHandler(OperationsHandler):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
 
+    @operation
+    def add_nodes(self, request, name):
+        """Add a list of nodes to this tag."""
+        raise NotImplementedError(self.add_nodes)
+
     @classmethod
     def resource_uri(cls, tag=None):
         # See the comment in NodeHandler.resource_uri

@@ -15,7 +15,7 @@
 #   $ make series=randy
 #
 
-include /etc/lsb-release
+DISTRIB_CODENAME=unstable
 
 # Default to the newer of Quantal or the local series.
 series := $(lastword $(sort quantal $(DISTRIB_CODENAME)))
