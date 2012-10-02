@@ -8,13 +8,13 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding unique constraint on 'NodeGroup', fields ['description']
-        db.create_unique(u'maasserver_nodegroup', ['description'])
+        # Adding unique constraint on 'NodeGroup', fields ['cluster_name']
+        db.create_unique(u'maasserver_nodegroup', ['cluster_name'])
 
 
     def backwards(self, orm):
-        # Removing unique constraint on 'NodeGroup', fields ['description']
-        db.delete_unique(u'maasserver_nodegroup', ['description'])
+        # Removing unique constraint on 'NodeGroup', fields ['cluster_name']
+        db.delete_unique(u'maasserver_nodegroup', ['cluster_name'])
 
 
     models = {
@@ -115,7 +115,7 @@ class Migration(SchemaMigration):
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-b3c13b9c-0be1-11e2-b086-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-565d8212-0c81-11e2-a644-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
             'tags': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Tag']", 'symmetrical': 'False'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
@@ -124,8 +124,8 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'NodeGroup'},
             'api_key': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '18'}),
             'api_token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'unique': 'True'}),
+            'cluster_name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100', 'blank': 'True'}),
             'created': ('django.db.models.fields.DateTimeField', [], {}),
-            'description': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'}),
             'dhcp_key': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '255', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '80', 'blank': 'True'}),
@@ -189,7 +189,7 @@ class Migration(SchemaMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1349107478L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1349176041L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
