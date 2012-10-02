@@ -8,7 +8,7 @@ class Migration(DataMigration):
 
     def forwards(self, orm):
         for nodegroup in orm['maasserver.nodegroup'].objects.all():
-            nodegroup.description = "Cluster %s" % nodegroup.uuid
+            nodegroup.cluster_name = "Cluster %s" % nodegroup.uuid
             nodegroup.save()
 
     def backwards(self, orm):
