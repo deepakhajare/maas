@@ -1666,6 +1666,17 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             required_node_ids, extract_system_ids(parsed_result))
 
+    def test_GET_list_with_nodegroup(self):
+        group_a = factory.make_nodegroup()
+        group_b = factory.make_nodegroup()
+        node_in_a = factory.make_node(nodegroup=group_a)
+        node_in_b = factory.make_node(nodegroup=group_b)
+
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list',
+            'id': required_node_ids,
+        })
+
     def test_POST_acquire_returns_available_node(self):
         # The "acquire" operation returns an available node.
         available_status = NODE_STATUS.READY
@@ -3423,6 +3434,36 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_nodegroup_list_nodes_requires_authentication(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
+    def test_nodegroup_list_nodes_does_not_work_for_normal_user(self):
+        nodegroup = factory.make_node_group()
+        log_in_as_normal_user(self.client)
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_nodegroup_list_works_for_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        response = client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([node.system_id], parsed_result)
 
 
 class TestBootImagesAPI(APITestCase):
