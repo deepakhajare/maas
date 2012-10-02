@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
+from itertools import chain
 import json
 import sys
 
@@ -153,12 +154,13 @@ class TestAction(TestCase):
             api.Action.name_value_pair(" foo = bar "))
 
 
-class TestActionReSTfulPayloads(TestCase):
-    """Tests for ReSTful payloads in `maascli.api.Action`."""
+class TestPayloadPreparation(TestCase):
+    """Tests for `maascli.api.Action.prepare_payload`."""
 
     uri_base = "http://example.com/MAAS/api/1.0/"
 
-    scenarios = (
+    # Scenarios for ReSTful operations; i.e. without an "op" parameter.
+    scenarios_without_op = (
         # Without data, all requests have an empty request body and no extra
         # headers.
         ("create",
@@ -207,32 +209,8 @@ class TestActionReSTfulPayloads(TestCase):
           "expected_headers": sentinel.headers}),
         )
 
-    def test_prepare_payload(self):
-        # Patch encode_multipart_data to match the scenarios.
-        encode_multipart_data = self.patch(api, "encode_multipart_data")
-        encode_multipart_data.return_value = sentinel.body, sentinel.headers
-        # The payload returned is a 3-tuple of (uri, body, headers).
-        payload = api.Action.prepare_payload(
-            op=None, method=self.method,
-            uri=self.uri_base, data=self.data)
-        expected = (
-            Equals(self.expected_uri),
-            Equals(self.expected_body),
-            Equals(self.expected_headers),
-            )
-        self.assertThat(payload, MatchesListwise(expected))
-        # encode_multipart_data, when called, is passed the data
-        # unadulterated.
-        if self.expected_body is sentinel.body:
-            api.encode_multipart_data.assert_called_once_with(self.data)
-
-
-class TestActionOperationPayloads(TestCase):
-    """Tests for non-ReSTful payloads in `maascli.api.Action`."""
-
-    uri_base = "http://example.com/MAAS/api/1.0/"
-
-    scenarios = (
+    # Scenarios for non-ReSTful operations; i.e. with an "op" parameter.
+    scenarios_with_op = (
         # Without data, all requests have an empty request body and no extra
         # headers. The operation is encoded into the query string.
         ("create",
@@ -282,13 +260,25 @@ class TestActionOperationPayloads(TestCase):
           "expected_headers": sentinel.headers}),
         )
 
+    # Set an "op" for all scenarios.
+    for name, scenario in scenarios_without_op:
+        scenario["op"] = None
+    for name, scenario in scenarios_with_op:
+        scenario["op"] = "something"
+
+    scenarios = tuple(
+        chain((("%s-without-op" % name, scenario)
+               for name, scenario in scenarios_without_op),
+              (("%s-with-op" % name, scenario)
+               for name, scenario in scenarios_with_op)))
+
     def test_prepare_payload(self):
         # Patch encode_multipart_data to match the scenarios.
         encode_multipart_data = self.patch(api, "encode_multipart_data")
         encode_multipart_data.return_value = sentinel.body, sentinel.headers
         # The payload returned is a 3-tuple of (uri, body, headers).
         payload = api.Action.prepare_payload(
-            op="something", method=self.method,
+            op=self.op, method=self.method,
             uri=self.uri_base, data=self.data)
         expected = (
             Equals(self.expected_uri),
