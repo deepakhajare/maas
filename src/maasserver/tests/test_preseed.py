@@ -21,6 +21,7 @@ from maasserver.enum import (
     NODE_STATUS,
     PRESEED_TYPE,
     )
+from maasserver.models import BootImage
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
@@ -311,12 +312,29 @@ class TestPreseedContext(TestCase):
             context)
 
 
-class TestSquashfsAvailable(TestCase):
+class TestSquashFSAvailable(TestCase):
+    """Tests for `is_squashfs_image_present`."""
 
-    def test_is_squashfs_image_present_false(self):
-        node = factory.make_node(distro_series="quantal")
-        exists = is_squashfs_image_present(node)
-        self.assertFalse(exists)
+    # Scenario defaults.
+    arch = "i386"
+    subarch = "generic"
+    series = "quantal"
+    purpose = "filesystem"
+
+    scenarios = (
+        ("mismatch-arch", dict(arch="amd64", present=False)),
+        ("mismatch-subarch", dict(subarch="special", present=False)),
+        ("mismatch-series", dict(series="precise", present=False)),
+        ("mismatch-purpose", dict(purpose="moonraking", present=False)),
+        ("match", dict(present=True)),
+        )
+
+    def test_squashfs_available(self):
+        BootImage.objects.register_image(
+            self.arch, self.subarch, self.series, self.purpose)
+        node = factory.make_node(
+            architecture="i386/generic", distro_series="quantal")
+        self.assertEqual(self.present, is_squashfs_image_present(node))
 
 
 class TestPreseedTemplate(TestCase):
