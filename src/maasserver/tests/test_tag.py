@@ -14,7 +14,7 @@ __all__ = []
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.utils import DatabaseError
+from lxml import etree
 from maasserver.models import Tag
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
@@ -144,7 +144,7 @@ class TestTagTransactions(TransactionTestCase):
         @transaction.commit_manually
         def trigger_invalid():
             tag.definition = 'invalid::tag'
-            self.assertRaises(DatabaseError, tag.save)
+            self.assertRaises(etree.XPathSyntaxError, tag.save)
             transaction.rollback()
         # Because the definition is invalid, the db should not have been
         # updated
