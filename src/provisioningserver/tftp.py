@@ -206,9 +206,11 @@ class TFTPBackend(FilesystemSynchronousBackend):
             return super(TFTPBackend, self).get_reader(file_name)
         else:
             # Do not include any element that has not matched (ie. is None)
-            params = {k: v
-                      for k, v in config_file_match.groupdict().iteritems()
-                      if v is not None}
+            params = {
+                key: value
+                for key, value in config_file_match.groupdict().iteritems()
+                if value is not None
+                }
             d = self.get_config_reader(params)
             d.addErrback(self.get_page_errback, file_name)
             return d

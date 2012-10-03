@@ -1517,7 +1517,7 @@ def pxeconfig(request):
 
     :param mac: MAC address to produce a boot configuration for.
     :param arch: Architecture name (in the pxelinux namespace, eg. 'arm' not
-                 'armhf').
+        'armhf').
     :param subarch: Subarchitecture name (in the pxelinux namespace).
     """
     node = get_node_from_mac_string(request.GET.get('mac', None))

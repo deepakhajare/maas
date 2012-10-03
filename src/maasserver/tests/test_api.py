@@ -2729,8 +2729,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
         return json.loads(response.content)
 
     def test_pxeconfig_returns_json(self):
-        response = self.client.get(reverse('pxeconfig'),
-                                   self.get_default_params())
+        response = self.client.get(
+            reverse('pxeconfig'), self.get_default_params())
         self.assertThat(
             (
                 response.status_code,
@@ -2766,8 +2766,10 @@ class TestPXEConfigAPI(AnonAPITestCase):
     def test_pxeconfig_returns_data_for_detailed_but_unknown_node(self):
         architecture = factory.getRandomEnum(ARCHITECTURE)
         arch, subarch = architecture.split('/')
-        params = dict(mac=factory.getRandomMACAddress(delimiter=b'-'),
-                      arch=arch, subarch=subarch)
+        params = dict(
+            mac=factory.getRandomMACAddress(delimiter=b'-'),
+            arch=arch,
+            subarch=subarch)
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(httplib.OK, response.status_code)
 
