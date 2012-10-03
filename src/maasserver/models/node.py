@@ -323,7 +323,7 @@ class NodeManager(Manager):
 
 
 _xpath_processor_count = "count(//node[@id='core']/node[@class='processor'])"
-_xpath_memory_bytes = ("//node[@id='memory']/size[@units='bytes'] div 1048576")
+_xpath_memory_bytes = "//node[@id='memory']/size[@units='bytes'] div 1048576"
 
 
 def update_hardware_details(node, xmlbytes, tag_manager):
