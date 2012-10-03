@@ -111,6 +111,24 @@ class NodeGroupManager(Manager):
         for nodegroup in self.all():
             refresh_worker(nodegroup)
 
+    def _mass_change_status(self, old_status, new_status):
+        nodegroups = self.filter(status=old_status)
+        nb_nodegroups = nodegroups.count()
+        for nodegroup in nodegroups:
+            nodegroup.status = new_status
+            nodegroup.save()
+        return nb_nodegroups
+
+    def reject_all_pending(self):
+        """Change the status of the 'PENDING' nodegroup to 'REJECTED."""
+        return self._mass_change_status(
+            NODEGROUP_STATUS.PENDING, NODEGROUP_STATUS.REJECTED)
+
+    def accept_all_pending(self):
+        """Change the status of the 'PENDING' nodegroup to 'ACCEPTED."""
+        return self._mass_change_status(
+            NODEGROUP_STATUS.PENDING, NODEGROUP_STATUS.ACCEPTED)
+
 
 NODEGROUP_CLUSTER_NAME_TEMPLATE = "Cluster %(uuid)s"
 

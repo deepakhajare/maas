@@ -174,6 +174,50 @@ class TestNodeGroupManager(TestCase):
             NodeGroup.objects.get_by_natural_key,
             factory.make_name("nonexistent-nodegroup"))
 
+    def test__mass_change_status_changes_statuses(self):
+        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
+        nodegroup1 = factory.make_node_group(status=old_status)
+        nodegroup2 = factory.make_node_group(status=old_status)
+        new_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[old_status])
+        changed = NodeGroup.objects._mass_change_status(old_status, new_status)
+        self.assertEqual(
+            (
+                reload_object(nodegroup1).status,
+                reload_object(nodegroup2).status,
+                2,
+            ),
+            (
+                new_status,
+                new_status,
+                changed,
+            ))
+
+    def test__mass_change_status_does_not_change_others(self):
+        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
+        unaffected_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[old_status])
+        nodegroup = factory.make_node_group(status=unaffected_status)
+        changed = NodeGroup.objects._mass_change_status(
+            old_status, factory.getRandomEnum(NODEGROUP_STATUS))
+        self.assertEqual(
+            (unaffected_status, 0),
+            (reload_object(nodegroup).status, changed))
+
+    def test_reject_all_pending_rejects_nodegroups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        changed = NodeGroup.objects.reject_all_pending()
+        self.assertEqual(
+            (NODEGROUP_STATUS.REJECTED, 1),
+            (reload_object(nodegroup).status, changed))
+
+    def test_accept_all_pending_accepts_nodegroups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        changed = NodeGroup.objects.accept_all_pending()
+        self.assertEqual(
+            (NODEGROUP_STATUS.ACCEPTED, 1),
+            (reload_object(nodegroup).status, changed))
+
 
 class TestNodeGroup(TestCase):
 
