@@ -29,19 +29,19 @@ def get_nodes_for_node_group(client, nodegroup_uuid):
     :param nodegroup_uuid: Node group for which to retrieve nodes
     :return: List of UUIDs for nodes in nodegroup
     """
-    client.post('api/1.0/tags/', 'get_nodegroup_nodes',
+    client.post('api/1.0/nodegroup/' + nodegroup_uuid, 'get_system_ids',
         nodegroup=nodegroup_uuid)
 
 
-def get_lshw_output_for_nodes(client, nodes):
+def get_lshw_output_for_nodes(client, nodegroup_uuid, nodes):
     """Retrieve the lshw output for a set of nodes.
 
     :param client: MAAS client
     :param nodes: List of UUIDs of nodes for which to fetch lshw data
     :return: Dictionary mapping node UUIDs to lshw output
     """
-    client.post('api/1.0/tags/', 'node_lshw',
-        nodes=json.dump(nodes))
+    client.post('api/1.0/nodegroup/' + nodegroup_uuid,
+        'node_lshw', nodes=json.dump(nodes))
 
 
 def update_node_tags(client, tag_name, matched, unmatched):
@@ -52,8 +52,8 @@ def update_node_tags(client, tag_name, matched, unmatched):
     :param matched: Set of nodes that matched
     :param unmatched: Set of nodes that did not match
     """
-    client.post('api/1.0/tags/', 'node_lshw', tag_name=tag_name,
-        matched=json.dump(matched), unmatched=json.dump(unmatched))
+    client.post('api/1.0/tags/', 'update-nodes', tag_name=tag_name,
+        matched=json.dump({"add": matched, "remove": unmatched}))
 
 
 def signal_done(client, nodegroup_uuid, tag_name):
@@ -63,8 +63,7 @@ def signal_done(client, nodegroup_uuid, tag_name):
     :param nodegroup_uuid: UUID of the nodegroup for which updating is done
     :param tag_name: Name of tag
     """
-    client.get('api/1.0/tags/', 'done', tag_name=tag_name,
-        nodegroup=nodegroup_uuid)
+    client.get('api/1.0/tags/' + tag_name, 'done', nodegroup=nodegroup_uuid)
 
 
 def process_node_tags(tag_name, tag_definition, batch_size=100):
