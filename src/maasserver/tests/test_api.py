@@ -2753,8 +2753,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             ContainsAll(KernelParameters._fields))
 
     def test_pxeconfig_returns_data_for_known_node(self):
-        params = self.get_mac_params()
-        response = self.client.get(reverse('pxeconfig'), params)
+        response = self.client.get(reverse('pxeconfig'), self.get_mac_params())
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_pxeconfig_returns_no_content_for_unknown_node(self):
