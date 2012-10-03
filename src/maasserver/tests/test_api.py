@@ -3029,7 +3029,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
                 {'interfaces':
                     [
                         "Only one managed interface can be configured for "
-                        "this nodegroup"
+                        "this cluster"
                     ]},
             ),
             (response.status_code, json.loads(response.content)))
