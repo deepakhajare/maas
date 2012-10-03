@@ -1158,7 +1158,6 @@ class NodeGroupHandler(OperationsHandler):
         return [(node.system_id, node.hardware_details) for node in nodes]
 
 
-
 DISPLAYED_NODEGROUP_FIELDS = (
     'ip', 'management', 'interface', 'subnet_mask',
     'broadcast_ip', 'ip_range_low', 'ip_range_high')
