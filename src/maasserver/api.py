@@ -1510,7 +1510,7 @@ def pxeconfig(request):
     (ie. arch/subarch missing when the MAC is supplied but unknown), then it
     will as an exception return an HTTP NO_CONTENT (204) in the expectation
     that this will be translated to a TFTP file not found and pxelinux (or an
-    emulator) will fall back to default.<arch>-<subarch> (in the case of an
+    emulator) will fall back to default-<arch>-<subarch> (in the case of an
     alternate architecture emulator) or just straight to default (in the case
     of native pxelinux on i386 or amd64). See bug 1041092 for details and
     discussion.
@@ -1535,7 +1535,7 @@ def pxeconfig(request):
         except KeyError:
             if 'mac' in request.GET:
                 # Request was pxelinux.cfg/01-<mac>, so attempt fall back
-                # to pxelinux.cfg/default-<arch> for arch detection.
+                # to pxelinux.cfg/default-<arch>-<subarch> for arch detection.
                 return HttpResponse(status=httplib.NO_CONTENT)
             else:
                 # Request has already fallen back, so if arch is still not
