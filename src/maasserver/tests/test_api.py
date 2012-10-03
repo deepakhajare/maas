@@ -2401,28 +2401,28 @@ class TestTagAPI(APITestCase):
         self.assertItemsEqual([], node1.tag_names())
         self.assertItemsEqual([tag.name], node2.tag_names())
 
-    def test_POST_nodes_with_no_nodes(self):
+    def test_GET_nodes_with_no_nodes(self):
         tag = factory.make_tag()
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual([], parsed_result)
 
-    def test_POST_nodes_returns_nodes(self):
+    def test_GET_nodes_returns_nodes(self):
         tag = factory.make_tag()
         node1 = factory.make_node()
         # Create a second node that isn't tagged.
         factory.make_node()
         node1.tags.add(tag)
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual([node1.system_id],
                          [r['system_id'] for r in parsed_result])
 
-    def test_POST_nodes_hides_invisible_nodes(self):
+    def test_GET_nodes_hides_invisible_nodes(self):
         user2 = factory.make_user()
         node1 = factory.make_node()
         node1.set_hardware_details('<node><foo /></node>')
@@ -2430,7 +2430,7 @@ class TestTagAPI(APITestCase):
         node2.set_hardware_details('<node><bar /></node>')
         tag = factory.make_tag(definition='/node')
         tag.populate_nodes()
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
@@ -2438,7 +2438,7 @@ class TestTagAPI(APITestCase):
                          [r['system_id'] for r in parsed_result])
         # However, for the other user, they should see the result
         client2 = OAuthAuthenticatedClient(user2)
-        response = client2.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = client2.get(self.get_tag_uri(tag), {'op': 'nodes'})
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertItemsEqual([node1.system_id, node2.system_id],
@@ -2715,21 +2715,22 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
 
 class TestPXEConfigAPI(AnonAPITestCase):
 
-    def get_params(self):
+    def get_mac_params(self):
         return {'mac': factory.make_mac_address().mac_address}
 
-    def get_optional_params(self):
-        return ['mac']
+    def get_default_params(self):
+        return dict()
 
     def get_pxeconfig(self, params=None):
         """Make a request to `pxeconfig`, and return its response dict."""
         if params is None:
-            params = self.get_params()
+            params = self.get_default_params()
         response = self.client.get(reverse('pxeconfig'), params)
         return json.loads(response.content)
 
     def test_pxeconfig_returns_json(self):
-        response = self.client.get(reverse('pxeconfig'), self.get_params())
+        response = self.client.get(
+            reverse('pxeconfig'), self.get_default_params())
         self.assertThat(
             (
                 response.status_code,
@@ -2751,7 +2752,28 @@ class TestPXEConfigAPI(AnonAPITestCase):
             self.get_pxeconfig(),
             ContainsAll(KernelParameters._fields))
 
-    def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
+    def test_pxeconfig_returns_data_for_known_node(self):
+        params = self.get_mac_params()
+        node = MACAddress.objects.get(mac_address=params['mac']).node
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_pxeconfig_returns_no_content_for_unknown_node(self):
+        params = dict(mac=factory.getRandomMACAddress(delimiter=b'-'))
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+
+    def test_pxeconfig_returns_data_for_detailed_but_unknown_node(self):
+        architecture = factory.getRandomEnum(ARCHITECTURE)
+        arch, subarch = architecture.split('/')
+        params = dict(
+            mac=factory.getRandomMACAddress(delimiter=b'-'),
+            arch=arch,
+            subarch=subarch)
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_pxeconfig_defaults_to_i386_for_default(self):
         # As a lowest-common-denominator, i386 is chosen when the node is not
         # yet known to MAAS.
         expected_arch = tuple(ARCHITECTURE.i386.split('/'))
@@ -2760,16 +2782,12 @@ class TestPXEConfigAPI(AnonAPITestCase):
         self.assertEqual(expected_arch, observed_arch)
 
     def test_pxeconfig_uses_fixed_hostname_for_enlisting_node(self):
-        new_mac = factory.getRandomMACAddress()
-        self.assertEqual(
-            'maas-enlist',
-            self.get_pxeconfig({'mac': new_mac}).get('hostname'))
+        self.assertEqual('maas-enlist', self.get_pxeconfig().get('hostname'))
 
     def test_pxeconfig_uses_enlistment_domain_for_enlisting_node(self):
-        new_mac = factory.getRandomMACAddress()
         self.assertEqual(
             Config.objects.get_config('enlistment_domain'),
-            self.get_pxeconfig({'mac': new_mac}).get('domain'))
+            self.get_pxeconfig().get('domain'))
 
     def test_pxeconfig_splits_domain_from_node_hostname(self):
         host = factory.make_name('host')
@@ -2800,24 +2818,16 @@ class TestPXEConfigAPI(AnonAPITestCase):
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))
 
-    def test_pxeconfig_requires_mac_address(self):
-        # The `mac` parameter is mandatory.
+    def test_pxeconfig_has_enlistment_preseed_url_for_default(self):
         self.silence_get_ephemeral_name()
-        self.assertEqual(
-            httplib.BAD_REQUEST,
-            self.get_without_param("mac").status_code)
-
-    def test_pxeconfig_has_enlistment_preseed_url_for_unknown_node(self):
-        self.silence_get_ephemeral_name()
-        params = self.get_params()
-        params['mac'] = factory.getRandomMACAddress()
+        params = self.get_default_params()
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(
             compose_enlistment_preseed_url(),
             json.loads(response.content)["preseed_url"])
 
     def test_pxeconfig_has_preseed_url_for_known_node(self):
-        params = self.get_params()
+        params = self.get_mac_params()
         node = MACAddress.objects.get(mac_address=params['mac']).node
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(
@@ -2852,7 +2862,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
     def test_pxeconfig_uses_boot_purpose(self):
         fake_boot_purpose = factory.make_name("purpose")
         self.patch(api, "get_boot_purpose", lambda node: fake_boot_purpose)
-        response = self.client.get(reverse('pxeconfig'), self.get_params())
+        response = self.client.get(reverse('pxeconfig'),
+                                   self.get_default_params())
         self.assertEqual(
             fake_boot_purpose,
             json.loads(response.content)["purpose"])
@@ -2991,6 +3002,21 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         self.assertEqual(
             (NODEGROUP_STATUS.ACCEPTED, DEFAULT_ZONE_NAME),
             (master.status, master.name))
+
+    def test_register_multiple_nodegroups(self):
+        uuids = {
+            factory.getRandomUUID(), factory.getRandomUUID(),
+            factory.getRandomUUID()}
+        for uuid in uuids:
+            self.client.post(
+                reverse('nodegroups_handler'),
+                {
+                    'op': 'register',
+                    'uuid': uuid,
+                })
+        self.assertSetEqual(
+            uuids,
+            set(NodeGroup.objects.values_list('uuid', flat=True)))
 
     def test_register_accepts_only_one_managed_interface(self):
         self.create_configured_master()
@@ -3436,6 +3462,36 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_nodegroup_list_nodes_requires_authentication(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
+    def test_nodegroup_list_nodes_does_not_work_for_normal_user(self):
+        nodegroup = factory.make_node_group()
+        log_in_as_normal_user(self.client)
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_nodegroup_list_works_for_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        response = client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([node.system_id], parsed_result)
 
 
 class TestBootImagesAPI(APITestCase):

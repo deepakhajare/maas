@@ -1128,6 +1128,14 @@ class NodeGroupHandler(OperationsHandler):
                 {ip: leases[ip] for ip in new_leases if ip in leases})
         return HttpResponse("Leases updated.", status=httplib.OK)
 
+    @operation(idempotent=True)
+    def list_nodes(self, request, uuid):
+        """Get the list of node ids that are part of this group."""
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        check_nodegroup_access(request, nodegroup)
+        return [node.system_id
+                for node in Node.objects.filter(nodegroup=nodegroup)]
+
 
 DISPLAYED_NODEGROUP_FIELDS = (
     'ip', 'management', 'interface', 'subnet_mask',
@@ -1326,11 +1334,7 @@ class TagHandler(OperationsHandler):
         tag.delete()
         return rc.DELETED
 
-    # XXX: JAM 2012-09-25 This is currently a POST because of bug:
-    #      http://pad.lv/1049933
-    #      Essentially, if you have one 'GET' op, then you can no longer get
-    #      the Tag object itself from a plain 'GET' without op.
-    @operation(idempotent=False)
+    @operation(idempotent=True)
     def nodes(self, request, name):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
@@ -1497,33 +1501,87 @@ def get_boot_purpose(node):
         return "poweroff"
 
 
+def get_node_from_mac_string(mac_string):
+    """Get a Node object from a MAC address string.
+
+    Returns a Node object or None if no node with the given MAC address exists.
+
+    :param mac_string: MAC address string in the form "12-34-56-78-9a-bc"
+    :return: Node object or None
+    """
+    if mac_string is None:
+        return None
+    macaddress = get_one(MACAddress.objects.filter(mac_address=mac_string))
+    return macaddress.node if macaddress else None
+
+
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 
     Returns a JSON object corresponding to a
     :class:`provisioningserver.kernel_opts.KernelParameters` instance.
 
-    :param mac: MAC address to produce a boot configuration for.
-    """
-    mac = get_mandatory_param(request.GET, 'mac')
+    This is now fairly decoupled from pxelinux's TFTP filename encoding
+    mechanism, with one notable exception. Call this function with (mac, arch,
+    subarch) and it will do the right thing. If details it needs are missing
+    (ie. arch/subarch missing when the MAC is supplied but unknown), then it
+    will as an exception return an HTTP NO_CONTENT (204) in the expectation
+    that this will be translated to a TFTP file not found and pxelinux (or an
+    emulator) will fall back to default-<arch>-<subarch> (in the case of an
+    alternate architecture emulator) or just straight to default (in the case
+    of native pxelinux on i386 or amd64). See bug 1041092 for details and
+    discussion.
 
-    macaddress = get_one(MACAddress.objects.filter(mac_address=mac))
-    if macaddress is None:
-        # Default to i386 as a works-for-all solution. This will not support
-        # non-x86 architectures, but for now this assumption holds.
-        node = None
-        arch, subarch = ARCHITECTURE.i386.split('/')
-        preseed_url = compose_enlistment_preseed_url()
-        hostname = 'maas-enlist'
-        domain = Config.objects.get_config('enlistment_domain')
-    else:
-        node = macaddress.node
+    :param mac: MAC address to produce a boot configuration for.
+    :param arch: Architecture name (in the pxelinux namespace, eg. 'arm' not
+        'armhf').
+    :param subarch: Subarchitecture name (in the pxelinux namespace).
+    """
+    node = get_node_from_mac_string(request.GET.get('mac', None))
+
+    if node:
         arch, subarch = node.architecture.split('/')
         preseed_url = compose_preseed_url(node)
         # The node's hostname may include a domain, but we ignore that
         # and use the one from the nodegroup instead.
         hostname = node.hostname.split('.', 1)[0]
         domain = node.nodegroup.name
+    else:
+        try:
+            pxelinux_arch = request.GET['arch']
+        except KeyError:
+            if 'mac' in request.GET:
+                # Request was pxelinux.cfg/01-<mac>, so attempt fall back
+                # to pxelinux.cfg/default-<arch>-<subarch> for arch detection.
+                return HttpResponse(status=httplib.NO_CONTENT)
+            else:
+                # Request has already fallen back, so if arch is still not
+                # provided then use i386.
+                arch = ARCHITECTURE.i386.split('/')[0]
+        else:
+            # Map from pxelinux namespace architecture names to MAAS namespace
+            # architecture names. If this gets bigger, an external lookup table
+            # would make sense. But here is fine for something as trivial as it
+            # is right now.
+            if pxelinux_arch == 'arm':
+                arch = 'armhf'
+            else:
+                arch = pxelinux_arch
+
+        # Use subarch if supplied; otherwise assume 'generic'.
+        try:
+            pxelinux_subarch = request.GET['subarch']
+        except KeyError:
+            subarch = 'generic'
+        else:
+            # Map from pxelinux namespace subarchitecture names to MAAS
+            # namespace subarchitecture names. Right now this happens to be a
+            # 1-1 mapping.
+            subarch = pxelinux_subarch
+
+        preseed_url = compose_enlistment_preseed_url()
+        hostname = 'maas-enlist'
+        domain = Config.objects.get_config('enlistment_domain')
 
     if node is None or node.status == NODE_STATUS.COMMISSIONING:
         series = Config.objects.get_config('commissioning_distro_series')
