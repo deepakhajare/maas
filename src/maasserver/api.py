@@ -1145,6 +1145,10 @@ class NodeGroupHandler(OperationsHandler):
            nodegroup.
         b) Requests for nodes that are not part of the nodegroup are just
            ignored.
+
+        This API may be removed in the future when hardware details are moved
+        to be stored in the cluster controllers (nodegroup) instead of the
+        master controller.
         """
         system_ids = request.GET.getlist('system_ids')
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
