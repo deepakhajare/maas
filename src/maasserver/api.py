@@ -1339,10 +1339,13 @@ class TagHandler(OperationsHandler):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
 
-    def _get_nodes_for(self, request, param):
+    def _get_nodes_for(self, request, param, nodegroup):
         system_ids = get_optional_list(request.POST, param)
         if system_ids:
-            for node in Node.objects.filter(system_id__in=system_ids):
+            nodes = Node.objects.filter(system_id__in=system_ids)
+            if nodegroup is not None:
+                nodes = nodes.filter(nodegroup=nodegroup)
+            for node in nodes:
                 yield node
 
     @operation(idempotent=False)
@@ -1358,6 +1361,7 @@ class TagHandler(OperationsHandler):
             be updated.
         """
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        nodegroup = None
         if not request.user.is_superuser:
             uuid = request.POST.get('nodegroup', None)
             if uuid is None:
@@ -1365,11 +1369,11 @@ class TagHandler(OperationsHandler):
             nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
             check_nodegroup_access(request, nodegroup)
         added = 0
-        for node in self._get_nodes_for(request, 'add'):
+        for node in self._get_nodes_for(request, 'add', nodegroup):
             tag.node_set.add(node)
             added += 1
         removed = 0
-        for node in self._get_nodes_for(request, 'remove'):
+        for node in self._get_nodes_for(request, 'remove', nodegroup):
             tag.node_set.remove(node)
             removed += 1
         return {'added': added, 'removed': removed}

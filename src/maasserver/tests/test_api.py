@@ -2568,6 +2568,22 @@ class TestTagAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
         self.assertItemsEqual([], tag.node_set.all())
 
+    def test_POST_update_nodes_doesnt_modify_other_nodegroup_nodes(self):
+        tag = factory.make_tag()
+        nodegroup_mine = factory.make_node_group()
+        nodegroup_theirs = factory.make_node_group()
+        node_theirs = factory.make_node(nodegroup=nodegroup_theirs)
+        client = make_worker_client(nodegroup_mine)
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node_theirs.system_id],
+             'nodegroup': nodegroup_mine.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
+        self.assertItemsEqual([], tag.node_set.all())
+
 
 class TestTagsAPI(APITestCase):
 
