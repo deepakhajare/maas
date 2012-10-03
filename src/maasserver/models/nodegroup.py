@@ -114,6 +114,8 @@ class NodeGroupManager(Manager):
     def _mass_change_status(self, old_status, new_status):
         nodegroups = self.filter(status=old_status)
         nb_nodegroups = nodegroups.count()
+        # Change the nodegroups one by one in order to trigger the
+        # post_save signals.
         for nodegroup in nodegroups:
             nodegroup.status = new_status
             nodegroup.save()
