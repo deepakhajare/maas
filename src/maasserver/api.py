@@ -1351,7 +1351,8 @@ class TagHandler(OperationsHandler):
             that nodegroup, and only nodes that are part of that nodegroup can
             be updated.
         """
-        tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        tag = Tag.objects.get_tag_or_404(
+            name=name, user=request.user, to_edit=True)
         to_add = get_optional_list(request.POST, 'add')
         added = 0
         if to_add:

@@ -2459,6 +2459,7 @@ class TestTagAPI(APITestCase):
         self.assertEqual('//child', tag.definition)
 
     def test_PUT_update_nodes_unknown_tag(self):
+        self.become_admin()
         name = factory.make_name()
         response = self.client.post(
             self.get_uri('tags/%s/' % (name,)),
@@ -2517,6 +2518,15 @@ class TestTagAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual({'added': 0, 'removed': 1}, parsed_result)
+
+    def test_POST_update_nodes_rejects_normal_user(self):
+        tag = factory.make_tag()
+        node = factory.make_node()
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id]})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
 
 
 class TestTagsAPI(APITestCase):
