@@ -2498,6 +2498,26 @@ class TestTagAPI(APITestCase):
         self.assertItemsEqual([], tag.node_set.all())
         self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
 
+    def test_POST_update_nodes_doesnt_require_add_or_remove(self):
+        tag = factory.make_tag()
+        node = factory.make_node()
+        self.become_admin()
+        self.assertItemsEqual([], tag.node_set.all())
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 1, 'removed': 0}, parsed_result)
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'remove': [node.system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 0, 'removed': 1}, parsed_result)
+
 
 class TestTagsAPI(APITestCase):
 

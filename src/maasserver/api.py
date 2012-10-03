@@ -1352,16 +1352,18 @@ class TagHandler(OperationsHandler):
             be updated.
         """
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
-        system_ids_to_add = get_optional_list(request.POST, 'add')
-        system_ids_to_remove = get_optional_list(request.POST, 'remove')
+        to_add = get_optional_list(request.POST, 'add')
         added = 0
-        for node in Node.objects.filter(system_id__in=system_ids_to_add):
-            tag.node_set.add(node)
-            added += 1
+        if to_add:
+            for node in Node.objects.filter(system_id__in=to_add):
+                tag.node_set.add(node)
+                added += 1
         removed = 0
-        for node in Node.objects.filter(system_id__in=system_ids_to_remove):
-            tag.node_set.remove(node)
-            removed += 1
+        to_remove = get_optional_list(request.POST, 'remove')
+        if to_remove:
+            for node in Node.objects.filter(system_id__in=to_remove):
+                tag.node_set.remove(node)
+                removed += 1
         return {'added': added, 'removed': removed}
 
     @classmethod
