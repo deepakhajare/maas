@@ -18,4 +18,4 @@ export PYTHONPATH=etc/:src/
 export CELERY_CONFIG_MODULE=democeleryconfig_cluster
 script="$(readlink -f bin/maas-provision)"
 exec fghack "${script}" start-cluster-controller \
-    http://0.0.0.0:5240/ -u "$USER" -g "$USER"
+    http://0.0.0.0:5240/ -u "$(id -un)" -g "$(id -gn)"
