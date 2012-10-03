@@ -1495,10 +1495,7 @@ def get_node_from_mac_string(mac_string):
     if mac_string is None:
         return None
     macaddress = get_one(MACAddress.objects.filter(mac_address=mac_string))
-    if macaddress:
-        return macaddress.node
-    else:
-        return None
+    return macaddress.node if macaddress else None
 
 
 def pxeconfig(request):
