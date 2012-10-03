@@ -68,3 +68,29 @@ class TestComposePreseed(TestCase):
         self.assertEqual(token.consumer.key, maas_dict['consumer_key'])
         self.assertEqual(token.key, maas_dict['token_key'])
         self.assertEqual(token.secret, maas_dict['token_secret'])
+
+    def test_compose_preseed_valid_local_cloud_config(self):
+        node = factory.make_node(status=NODE_STATUS.READY)
+        preseed = compose_preseed(node)
+        token = NodeKey.objects.get_token_for_node(node)
+
+        keyname = "cloud-init/local-cloud-config"
+        self.assertIn(keyname, preseed)
+
+        # expected input is 'cloud-init/local-cloud-config string VALUE'
+        # where one or more spaces in between tokens, and VALUE ending at newline
+        value = preseed[preseed.find(keyname) + len(keyname):]
+        value = value[value.find("string") + len("string"):].lstrip()
+        if "\n" in value:
+            value = value[:value.find("\n")]
+
+        # now debconf-unescape it
+        value = value.replace("\\n", "\n").replace("\\\\", "\\")
+
+        # at this point it should be valid yaml
+        data = yaml.safe_load(value)
+
+        self.assertIn("manage_etc_hosts", data)
+        self.assertEqual(data["manage_etc_hosts"], "localhost")
+        self.assertIn("preserve_sources_list", data)
+        self.assertEqual(data["preserve_sources_list"], True)
