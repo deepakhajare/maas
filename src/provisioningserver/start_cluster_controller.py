@@ -15,6 +15,7 @@ __all__ = [
     'run',
     ]
 
+from grp import getgrnam
 import httplib
 import json
 import os
@@ -124,7 +125,7 @@ def register(server_url):
 def start_celery(connection_details, user, group):
     broker_url = connection_details['BROKER_URL']
     uid = getpwnam(user).pw_uid
-    gid = getpwnam(group).pw_gid
+    gid = getgrnam(group).gr_gid
 
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
