@@ -73,17 +73,12 @@ class ClusterEditTest(AdminLoggedInTestCase):
 
     def test_cluster_page_contains_links_to_edit_and_delete_interfaces(self):
         nodegroup = factory.make_node_group()
-        interfaces = {
-            factory.make_node_group_interface(
+        interfaces = set()
+        for i in range(3):
+            interface = factory.make_node_group_interface(
                 nodegroup=nodegroup,
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
-            factory.make_node_group_interface(
-                nodegroup=nodegroup,
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
-            factory.make_node_group_interface(
-                nodegroup=nodegroup,
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED),
-            }
+                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+            interfaces.add(interface)
         links = get_content_links(
             self.client.get(reverse('cluster-edit', args=[nodegroup.uuid])))
         interface_edit_links = [
