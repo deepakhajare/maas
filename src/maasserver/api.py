@@ -1339,6 +1339,12 @@ class TagHandler(OperationsHandler):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
 
+    def _get_nodes_for(self, request, param):
+        system_ids = get_optional_list(request.POST, param)
+        if system_ids:
+            for node in Node.objects.filter(system_id__in=system_ids):
+                yield node
+
     @operation(idempotent=False)
     def update_nodes(self, request, name):
         """Add or remove nodes being associated with this tag.
@@ -1351,20 +1357,21 @@ class TagHandler(OperationsHandler):
             that nodegroup, and only nodes that are part of that nodegroup can
             be updated.
         """
-        tag = Tag.objects.get_tag_or_404(
-            name=name, user=request.user, to_edit=True)
-        to_add = get_optional_list(request.POST, 'add')
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        if not request.user.is_superuser:
+            uuid = request.POST.get('nodegroup', None)
+            if uuid is None:
+                raise PermissionDenied()
+            nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+            check_nodegroup_access(request, nodegroup)
         added = 0
-        if to_add:
-            for node in Node.objects.filter(system_id__in=to_add):
-                tag.node_set.add(node)
-                added += 1
+        for node in self._get_nodes_for(request, 'add'):
+            tag.node_set.add(node)
+            added += 1
         removed = 0
-        to_remove = get_optional_list(request.POST, 'remove')
-        if to_remove:
-            for node in Node.objects.filter(system_id__in=to_remove):
-                tag.node_set.remove(node)
-                removed += 1
+        for node in self._get_nodes_for(request, 'remove'):
+            tag.node_set.remove(node)
+            removed += 1
         return {'added': added, 'removed': removed}
 
     @classmethod

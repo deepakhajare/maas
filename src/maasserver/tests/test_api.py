@@ -2528,6 +2528,46 @@ class TestTagAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
         self.assertItemsEqual([], tag.node_set.all())
 
+    def test_POST_update_nodes_allows_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 1, 'removed': 0}, parsed_result)
+        self.assertItemsEqual([node], tag.node_set.all())
+
+    def test_POST_update_nodes_refuses_unidentified_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        # We don't pass nodegroup:uuid so we get refused
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_update_nodes_refuses_non_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+
 
 class TestTagsAPI(APITestCase):
 
