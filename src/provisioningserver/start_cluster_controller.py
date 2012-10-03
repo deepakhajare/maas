@@ -19,6 +19,7 @@ import httplib
 import json
 import os
 from pwd import getpwnam
+from subprocess import check_call
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -121,6 +122,20 @@ def register(server_url):
         raise AssertionError("Unexpected return code: %r" % status_code)
 
 
+class Become:
+    """Set user and group id."""
+
+    def __init__(self, uid, gid):
+        self.uid = uid
+        self.gid = gid
+
+    def __call__(self):
+        # Change gid first, just in case changing the uid might deprive
+        # us of the privileges required to setgid.
+        os.setgid(self.gid)
+        os.setuid(self.uid)
+
+
 def start_celery(connection_details, user, group):
     broker_url = connection_details['BROKER_URL']
     uid = getpwnam(user).pw_uid
@@ -137,12 +152,9 @@ def start_celery(connection_details, user, group):
         '-Q', get_cluster_uuid(),
         ]
 
-    pid = os.fork()
-    if pid == 0:
-        # Child process.  Become the right user, and start celery.
-        os.setuid(uid)
-        os.setgid(gid)
-        os.execvpe(command[0], command, env)
+    return_code = check_call(command, env=env, preexec_fn=Become(uid, gid))
+    if return_code != 0:
+        raise SystemExit(return_code)
 
 
 def request_refresh(server_url):
@@ -161,9 +173,12 @@ def start_up(server_url, connection_details, user, group):
     This starts up celeryd, listening to the broker that the region
     controller pointed us to, and on the appropriate queue.
     """
-    start_celery(connection_details, user=user, group=group)
-    sleep(10)
+    # Get the region controller to send out credentials.  If it arrives
+    # before celeryd has started up, we should find the message waiting
+    # in our queue.  Even if we're new and the queue did not exist yet,
+    # the arriving task will create the queue.
     request_refresh(server_url)
+    start_celery(connection_details, user=user, group=group)
 
 
 def run(args):
