@@ -140,11 +140,11 @@ urlpatterns += patterns('maasserver.views',
         r'^clusters/(?P<uuid>[\w\-]+)/delete/$', ClusterDelete.as_view(),
         name='cluster-delete'),
     adminurl(
-        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]+)/'
+        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]*)/'
         'edit/$',
         ClusterInterfaceEdit.as_view(), name='cluster-interface-edit'),
     adminurl(
-        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]+)/'
+        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]*)/'
         'delete/$',
         ClusterInterfaceDelete.as_view(), name='cluster-interface-delete'),
     adminurl(r'^settings/$', settings, name='settings'),
