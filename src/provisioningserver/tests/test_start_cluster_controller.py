@@ -17,6 +17,7 @@ from collections import namedtuple
 import httplib
 from io import BytesIO
 import json
+import os
 from random import randint
 from urllib2 import (
     HTTPError,
@@ -86,8 +87,9 @@ class TestStartClusterController(PservTestCase):
         self.patch(start_cluster_controller, 'getpwnam')
         start_cluster_controller.getpwnam.pw_uid = randint(3000, 4000)
         start_cluster_controller.getpwnam.pw_gid = randint(3000, 4000)
-        self.patch(
-            start_cluster_controller, 'check_call').side_effect = Executing()
+        self.patch(os, 'setuid')
+        self.patch(os, 'setgid')
+        self.patch(os, 'execvpe').side_effect = Executing()
         get_uuid = self.patch(start_cluster_controller, 'get_cluster_uuid')
         get_uuid.return_value = factory.getRandomUUID()
 
@@ -135,13 +137,14 @@ class TestStartClusterController(PservTestCase):
         # the right system functions patched out) we can run it
         # directly.
         start_cluster_controller.sleep.side_effect = None
-        start_cluster_controller.check_call.side_effect = None
-        start_cluster_controller.check_call.return_value = 0
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
-        start_cluster_controller.run(parser.parse_args((make_url(),)))
-        self.assertEqual(1, start_cluster_controller.check_call.call_count)
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.run,
+            parser.parse_args((make_url(),)))
+        self.assertEqual(1, os.execvpe.call_count)
 
     def test_uses_given_url(self):
         url = make_url('region')
@@ -206,14 +209,14 @@ class TestStartClusterController(PservTestCase):
             (server_url, connection_details))
 
     def test_start_up_calls_refresh_secrets(self):
-        start_cluster_controller.check_call.side_effect = None
-        start_cluster_controller.check_call.return_value = 0
         start_cluster_controller.sleep.side_effect = None
         url = make_url('region')
         connection_details = self.make_connection_details()
         self.prepare_success_response()
 
-        start_cluster_controller.start_up(
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.start_up,
             url, connection_details,
             factory.make_name('user'), factory.make_name('group'))
 
@@ -226,25 +229,14 @@ class TestStartClusterController(PservTestCase):
         self.assertEqual("refresh_workers", post["op"])
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
-        start_cluster_controller.check_call.side_effect = None
-        start_cluster_controller.check_call.return_value = 0
         start_cluster_controller.sleep.side_effect = None
         self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
             "Simulated HTTP failure.")
 
-        start_cluster_controller.start_up(
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.start_up,
             make_url(), self.make_connection_details(),
             factory.make_name('user'), factory.make_name('group'))
 
-        self.assertEqual(1, start_cluster_controller.check_call.call_count)
-
-    def test_start_celery_raises_if_celeryd_fails(self):
-        return_value = randint(1, 127)
-        start_cluster_controller.check_call.side_effect = None
-        start_cluster_controller.check_call.return_value = return_value
-        error = self.assertRaises(
-            SystemExit,
-            start_cluster_controller.start_celery,
-            self.make_connection_details(),
-            factory.make_name('user'), factory.make_name('group'))
-        self.assertEqual(return_value, error.code)
+        self.assertEqual(1, os.execvpe.call_count)

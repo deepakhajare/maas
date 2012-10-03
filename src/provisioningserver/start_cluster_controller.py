@@ -19,7 +19,6 @@ import httplib
 import json
 import os
 from pwd import getpwnam
-from subprocess import check_call
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -122,20 +121,6 @@ def register(server_url):
         raise AssertionError("Unexpected return code: %r" % status_code)
 
 
-class Become:
-    """Set user and group id."""
-
-    def __init__(self, uid, gid):
-        self.uid = uid
-        self.gid = gid
-
-    def __call__(self):
-        # Change gid first, just in case changing the uid might deprive
-        # us of the privileges required to setgid.
-        os.setgid(self.gid)
-        os.setuid(self.uid)
-
-
 def start_celery(connection_details, user, group):
     broker_url = connection_details['BROKER_URL']
     uid = getpwnam(user).pw_uid
@@ -152,9 +137,12 @@ def start_celery(connection_details, user, group):
         '-Q', get_cluster_uuid(),
         ]
 
-    return_code = check_call(command, env=env, preexec_fn=Become(uid, gid))
-    if return_code != 0:
-        raise SystemExit(return_code)
+    # Change gid first, just in case changing the uid might deprive
+    # us of the privileges required to setgid.
+    os.setgid(gid)
+    os.setuid(uid)
+
+    os.execvpe(command[0], command, env=env)
 
 
 def request_refresh(server_url):
