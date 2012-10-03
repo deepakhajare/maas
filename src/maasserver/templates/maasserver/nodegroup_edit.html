@@ -1,8 +1,8 @@
 {% extends "maasserver/base.html" %}
 
 {% block nav-active-settings %}active{% endblock %}
-{% block title %}Edit Cluster{% endblock %}
-{% block page-title %}Edit Cluster{% endblock %}
+{% block title %}Edit Cluster Controller{% endblock %}
+{% block page-title %}Edit Cluster Controller{% endblock %}
 
 {% block content %}
 <div class="block size10 first">
@@ -13,11 +13,13 @@
         {% include "maasserver/form_field.html" %}
       {% endfor %}
       </ul>
-      <input type="submit" value="Save cluster" class="button right" />
+      <input type="submit" value="Save cluster controller"
+             class="button right" />
       <a class="link-button" href="{% url 'settings' %}">Cancel</a>
       <h2>Interfaces</h2>
       {% with nb_interfaces=cluster.nodegroupinterface_set.count %}
-      This cluster has {{ nb_interfaces }} interface{{ nb_interfaces|pluralize }}.
+      This cluster controller has {{ nb_interfaces }}
+      interface{{ nb_interfaces|pluralize }}.
       {% endwith %}
       <table class="list">
         <thead>
