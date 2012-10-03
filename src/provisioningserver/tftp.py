@@ -208,7 +208,7 @@ class TFTPBackend(FilesystemSynchronousBackend):
             # Do not include any element that has not matched (ie. is None)
             params = {
                 key: value
-                for key, value in config_file_match.groupdict().iteritems()
+                for key, value in config_file_match.groupdict().items()
                 if value is not None
                 }
             d = self.get_config_reader(params)
