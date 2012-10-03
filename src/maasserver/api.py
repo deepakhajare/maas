@@ -1339,6 +1339,31 @@ class TagHandler(OperationsHandler):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
 
+    @operation(idempotent=False)
+    def update_nodes(self, request, name):
+        """Add or remove nodes being associated with this tag.
+
+        :param add: system_ids of nodes to add to this tag.
+        :param remove: system_ids of nodes to remove from this tag.
+        :param nodegroup: A uuid of a nodegroup being processed. This value is
+            optional. If not supplied, the requester must be a superuser. If
+            supplied, then the requester must be the worker associated with
+            that nodegroup, and only nodes that are part of that nodegroup can
+            be updated.
+        """
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        system_ids_to_add = get_optional_list(request.POST, 'add')
+        system_ids_to_remove = get_optional_list(request.POST, 'remove')
+        added = 0
+        for node in Node.objects.filter(system_id__in=system_ids_to_add):
+            tag.node_set.add(node)
+            added += 1
+        removed = 0
+        for node in Node.objects.filter(system_id__in=system_ids_to_remove):
+            tag.node_set.remove(node)
+            removed += 1
+        return {'added': added, 'removed': removed}
+
     @classmethod
     def resource_uri(cls, tag=None):
         # See the comment in NodeHandler.resource_uri
