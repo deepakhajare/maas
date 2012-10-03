@@ -92,16 +92,16 @@ class TFTPBackend(FilesystemSynchronousBackend):
         ^/*
         pxelinux[.]cfg    # PXELINUX expects this.
         /
-        ( # either a MAC
+        (?: # either a MAC
             {htype:02x}    # ARP HTYPE.
             -
             (?P<mac>{re_mac_address.pattern})    # Capture MAC.
         | # or "default"
             default
-              ( # perhaps with specified arch, with a separator of either '-'
+              (?: # perhaps with specified arch, with a separator of either '-'
                 # or '.', since the spec was changed and both are unambiguous
                 [.-](?P<arch>\w+) # arch
-                (-(?P<subarch>\w+))? # optional subarch
+                (?:-(?P<subarch>\w+))? # optional subarch
               )?
         )
         $
