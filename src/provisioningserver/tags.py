@@ -44,16 +44,16 @@ def get_lshw_output_for_nodes(client, nodegroup_uuid, nodes):
         'node_lshw', nodes=json.dump(nodes))
 
 
-def update_node_tags(client, tag_name, matched, unmatched):
-    """Retrieve the lshw output for a set of nodes.
+def update_node_tags(client, tag_name, added, removed):
+    """Update the nodes relevant for a particular tag.
 
     :param client: MAAS client
     :param tag_name: Name of tag
-    :param matched: Set of nodes that matched
-    :param unmatched: Set of nodes that did not match
+    :param added: Set of nodes to add
+    :param removed: Set of nodes to remove
     """
     client.post('api/1.0/tags/', 'update-nodes', tag_name=tag_name,
-        matched=json.dump({"add": matched, "remove": unmatched}))
+        matched=json.dump({"add": added, "remove": removed}))
 
 
 def signal_done(client, nodegroup_uuid, tag_name):
