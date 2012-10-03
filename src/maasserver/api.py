@@ -1345,8 +1345,9 @@ class TagHandler(OperationsHandler):
             nodes = Node.objects.filter(system_id__in=system_ids)
             if nodegroup is not None:
                 nodes = nodes.filter(nodegroup=nodegroup)
-            for node in nodes:
-                yield node
+        else:
+            nodes = Node.objects.none()
+        return nodes
 
     @operation(idempotent=False)
     def update_nodes(self, request, name):
@@ -1368,15 +1369,14 @@ class TagHandler(OperationsHandler):
                 raise PermissionDenied()
             nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
             check_nodegroup_access(request, nodegroup)
-        added = 0
-        for node in self._get_nodes_for(request, 'add', nodegroup):
-            tag.node_set.add(node)
-            added += 1
-        removed = 0
-        for node in self._get_nodes_for(request, 'remove', nodegroup):
-            tag.node_set.remove(node)
-            removed += 1
-        return {'added': added, 'removed': removed}
+        nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
+        tag.node_set.add(*nodes_to_add)
+        nodes_to_remove = self._get_nodes_for(request, 'remove', nodegroup)
+        tag.node_set.remove(*nodes_to_remove)
+        return {
+            'added': nodes_to_add.count(),
+            'removed': nodes_to_remove.count()
+            }
 
     @classmethod
     def resource_uri(cls, tag=None):

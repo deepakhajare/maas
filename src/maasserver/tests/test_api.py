@@ -2458,7 +2458,7 @@ class TestTagAPI(APITestCase):
         self.assertItemsEqual([tag.name], node.tag_names())
         self.assertEqual('//child', tag.definition)
 
-    def test_PUT_update_nodes_unknown_tag(self):
+    def test_POST_update_nodes_unknown_tag(self):
         self.become_admin()
         name = factory.make_name()
         response = self.client.post(
