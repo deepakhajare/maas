@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.db.models.signals import post_save
+import django.dispatch
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
@@ -26,6 +28,10 @@ from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
+from mock import (
+    call,
+    Mock,
+    )
 from provisioningserver.omshell import (
     generate_omapi_key,
     Omshell,
@@ -203,6 +209,24 @@ class TestNodeGroupManager(TestCase):
         self.assertEqual(
             (unaffected_status, 0),
             (reload_object(nodegroup).status, changed))
+
+    def test__mass_change_status_calls_post_save_signal(self):
+        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
+        nodegroup = factory.make_node_group(status=old_status)
+        recorder = Mock()
+
+        def post_save_NodeGroup(sender, instance, created, **kwargs):
+            recorder(instance)
+
+        django.dispatch.Signal.connect(
+            post_save, post_save_NodeGroup, sender=NodeGroup)
+        self.addCleanup(
+            django.dispatch.Signal.disconnect, post_save,
+            receiver=post_save_NodeGroup, sender=NodeGroup)
+        NodeGroup.objects._mass_change_status(
+            old_status, factory.getRandomEnum(NODEGROUP_STATUS))
+        self.assertEqual(
+            [call(nodegroup)], recorder.call_args_list)
 
     def test_reject_all_pending_rejects_nodegroups(self):
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
