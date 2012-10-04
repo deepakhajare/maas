@@ -134,8 +134,6 @@ class TestTagUpdating(PservTestCase):
             result=FakeResponse(httplib.OK,
                 '[["system-id1", "<node />"], ["system-id2", "<no-node />"]]'))
         get_fake = MultiFakeMethod([get_nodes, get_hw_details])
-        response = FakeResponse(httplib.OK,
-            '[["system-id1", "<node />"], ["system-id2", "<no-node />"]]')
         post_fake = FakeMethod(
             result=FakeResponse(httplib.OK, '{"added": 1, "removed": 1}'))
         self.patch(MAASClient, 'get', get_fake)
