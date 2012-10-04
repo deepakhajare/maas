@@ -92,5 +92,5 @@ class TestComposePreseed(TestCase):
 
         self.assertIn("manage_etc_hosts", data)
         self.assertEqual(data["manage_etc_hosts"], "localhost")
-        self.assertIn("preserve_sources_list", data)
-        self.assertEqual(data["preserve_sources_list"], True)
+        self.assertIn("apt_preserve_sources_list", data)
+        self.assertEqual(data["apt_preserve_sources_list"], True)
