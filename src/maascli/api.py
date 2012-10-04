@@ -337,7 +337,7 @@ class Action(Command):
     def print_response(cls, response, content):
         """Print the response body if it's textual.
 
-        Otherwise otherwise write it raw to stdout.
+        Otherwise write it raw to stdout.
         """
         if is_response_textual(response):
             print(content)  # Trailing newline, might encode.
