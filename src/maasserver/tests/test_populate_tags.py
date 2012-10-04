@@ -18,10 +18,17 @@ from maasserver.populate_tags import populate_tags
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.fakemethod import FakeMethod
-from provisioningserver import tasks
+from provisioningserver import (
+    tasks,
+    tags,
+    )
 
 
 class TestPopulateTags(TestCase):
+
+    def setUp(self):
+        super(TestPopulateTags, self).setUp()
+        self.patch_tags_api()
 
     def test_populate_tags_task_routed_to_nodegroup_worker(self):
         nodegroup = factory.make_node_group()
@@ -34,12 +41,15 @@ class TestPopulateTags(TestCase):
     def test_populate_tags_task_routed_to_all_nodegroup_workers(self):
         nodegroups = [factory.make_node_group() for i in range(5)]
         tag = factory.make_tag()
+        refresh = self.patch(populate_tags_module, 'refresh_worker')
         task = self.patch(populate_tags_module, 'update_node_tags')
         populate_tags(tag)
-        all_calls = [mock.call(queue=nodegroup.work_queue,
+        refresh_calls = [mock.call(nodegroup) for nodegroup in nodegroups]
+        refresh.assert_has_calls(refresh_calls, any_order=True)
+        task_calls = [mock.call(queue=nodegroup.work_queue,
                                kwargs={
                                  'tag_name': tag.name,
                                  'tag_definition': tag.definition,
                                  })
                      for nodegroup in nodegroups]
-        task.apply_async.assert_has_calls(all_calls, any_order=True)
+        task.apply_async.assert_has_calls(task_calls, any_order=True)

@@ -93,7 +93,7 @@ def update_node_tags(client, tag_name, uuid, added, removed):
     """
     path = '/api/1.0/tags/%s/' % (tag_name,)
     return process_response(client.post(
-        path, op='update_nodes', add=added, remove=removed))
+        path, op='update_nodes', nodegroup=uuid, add=added, remove=removed))
 
 
 def process_batch(xpath, hardware_details):
@@ -103,8 +103,17 @@ def process_batch(xpath, hardware_details):
     matched_nodes = []
     unmatched_nodes = []
     for system_id, hw_xml in hardware_details:
-        xml = etree.XML(hw_xml)
-        if xpath(xml):
+        matched = False
+        if hw_xml is not None:
+            try:
+                xml = etree.XML(hw_xml)
+            except etree.XMLSyntaxError as e:
+                task_logger.debug('Invalid hardware_details for %s: %s'
+                    % (system_id, e))
+            else:
+                if xpath(xml):
+                    matched = True
+        if matched:
             matched_nodes.append(system_id)
         else:
             unmatched_nodes.append(system_id)

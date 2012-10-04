@@ -1395,7 +1395,8 @@ class TagHandler(OperationsHandler):
         if not request.user.is_superuser:
             uuid = request.POST.get('nodegroup', None)
             if uuid is None:
-                raise PermissionDenied()
+                raise PermissionDenied(
+                    'Must be a superuser or supply a nodegroup')
             nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
             check_nodegroup_access(request, nodegroup)
         nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)

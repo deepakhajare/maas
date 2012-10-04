@@ -96,15 +96,15 @@ class TestTagUpdating(PservTestCase):
         client, uuid = self.fake_cached_knowledge()
         content = '{"added": 1, "removed": 2}'
         response = FakeResponse(httplib.OK, content)
-        mock = MagicMock(return_value=response)
-        self.patch(client, 'post', mock)
+        post_mock = MagicMock(return_value=response)
+        self.patch(client, 'post', post_mock)
         name = factory.make_name('tag')
         result = tags.update_node_tags(client, name, uuid,
             ['add-system-id'], ['remove-1', 'remove-2'])
         self.assertEqual({'added': 1, 'removed': 2}, result)
         url = '/api/1.0/tags/%s/' % (name,)
-        mock.assert_called_once_with(
-            url, op='update_nodes',
+        post_mock.assert_called_once_with(
+            url, op='update_nodes', nodegroup=uuid,
             add=['add-system-id'], remove=['remove-1', 'remove-2'])
 
     def test_process_batch_evaluates_xpath(self):
@@ -117,6 +117,13 @@ class TestTagUpdating(PservTestCase):
         self.assertEqual(
             (['a', 'c'], ['b']),
             tags.process_batch(xpath, node_details))
+
+    def test_process_batch_handles_invalid_hardware(self):
+        xpath = etree.XPath('//node')
+        details = [['a', ''], ['b', 'not-xml'], ['c', None]]
+        self.assertEqual(
+            ([], ['a', 'b', 'c']),
+            tags.process_batch(xpath, details))
 
     def test_process_node_tags_no_secrets(self):
         self.patch(MAASClient, 'get')
@@ -151,6 +158,7 @@ class TestTagUpdating(PservTestCase):
                          get_hw_details.calls)
         self.assertEqual([((tag_url,),
                           {'op': 'update_nodes',
+                           'nodegroup': nodegroup_uuid,
                            'add': ['system-id1'],
                            'remove': ['system-id2'],
                           })], post_fake.calls)
