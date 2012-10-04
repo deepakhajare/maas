@@ -158,6 +158,7 @@ from maasserver.preseed import (
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from piston.handler import (
     AnonymousBaseHandler,
@@ -167,6 +168,7 @@ from piston.handler import (
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
 
 
@@ -416,6 +418,29 @@ DISPLAYED_NODE_FIELDS = (
     'power_parameters',
     'tag_names',
     )
+
+
+def store_node_power_parameters(node, request):
+    """Store power parameters in request.
+
+    The parameters should be JSON, passed with key `power_parameters`.
+    """
+    type = request.POST.get("power_type", None)
+    if type is None:
+        return
+
+    params = request.POST.get("power_parameters", None)
+
+    type_dict = map_enum(POWER_TYPE)
+    if type.upper() not in type_dict:
+        raise MAASAPIBadRequest("Bad power_type '%s'" % type)
+    node.power_type = type_dict[type.upper()]
+
+    try:
+        node.power_parameters = json.loads(params)
+    except ValueError:
+        raise MAASAPIBadRequest("Failed to parse json power_parameters")
+    node.save()
 
 
 class NodeHandler(OperationsHandler):
