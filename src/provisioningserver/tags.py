@@ -6,6 +6,7 @@
 """
 
 import json
+from lxml import etree
 
 from apiclient.maas_client import (
     MAASClient,
@@ -20,6 +21,9 @@ from provisioningserver.auth import (
     )
 
 from provisioningserver.logging import task_logger
+
+
+DEFAULT_BATCH_SIZE = 100
 
 
 def get_cached_knowledge():
@@ -90,18 +94,37 @@ def update_node_tags(client, tag_name, uuid, added, removed):
     return json.loads(response.content)
 
 
-def signal_done(client, nodegroup_uuid, tag_name):
-    """Signal that updating tags for a particular nodegroup is done.
-
-    :param client: MAAS client
-    :param nodegroup_uuid: UUID of the nodegroup for which updating is done
-    :param tag_name: Name of tag
+def process_batch(xpath, hardware_details):
+    """Get the details for one batch, and process whether they match or not.
     """
-    client.post('api/1.0/tags/' + tag_name, 'nodegroup_done',
-        nodegroup=nodegroup_uuid)
+    # Fetch node XML in batches
+    matched_nodes = []
+    unmatched_nodes = []
+    for system_id, hw_xml in hardware_details:
+        xml = etree.XML(hw_xml)
+        if xpath(xml):
+            matched_nodes.append(system_id)
+        else:
+            unmatched_nodes.append(system_id)
+    return matched_nodes, unmatched_nodes
 
 
-def process_node_tags(tag_name, tag_definition, batch_size=100):
+def process_all(client, tag_name, nodegroup_uuid, system_ids, xpath,
+                batch_size=None):
+    if batch_size is None:
+        batch_size = DEFAULT_BATCH_SIZE
+    for i in range(0, len(system_ids), batch_size):
+        selected_ids = system_ids[i:i + batch_size]
+        details = get_hardware_details_for_nodes(
+            client, nodegroup_uuid, selected_ids)
+        matched, unmatched = process_batch(xpath, details)
+        # JAM 2012-10-04 If we wanted, we could defer the update_nodes until
+        #       after everything was processed, but this lets us do incremental
+        #       improvements, and avoids POSTing 4MB of info at once.
+        update_node_tags(client, tag_name, nodegroup_uuid, matched, unmatched)
+
+
+def process_node_tags(tag_name, tag_definition, batch_size=None):
     """Update the nodes for a new/changed tag definition.
 
     :param tag_name: Name of the tag to update nodes for
@@ -114,20 +137,10 @@ def process_node_tags(tag_name, tag_definition, batch_size=100):
             ' please refresh secrets, then rebuild this tag'
             % (tag_name, tag_definition))
         return
+    # We evaluate this early, so we can fail before sending a bunch of data to
+    # the server
+    xpath = etree.XPath(tag_definition)
     # Get nodes to process
-    nodes = get_nodes_for_node_group(client, nodegroup_uuid)
-    for node in nodes:
-        for i in range(0, len(nodes), batch_size):
-            selected_nodes = nodes[i:i + batch_size]
-            # Fetch node XML in batches
-            lshw_output = get_lshw_output_for_nodes(client, selected_nodes)
-            matched_nodes = set()
-            unmatched_nodes = set()
-            for node, hw_xml in lshw_output.iteritems():
-                # FIXME: Check if hw_xml matches tag_definition
-                if True:
-                    matched_nodes.add(node)
-                else:
-                    unmatched_nodes.add(node)
-            update_node_tags(client, tag_name, matched_nodes, unmatched_nodes)
-    signal_done(client, tag_name)
+    system_ids = get_nodes_for_node_group(client, nodegroup_uuid)
+    process_all(client, tag_name, nodegroup_uuid, system_ids, xpath,
+                batch_size=batch_size)

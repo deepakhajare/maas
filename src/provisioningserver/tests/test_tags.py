@@ -14,7 +14,12 @@ __all__ = []
 
 from apiclient.maas_client import MAASClient
 import httplib
+from lxml import etree
 from maastesting.factory import factory
+from maastesting.fakemethod import (
+    FakeMethod,
+    MultiFakeMethod,
+    )
 from mock import MagicMock
 from provisioningserver.auth import (
     get_recorded_nodegroup_uuid,
@@ -101,3 +106,76 @@ class TestTagUpdating(PservTestCase):
         mock.assert_called_once_with(
             url, op='update_nodes',
             add=['add-system-id'], remove=['remove-1', 'remove-2'])
+
+    def test_process_batch_evaluates_xpath(self):
+        # Yay, something that doesn't need patching...
+        xpath = etree.XPath('//node')
+        node_details = [['a', '<node />'],
+                        ['b', '<not-node />'],
+                        ['c', '<parent><node /></parent>'],
+                       ]
+        self.assertEqual(
+            (['a', 'c'], ['b']),
+            tags.process_batch(xpath, node_details))
+
+    def test_process_node_tags_no_secrets(self):
+        self.patch(MAASClient, 'get')
+        self.patch(MAASClient, 'post')
+        tag_name = factory.make_name('tag')
+        tags.process_node_tags(tag_name, '//node')
+        self.assertFalse(MAASClient.get.called)
+        self.assertFalse(MAASClient.post.called)
+
+    def test_process_node_tags_integration(self):
+        self.set_secrets()
+        get_nodes = FakeMethod(
+            result=FakeResponse(httplib.OK, '["system-id1", "system-id2"]'))
+        get_hw_details = FakeMethod(
+            result=FakeResponse(httplib.OK,
+                '[["system-id1", "<node />"], ["system-id2", "<no-node />"]]'))
+        get_fake = MultiFakeMethod([get_nodes, get_hw_details])
+        response = FakeResponse(httplib.OK,
+            '[["system-id1", "<node />"], ["system-id2", "<no-node />"]]')
+        post_fake = FakeMethod(
+            result=FakeResponse(httplib.OK, '{"added": 1, "removed": 1}'))
+        self.patch(MAASClient, 'get', get_fake)
+        self.patch(MAASClient, 'post', post_fake)
+        tag_name = factory.make_name('tag')
+        nodegroup_uuid = get_recorded_nodegroup_uuid()
+        tags.process_node_tags(tag_name, '//node')
+        nodegroup_url = 'api/1.0/nodegroup/%s/' % (nodegroup_uuid,)
+        tag_url = 'api/1.0/tags/%s/' % (tag_name,)
+        self.assertEqual([((nodegroup_url,), {'op': 'list_nodes'})],
+                         get_nodes.calls)
+        self.assertEqual([((nodegroup_url,),
+                          {'op': 'node_hardware_details',
+                           'system_ids': ['system-id1', 'system-id2']})],
+                         get_hw_details.calls)
+        self.assertEqual([((tag_url,),
+                          {'op': 'update_nodes',
+                           'add': ['system-id1'],
+                           'remove': ['system-id2'],
+                          })], post_fake.calls)
+
+    def test_process_node_tags_requests_details_in_batches(self):
+        client = object()
+        uuid = factory.make_name('nodegroupuuid')
+        self.patch(
+            tags, 'get_cached_knowledge',
+            MagicMock(return_value=(client, uuid)))
+        self.patch(
+            tags, 'get_nodes_for_node_group',
+            MagicMock(return_value=['a', 'b', 'c']))
+        fake_first = FakeMethod(
+            result=[['a', '<node />'], ['b', '<not-node />']])
+        fake_second = FakeMethod(
+            result=[['c', '<parent><node /></parent>']])
+        self.patch(tags, 'get_hardware_details_for_nodes',
+            MultiFakeMethod([fake_first, fake_second]))
+        self.patch(tags, 'update_node_tags')
+        tag_name = factory.make_name('tag')
+        tags.process_node_tags(tag_name, '//node', batch_size=2)
+        tags.get_cached_knowledge.assert_called_once_with()
+        tags.get_nodes_for_node_group.assert_called_once_with(client, uuid)
+        self.assertEqual([((client, uuid, ['a', 'b']), {})], fake_first.calls)
+        self.assertEqual([((client, uuid, ['c']), {})], fake_second.calls)
