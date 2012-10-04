@@ -31,9 +31,11 @@ class PservTestCase(testcase.TestCase):
         super(PservTestCase, self).setUp()
         self.useFixture(WorkerCacheFixture())
 
+    def make_maas_url(self):
+        return 'http://127.0.0.1/%s' % factory.make_name('path')
+
     def set_maas_url(self):
-        record_maas_url(
-            'http://127.0.0.1/%s' % factory.make_name('path'))
+        record_maas_url(self.make_maas_url())
 
     def set_api_credentials(self):
         record_api_credentials(':'.join(make_api_credentials()))

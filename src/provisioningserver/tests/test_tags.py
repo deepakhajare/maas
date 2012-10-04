@@ -13,11 +13,21 @@ __metaclass__ = type
 __all__ = []
 
 from apiclient.maas_client import MAASClient
+import httplib
+from maastesting.factory import factory
+from mock import MagicMock
 from provisioningserver.auth import (
     get_recorded_nodegroup_uuid,
     )
 from provisioningserver.testing.testcase import PservTestCase
 from provisioningserver import tags
+
+
+class FakeResponse:
+
+    def __init__(self, status_code, content):
+        self.status_code = status_code
+        self.content = content
 
 
 class TestTagUpdating(PservTestCase):
@@ -44,3 +54,35 @@ class TestTagUpdating(PservTestCase):
         self.assertIsInstance(client, MAASClient)
         self.assertIsNot(None, uuid)
         self.assertEqual(get_recorded_nodegroup_uuid(), uuid)
+
+    def fake_client(self):
+        return MAASClient(None, None, self.make_maas_url())
+
+    def fake_cached_knowledge(self):
+        nodegroup_uuid = factory.make_name('nodegroupuuid')
+        return self.fake_client(), nodegroup_uuid
+
+    def test_get_nodes_calls_correct_api_and_parses_result(self):
+        client, uuid = self.fake_cached_knowledge()
+        response = FakeResponse(httplib.OK, '["system-id1", "system-id2"]')
+        mock = MagicMock(return_value=response)
+        self.patch(client, 'get', mock)
+        result = tags.get_nodes_for_node_group(client, uuid)
+        self.assertEqual(['system-id1', 'system-id2'], result)
+        url = 'api/1.0/nodegroup/%s/' % (uuid,)
+        mock.assert_called_once_with(url, op='list_nodes')
+
+    def test_get_hardware_details_calls_correct_api_and_parses_result(self):
+        client, uuid = self.fake_cached_knowledge()
+        xml_data = "<test><data /></test>"
+        content = '[["system-id1", "%s"]]' % (xml_data,)
+        response = FakeResponse(httplib.OK, content)
+        mock = MagicMock(return_value=response)
+        self.patch(client, 'get', mock)
+        result = tags.get_hardware_details_for_nodes(
+            client, uuid, ['system-id1', 'system-id2'])
+        self.assertEqual([['system-id1', xml_data]], result)
+        url = 'api/1.0/nodegroup/%s/' % (uuid,)
+        mock.assert_called_once_with(
+            url, op='node_hardware_details',
+            system_ids='["system-id1", "system-id2"]')
