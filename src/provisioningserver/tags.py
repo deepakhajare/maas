@@ -55,7 +55,7 @@ def get_nodes_for_node_group(client, nodegroup_uuid):
     :param nodegroup_uuid: Node group for which to retrieve nodes
     :return: List of UUIDs for nodes in nodegroup
     """
-    path = 'api/1.0/nodegroup/%s/' % (nodegroup_uuid)
+    path = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid)
     response = client.get(path, op='list_nodes')
     # XXX: Check the response code before we parse the content
     return json.loads(response.content)
@@ -68,7 +68,7 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
     :param system_ids: List of UUIDs of systems for which to fetch lshw data
     :return: Dictionary mapping node UUIDs to lshw output
     """
-    path = 'api/1.0/nodegroup/%s/' % (nodegroup_uuid,)
+    path = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid,)
     response = client.get(
         path, op='node_hardware_details', system_ids=system_ids)
     # XXX: Check the response code before we parse the content
@@ -86,7 +86,7 @@ def update_node_tags(client, tag_name, uuid, added, removed):
     :param added: Set of nodes to add
     :param removed: Set of nodes to remove
     """
-    path = 'api/1.0/tags/%s/' % (tag_name,)
+    path = '/api/1.0/tags/%s/' % (tag_name,)
     response = client.post(path, op='update_nodes', add=added, remove=removed)
     # XXX: Check the response code before we parse the content
     return json.loads(response.content)

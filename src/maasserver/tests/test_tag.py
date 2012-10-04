@@ -12,19 +12,54 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from provisioningserver import (
+    tags,
+    tasks,
+    )
 from django.core.exceptions import ValidationError
 from maastesting.celery import CeleryFixture
 from maasserver.models import Tag
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import TestCase
+from maasserver.testing.testcase import LoggedInTestCase
 from testresources import FixtureResource
 
 
-class TagTest(TestCase):
+class MAASDjangoTestClient:
+    """Wrap the Django testing Client to look liek a MAASClient."""
+
+    def __init__(self, django_client):
+        self.django_client = django_client
+
+    def get(self, path, op=None, **kwargs):
+        kwargs['op'] = op
+        return self.django_client.get(path, kwargs)
+
+    def post(self, path, op=None, **kwargs):
+        kwargs['op'] = op
+        return self.django_client.post(path, kwargs)
+
+    def put(self, path, **kwargs):
+        return self.django_client.put(path, kwargs)
+
+    def delete(self, path):
+        return self.django_client.delete(path)
+
+
+class TagTest(LoggedInTestCase):
 
     resources = (
         ('celery', FixtureResource(CeleryFixture())),
         )
+
+    def setUp(self):
+        super(TagTest, self).setUp()
+        self.maas_client = MAASDjangoTestClient(self.client)
+        # We architectured the code so that right before we request the
+        # nodegroup process this tag, it refreshes its secrets and its
+        # nodegroup_uuid, so we just use the regular
+        # get_recorded_nodegroup_uuid
+        self.patch(tags, 'get_cached_knowledge',
+           lambda: (self.maas_client, tags.get_recorded_nodegroup_uuid()))
 
     def test_factory_make_tag(self):
         """

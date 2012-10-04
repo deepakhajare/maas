@@ -15,6 +15,7 @@ __all__ = [
     ]
 
 from maasserver.models import NodeGroup
+from maasserver.refresh_worker import refresh_worker
 from provisioningserver.tasks import update_node_tags
 
 
@@ -27,5 +28,6 @@ def populate_tags(tag):
     }
     # NodeGroup.objects.refresh_workers()
     for nodegroup in NodeGroup.objects.all():
+        refresh_worker(nodegroup)
         update_node_tags.apply_async(queue=nodegroup.work_queue, kwargs=items)
 
