@@ -186,7 +186,7 @@ def upload_leases():
         process_leases(timestamp, leases)
     else:
         task_logger.info(
-            "The DHCP leases file does not exit.  This is only a problem if "
+            "The DHCP leases file does not exist.  This is only a problem if "
             "this cluster controller is managing its DHCP server.  If that's "
             "the case then you need to install the 'maas-dhcp' package on "
             "this cluster controller.")
