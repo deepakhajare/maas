@@ -86,3 +86,18 @@ class TestTagUpdating(PservTestCase):
         mock.assert_called_once_with(
             url, op='node_hardware_details',
             system_ids=["system-id1", "system-id2"])
+
+    def test_update_node_tags_calls_correct_api_and_parses_result(self):
+        client, uuid = self.fake_cached_knowledge()
+        content = '{"added": 1, "removed": 2}'
+        response = FakeResponse(httplib.OK, content)
+        mock = MagicMock(return_value=response)
+        self.patch(client, 'post', mock)
+        name = factory.make_name('tag')
+        result = tags.update_node_tags(client, name, uuid,
+            ['add-system-id'], ['remove-1', 'remove-2'])
+        self.assertEqual({'added': 1, 'removed': 2}, result)
+        url = 'api/1.0/tags/%s/' % (name,)
+        mock.assert_called_once_with(
+            url, op='update_nodes',
+            add=['add-system-id'], remove=['remove-1', 'remove-2'])

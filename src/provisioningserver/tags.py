@@ -73,16 +73,21 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
     return json.loads(response.content)
 
 
-def update_node_tags(client, tag_name, added, removed):
+def update_node_tags(client, tag_name, uuid, added, removed):
     """Update the nodes relevant for a particular tag.
 
     :param client: MAAS client
     :param tag_name: Name of tag
+    :param uuid: NodeGroup uuid of this worker. Needed for security
+        permissions. (The nodegroup worker is only allowed to touch nodes in
+        its nodegroup, otherwise you need to be a superuser.)
     :param added: Set of nodes to add
     :param removed: Set of nodes to remove
     """
-    client.post('api/1.0/tags/' + tag_name, 'update_nodes',
-        matched=json.dump({"add": added, "remove": removed}))
+    path = 'api/1.0/tags/%s/' % (tag_name,)
+    response = client.post(path, op='update_nodes', add=added, remove=removed)
+    # XXX: Check the response code before we parse the content
+    return json.loads(response.content)
 
 
 def signal_done(client, nodegroup_uuid, tag_name):
