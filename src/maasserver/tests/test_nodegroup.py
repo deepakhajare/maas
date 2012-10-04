@@ -199,17 +199,6 @@ class TestNodeGroupManager(TestCase):
                 changed,
             ))
 
-    def test__mass_change_status_does_not_change_others(self):
-        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
-        unaffected_status = factory.getRandomEnum(
-            NODEGROUP_STATUS, but_not=[old_status])
-        nodegroup = factory.make_node_group(status=unaffected_status)
-        nb_changed = NodeGroup.objects._mass_change_status(
-            old_status, factory.getRandomEnum(NODEGROUP_STATUS))
-        self.assertEqual(
-            (unaffected_status, 0),
-            (reload_object(nodegroup).status, nb_changed))
-
     def test__mass_change_status_calls_post_save_signal(self):
         old_status = factory.getRandomEnum(NODEGROUP_STATUS)
         nodegroup = factory.make_node_group(status=old_status)
@@ -235,12 +224,30 @@ class TestNodeGroupManager(TestCase):
             (NODEGROUP_STATUS.REJECTED, 1),
             (reload_object(nodegroup).status, changed))
 
+    def test_reject_all_pending_does_not_change_others(self):
+        unaffected_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[NODEGROUP_STATUS.PENDING])
+        nodegroup = factory.make_node_group(status=unaffected_status)
+        changed_count = NodeGroup.objects.reject_all_pending()
+        self.assertEqual(
+            (unaffected_status, 0),
+            (reload_object(nodegroup).status, changed_count))
+
     def test_accept_all_pending_accepts_nodegroups(self):
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
         changed = NodeGroup.objects.accept_all_pending()
         self.assertEqual(
             (NODEGROUP_STATUS.ACCEPTED, 1),
             (reload_object(nodegroup).status, changed))
+
+    def test_accept_all_pending_does_not_change_others(self):
+        unaffected_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[NODEGROUP_STATUS.PENDING])
+        nodegroup = factory.make_node_group(status=unaffected_status)
+        changed_count = NodeGroup.objects.accept_all_pending()
+        self.assertEqual(
+            (unaffected_status, 0),
+            (reload_object(nodegroup).status, changed_count))
 
 
 class TestNodeGroup(TestCase):
