@@ -611,7 +611,10 @@ def create_node(request):
     Form = get_node_create_form(request.user)
     form = Form(altered_query_data)
     if form.is_valid():
-        return form.save()
+        node = form.save()
+        # Hack in the power parameters here.
+        store_node_power_parameters(node, request)
+        return node
     else:
         raise ValidationError(form.errors)
 

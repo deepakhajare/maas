@@ -289,6 +289,32 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(architecture, diane.architecture)
 
+    def test_POST_new_creates_node_with_power_parameters(self):
+        # We're setting power parameters so we disable start_commissioning to
+        # prevent anything from attempting to issue power instructions.
+        self.patch(Node, "start_commissioning")
+        hostname = factory.make_name("hostname")
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        power_type = POWER_TYPE.IPMI
+        power_parameters = {
+            "power_user": factory.make_name("power-user"),
+            "power_pass": factory.make_name("power-pass"),
+            }
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname,
+                'architecture': architecture,
+                'mac_addresses': factory.getRandomMACAddress(),
+                'power_parameters': json.dumps(power_parameters),
+                'power_type': power_type,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        [node] = Node.objects.filter(hostname=hostname)
+        self.assertEqual(power_parameters, node.power_parameters)
+        self.assertEqual(power_type, node.power_type)
+
     def test_POST_new_creates_node_with_arch_only(self):
         architecture = factory.getRandomChoice(
             [choice for choice in ARCHITECTURE_CHOICES
