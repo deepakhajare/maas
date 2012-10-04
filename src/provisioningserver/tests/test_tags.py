@@ -12,27 +12,35 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from apiclient.testing.credentials import make_api_credentials
-from maastesting.factory import factory
+from apiclient.maas_client import MAASClient
 from provisioningserver.auth import (
-    record_api_credentials,
-    record_maas_url,
-    record_nodegroup_uuid,
+    get_recorded_nodegroup_uuid,
     )
 from provisioningserver.testing.testcase import PservTestCase
+from provisioningserver import tags
 
 
 class TestTagUpdating(PservTestCase):
 
-    def set_maas_url(self):
-        record_maas_url(
-            'http://127.0.0.1/%s' % factory.make_name('path'))
+    def test_get_cached_knowledge_knows_nothing(self):
+        # If we haven't given it any secrets, we should get back nothing
+        self.assertEqual((None, None), tags.get_cached_knowledge())
 
-    def set_api_credentials(self):
-        record_api_credentials(':'.join(make_api_credentials()))
+    def test_get_cached_knowledge_with_only_url(self):
+        self.set_maas_url()
+        self.assertEqual((None, None), tags.get_cached_knowledge())
 
-    def set_node_group_uuid(self):
-        nodegroup_uuid = factory.make_name('nodegroupuuid')
-        record_nodegroup_uuid(nodegroup_uuid)
+    def test_get_cached_knowledge_with_only_url_creds(self):
+        self.set_maas_url()
+        self.set_api_credentials()
+        self.assertEqual((None, None), tags.get_cached_knowledge())
 
-    # FIXME
+    def test_get_cached_knowledge_with_all_info(self):
+        self.set_maas_url()
+        self.set_api_credentials()
+        self.set_node_group_uuid()
+        client, uuid = tags.get_cached_knowledge()
+        self.assertIsNot(None, client)
+        self.assertIsInstance(client, MAASClient)
+        self.assertIsNot(None, uuid)
+        self.assertEqual(get_recorded_nodegroup_uuid(), uuid)

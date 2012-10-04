@@ -22,6 +22,28 @@ from provisioningserver.auth import (
 from provisioningserver.logging import task_logger
 
 
+def get_cached_knowledge():
+    """Get all the information that we need to know, or raise an error.
+
+    :return: (client, nodegroup_uuid)
+    """
+    maas_url = get_recorded_maas_url()
+    if maas_url is None:
+        task_logger.error("Not updating tags: don't have API URL yet.")
+        return None, None
+    api_credentials = get_recorded_api_credentials()
+    if api_credentials is None:
+        task_logger.error("Not updating tags: don't have API key yet.")
+        return None, None
+    nodegroup_uuid = get_recorded_nodegroup_uuid()
+    if nodegroup_uuid is None:
+        task_logger.error("Not updating tags: don't have UUID yet.")
+        return None, None
+    client = MAASClient(MAASOAuth(*api_credentials), MAASDispatcher(),
+        maas_url)
+    return client, nodegroup_uuid
+
+
 def get_nodes_for_node_group(client, nodegroup_uuid):
     """Retrieve the UUIDs of nodes in a particular group.
 
@@ -93,7 +115,7 @@ def process_node_tags(tag_name, tag_definition, batch_size=100):
     nodes = get_nodes_for_node_group(client, nodegroup_uuid)
     for node in nodes:
         for i in range(0, len(nodes), batch_size):
-            selected_nodes = nodes[i:i+batch_size]
+            selected_nodes = nodes[i:i + batch_size]
             # Fetch node XML in batches
             lshw_output = get_lshw_output_for_nodes(client, selected_nodes)
             matched_nodes = set()

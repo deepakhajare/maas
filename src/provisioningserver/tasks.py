@@ -339,6 +339,7 @@ def report_boot_images():
     """For master worker only: report available netboot images."""
     boot_images.report_to_server()
 
+
 @task
 def update_node_tags(tag_name, tag_definition):
     """Update the nodes for a new/changed tag definition.
@@ -346,4 +347,4 @@ def update_node_tags(tag_name, tag_definition):
     :param tag_name: Name of the tag to update nodes for
     :param tag_definition: Tag definition
     """
-    tasks.process_node_tags(tag_name, tag_definition)
+    tags.process_node_tags(tag_name, tag_definition)
