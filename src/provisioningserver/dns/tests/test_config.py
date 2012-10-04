@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import errno
 import os.path
 import random
 
@@ -23,6 +24,7 @@ from maastesting.matchers import (
     MatchesAll,
     )
 from maastesting.testcase import TestCase
+from mock import Mock
 from netaddr import (
     IPAddress,
     IPNetwork,
@@ -30,6 +32,7 @@ from netaddr import (
 from provisioningserver.dns import config
 from provisioningserver.dns.config import (
     DNSConfig,
+    DNSConfigDirectoryMissing,
     DNSConfigFail,
     DNSForwardZoneConfig,
     DNSReverseZoneConfig,
@@ -121,6 +124,20 @@ class TestDNSConfig(TestCase):
         exception = self.assertRaises(
             DNSConfigFail, dnsconfig.render_template, template)
         self.assertIn("'test' is not defined", exception.message)
+
+    def test_write_config_returns_DNSConfigDirectoryMissing(self):
+        dnsconfig = DNSConfig()
+        dir_name = self.make_dir()
+        os.rmdir(dir_name)
+        self.patch(DNSConfig, 'target_dir', dir_name)
+        self.assertRaises(DNSConfigDirectoryMissing, dnsconfig.write_config)
+
+    def test_write_config_errors_if_unexpected_exception(self):
+        dnsconfig = DNSConfig()
+        exception = IOError(errno.EBUSY, factory.getRandomString())
+        self.patch(
+            DNSConfig, 'inner_write_config', Mock(side_effect=exception))
+        self.assertRaises(IOError, dnsconfig.write_config)
 
     def test_write_config_skips_writing_if_overwrite_false(self):
         # If DNSConfig is created with overwrite=False, it won't
