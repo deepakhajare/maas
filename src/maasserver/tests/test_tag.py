@@ -13,12 +13,18 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.exceptions import ValidationError
+from maastesting.celery import CeleryFixture
 from maasserver.models import Tag
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from testresources import FixtureResource
 
 
 class TagTest(TestCase):
+
+    resources = (
+        ('celery', FixtureResource(CeleryFixture())),
+        )
 
     def test_factory_make_tag(self):
         """

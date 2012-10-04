@@ -2628,6 +2628,10 @@ class TestTagAPI(APITestCase):
 
 class TestTagsAPI(APITestCase):
 
+    # resources = (
+    #     ('celery', FixtureResource(CeleryFixture())),
+    #     )
+
     def test_GET_list_without_tags_returns_empty_list(self):
         response = self.client.get(self.get_uri('tags/'), {'op': 'list'})
         self.assertItemsEqual([], json.loads(response.content))
