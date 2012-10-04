@@ -170,8 +170,8 @@ class DNSConfigBase:
         try:
             self.inner_write_config(overwrite=overwrite, **kwargs)
         except OSError as exception:
-            # Only swallow the exception if it is a "No such file or
-            # directory" exception.
+            # Only raise a DNSConfigDirectoryMissing exception if this error
+            # is a "No such file or directory" exception.
             if exception.errno == errno.ENOENT:
                 raise DNSConfigDirectoryMissing(
                     "The directory where the DNS config files should be "
