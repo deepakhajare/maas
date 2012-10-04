@@ -174,7 +174,7 @@ class TestIsResponseTextual(TestCase):
         "video/webm": False,
         }
 
-    scenarios = (
+    scenarios = sorted(
         (ctype, {"content_type": ctype, "is_textual": is_textual})
         for ctype, is_textual in content_types.items()
         )
