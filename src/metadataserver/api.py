@@ -339,7 +339,10 @@ class MetaDataHandler(VersionIndexHandler):
         """ Produce public-keys attribute."""
         keys = SSHKey.objects.get_keys_for_user(user=node.owner)
         if not keys:
-            raise MAASAPINotFound("No registered public keys")
+            # We get requests for this from cloud-init, regardless of
+            # whether any keys are available.  Return 404, but don't
+            # raise an exception that would cause unnecessary log noise.
+            return HttpResponseNotFound("No registered public keys")
         return make_list_response(keys)
 
 
