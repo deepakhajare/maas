@@ -15,6 +15,7 @@ __all__ = [
     'run',
     ]
 
+from grp import getgrnam
 import httplib
 import json
 import os
@@ -72,6 +73,11 @@ def get_maas_celery_log():
     return app_or_default().conf.MAAS_CELERY_LOG
 
 
+def get_maas_celerybeat_db():
+    """Read location for MAAS Celery schedule file from the config."""
+    return app_or_default().conf.MAAS_CLUSTER_CELERY_DB
+
+
 def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
@@ -124,7 +130,7 @@ def register(server_url):
 def start_celery(connection_details, user, group):
     broker_url = connection_details['BROKER_URL']
     uid = getpwnam(user).pw_uid
-    gid = getpwnam(group).pw_gid
+    gid = getgrnam(group).gr_gid
 
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
@@ -132,17 +138,18 @@ def start_celery(connection_details, user, group):
     command = [
         'celeryd',
         '--logfile=%s' % get_maas_celery_log(),
+        '--schedule=%s' % get_maas_celerybeat_db(),
         '--loglevel=INFO',
         '--beat',
         '-Q', get_cluster_uuid(),
         ]
 
-    pid = os.fork()
-    if pid == 0:
-        # Child process.  Become the right user, and start celery.
-        os.setuid(uid)
-        os.setgid(gid)
-        os.execvpe(command[0], command, env)
+    # Change gid first, just in case changing the uid might deprive
+    # us of the privileges required to setgid.
+    os.setgid(gid)
+    os.setuid(uid)
+
+    os.execvpe(command[0], command, env=env)
 
 
 def request_refresh(server_url):
@@ -161,9 +168,12 @@ def start_up(server_url, connection_details, user, group):
     This starts up celeryd, listening to the broker that the region
     controller pointed us to, and on the appropriate queue.
     """
-    start_celery(connection_details, user=user, group=group)
-    sleep(10)
+    # Get the region controller to send out credentials.  If it arrives
+    # before celeryd has started up, we should find the message waiting
+    # in our queue.  Even if we're new and the queue did not exist yet,
+    # the arriving task will create the queue.
     request_refresh(server_url)
+    start_celery(connection_details, user=user, group=group)
 
 
 def run(args):

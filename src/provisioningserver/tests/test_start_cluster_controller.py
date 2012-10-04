@@ -18,7 +18,6 @@ import httplib
 from io import BytesIO
 import json
 import os
-from random import randint
 from urllib2 import (
     HTTPError,
     URLError,
@@ -28,6 +27,10 @@ from apiclient.maas_client import MAASDispatcher
 from apiclient.testing.django import parse_headers_and_body_with_django
 from fixtures import EnvironmentVariableFixture
 from maastesting.factory import factory
+from mock import (
+    call,
+    sentinel,
+    )
 from provisioningserver import start_cluster_controller
 from provisioningserver.testing.testcase import PservTestCase
 
@@ -85,12 +88,10 @@ class TestStartClusterController(PservTestCase):
         # raise exceptions.
         self.patch(start_cluster_controller, 'sleep').side_effect = Sleeping()
         self.patch(start_cluster_controller, 'getpwnam')
-        start_cluster_controller.getpwnam.pw_uid = randint(3000, 4000)
-        start_cluster_controller.getpwnam.pw_gid = randint(3000, 4000)
-        self.patch(os, 'fork').side_effect = Executing()
-        self.patch(os, 'execvpe').side_effect = Executing()
+        self.patch(start_cluster_controller, 'getgrnam')
         self.patch(os, 'setuid')
         self.patch(os, 'setgid')
+        self.patch(os, 'execvpe').side_effect = Executing()
         get_uuid = self.patch(start_cluster_controller, 'get_cluster_uuid')
         get_uuid.return_value = factory.getRandomUUID()
 
@@ -133,36 +134,19 @@ class TestStartClusterController(PservTestCase):
         """Prepare to return "request pending" from API request."""
         self.prepare_response(httplib.ACCEPTED)
 
-    def pretend_to_fork_into_child(self):
-        """Make `fork` act as if it's returning into the child process.
-
-        The start_cluster_controller child process then executes celeryd,
-        so this call also patches up the call that does that so it pretends
-        to be successful.
-        """
-        self.patch(os, 'fork').return_value = 0
-        self.patch(os, 'execvpe')
-
-    def pretend_to_fork_into_parent(self):
-        """Make `fork` act as if it's returning into the parent process."""
-        self.patch(os, 'fork').return_value = randint(2, 65535)
-
     def test_run_command(self):
         # We can't really run the script, but we can verify that (with
         # the right system functions patched out) we can run it
         # directly.
-        self.pretend_to_fork_into_child()
-        self.patch(start_cluster_controller, 'sleep')
+        start_cluster_controller.sleep.side_effect = None
         self.prepare_success_response()
         parser = ArgumentParser()
         start_cluster_controller.add_arguments(parser)
-        start_cluster_controller.run(parser.parse_args((make_url(),)))
-        self.assertEqual(1, os.fork.call_count)
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.run,
+            parser.parse_args((make_url(),)))
         self.assertEqual(1, os.execvpe.call_count)
-        os.setuid.assert_called_once_with(
-            start_cluster_controller.getpwnam.return_value.pw_uid)
-        os.setgid.assert_called_once_with(
-            start_cluster_controller.getpwnam.return_value.pw_gid)
 
     def test_uses_given_url(self):
         url = make_url('region')
@@ -227,13 +211,14 @@ class TestStartClusterController(PservTestCase):
             (server_url, connection_details))
 
     def test_start_up_calls_refresh_secrets(self):
+        start_cluster_controller.sleep.side_effect = None
         url = make_url('region')
         connection_details = self.make_connection_details()
-        self.pretend_to_fork_into_parent()
-        self.patch(start_cluster_controller, 'sleep')
         self.prepare_success_response()
 
-        start_cluster_controller.start_up(
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.start_up,
             url, connection_details,
             factory.make_name('user'), factory.make_name('group'))
 
@@ -246,13 +231,33 @@ class TestStartClusterController(PservTestCase):
         self.assertEqual("refresh_workers", post["op"])
 
     def test_start_up_ignores_failure_on_refresh_secrets(self):
-        self.pretend_to_fork_into_parent()
-        self.patch(start_cluster_controller, 'sleep')
+        start_cluster_controller.sleep.side_effect = None
         self.patch(MAASDispatcher, 'dispatch_query').side_effect = URLError(
             "Simulated HTTP failure.")
 
-        start_cluster_controller.start_up(
+        self.assertRaises(
+            Executing,
+            start_cluster_controller.start_up,
             make_url(), self.make_connection_details(),
             factory.make_name('user'), factory.make_name('group'))
 
-        self.assertEqual(1, os.fork.call_count)
+        self.assertEqual(1, os.execvpe.call_count)
+
+    def test_start_celery_sets_gid_before_uid(self):
+        # The gid should be changed before the uid; it may not be possible to
+        # change the gid once privileges are dropped.
+        start_cluster_controller.getpwnam.return_value.pw_uid = sentinel.uid
+        start_cluster_controller.getgrnam.return_value.gr_gid = sentinel.gid
+        # Patch setuid and setgid, using the same mock for both, so that we
+        # can observe call ordering.
+        setuidgid = self.patch(os, "setuid")
+        self.patch(os, "setgid", setuidgid)
+        self.assertRaises(
+            Executing, start_cluster_controller.start_celery,
+            self.make_connection_details(), factory.make_name("user"),
+            factory.make_name("group"))
+        # The arguments to the mocked setuid/setgid calls demonstrate that the
+        # gid was selected first.
+        self.assertEqual(
+            [call(sentinel.gid), call(sentinel.uid)],
+            setuidgid.call_args_list)
