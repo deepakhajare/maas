@@ -85,4 +85,4 @@ class TestTagUpdating(PservTestCase):
         url = 'api/1.0/nodegroup/%s/' % (uuid,)
         mock.assert_called_once_with(
             url, op='node_hardware_details',
-            system_ids='["system-id1", "system-id2"]')
+            system_ids=["system-id1", "system-id2"])

@@ -65,8 +65,10 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
     :return: Dictionary mapping node UUIDs to lshw output
     """
     path = 'api/1.0/nodegroup/%s/' % (nodegroup_uuid,)
+    # TODO: Do we pass system_ids as a python list? Or do we json.dumps it
+    #       first?
     response = client.get(
-        path, op='node_hardware_details', system_ids=json.dumps(system_ids))
+        path, op='node_hardware_details', system_ids=system_ids)
     # XXX: Check the response code before we parse the content
     return json.loads(response.content)
 
