@@ -125,7 +125,7 @@ class TestDNSConfig(TestCase):
             DNSConfigFail, dnsconfig.render_template, template)
         self.assertIn("'test' is not defined", exception.message)
 
-    def test_write_config_returns_DNSConfigDirectoryMissing(self):
+    def test_write_config_DNSConfigDirectoryMissing_if_dir_missing(self):
         dnsconfig = DNSConfig()
         dir_name = self.make_dir()
         os.rmdir(dir_name)
