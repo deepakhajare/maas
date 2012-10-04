@@ -17,7 +17,7 @@ With nodes set to boot from a PXE image, they will start, look for a DHCP server
 During this process, the MAAS server will be passed information about the node, including the architecture, MAC address and other details which will be stored in the database of nodes. You can accept and comission the nodes via the web interface.
 When the nodes have been accepted the selected series of Ubuntu will be installed.
 
-To save time, you can accept and commission all nodes from the commandline::
+To save time, you can also accept and commission all nodes from the commandline. This requires that you first login with the API key, which :ref:`you can retrieve from the web interface <api-key>`::
 
    $ maas-cli api maas nodes accept-all
 

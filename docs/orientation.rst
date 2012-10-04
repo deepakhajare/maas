@@ -31,6 +31,7 @@ You probably don't need MAAS if any or all of these statements are true:
     * You like trying to set up complicated, critical services without any help
 
 
+.. _setup:
 
 A Typical MAAS setup
 --------------------

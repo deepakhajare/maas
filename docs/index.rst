@@ -38,9 +38,9 @@ Deploying services
 
    juju-quick-start
 
-**************
-Using maas-cli
-**************
+******************************
+Using the maas-cli commandline
+******************************
 
 .. toctree::
    :maxdepth: 2
