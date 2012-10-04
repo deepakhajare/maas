@@ -74,7 +74,7 @@ class TestTagUpdating(PservTestCase):
         self.patch(client, 'get', mock)
         result = tags.get_nodes_for_node_group(client, uuid)
         self.assertEqual(['system-id1', 'system-id2'], result)
-        url = 'api/1.0/nodegroup/%s/' % (uuid,)
+        url = '/api/1.0/nodegroups/%s/' % (uuid,)
         mock.assert_called_once_with(url, op='list_nodes')
 
     def test_get_hardware_details_calls_correct_api_and_parses_result(self):
@@ -87,7 +87,7 @@ class TestTagUpdating(PservTestCase):
         result = tags.get_hardware_details_for_nodes(
             client, uuid, ['system-id1', 'system-id2'])
         self.assertEqual([['system-id1', xml_data]], result)
-        url = 'api/1.0/nodegroup/%s/' % (uuid,)
+        url = '/api/1.0/nodegroups/%s/' % (uuid,)
         mock.assert_called_once_with(
             url, op='node_hardware_details',
             system_ids=["system-id1", "system-id2"])
@@ -102,7 +102,7 @@ class TestTagUpdating(PservTestCase):
         result = tags.update_node_tags(client, name, uuid,
             ['add-system-id'], ['remove-1', 'remove-2'])
         self.assertEqual({'added': 1, 'removed': 2}, result)
-        url = 'api/1.0/tags/%s/' % (name,)
+        url = '/api/1.0/tags/%s/' % (name,)
         mock.assert_called_once_with(
             url, op='update_nodes',
             add=['add-system-id'], remove=['remove-1', 'remove-2'])
@@ -141,8 +141,8 @@ class TestTagUpdating(PservTestCase):
         tag_name = factory.make_name('tag')
         nodegroup_uuid = get_recorded_nodegroup_uuid()
         tags.process_node_tags(tag_name, '//node')
-        nodegroup_url = 'api/1.0/nodegroup/%s/' % (nodegroup_uuid,)
-        tag_url = 'api/1.0/tags/%s/' % (tag_name,)
+        nodegroup_url = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid,)
+        tag_url = '/api/1.0/tags/%s/' % (tag_name,)
         self.assertEqual([((nodegroup_url,), {'op': 'list_nodes'})],
                          get_nodes.calls)
         self.assertEqual([((nodegroup_url,),
