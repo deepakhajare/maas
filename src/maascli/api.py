@@ -100,6 +100,9 @@ def get_response_content_type(response):
     except KeyError:
         return None
     else:
+        # It seems odd to create a Message instance here, but at the time of
+        # writing it's the only place that has the smarts to correctly deal
+        # with a Content-Type that contains a charset (or other parameters).
         message = Message()
         message.set_type(content_type)
         return message.get_content_type()

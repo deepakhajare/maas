@@ -165,7 +165,7 @@ class TestFunctions(TestCase):
 class TestIsResponseTextual(TestCase):
     """Tests for `is_response_textual`."""
 
-    content_types = {
+    content_types_textual_map = {
         "text/plain": True,
         "text/yaml": True,
         "text/foobar": True,
@@ -176,7 +176,7 @@ class TestIsResponseTextual(TestCase):
 
     scenarios = sorted(
         (ctype, {"content_type": ctype, "is_textual": is_textual})
-        for ctype, is_textual in content_types.items()
+        for ctype, is_textual in content_types_textual_map.items()
         )
 
     def test_type(self):
