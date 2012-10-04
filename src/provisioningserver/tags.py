@@ -111,15 +111,21 @@ def process_all(client, tag_name, nodegroup_uuid, system_ids, xpath,
                 batch_size=None):
     if batch_size is None:
         batch_size = DEFAULT_BATCH_SIZE
+    all_matched = []
+    all_unmatched = []
     for i in range(0, len(system_ids), batch_size):
         selected_ids = system_ids[i:i + batch_size]
         details = get_hardware_details_for_nodes(
             client, nodegroup_uuid, selected_ids)
         matched, unmatched = process_batch(xpath, details)
-        # JAM 2012-10-04 If we wanted, we could defer the update_nodes until
-        #       after everything was processed, but this lets us do incremental
-        #       improvements, and avoids POSTing 4MB of info at once.
-        update_node_tags(client, tag_name, nodegroup_uuid, matched, unmatched)
+        all_matched.extend(matched)
+        all_unmatched.extend(unmatched)
+    # Upload all updates for one nodegroup at one time. This should be no more
+    # than ~41*10,000 = 410kB. That should take <1s even on a 10Mbit network.
+    # This also allows us to track if a nodegroup has been processed in the DB,
+    # without having to add another API call.
+    update_node_tags(client, tag_name, nodegroup_uuid, all_matched,
+                     all_unmatched)
 
 
 def process_node_tags(tag_name, tag_definition, batch_size=None):

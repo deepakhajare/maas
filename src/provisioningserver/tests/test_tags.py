@@ -177,3 +177,5 @@ class TestTagUpdating(PservTestCase):
         tags.get_nodes_for_node_group.assert_called_once_with(client, uuid)
         self.assertEqual([((client, uuid, ['a', 'b']), {})], fake_first.calls)
         self.assertEqual([((client, uuid, ['c']), {})], fake_second.calls)
+        tags.update_node_tags.assert_called_once_with(
+            client, tag_name, uuid, ['a', 'c'], ['b'])
