@@ -127,6 +127,50 @@ class TestFunctions(TestCase):
             "Expected application/json, got: text/css",
             "%s" % error)
 
+    def test_get_response_content_type_returns_content_type_header(self):
+        response = httplib2.Response(
+            {"content-type": "application/json"})
+        self.assertEqual(
+            "application/json",
+            api.get_response_content_type(response))
+
+    def test_get_response_content_type_omits_parameters(self):
+        response = httplib2.Response(
+            {"content-type": "application/json; charset=utf-8"})
+        self.assertEqual(
+            "application/json",
+            api.get_response_content_type(response))
+
+    def test_get_response_content_type_return_None_when_type_not_found(self):
+        response = httplib2.Response({})
+        self.assertIsNone(api.get_response_content_type(response))
+
+
+class TestIsResponseTextual(TestCase):
+    """Tests for `is_response_textual`."""
+
+    content_types = {
+        "text/plain": True,
+        "text/yaml": True,
+        "text/foobar": True,
+        "application/json": True,
+        "image/png": False,
+        "video/webm": False,
+        }
+
+    scenarios = (
+        (ctype, {"content_type": ctype, "is_textual": is_textual})
+        for ctype, is_textual in content_types.items()
+        )
+
+    def test_type(self):
+        grct = self.patch(api, "get_response_content_type")
+        grct.return_value = self.content_type
+        self.assertEqual(
+            self.is_textual,
+            api.is_response_textual(sentinel.response))
+        grct.assert_called_once_with(sentinel.response)
+
 
 class TestAction(TestCase):
     """Tests for :class:`maascli.api.Action`."""
