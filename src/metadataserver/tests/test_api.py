@@ -678,9 +678,8 @@ class TestEnlistViews(DjangoTestCase):
         self.assertTrue(response.content)
 
     def test_public_keys_returns_empty(self):
-        # An enlisting node has no SSH keys, but it does request them
-        # (bug 1058313).  If the node insists, we give it the empty
-        # list.
+        # An enlisting node has no SSH keys, but it does request them.
+        # If the node insists, we give it the empty list.
         md_url = reverse(
             'enlist-metadata-meta-data', args=['latest', 'public-keys'])
         response = self.client.get(md_url)
