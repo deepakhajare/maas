@@ -5,6 +5,7 @@
 
 """
 
+import httplib
 import json
 from lxml import etree
 
@@ -48,6 +49,14 @@ def get_cached_knowledge():
     return client, nodegroup_uuid
 
 
+def process_response(response):
+    """All responses should be httplib.OK and contain JSON content."""
+    if response.status_code != httplib.OK:
+        text_status = httplib.responses.get(response.status_code, '<unknown>')
+        raise AssertionError('Unexpected HTTP status: %s %s, expected 200 OK'
+            % (response.status_code, text_status))
+    return json.loads(response.content)
+
 def get_nodes_for_node_group(client, nodegroup_uuid):
     """Retrieve the UUIDs of nodes in a particular group.
 
@@ -56,9 +65,7 @@ def get_nodes_for_node_group(client, nodegroup_uuid):
     :return: List of UUIDs for nodes in nodegroup
     """
     path = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid)
-    response = client.get(path, op='list_nodes')
-    # XXX: Check the response code before we parse the content
-    return json.loads(response.content)
+    return process_response(client.get(path, op='list_nodes'))
 
 
 def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
@@ -69,10 +76,8 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
     :return: Dictionary mapping node UUIDs to lshw output
     """
     path = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid,)
-    response = client.get(
-        path, op='node_hardware_details', system_ids=system_ids)
-    # XXX: Check the response code before we parse the content
-    return json.loads(response.content)
+    return process_response(client.get(
+        path, op='node_hardware_details', system_ids=system_ids))
 
 
 def update_node_tags(client, tag_name, uuid, added, removed):
@@ -87,9 +92,8 @@ def update_node_tags(client, tag_name, uuid, added, removed):
     :param removed: Set of nodes to remove
     """
     path = '/api/1.0/tags/%s/' % (tag_name,)
-    response = client.post(path, op='update_nodes', add=added, remove=removed)
-    # XXX: Check the response code before we parse the content
-    return json.loads(response.content)
+    return process_response(client.post(
+        path, op='update_nodes', add=added, remove=removed))
 
 
 def process_batch(xpath, hardware_details):
