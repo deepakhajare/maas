@@ -186,9 +186,10 @@ def upload_leases():
         process_leases(timestamp, leases)
     else:
         task_logger.info(
-            "Unable to parse the DHCP leases file.  You might want to install "
-            "the 'maas-dhcp' package.  Note that this is perfectly fine "
-            "if this cluster is not managing its DHCP server.")
+            "The DHCP leases file does not exit.  This is only a problem if "
+            "this cluster controller is managing its DHCP server.  If that's "
+            "the case then you need to install the 'maas-dhcp' package on "
+            "this cluster controller.")
 
 
 def update_leases():
