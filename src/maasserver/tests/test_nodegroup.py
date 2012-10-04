@@ -204,11 +204,11 @@ class TestNodeGroupManager(TestCase):
         unaffected_status = factory.getRandomEnum(
             NODEGROUP_STATUS, but_not=[old_status])
         nodegroup = factory.make_node_group(status=unaffected_status)
-        changed = NodeGroup.objects._mass_change_status(
+        nb_changed = NodeGroup.objects._mass_change_status(
             old_status, factory.getRandomEnum(NODEGROUP_STATUS))
         self.assertEqual(
             (unaffected_status, 0),
-            (reload_object(nodegroup).status, changed))
+            (reload_object(nodegroup).status, nb_changed))
 
     def test__mass_change_status_calls_post_save_signal(self):
         old_status = factory.getRandomEnum(NODEGROUP_STATUS)
