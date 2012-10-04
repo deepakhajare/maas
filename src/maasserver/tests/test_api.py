@@ -2584,6 +2584,36 @@ class TestTagAPI(APITestCase):
         self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
         self.assertItemsEqual([], tag.node_set.all())
 
+    def test_POST_rebuild_rebuilds_node_mapping(self):
+        tag = factory.make_tag(definition='/foo/bar')
+        # Only one node matches the tag definition, rebuilding should notice
+        node_matching = factory.make_node()
+        node_matching.set_hardware_details('<foo><bar /></foo>')
+        node_bogus = factory.make_node()
+        node_bogus.set_hardware_details('<foo />')
+        node_matching.tags.add(tag)
+        node_bogus.tags.add(tag)
+        self.assertItemsEqual(
+            [node_matching, node_bogus], tag.node_set.all())
+        self.become_admin()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'rebuild'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'rebuilding': tag.name}, parsed_result)
+        self.assertItemsEqual([node_matching], tag.node_set.all())
+
+    def test_POST_rebuild_unknown_404(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('tags/unknown-tag/'), {'op': 'rebuild'})
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_POST_rebuild_refuses_user(self):
+        tag = factory.make_tag(definition='/foo/bar')
+        response = self.client.post(
+            self.get_tag_uri(tag), {'op': 'rebuild'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
 
 class TestTagsAPI(APITestCase):
 
