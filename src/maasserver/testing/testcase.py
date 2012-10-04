@@ -21,7 +21,7 @@ from django.core.cache import cache as django_cache
 from maasserver.testing.factory import factory
 from maastesting.celery import CeleryFixture
 import maastesting.djangotestcase
-from provisioningserver.testing.tags import install_test_tag_cached_knowledge
+from provisioningserver.testing.tags import install_tag_cached_knowledge
 from provisioningserver.testing.worker_cache import WorkerCacheFixture
 
 
@@ -35,7 +35,7 @@ class TestCase(maastesting.djangotestcase.DjangoTestCase):
         self.celery = self.useFixture(CeleryFixture())
 
     def patch_tags_api(self):
-        install_test_tag_cached_knowledge(self)
+        install_tag_cached_knowledge(self)
 
 
 class TestModelTestCase(TestCase,

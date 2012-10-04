@@ -34,7 +34,7 @@ def get_nodegroup_worker_client(nodegroup_uuid):
     return maas_client
 
 
-def install_test_tag_cached_knowledge(test):
+def install_tag_cached_knowledge(test):
     """Install the get_nodegroup_cached_knowledge for this test."""
     from provisioningserver import tags
     test.patch(tags, 'get_cached_knowledge', get_nodegroup_cached_knowledge)
