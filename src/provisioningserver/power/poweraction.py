@@ -36,6 +36,7 @@ def get_power_templates_dir():
     """Get the power-templates directory from the config."""
     return app_or_default().conf.POWER_TEMPLATES_DIR
 
+
 def get_power_config_dir():
     """Get the power-config directory from the config."""
     return app_or_default().conf.POWER_CONFIG_DIR
@@ -87,9 +88,15 @@ class PowerAction:
         with open(self.path, "rb") as f:
             return ShellTemplate(f.read(), name=self.path)
 
+    def get_extra_context(self):
+        """Extra context used when rending the power templates."""
+        return {
+            'config_dir': self.config_basedir,
+        }
+
     def render_template(self, template, **kwargs):
         try:
-            kwargs['config_dir'] = self.config_basedir()
+            kwargs.update(self.get_extra_context())
             return template.substitute(kwargs)
         except NameError as error:
             raise PowerActionFail(*error.args)
