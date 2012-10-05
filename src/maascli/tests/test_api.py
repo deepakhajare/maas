@@ -20,7 +20,10 @@ import sys
 
 from apiclient.creds import convert_tuple_to_string
 import httplib2
-from maascli import api
+from maascli import (
+    api,
+    ArgumentParser,
+    )
 from maascli.command import CommandError
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
@@ -31,6 +34,33 @@ from testtools.matchers import (
     MatchesAll,
     MatchesListwise,
     )
+
+
+class TestRegisterAPICommands(TestCase):
+    """Tests for `register_api_commands`."""
+
+    def test_registers_subparsers(self):
+        parser = ArgumentParser()
+        self.assertIsNone(parser._subparsers)
+        api.register_api_commands(parser)
+        self.assertIsNotNone(parser._subparsers)
+
+
+class TestRegisterCLICommands(TestCase):
+    """Tests for `register_cli_commands`."""
+
+    def test_registers_subparsers(self):
+        parser = ArgumentParser()
+        self.assertIsNone(parser._subparsers)
+        api.register_cli_commands(parser)
+        self.assertIsNotNone(parser._subparsers)
+
+    def test_subparsers_have_appropriate_execute_defaults(self):
+        parser = ArgumentParser()
+        api.register_cli_commands(parser)
+        self.assertIsInstance(
+            parser.subparsers.choices['login'].get_default('execute'),
+            api.cmd_login)
 
 
 class TestFunctions(TestCase):
