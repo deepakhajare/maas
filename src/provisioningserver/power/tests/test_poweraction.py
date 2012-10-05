@@ -164,6 +164,7 @@ class TestPowerAction(TestCase):
         script = action.render_template(
             action.get_template(), power_change='on',
             power_address='mystystem', power_user='me', power_pass='me',
-            ipmipower='echo')
+            ipmipower='echo', ipmi_chassis_config='echo', config_dir='dir',
+            ipmi_config='file.conf')
         stdout, stderr = action.run_shell(script)
         self.assertIn("Got unknown power state from ipmipower", stderr)
