@@ -164,7 +164,8 @@ class DNSConfigBase:
     def write_config(self, overwrite=True, **kwargs):
         """Write out this DNS config file.
 
-        This ignores any "No such file or directory" error which would mean
+        This raises DNSConfigDirectoryMissing if any
+        "No such file or directory" error is raised because that would mean
         that the directory containing the write to be written does not exist.
         """
         try:
@@ -176,7 +177,7 @@ class DNSConfigBase:
                 raise DNSConfigDirectoryMissing(
                     "The directory where the DNS config files should be "
                     "written does not exist.  Make sure the 'maas-dns' "
-                    "package installed on this region controller.")
+                    "package is installed on this region controller.")
             else:
                 raise
 
