@@ -54,7 +54,6 @@
                     {% endblock %}
                   </li>
                 {% if user.is_superuser %}
-                    <li class="divider"></li>
                   <li class="icon {% block nav-active-settings %}{% endblock %}">
                     <a href="{% url 'settings' %}">
                       <img src="{{ STATIC_URL }}img/settings.png" alt="Settings" />
