@@ -45,6 +45,7 @@ from maasserver.api import (
     extract_oauth_key_from_auth_header,
     get_oauth_token,
     get_overrided_query_dict,
+    store_node_power_parameters,
     )
 from maasserver.enum import (
     ARCHITECTURE,
@@ -57,7 +58,10 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.exceptions import Unauthorized
+from maasserver.exceptions import (
+    MAASAPIBadRequest,
+    Unauthorized,
+    )
 from maasserver.fields import mac_error_msg
 from maasserver.forms import DEFAULT_ZONE_NAME
 from maasserver.models import (
@@ -219,6 +223,71 @@ class TestModuleHelpers(TestCase):
         data = {key: data_value}
         results = get_overrided_query_dict(defaults, data)
         self.assertEqual([data_value], results.getlist(key))
+
+
+class TestStoreNodeParameters(TestCase):
+    """Tests for `store_node_power_parameters`."""
+
+    def setUp(self):
+        super(TestStoreNodeParameters, self).setUp()
+        self.node = factory.make_node()
+        self.save = self.patch(self.node, "save")
+        self.request = Mock()
+
+    def test_power_type_not_given(self):
+        # When power_type is not specified, nothing happens.
+        self.request.POST = {}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(POWER_TYPE.DEFAULT, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_has_calls([])
+
+    def test_power_type_set_but_no_parameters(self):
+        # When power_type is valid, it is set. However, if power_parameters is
+        # not specified, the node's power_parameters is left alone, and the
+        # node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {"power_type": power_type}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_parameters(self):
+        # When power_type is valid, and power_parameters is valid JSON, both
+        # fields are set on the node, and the node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        power_parameters = {"foo": [1, 2, 3]}
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": json.dumps(power_parameters),
+            }
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual(power_parameters, self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_invalid_parameters(self):
+        # When power_type is valid, but power_parameters is invalid JSON, the
+        # node is not saved, and an exception is raised.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": "Not JSON.",
+            }
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
+
+    def test_invalid_power_type(self):
+        # When power_type is invalid, the node is not saved, and an exception
+        # is raised.
+        self.request.POST = {"power_type": factory.make_name("bogus")}
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
 
 
 class MultipleUsersScenarios:

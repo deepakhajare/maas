@@ -75,6 +75,7 @@ __all__ = [
     "TagsHandler",
     "pxeconfig",
     "render_api_docs",
+    "store_node_power_parameters",
     ]
 
 from base64 import b64decode
@@ -425,21 +426,23 @@ def store_node_power_parameters(node, request):
 
     The parameters should be JSON, passed with key `power_parameters`.
     """
-    type = request.POST.get("power_type", None)
-    if type is None:
+    power_type = request.POST.get("power_type", None)
+    if power_type is None:
         return
 
-    params = request.POST.get("power_parameters", None)
+    power_types = map_enum(POWER_TYPE).values()
+    if power_type in power_types:
+        node.power_type = power_type
+    else:
+        raise MAASAPIBadRequest("Bad power_type '%s'" % power_type)
 
-    type_dict = map_enum(POWER_TYPE)
-    if type.upper() not in type_dict:
-        raise MAASAPIBadRequest("Bad power_type '%s'" % type)
-    node.power_type = type_dict[type.upper()]
+    power_parameters = request.POST.get("power_parameters", None)
+    if power_parameters and not power_parameters.isspace():
+        try:
+            node.power_parameters = json.loads(power_parameters)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse JSON power_parameters")
 
-    try:
-        node.power_parameters = json.loads(params)
-    except ValueError:
-        raise MAASAPIBadRequest("Failed to parse json power_parameters")
     node.save()
 
 
