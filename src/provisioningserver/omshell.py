@@ -32,6 +32,9 @@ from textwrap import dedent
 from provisioningserver.utils import parse_key_value_file
 
 
+bad_key_pattern = re.compile(".*[+/]no[+/].*", flags=re.IGNORECASE)
+
+
 def call_dnssec_keygen(tmpdir):
     path = os.environ.get("PATH", "").split(os.pathsep)
     path.append("/usr/sbin")
@@ -49,7 +52,6 @@ def run_repeated_keygen(tmpdir):
     # repeatedly generate a new key until a good one is generated.
 
     key = None
-    pattern = re.compile(".*[+/][Nn][Oo][+/].*")
     while key is None:
         key_id = call_dnssec_keygen(tmpdir)
 
@@ -69,9 +71,9 @@ def run_repeated_keygen(tmpdir):
                 "Key field not found in output from dnssec-keygen")
 
         key = config['Key']
-        if pattern.match(key) is not None:
+        if bad_key_pattern.match(key) is not None:
             # Force a retry.
-            os.remove(key_file_name)
+            os.remove(key_file_name)  # Stop dnssec_keygen complaints.
             key = None
 
     return key
