@@ -77,8 +77,13 @@ def make_payload(name, content):
 def build_multipart_message(data):
     message = MIMEMultipart("form-data")
     for name, content in data:
-        payload = make_payload(name, content)
-        message.attach(payload)
+        if isinstance(content, list):
+            for part in content:
+                payload = make_payload(name, part)
+                message.attach(payload)
+        else:
+            payload = make_payload(name, content)
+            message.attach(payload)
     return message
 
 
