@@ -17,11 +17,6 @@ from maasserver import populate_tags as populate_tags_module
 from maasserver.populate_tags import populate_tags
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from maastesting.fakemethod import FakeMethod
-from provisioningserver import (
-    tasks,
-    tags,
-    )
 
 
 class TestPopulateTags(TestCase):

@@ -50,12 +50,18 @@ def get_cached_knowledge():
 
 
 def process_response(response):
-    """All responses should be httplib.OK and contain JSON content."""
-    if response.status_code != httplib.OK:
-        text_status = httplib.responses.get(response.status_code, '<unknown>')
+    """All responses should be httplib.OK and contain JSON content.
+
+    :param response: The result of MAASClient.get/post/etc.
+    :type response: urllib2.addinfourl (a file-like object that has a .code
+        attribute.)
+    """
+    if response.code != httplib.OK:
+        text_status = httplib.responses.get(response.code, '<unknown>')
         raise AssertionError('Unexpected HTTP status: %s %s, expected 200 OK'
-            % (response.status_code, text_status))
-    return json.loads(response.content)
+            % (response.code, text_status))
+    return json.loads(response.read())
+
 
 def get_nodes_for_node_group(client, nodegroup_uuid):
     """Retrieve the UUIDs of nodes in a particular group.

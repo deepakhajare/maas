@@ -31,8 +31,11 @@ from provisioningserver import tags
 class FakeResponse:
 
     def __init__(self, status_code, content):
-        self.status_code = status_code
+        self.code = status_code
         self.content = content
+
+    def read(self):
+        return self.content
 
 
 class TestTagUpdating(PservTestCase):
@@ -92,14 +95,14 @@ class TestTagUpdating(PservTestCase):
             url, op='node_hardware_details',
             system_ids=["system-id1", "system-id2"])
 
-    def test_update_node_tags_calls_correct_api_and_parses_result(self):
+    def test_post_updated_nodes_calls_correct_api_and_parses_result(self):
         client, uuid = self.fake_cached_knowledge()
         content = '{"added": 1, "removed": 2}'
         response = FakeResponse(httplib.OK, content)
         post_mock = MagicMock(return_value=response)
         self.patch(client, 'post', post_mock)
         name = factory.make_name('tag')
-        result = tags.update_node_tags(client, name, uuid,
+        result = tags.post_updated_nodes(client, name, uuid,
             ['add-system-id'], ['remove-1', 'remove-2'])
         self.assertEqual({'added': 1, 'removed': 2}, result)
         url = '/api/1.0/tags/%s/' % (name,)
@@ -178,12 +181,12 @@ class TestTagUpdating(PservTestCase):
             result=[['c', '<parent><node /></parent>']])
         self.patch(tags, 'get_hardware_details_for_nodes',
             MultiFakeMethod([fake_first, fake_second]))
-        self.patch(tags, 'update_node_tags')
+        self.patch(tags, 'post_updated_nodes')
         tag_name = factory.make_name('tag')
         tags.process_node_tags(tag_name, '//node', batch_size=2)
         tags.get_cached_knowledge.assert_called_once_with()
         tags.get_nodes_for_node_group.assert_called_once_with(client, uuid)
         self.assertEqual([((client, uuid, ['a', 'b']), {})], fake_first.calls)
         self.assertEqual([((client, uuid, ['c']), {})], fake_second.calls)
-        tags.update_node_tags.assert_called_once_with(
+        tags.post_updated_nodes.assert_called_once_with(
             client, tag_name, uuid, ['a', 'c'], ['b'])

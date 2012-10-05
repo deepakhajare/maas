@@ -14,7 +14,10 @@ __all__ = [
     'populate_tags',
     ]
 
-from maasserver.models import NodeGroup
+from maasserver.models import (
+    logger,
+    NodeGroup,
+    )
 from maasserver.refresh_worker import refresh_worker
 from provisioningserver.tasks import update_node_tags
 
@@ -31,7 +34,7 @@ def populate_tags(tag):
     # the test suite, where we need the single real worker to switch to the
     # worker for a given nodegroup, before we have that worker process the
     # request.
+    logger.debug('Refreshing tag definition for %s' % (items,))
     for nodegroup in NodeGroup.objects.all():
         refresh_worker(nodegroup)
         update_node_tags.apply_async(queue=nodegroup.work_queue, kwargs=items)
-
