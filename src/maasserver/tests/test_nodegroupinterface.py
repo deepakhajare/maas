@@ -99,7 +99,7 @@ class TestNodeGroupInterface(TestCase):
             },
             exception.message_dict)
 
-    def test_clean_network_rejects_slash_too_big_network(self):
+    def test_clean_network_rejects_huge_network(self):
         big_network = IPNetwork('1.2.3.4/%d' % (MINIMUM_PREFIX_LEN - 1))
         exception = self.assertRaises(
             ValidationError, factory.make_node_group, network=big_network)
@@ -114,7 +114,7 @@ class TestNodeGroupInterface(TestCase):
             },
             exception.message_dict)
 
-    def test_clean_network_accepts_network_not_too_big(self):
+    def test_clean_network_accepts_network_if_not_too_big(self):
         network = IPNetwork('1.2.3.4/%d' % MINIMUM_PREFIX_LEN)
         self.assertIsInstance(
             factory.make_node_group(network=network), NodeGroup)
