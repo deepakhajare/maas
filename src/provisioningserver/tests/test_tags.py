@@ -86,7 +86,7 @@ class TestTagUpdating(PservTestCase):
         content = '[["system-id1", "%s"]]' % (xml_data,)
         response = FakeResponse(httplib.OK, content)
         mock = MagicMock(return_value=response)
-        self.patch(client, 'get', mock)
+        self.patch(client, 'post', mock)
         result = tags.get_hardware_details_for_nodes(
             client, uuid, ['system-id1', 'system-id2'])
         self.assertEqual([['system-id1', xml_data]], result)
@@ -140,12 +140,13 @@ class TestTagUpdating(PservTestCase):
         self.set_secrets()
         get_nodes = FakeMethod(
             result=FakeResponse(httplib.OK, '["system-id1", "system-id2"]'))
-        get_hw_details = FakeMethod(
+        post_hw_details = FakeMethod(
             result=FakeResponse(httplib.OK,
                 '[["system-id1", "<node />"], ["system-id2", "<no-node />"]]'))
-        get_fake = MultiFakeMethod([get_nodes, get_hw_details])
-        post_fake = FakeMethod(
+        get_fake = MultiFakeMethod([get_nodes])
+        post_update_fake = FakeMethod(
             result=FakeResponse(httplib.OK, '{"added": 1, "removed": 1}'))
+        post_fake = MultiFakeMethod([post_hw_details, post_update_fake])
         self.patch(MAASClient, 'get', get_fake)
         self.patch(MAASClient, 'post', post_fake)
         tag_name = factory.make_name('tag')
@@ -158,13 +159,13 @@ class TestTagUpdating(PservTestCase):
         self.assertEqual([((nodegroup_url,),
                           {'op': 'node_hardware_details',
                            'system_ids': ['system-id1', 'system-id2']})],
-                         get_hw_details.calls)
+                         post_hw_details.calls)
         self.assertEqual([((tag_url,),
                           {'op': 'update_nodes',
                            'nodegroup': nodegroup_uuid,
                            'add': ['system-id1'],
                            'remove': ['system-id2'],
-                          })], post_fake.calls)
+                          })], post_update_fake.calls)
 
     def test_process_node_tags_requests_details_in_batches(self):
         client = object()

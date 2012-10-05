@@ -82,7 +82,7 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
     :return: Dictionary mapping node UUIDs to lshw output
     """
     path = '/api/1.0/nodegroups/%s/' % (nodegroup_uuid,)
-    return process_response(client.get(
+    return process_response(client.post(
         path, op='node_hardware_details', system_ids=system_ids))
 
 
@@ -98,6 +98,8 @@ def post_updated_nodes(client, tag_name, uuid, added, removed):
     :param removed: Set of nodes to remove
     """
     path = '/api/1.0/tags/%s/' % (tag_name,)
+    task_logger.debug('Updating nodes for %s %s, adding %s removing %s'
+        % (tag_name, uuid, len(added), len(removed)))
     return process_response(client.post(
         path, op='update_nodes', nodegroup=uuid, add=added, remove=removed))
 
@@ -132,11 +134,16 @@ def process_all(client, tag_name, nodegroup_uuid, system_ids, xpath,
         batch_size = DEFAULT_BATCH_SIZE
     all_matched = []
     all_unmatched = []
+    task_logger.debug('processing %d system_ids for tag %s nodegroup %s'
+                      % (len(system_ids), tag_name, nodegroup_uuid))
     for i in range(0, len(system_ids), batch_size):
         selected_ids = system_ids[i:i + batch_size]
         details = get_hardware_details_for_nodes(
             client, nodegroup_uuid, selected_ids)
         matched, unmatched = process_batch(xpath, details)
+        task_logger.warning('processing batch of %d ids received %d details'
+            ' (%d matched, %d unmatched)'
+            % (len(selected_ids), len(details), len(matched), len(unmatched)))
         all_matched.extend(matched)
         all_unmatched.extend(unmatched)
     # Upload all updates for one nodegroup at one time. This should be no more

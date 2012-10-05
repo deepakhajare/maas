@@ -1136,7 +1136,13 @@ class NodeGroupHandler(OperationsHandler):
         return [node.system_id
                 for node in Node.objects.filter(nodegroup=nodegroup)]
 
-    @operation(idempotent=True)
+    # node_hardware_details is actually idempotent, however:
+    # a) We expect to get a list of system_ids which is quite long (~100 ids,
+    #    each 40 bytes, is 4000 bytes), which is a bit too long for a URL.
+    # b) MAASClient.get() just uses urlencode(params) but urlencode ends up
+    #    just calling str(lst) and encoding that, which transforms te list of
+    #    ids into something unusable. .post() does the right thing.
+    @operation(idempotent=False)
     def node_hardware_details(self, request, uuid):
         """Return specific hardware_details for each node specified.
 
@@ -1150,12 +1156,13 @@ class NodeGroupHandler(OperationsHandler):
         to be stored in the cluster controllers (nodegroup) instead of the
         master controller.
         """
-        system_ids = request.GET.getlist('system_ids')
+        system_ids = request.POST.getlist('system_ids')
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         check_nodegroup_access(request, nodegroup)
         nodes = Node.objects.filter(
             system_id__in=system_ids, nodegroup=nodegroup)
-        return [(node.system_id, node.hardware_details) for node in nodes]
+        details = [(node.system_id, node.hardware_details) for node in nodes]
+        return details
 
 
 DISPLAYED_NODEGROUP_FIELDS = (
