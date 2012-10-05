@@ -117,8 +117,7 @@ class Tag(CleanSave, TimestampedModel):
     def populate_nodes(self):
         """Find all nodes that match this tag, and update them."""
         from maasserver.populate_tags import populate_tags
-        # before we pass of any work, we ensure the tag definition is valid
-        # XPATH
+        # before we pass off any work, ensure the definition is valid XPATH
         try:
             etree.XPath(self.definition)
         except etree.XPathSyntaxError as e:

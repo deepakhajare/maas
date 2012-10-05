@@ -80,7 +80,7 @@ def get_hardware_details_for_nodes(client, nodegroup_uuid, system_ids):
         path, op='node_hardware_details', system_ids=system_ids))
 
 
-def update_node_tags(client, tag_name, uuid, added, removed):
+def post_updated_nodes(client, tag_name, uuid, added, removed):
     """Update the nodes relevant for a particular tag.
 
     :param client: MAAS client
@@ -137,8 +137,8 @@ def process_all(client, tag_name, nodegroup_uuid, system_ids, xpath,
     # than ~41*10,000 = 410kB. That should take <1s even on a 10Mbit network.
     # This also allows us to track if a nodegroup has been processed in the DB,
     # without having to add another API call.
-    update_node_tags(client, tag_name, nodegroup_uuid, all_matched,
-                     all_unmatched)
+    post_updated_nodes(
+        client, tag_name, nodegroup_uuid, all_matched, all_unmatched)
 
 
 def process_node_tags(tag_name, tag_definition, batch_size=None):

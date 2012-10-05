@@ -9,7 +9,7 @@ having to go via a real HTTP server.
 
 
 class MAASDjangoTestClient:
-    """Wrap the Django testing Client to look liek a MAASClient."""
+    """Wrap the Django testing Client to look like a MAASClient."""
 
     def __init__(self, django_client):
         self.django_client = django_client

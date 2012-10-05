@@ -26,7 +26,11 @@ def populate_tags(tag):
         'tag_name': tag.name,
         'tag_definition': tag.definition,
     }
-    # NodeGroup.objects.refresh_workers()
+    # Rather than using NodeGroup.objects.refresh_workers() we call
+    # refresh_worker immediately before we pass the requet. This is mostly for
+    # the test suite, where we need the single real worker to switch to the
+    # worker for a given nodegroup, before we have that worker process the
+    # request.
     for nodegroup in NodeGroup.objects.all():
         refresh_worker(nodegroup)
         update_node_tags.apply_async(queue=nodegroup.work_queue, kwargs=items)
