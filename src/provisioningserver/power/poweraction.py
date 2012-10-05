@@ -36,6 +36,10 @@ def get_power_templates_dir():
     """Get the power-templates directory from the config."""
     return app_or_default().conf.POWER_TEMPLATES_DIR
 
+def get_power_config_dir():
+    """Get the power-config directory from the config."""
+    return app_or_default().conf.POWER_CONFIG_DIR
+
 
 class PowerAction:
     """Actions for power-related operations.
@@ -67,12 +71,25 @@ class PowerAction:
         else:
             return power_templates_dir
 
+    @property
+    def config_basedir(self):
+        """Directory where power config are stored."""
+        power_config_dir = get_power_config_dir()
+        if power_config_dir is None:
+            # The power config files are installed into the same location
+            # as this file, and also live in the same directory as this
+            # file in the source tree.
+            return os.path.join(os.path.dirname(__file__), 'config')
+        else:
+            return power_config_dir
+
     def get_template(self):
         with open(self.path, "rb") as f:
             return ShellTemplate(f.read(), name=self.path)
 
     def render_template(self, template, **kwargs):
         try:
+            kwargs['config_dir'] = self.config_basedir()
             return template.substitute(kwargs)
         except NameError as error:
             raise PowerActionFail(*error.args)
