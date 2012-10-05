@@ -23,6 +23,7 @@ from abc import (
     abstractproperty,
     )
 from datetime import datetime
+import errno
 from itertools import (
     chain,
     imap,
@@ -46,6 +47,10 @@ import tempita
 MAAS_NAMED_CONF_NAME = 'named.conf.maas'
 MAAS_NAMED_RNDC_CONF_NAME = 'named.conf.rndc.maas'
 MAAS_RNDC_CONF_NAME = 'rndc.conf.maas'
+
+
+class DNSConfigDirectoryMissing(Exception):
+    """The directory where the config was about to be written is missing."""
 
 
 class DNSConfigFail(Exception):
@@ -157,6 +162,26 @@ class DNSConfigBase:
         return {}
 
     def write_config(self, overwrite=True, **kwargs):
+        """Write out this DNS config file.
+
+        This raises DNSConfigDirectoryMissing if any
+        "No such file or directory" error is raised because that would mean
+        that the directory containing the write to be written does not exist.
+        """
+        try:
+            self.inner_write_config(overwrite=overwrite, **kwargs)
+        except OSError as exception:
+            # Only raise a DNSConfigDirectoryMissing exception if this error
+            # is a "No such file or directory" exception.
+            if exception.errno == errno.ENOENT:
+                raise DNSConfigDirectoryMissing(
+                    "The directory where the DNS config files should be "
+                    "written does not exist.  Make sure the 'maas-dns' "
+                    "package is installed on this region controller.")
+            else:
+                raise
+
+    def inner_write_config(self, overwrite=True, **kwargs):
         """Write out this DNS config file."""
         template = self.get_template()
         kwargs.update(self.get_context())
@@ -249,7 +274,7 @@ class DNSZoneConfigBase(DNSConfigBase):
         return os.path.join(
             self.target_dir, 'zone.%s' % self.zone_name)
 
-    def write_config(self, **kwargs):
+    def inner_write_config(self, **kwargs):
         """Write out the DNS config file for this zone."""
         template = self.get_template()
         kwargs.update(self.get_context())
@@ -276,37 +301,42 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
         """Return the name of the forward zone."""
         return self.domain
 
-    def get_mapping(self):
-        """Return the mapping: hostname->generated hostname."""
-        return {
-            hostname: generated_hostname(ip)
-            for hostname, ip in self.mapping.items()
-        }
+    def get_cname_mapping(self):
+        """Return a generator with the mapping: hostname->generated hostname.
 
-    def get_generated_mapping(self):
-        """Return the generated mapping: fqdn->ip.
+        Note that we return a list of tuples instead of a dictionary in order
+        to be able to return a generator.
+        """
+        return (
+            (hostname, generated_hostname(ip))
+            for hostname, ip in self.mapping.items()
+        )
+
+    def get_static_mapping(self):
+        """Return a generator with the mapping fqdn->ip for the generated ips.
 
         The generated mapping is the mapping between the generated hostnames
         and the IP addresses for all the possible IP addresses in zone.
+        Note that we return a list of tuples instead of a dictionary in order
+        to be able to return a generator.
         """
         ips = imap(unicode, chain.from_iterable(self.networks))
-        return {generated_hostname(ip): ip for ip in ips}
+        static_mapping = ((generated_hostname(ip), ip) for ip in ips)
+        # Add A record for the name server's IP.
+        return chain([('%s.' % self.domain, self.dns_ip)], static_mapping)
 
     def get_context(self):
         """Return the dict used to render the DNS zone file.
 
         That context dict is used to render the DNS zone file.
         """
-        mapping = self.get_generated_mapping()
-        # Add A record for the name server's IP.
-        mapping['%s.' % self.domain] = self.dns_ip
         return {
             'domain': self.domain,
             'serial': self.serial,
             'modified': unicode(datetime.today()),
             'mappings': {
-                'CNAME': self.get_mapping(),
-                'A': mapping,
+                'CNAME': self.get_cname_mapping(),
+                'A': self.get_static_mapping(),
                 }
             }
 
@@ -330,18 +360,18 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
         octets = broadcast.words[:netmask.words.count(255)]
         return '%s.in-addr.arpa' % '.'.join(imap(unicode, reversed(octets)))
 
-    def get_generated_mapping(self):
+    def get_static_mapping(self):
         """Return the reverse generated mapping: (shortened) ip->fqdn.
 
         The reverse generated mapping is the mapping between the IP addresses
         and the generated hostnames for all the possible IP addresses in zone.
         """
         byte_num = 4 - self.network.netmask.words.count(255)
-        return {
-            shortened_reversed_ip(ip, byte_num):
-                '%s.%s.' % (generated_hostname(ip), self.domain)
+        return (
+            (shortened_reversed_ip(ip, byte_num),
+                '%s.%s.' % (generated_hostname(ip), self.domain))
             for ip in self.network
-            }
+            )
 
     def get_context(self):
         """Return the dict used to render the DNS reverse zone file.
@@ -353,6 +383,6 @@ class DNSReverseZoneConfig(DNSZoneConfigBase):
             'serial': self.serial,
             'modified': unicode(datetime.today()),
             'mappings': {
-                'PTR': self.get_generated_mapping(),
+                'PTR': self.get_static_mapping(),
                 }
             }
