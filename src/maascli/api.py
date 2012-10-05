@@ -378,14 +378,16 @@ def register_handlers(profile, parser):
         register_actions(profile, handler, handler_parser)
 
 
+commands = {
+    'login': cmd_login,
+    'logout': cmd_logout,
+    'list': cmd_list,
+    'refresh': cmd_refresh,
+}
+
+
 def register_cli_commands(parser):
     """Register the CLI's meta-subcommands on `parser`."""
-    commands = {
-        'login': cmd_login,
-        'logout': cmd_logout,
-        'list': cmd_list,
-        'refresh': cmd_refresh,
-    }
     for name, command in commands.items():
         help_title, help_body = parse_docstring(command)
         command_parser = parser.subparsers.add_parser(
