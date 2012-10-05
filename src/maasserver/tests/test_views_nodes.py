@@ -388,6 +388,7 @@ class NodeViewsTest(LoggedInTestCase):
         node3 = factory.make_node(cpu_count=2)
         node1.tags = [tag]
         node2.tags = [tag]
+        node3.tags = []
         response = self.client.get(reverse('node-list'),
             {"query": "shiny cpu:2"})
         node2_link = reverse('node-view', args=[node2.system_id])
