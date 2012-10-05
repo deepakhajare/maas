@@ -162,7 +162,7 @@ main() {
 load_modules() {
    modprobe ipmi_msghandler
    modprobe ipmi_devintf
-   # In certain hardware, like HP Mini servers, the parameters need
+   # In certain hardware, like HP MicroServers, the parameters need
    # be specified. Otherwise, IPMI won't work due to incorrect port.
    #modprobe ipmi_si type=kcs ports=0xca2
    modprobe ipmi_si
