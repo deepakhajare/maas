@@ -695,23 +695,25 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
         nodes_returned = json.loads(response.content)
         self.assertEqual([], nodes_returned)
 
-    def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
+    def test_POST_simple_user_can_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
             self.get_uri('nodes/'), {
                 'op': 'new',
                 'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
                 'power_type': POWER_TYPE.WAKE_ON_LAN,
-                'power_parameters_power_address': new_power_address,
+                'power_parameters': json.dumps(
+                    {"power_address": new_power_address}),
                 'mac_addresses': ['AA:BB:CC:DD:EE:FF'],
                 })
 
         node = Node.objects.get(
             system_id=json.loads(response.content)['system_id'])
         self.assertEqual(
-                (httplib.OK, '', POWER_TYPE.DEFAULT),
-                (response.status_code, node.power_parameters,
-                    node.power_type))
+            (httplib.OK, {"power_address": new_power_address},
+             POWER_TYPE.WAKE_ON_LAN),
+            (response.status_code, node.power_parameters,
+             node.power_type))
 
     def test_POST_returns_limited_fields(self):
         response = self.client.post(
