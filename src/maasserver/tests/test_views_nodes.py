@@ -361,6 +361,40 @@ class NodeViewsTest(LoggedInTestCase):
             "This node is now allocated to you.",
             '\n'.join(msg.message for msg in response.context['messages']))
 
+    def test_node_list_query_includes_current(self):
+        qs = factory.getRandomString()
+        response = self.client.get(reverse('node-list'), {"query": qs})
+        query_value = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//input[@name='query']/@value)")
+        self.assertIn(qs, query_value)
+
+    def test_node_list_query_error_on_missing_tag(self):
+        response = self.client.get(reverse('node-list'), {"query": "missing"})
+        error_string = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//p[@class='form-errors'])")
+        self.assertRegexpMatches(error_string, "Invalid .* No such tag")
+
+    def test_node_list_query_error_on_unknown_constraint(self):
+        response = self.client.get(reverse('node-list'),
+            {"query": "color:red"})
+        error_string = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//p[@class='form-errors'])")
+        self.assertRegexpMatches(error_string, "Invalid .* 'color:red'")
+
+    def test_node_list_query_selects_subset(self):
+        tag = factory.make_tag("shiny")
+        node1 = factory.make_node(cpu_count=1)
+        node2 = factory.make_node(cpu_count=2)
+        node3 = factory.make_node(cpu_count=2)
+        node1.tags = [tag]
+        node2.tags = [tag]
+        response = self.client.get(reverse('node-list'),
+            {"query": "shiny cpu:2"})
+        node2_link = reverse('node-view', args=[node2.system_id])
+        document = fromstring(response.content)
+        node_links = document.xpath("//div[@id='nodes']/table//a/@href")
+        self.assertEqual([node2_link], node_links)
+
 
 class NodePreseedViewTest(LoggedInTestCase):
 
