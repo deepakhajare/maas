@@ -26,10 +26,6 @@ from provisioningserver import (
 
 class TestPopulateTags(TestCase):
 
-    def setUp(self):
-        super(TestPopulateTags, self).setUp()
-        self.patch_tags_api()
-
     def test_populate_tags_task_routed_to_nodegroup_worker(self):
         nodegroup = factory.make_node_group()
         tag = factory.make_tag()

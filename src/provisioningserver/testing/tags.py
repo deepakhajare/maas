@@ -3,11 +3,13 @@
 
 
 from apiclient.testing.django_client_proxy import MAASDjangoTestClient
+from fixtures import Fixture
 from maasserver.models import NodeGroup
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
 from provisioningserver import tags
+from testtools.monkey import patch
 
 
 def get_nodegroup_cached_knowledge():
@@ -34,7 +36,11 @@ def get_nodegroup_worker_client(nodegroup_uuid):
     return maas_client
 
 
-def install_tag_cached_knowledge(test):
+class TagCachedKnowledgeFixture(Fixture):
     """Install the get_nodegroup_cached_knowledge for this test."""
-    from provisioningserver import tags
-    test.patch(tags, 'get_cached_knowledge', get_nodegroup_cached_knowledge)
+
+    def setUp(self):
+        super(TagCachedKnowledgeFixture, self).setUp()
+        restore = patch(
+            tags, "get_cached_knowledge", get_nodegroup_cached_knowledge)
+        self.addCleanup(restore)

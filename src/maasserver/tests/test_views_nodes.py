@@ -114,7 +114,6 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(self.logged_in_user.username, content_text)
 
     def test_view_node_contains_tag_names(self):
-        self.patch_tags_api()
         node = factory.make_node(owner=self.logged_in_user)
         tag_a = factory.make_tag()
         tag_b = factory.make_tag()

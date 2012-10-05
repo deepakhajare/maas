@@ -20,10 +20,6 @@ from maasserver.testing.testcase import TestCase
 
 class TagTest(TestCase):
 
-    def setUp(self):
-        super(TagTest, self).setUp()
-        self.patch_tags_api()
-
     def test_factory_make_tag(self):
         """
         The generated system_id looks good.

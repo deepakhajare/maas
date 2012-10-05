@@ -937,7 +937,6 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(node.system_id, parsed_result['system_id'])
 
     def test_GET_returns_associated_tag(self):
-        self.patch_tags_api()
         node = factory.make_node(set_hostname=True)
         tag = factory.make_tag()
         node.tags.add(tag)
@@ -1838,7 +1837,6 @@ class TestNodesAPI(APITestCase):
         self.assertResponseCode(httplib.BAD_REQUEST, response)
 
     def test_POST_acquire_allocates_node_by_tags(self):
-        self.patch_tags_api()
         # Asking for particular tags acquires a node with those tags.
         node = factory.make_node(status=NODE_STATUS.READY)
         node_tag_names = ["fast", "stable", "cute"]
@@ -1852,7 +1850,6 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(node_tag_names, response_json['tag_names'])
 
     def test_POST_acquire_fails_without_all_tags(self):
-        self.patch_tags_api()
         # Asking for particular tags does not acquire if no node has all tags.
         node1 = factory.make_node(status=NODE_STATUS.READY)
         node1.tags = [factory.make_tag(t) for t in ("fast", "stable", "cute")]
@@ -1865,7 +1862,6 @@ class TestNodesAPI(APITestCase):
         self.assertResponseCode(httplib.CONFLICT, response)
 
     def test_POST_acquire_fails_with_unknown_tags(self):
-        self.patch_tags_api()
         # Asking for a tag that does not exist gives a specific error.
         node = factory.make_node(status=NODE_STATUS.READY)
         node.tags = [factory.make_tag("fast")]
@@ -2341,10 +2337,6 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
 class TestTagAPI(APITestCase):
     """Tests for /api/1.0/tags/<tagname>/."""
 
-    def setUp(self):
-        super(TestTagAPI, self).setUp()
-        self.patch_tags_api()
-
     def get_tag_uri(self, tag):
         """Get the API URI for `tag`."""
         return self.get_uri('tags/%s/') % tag.name
@@ -2635,10 +2627,6 @@ class TestTagAPI(APITestCase):
 
 
 class TestTagsAPI(APITestCase):
-
-    def setUp(self):
-        super(TestTagsAPI, self).setUp()
-        self.patch_tags_api()
 
     def test_GET_list_without_tags_returns_empty_list(self):
         response = self.client.get(self.get_uri('tags/'), {'op': 'list'})
