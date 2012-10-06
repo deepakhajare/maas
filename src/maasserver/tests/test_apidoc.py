@@ -159,6 +159,12 @@ class MegadethHandler(OperationsHandler):
         return ("megadeth_view", ["vic", "rattlehead"])
 
 
+class RattleheadsHandler(OperationsHandler):
+    """Cover band, maybe."""
+
+    create = read = delete = update = None
+
+
 class TestDescribingAPI(TestCase):
     """Tests for functions that describe a Piston API."""
 
@@ -227,24 +233,39 @@ class TestDescribingAPI(TestCase):
             description["uri"])
 
     def test_describe_resource_anonymous_resource(self):
+        # When the resource does not require authentication, any configured
+        # fallback is ignored, and only the resource's handler is described.
+        # The resource name comes from this handler.
+        self.patch(MegadethHandler, "anonymous", RattleheadsHandler)
         resource = OperationsResource(MegadethHandler)
-        self.assertEqual(
-            {"auth": None, "anon": describe_handler(MegadethHandler)},
-            describe_resource(resource))
+        expected = {
+            "anon": describe_handler(MegadethHandler),
+            "auth": None,
+            "name": "MegadethHandler",
+            }
+        self.assertEqual(expected, describe_resource(resource))
 
     def test_describe_resource_authenticated_resource(self):
-        resource = OperationsResource(
-            MegadethHandler, authentication=sentinel.auth)
-        self.assertEqual(
-            {"auth": describe_handler(MegadethHandler), "anon": None},
-            describe_resource(resource))
+        # When the resource requires authentication, but has no fallback
+        # anonymous handler, the first is described. The resource name comes
+        # from this handler.
+        resource = OperationsResource(MegadethHandler, sentinel.auth)
+        expected = {
+            "anon": None,
+            "auth": describe_handler(MegadethHandler),
+            "name": "MegadethHandler",
+            }
+        self.assertEqual(expected, describe_resource(resource))
 
     def test_describe_resource_authenticated_resource_with_fallback(self):
-        CoverBand = type(b"CoverBand", (MegadethHandler,), {})
-        self.patch(MegadethHandler, "anonymous", CoverBand)
-        resource = OperationsResource(
-            MegadethHandler, authentication=sentinel.auth)
-        self.assertEqual(
-            {"auth": describe_handler(MegadethHandler),
-             "anon": describe_handler(CoverBand)},
-            describe_resource(resource))
+        # When the resource requires authentication, but has a fallback
+        # anonymous handler, both are described. The resource name is taken
+        # from the authenticated handler.
+        self.patch(MegadethHandler, "anonymous", RattleheadsHandler)
+        resource = OperationsResource(MegadethHandler, sentinel.auth)
+        expected = {
+            "anon": describe_handler(RattleheadsHandler),
+            "auth": describe_handler(MegadethHandler),
+            "name": "MegadethHandler",
+            }
+        self.assertEqual(expected, describe_resource(resource))

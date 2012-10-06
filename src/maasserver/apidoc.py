@@ -168,17 +168,13 @@ def describe_resource(resource):
         for auth in resource.authentication)
     if authenticate:
         if resource.anonymous is None:
-            return {
-                "auth": describe_handler(resource.handler),
-                "anon": None,
-                }
+            anon = None
+            auth = describe_handler(resource.handler)
         else:
-            return {
-                "auth": describe_handler(resource.handler),
-                "anon": describe_handler(resource.anonymous),
-                }
+            anon = describe_handler(resource.anonymous)
+            auth = describe_handler(resource.handler)
     else:
-        return {
-            "auth": None,
-            "anon": describe_handler(resource.handler),
-            }
+        anon = describe_handler(resource.handler)
+        auth = None
+    name = anon["name"] if auth is None else auth["name"]
+    return {"anon": anon, "auth": auth, "name": name}
