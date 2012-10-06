@@ -34,6 +34,7 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from piston.doc import HandlerDocumentation
 from piston.handler import BaseHandler
+from piston.resource import Resource
 
 
 class TestFindingHandlers(TestCase):
@@ -67,18 +68,25 @@ class TestFindingHandlers(TestCase):
         # module and returned. The type of resource_uri is not checked; it
         # must only be present and not None.
         handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
+        resource = Resource(handler)
         module = self.make_module()
-        module.urlpatterns = patterns("", url("^metal", handler))
-        self.assertSetEqual({handler}, find_api_handlers(module))
+        module.urlpatterns = patterns("", url("^metal", resource))
+        self.assertSetEqual({resource.handler}, find_api_handlers(module))
 
     def test_nested_urlpatterns_with_handler(self):
         # Handlers are found in nested urlconfs.
         handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
+        resource = Resource(handler)
         module = self.make_module()
         submodule = self.make_module()
-        submodule.urlpatterns = patterns("", url("^metal", handler))
+        submodule.urlpatterns = patterns("", url("^metal", resource))
         module.urlpatterns = patterns("", ("^genre/", include(submodule)))
-        self.assertSetEqual({handler}, find_api_handlers(module))
+        self.assertSetEqual({resource.handler}, find_api_handlers(module))
+
+    def test_smoke(self):
+        # Handlers are found for the MAAS API.
+        from maasserver import urls_api as urlconf
+        self.assertNotEqual(set(), find_api_handlers(urlconf))
 
 
 class TestGeneratingDocs(TestCase):

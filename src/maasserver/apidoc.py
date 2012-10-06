@@ -27,10 +27,10 @@ from django.core.urlresolvers import (
     RegexURLResolver,
     )
 from piston.doc import generate_doc
-from piston.handler import HandlerMetaClass
+from piston.resource import Resource
 
 
-def accumulate_api_handlers(resolver, accumulator):
+def accumulate_api_resources(resolver, accumulator):
     """Accumulate handlers from the given resolver.
 
     Handlers are of type :class:`HandlerMetaClass`, and must define a
@@ -38,14 +38,16 @@ def accumulate_api_handlers(resolver, accumulator):
 
     :rtype: Generator, yielding handlers.
     """
+    p_has_resource_uri = lambda resource: (
+        getattr(resource.handler, "resource_uri", None) is not None)
     for pattern in resolver.url_patterns:
         if isinstance(pattern, RegexURLResolver):
-            accumulate_api_handlers(pattern, accumulator)
+            accumulate_api_resources(pattern, accumulator)
         elif isinstance(pattern, RegexURLPattern):
-            candidate = pattern.callback
-            if isinstance(candidate, HandlerMetaClass):
-                if getattr(candidate, "resource_uri", None) is not None:
-                    accumulator.add(pattern.callback)
+            if isinstance(pattern.callback, Resource):
+                resource = pattern.callback
+                if p_has_resource_uri(resource):
+                    accumulator.add(resource)
         else:
             raise AssertionError(
                 "Not a recognised pattern or resolver: %r" % (pattern,))
@@ -57,8 +59,8 @@ def find_api_handlers(urlconf=None):
     :rtype: Generator, yielding handlers.
     """
     resolver, accumulator = get_resolver(urlconf), set()
-    accumulate_api_handlers(resolver, accumulator)
-    return accumulator
+    accumulate_api_resources(resolver, accumulator)
+    return {resource.handler for resource in accumulator}
 
 
 def generate_api_docs(handlers):
