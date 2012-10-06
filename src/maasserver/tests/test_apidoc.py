@@ -24,9 +24,11 @@ from django.core.exceptions import ImproperlyConfigured
 from maasserver.api import (
     operation,
     OperationsHandler,
+    OperationsResource,
     )
 from maasserver.apidoc import (
     describe_handler,
+    describe_resource,
     find_api_resources,
     generate_api_docs,
     )
@@ -93,44 +95,67 @@ class TestGeneratingDocs(TestCase):
     """Tests for API inspection support: generating docs."""
 
     @staticmethod
-    def make_handler():
+    def make_resource():
         """
-        Return a new `BaseHandler` subclass with a fabricated name and a
-        `resource_uri` class-method.
+        Return a new `OperationsResource` with a `BaseHandler` subclass
+        handler, with a fabricated name and a `resource_uri` class-method.
         """
         name = factory.make_name("handler").encode("ascii")
         resource_uri = lambda cls: factory.make_name("resource-uri")
         namespace = {"resource_uri": classmethod(resource_uri)}
-        return type(name, (BaseHandler,), namespace)
+        handler = type(name, (BaseHandler,), namespace)
+        return OperationsResource(handler)
 
     def test_generates_doc_for_handler(self):
         # generate_api_docs() yields HandlerDocumentation objects for the
         # handlers passed in.
-        handler = self.make_handler()
-        docs = list(generate_api_docs([handler]))
+        resource = self.make_resource()
+        docs = list(generate_api_docs([resource]))
         self.assertEqual(1, len(docs))
         [doc] = docs
         self.assertIsInstance(doc, HandlerDocumentation)
-        self.assertIs(handler, doc.handler)
+        self.assertIs(type(resource.handler), doc.handler)
 
     def test_generates_doc_for_multiple_handlers(self):
         # generate_api_docs() yields HandlerDocumentation objects for the
         # handlers passed in.
-        handlers = [self.make_handler() for _ in range(5)]
-        docs = list(generate_api_docs(handlers))
-        self.assertEqual(len(handlers), len(docs))
-        self.assertEqual(handlers, [doc.handler for doc in docs])
+        resources = [self.make_resource() for _ in range(5)]
+        docs = list(generate_api_docs(resources))
+        self.assertEqual(len(resources), len(docs))
+        self.assertEqual(
+            [type(resource.handler) for resource in resources],
+            [doc.handler for doc in docs])
 
     def test_handler_without_resource_uri(self):
         # generate_api_docs() raises an exception if a handler does not have a
         # resource_uri attribute.
-        handler = self.make_handler()
-        del handler.resource_uri
-        docs = generate_api_docs([handler])
+        resource = self.make_resource()
+        del type(resource.handler).resource_uri
+        docs = generate_api_docs([resource])
         error = self.assertRaises(AssertionError, list, docs)
         self.assertEqual(
-            "Missing resource_uri in %s" % handler.__name__,
+            "Missing resource_uri in %s" % type(resource.handler).__name__,
             unicode(error))
+
+
+class MegadethHandler(OperationsHandler):
+    """The mighty 'deth."""
+
+    create = read = delete = None
+
+    @operation(idempotent=False)
+    def peace_sells_but_whos_buying(self, request, vic, rattlehead):
+        """Released 1986."""
+
+    @operation(idempotent=True)
+    def so_far_so_good_so_what(self, request, vic, rattlehead):
+        """Released 1988."""
+
+    @classmethod
+    def resource_uri(cls):
+        # Note that the arguments, after request, to each of the ops
+        # above matches the parameters (index 1) in the tuple below.
+        return ("megadeth_view", ["vic", "rattlehead"])
 
 
 class TestDescribingAPI(TestCase):
@@ -146,26 +171,6 @@ class TestDescribingAPI(TestCase):
     def test_describe_handler(self):
         # describe_handler() returns a description of a handler that can be
         # readily serialised into JSON, for example.
-
-        class MegadethHandler(OperationsHandler):
-            """The mighty 'deth."""
-
-            create = read = delete = None
-
-            @operation(idempotent=False)
-            def peace_sells_but_whos_buying(self, request, vic, rattlehead):
-                """Released 1986."""
-
-            @operation(idempotent=True)
-            def so_far_so_good_so_what(self, request, vic, rattlehead):
-                """Released 1988."""
-
-            @classmethod
-            def resource_uri(cls):
-                # Note that the arguments, after request, to each of the ops
-                # above matches the parameters (index 1) in the tuple below.
-                return ("megadeth_view", ["vic", "rattlehead"])
-
         expected_actions = [
             {"doc": "Released 1988.",
              "method": "GET",
@@ -183,7 +188,6 @@ class TestDescribingAPI(TestCase):
              "op": None,
              "restful": True},
             ]
-
         observed = describe_handler(MegadethHandler)
         # The description contains several entries.
         self.assertSetEqual(
@@ -220,3 +224,11 @@ class TestDescribingAPI(TestCase):
         self.assertEqual(
             "http://example.com/api/1.0/nodes/{system_id}/",
             description["uri"])
+
+    def test_describe_resource(self):
+        # describe_resource() returns a description of a resource. Right now
+        # it is just the description of the resource's handler class.
+        resource = OperationsResource(MegadethHandler)
+        self.assertEqual(
+            describe_handler(MegadethHandler),
+            describe_resource(resource))

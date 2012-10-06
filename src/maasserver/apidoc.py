@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "describe_handler",
+    "describe_resource",
     "find_api_resources",
     "generate_api_docs",
     ]
@@ -27,6 +28,7 @@ from django.core.urlresolvers import (
     RegexURLResolver,
     )
 from piston.doc import generate_doc
+from piston.handler import BaseHandler
 from piston.resource import Resource
 
 
@@ -63,11 +65,10 @@ def find_api_resources(urlconf=None):
     return accumulator
 
 
-def generate_api_docs(handlers):
+def generate_api_docs(resources):
     """Generate ReST documentation objects for the ReST API.
 
-    Yields Piston Documentation objects describing the current registered
-    handlers.
+    Yields Piston Documentation objects describing the given resources.
 
     This also ensures that handlers define 'resource_uri' methods. This is
     easily forgotten and essential in order to generate proper documentation.
@@ -75,7 +76,8 @@ def generate_api_docs(handlers):
     :return: Generates :class:`piston.doc.HandlerDocumentation` instances.
     """
     sentinel = object()
-    for handler in handlers:
+    for resource in resources:
+        handler = type(resource.handler)
         if getattr(handler, "resource_uri", sentinel) is sentinel:
             raise AssertionError(
                 "Missing resource_uri in %s" % handler.__name__)
@@ -128,8 +130,12 @@ def describe_handler(handler):
     """Return a serialisable description of a handler.
 
     :type handler: :class:`OperationsHandler` or
-        :class:`AnonymousOperationsHandler` instance.
+        :class:`AnonymousOperationsHandler` instance or subclass.
     """
+    # Want the class, not an instance.
+    if isinstance(handler, BaseHandler):
+        handler = type(handler)
+
     uri_template = generate_doc(handler).resource_uri_template
     if uri_template is None:
         uri_template = settings.DEFAULT_MAAS_URL
@@ -149,3 +155,11 @@ def describe_handler(handler):
         "params": uri_params,
         "uri": uri_template,
         }
+
+
+def describe_resource(resource):
+    """Return a serialisable description of a resource.
+
+    :type resource: :class:`OperationsResource` instance.
+    """
+    return describe_handler(resource.handler)
