@@ -49,29 +49,32 @@ class FakeConfig(dict):
 class TestRegisterAPICommands(TestCase):
     """Tests for `register_api_commands`."""
 
+    def make_handler(self):
+        return {
+            'name': factory.make_name('handler'),
+            'doc': "Short\n\nLong",
+            'params': [],
+            'actions': [
+                {'name': factory.make_name('action'),
+                 'doc': "Doc\n\nstring"},
+                ],
+            }
+
     def make_profile(self):
         """Fake a profile."""
-        profile = factory.make_name('profile')
-        url = 'http://%s.example.com/' % profile
-        fake_open = self.patch(ProfileConfig, 'open')
-        fake_open.return_value = FakeConfig({
-            profile: {
-                'name': profile,
-                'url': url,
+        profile_name = factory.make_name('profile')
+        profile = {
+            profile_name: {
+                'name': profile_name,
+                'url': 'http://%s.example.com/' % profile_name,
                 'description': {
-                    'handlers': [{
-                        'name': factory.make_name('handler'),
-                        'doc': "Short\n\nLong",
-                        'params': [],
-                        'actions': [{
-                            'name': factory.make_name('action'),
-                            'doc': "Doc\n\nstring",
-                        }],
-                    }],
+                    'handlers': [self.make_handler()],
+                    },
                 },
-            },
-        })
-        return profile
+            }
+        fake_open = self.patch(ProfileConfig, 'open')
+        fake_open.return_value = FakeConfig(profile)
+        return profile_name
 
     def test_registers_subparsers(self):
         profile = self.make_profile()
