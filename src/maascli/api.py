@@ -20,6 +20,7 @@ from getpass import getpass
 import httplib
 from itertools import chain
 import json
+from operator import itemgetter
 import sys
 from urlparse import (
     urljoin,
@@ -366,15 +367,30 @@ def register_actions(profile, handler, parser):
             execute=action_class(action_parser))
 
 
-def register_handlers(profile, parser):
-    """Register a profile's handlers."""
+def register_handler(profile, handler, parser):
+    """Register a resource's handler."""
+    help_title, help_body = parse_docstring(handler["doc"])
+    handler_name = handler_command_name(handler["name"])
+    handler_parser = parser.subparsers.add_parser(
+        handler_name, help=help_title, description=help_body)
+    register_actions(profile, handler, handler_parser)
+
+
+def register_resources(profile, parser):
+    """Register a profile's resources."""
+    anonymous = profile["credentials"] is None
     description = profile["description"]
-    for handler in description["handlers"]:
-        help_title, help_body = parse_docstring(handler["doc"])
-        handler_name = handler_command_name(handler["name"])
-        handler_parser = parser.subparsers.add_parser(
-            handler_name, help=help_title, description=help_body)
-        register_actions(profile, handler, handler_parser)
+    resources = description["resources"]
+    for resource in sorted(resources, key=itemgetter("name")):
+        auth_handler = resource["auth"]
+        anon_handler = resource["anon"]
+        if anonymous:
+            auth_handler = None
+        # Register this the naive way, so that both handlers are added.
+        if auth_handler is not None:
+            register_handler(profile, auth_handler, parser)
+        if anon_handler is not None:
+            register_handler(profile, anon_handler, parser)
 
 
 commands = {
@@ -401,4 +417,4 @@ def register_api_commands(parser):
             profile = config[profile_name]
             profile_parser = parser.subparsers.add_parser(
                 profile["name"], help="Interact with %(url)s" % profile)
-            register_handlers(profile, profile_parser)
+            register_resources(profile, profile_parser)

@@ -60,6 +60,12 @@ class TestRegisterAPICommands(TestCase):
                 ],
             }
 
+    def make_resource(self, anon=True, auth=True):
+        auth = self.make_handler() if auth else None
+        anon = self.make_handler() if anon else None
+        name = auth["name"] if auth else anon["name"]
+        return {"auth": auth, "anon": anon, "name": name}
+
     def make_profile(self):
         """Fake a profile."""
         profile_name = factory.make_name('profile')
@@ -67,8 +73,12 @@ class TestRegisterAPICommands(TestCase):
             profile_name: {
                 'name': profile_name,
                 'url': 'http://%s.example.com/' % profile_name,
+                'credentials': factory.make_name("credentials"),
                 'description': {
-                    'handlers': [self.make_handler()],
+                    'resources': [
+                        self.make_resource(),
+                        self.make_resource(),
+                        ],
                     },
                 },
             }
