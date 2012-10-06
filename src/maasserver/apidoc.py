@@ -12,7 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "describe_handler",
-    "find_api_handlers",
+    "find_api_resources",
     "generate_api_docs",
     ]
 
@@ -53,14 +53,14 @@ def accumulate_api_resources(resolver, accumulator):
                 "Not a recognised pattern or resolver: %r" % (pattern,))
 
 
-def find_api_handlers(urlconf=None):
-    """Find the API handlers defined in `urlconf`.
+def find_api_resources(urlconf=None):
+    """Find the API resources defined in `urlconf`.
 
-    :rtype: Generator, yielding handlers.
+    :rtype: :class:`set` of :class:`Resource` instances.
     """
     resolver, accumulator = get_resolver(urlconf), set()
     accumulate_api_resources(resolver, accumulator)
-    return {resource.handler for resource in accumulator}
+    return accumulator
 
 
 def generate_api_docs(handlers):

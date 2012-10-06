@@ -27,7 +27,7 @@ from maasserver.api import (
     )
 from maasserver.apidoc import (
     describe_handler,
-    find_api_handlers,
+    find_api_resources,
     generate_api_docs,
     )
 from maasserver.testing.factory import factory
@@ -37,8 +37,8 @@ from piston.handler import BaseHandler
 from piston.resource import Resource
 
 
-class TestFindingHandlers(TestCase):
-    """Tests for API inspection support: finding handlers."""
+class TestFindingResources(TestCase):
+    """Tests for API inspection support: finding resources."""
 
     @staticmethod
     def make_module():
@@ -47,46 +47,46 @@ class TestFindingHandlers(TestCase):
         return new.module(name)
 
     def test_urlpatterns_empty(self):
-        # No handlers are found in empty modules.
+        # No resources are found in empty modules.
         module = self.make_module()
         module.urlpatterns = patterns("")
-        self.assertSetEqual(set(), find_api_handlers(module))
+        self.assertSetEqual(set(), find_api_resources(module))
 
     def test_urlpatterns_not_present(self):
         # The absence urlpatterns is an error.
         module = self.make_module()
-        self.assertRaises(ImproperlyConfigured, find_api_handlers, module)
+        self.assertRaises(ImproperlyConfigured, find_api_resources, module)
 
-    def test_urlpatterns_with_incomplete_handler(self):
-        # Handlers that don't have a resource_uri method are ignored.
+    def test_urlpatterns_with_resource_for_incomplete_handler(self):
+        # Resources for handlers that don't specify resource_uri are ignored.
         module = self.make_module()
         module.urlpatterns = patterns("", url("^foo", BaseHandler))
-        self.assertSetEqual(set(), find_api_handlers(module))
+        self.assertSetEqual(set(), find_api_resources(module))
 
-    def test_urlpatterns_with_handler(self):
-        # Handlers with resource_uri attributes are discovered in a urlconf
-        # module and returned. The type of resource_uri is not checked; it
-        # must only be present and not None.
+    def test_urlpatterns_with_resource(self):
+        # Resources for handlers with resource_uri attributes are discovered
+        # in a urlconf module and returned. The type of resource_uri is not
+        # checked; it must only be present and not None.
         handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
         resource = Resource(handler)
         module = self.make_module()
         module.urlpatterns = patterns("", url("^metal", resource))
-        self.assertSetEqual({resource.handler}, find_api_handlers(module))
+        self.assertSetEqual({resource}, find_api_resources(module))
 
     def test_nested_urlpatterns_with_handler(self):
-        # Handlers are found in nested urlconfs.
+        # Resources are found in nested urlconfs.
         handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
         resource = Resource(handler)
         module = self.make_module()
         submodule = self.make_module()
         submodule.urlpatterns = patterns("", url("^metal", resource))
         module.urlpatterns = patterns("", ("^genre/", include(submodule)))
-        self.assertSetEqual({resource.handler}, find_api_handlers(module))
+        self.assertSetEqual({resource}, find_api_resources(module))
 
     def test_smoke(self):
-        # Handlers are found for the MAAS API.
+        # Resources are found for the MAAS API.
         from maasserver import urls_api as urlconf
-        self.assertNotEqual(set(), find_api_handlers(urlconf))
+        self.assertNotEqual(set(), find_api_resources(urlconf))
 
 
 class TestGeneratingDocs(TestCase):
