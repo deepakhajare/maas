@@ -34,6 +34,7 @@ from maasserver.apidoc import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from mock import sentinel
 from piston.doc import HandlerDocumentation
 from piston.handler import BaseHandler
 from piston.resource import Resource
@@ -225,10 +226,25 @@ class TestDescribingAPI(TestCase):
             "http://example.com/api/1.0/nodes/{system_id}/",
             description["uri"])
 
-    def test_describe_resource(self):
-        # describe_resource() returns a description of a resource. Right now
-        # it is just the description of the resource's handler class.
+    def test_describe_resource_anonymous_resource(self):
         resource = OperationsResource(MegadethHandler)
         self.assertEqual(
-            describe_handler(MegadethHandler),
+            {"auth": None, "anon": describe_handler(MegadethHandler)},
+            describe_resource(resource))
+
+    def test_describe_resource_authenticated_resource(self):
+        resource = OperationsResource(
+            MegadethHandler, authentication=sentinel.auth)
+        self.assertEqual(
+            {"auth": describe_handler(MegadethHandler), "anon": None},
+            describe_resource(resource))
+
+    def test_describe_resource_authenticated_resource_with_fallback(self):
+        CoverBand = type(b"CoverBand", (MegadethHandler,), {})
+        self.patch(MegadethHandler, "anonymous", CoverBand)
+        resource = OperationsResource(
+            MegadethHandler, authentication=sentinel.auth)
+        self.assertEqual(
+            {"auth": describe_handler(MegadethHandler),
+             "anon": describe_handler(CoverBand)},
             describe_resource(resource))
