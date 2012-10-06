@@ -24,8 +24,8 @@ formulate_power_command() {
 
 formulate_power_state() {
     case $2 in
-    'on') echo '--cycle --on-if-off' ;;
-    'off') echo '--off' ;;
+    'on') echo 'on' ;;
+    'off') echo 'off' ;;
     *)
         echo "Got unknown power state from ipmipower: '$2'" >&2
         exit 1
