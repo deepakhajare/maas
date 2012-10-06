@@ -22,6 +22,7 @@ import os
 from os.path import abspath
 from urlparse import urljoin
 
+from fixtures import EnvironmentVariableFixture
 from maastesting import yui3
 from maastesting.fixtures import (
     DisplayFixture,
@@ -132,7 +133,11 @@ class YUIUnitTestsBase:
             # This test has been cloned; just call-up to run the test.
             super(YUIUnitTestsBase, self).__call__(result)
         else:
-            self.multiply(result)
+            # Disable all HTTP/HTTPS proxies set in the environment.
+            unset_http_proxy = EnvironmentVariableFixture("http_proxy")
+            unset_https_proxy = EnvironmentVariableFixture("https_proxy")
+            with unset_http_proxy, unset_https_proxy:
+                self.multiply(result)
 
     def test_YUI3_unit_tests(self):
         # Load the page and then wait for #suite to contain
