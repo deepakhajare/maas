@@ -15,6 +15,12 @@ __all__ = []
 import new
 
 from django.conf import settings
+from django.conf.urls import (
+    include,
+    patterns,
+    url,
+    )
+from django.core.exceptions import ImproperlyConfigured
 from maasserver.api import (
     operation,
     OperationsHandler,
@@ -39,52 +45,40 @@ class TestFindingHandlers(TestCase):
         name = factory.make_name("module").encode("ascii")
         return new.module(name)
 
-    def test_empty_module(self):
+    def test_urlpatterns_empty(self):
         # No handlers are found in empty modules.
         module = self.make_module()
-        module.__all__ = []
-        self.assertSequenceEqual(
-            [], list(find_api_handlers(module)))
+        module.urlpatterns = patterns("")
+        self.assertSetEqual(set(), find_api_handlers(module))
 
-    def test_empty_module_without_all(self):
-        # The absence of __all__ does not matter.
+    def test_urlpatterns_not_present(self):
+        # The absence urlpatterns is an error.
         module = self.make_module()
-        self.assertSequenceEqual(
-            [], list(find_api_handlers(module)))
+        self.assertRaises(ImproperlyConfigured, find_api_handlers, module)
 
-    def test_ignore_non_handlers(self):
-        # Module properties that are not handlers are ignored.
-        module = self.make_module()
-        module.something = 123
-        self.assertSequenceEqual(
-            [], list(find_api_handlers(module)))
-
-    def test_module_with_incomplete_handler(self):
+    def test_urlpatterns_with_incomplete_handler(self):
         # Handlers that don't have a resource_uri method are ignored.
         module = self.make_module()
-        module.handler = BaseHandler
-        self.assertSequenceEqual(
-            [], list(find_api_handlers(module)))
+        module.urlpatterns = patterns("", url("^foo", BaseHandler))
+        self.assertSetEqual(set(), find_api_handlers(module))
 
-    def test_module_with_handler(self):
-        # Handlers with resource_uri attributes are discovered in a module and
-        # returned. The type of resource_uri is not checked; it must only be
-        # present and not None.
+    def test_urlpatterns_with_handler(self):
+        # Handlers with resource_uri attributes are discovered in a urlconf
+        # module and returned. The type of resource_uri is not checked; it
+        # must only be present and not None.
+        handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
         module = self.make_module()
-        module.handler = type(
-            b"MetalHander", (BaseHandler,), {"resource_uri": True})
-        self.assertSequenceEqual(
-            [module.handler], list(find_api_handlers(module)))
+        module.urlpatterns = patterns("", url("^metal", handler))
+        self.assertSetEqual({handler}, find_api_handlers(module))
 
-    def test_module_with_handler_not_in_all(self):
-        # When __all__ is defined, only the names it defines are searched for
-        # handlers.
+    def test_nested_urlpatterns_with_handler(self):
+        # Handlers are found in nested urlconfs.
+        handler = type(b"\m/", (BaseHandler,), {"resource_uri": True})
         module = self.make_module()
-        module.handler = BaseHandler
-        module.something = "abc"
-        module.__all__ = ["something"]
-        self.assertSequenceEqual(
-            [], list(find_api_handlers(module)))
+        submodule = self.make_module()
+        submodule.urlpatterns = patterns("", url("^metal", handler))
+        module.urlpatterns = patterns("", ("^genre/", include(submodule)))
+        self.assertSetEqual({handler}, find_api_handlers(module))
 
 
 class TestGeneratingDocs(TestCase):
