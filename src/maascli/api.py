@@ -389,7 +389,10 @@ def register_resources(profile, parser):
             handlers = [resource["anon"]]
         else:
             handlers = [resource["auth"], resource["anon"]]
-        # Merge actions from the active handlers.
+        # Merge actions from the active handlers. This could be slightly
+        # simpler using a dict and going through the handlers in reverse, but
+        # doing it forwards with a defaultdict(list) leaves an easier-to-debug
+        # structure, and ought to be easier to understand.
         actions = defaultdict(list)
         for handler in handlers:
             if handler is not None:
@@ -397,7 +400,8 @@ def register_resources(profile, parser):
                     action_name = action["name"]
                     actions[action_name].append(action)
         # Always represent this resource using the authenticated handler, if
-        # defined, before the fall-back anonymous handler.
+        # defined, before the fall-back anonymous handler, even if this
+        # profile does not have credentials.
         represent_as = resource["auth"] or resource["anon"]
         represent_as = dict(represent_as, actions=[])
         # Register the handler using the first actions discovered.
