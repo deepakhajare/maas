@@ -76,7 +76,7 @@ def obtain_credentials(credentials):
 
 def http_request(url, method, body=None, headers=None,
                  disable_cert_check=False):
-    """Issue an http request"""
+    """Issue an http request."""
     http = httplib2.Http(
         disable_ssl_certificate_validation=disable_cert_check)
     try:
