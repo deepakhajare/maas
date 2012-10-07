@@ -119,18 +119,20 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
                 })
 
     def clean_network_not_too_big(self):
-        network = self.network
-        if network is not None:
-            if network.prefixlen < MINIMUM_PREFIX_LEN:
-                message = (
-                    "Cannot create an address space bigger than "
-                    "a /%d network.  This network is a /%d network." %
-                        (MINIMUM_PREFIX_LEN, network.prefixlen))
-                raise ValidationError(
-                {
-                    'broadcast_ip': [message],
-                    'subnet_mask': [message],
-                })
+        # If management is not 'UNMANAGED', refuse huge networks.
+        if self.management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
+            network = self.network
+            if network is not None:
+                if network.prefixlen < MINIMUM_PREFIX_LEN:
+                    message = (
+                        "Cannot create an address space bigger than "
+                        "a /%d network.  This network is a /%d network." %
+                            (MINIMUM_PREFIX_LEN, network.prefixlen))
+                    raise ValidationError(
+                    {
+                        'broadcast_ip': [message],
+                        'subnet_mask': [message],
+                    })
 
     def clean_management(self):
         # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
