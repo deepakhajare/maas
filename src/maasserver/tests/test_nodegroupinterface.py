@@ -123,7 +123,7 @@ class TestNodeGroupInterface(TestCase):
         network = IPNetwork('1.2.3.4/%d' % (MINIMUM_PREFIX_LEN - 1))
         nodegroup = factory.make_node_group(
             network=network,
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
         self.assertIsInstance(nodegroup, NodeGroup)
 
     def test_clean_network_config_if_managed(self):
