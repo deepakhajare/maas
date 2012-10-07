@@ -119,6 +119,13 @@ class TestNodeGroupInterface(TestCase):
         self.assertIsInstance(
             factory.make_node_group(network=network), NodeGroup)
 
+    def test_clean_network_accepts_big_network_if_unmanaged(self):
+        network = IPNetwork('1.2.3.4/%d' % (MINIMUM_PREFIX_LEN - 1))
+        nodegroup = factory.make_node_group(
+            network=network,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        self.assertIsInstance(nodegroup, NodeGroup)
+
     def test_clean_network_config_if_managed(self):
         network = IPNetwork('192.168.0.3/24')
         checked_fields = [
