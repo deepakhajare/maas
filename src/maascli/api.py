@@ -403,7 +403,7 @@ def register_resources(profile, parser):
         # defined, before the fall-back anonymous handler, even if this
         # profile does not have credentials.
         represent_as = resource["auth"] or resource["anon"]
-        represent_as = dict(represent_as, actions=[])
+        represent_as = dict(represent_as, name=resource["name"], actions=[])
         # Register the handler using the first actions discovered.
         if len(actions) != 0:
             represent_as["actions"].extend(
