@@ -74,12 +74,24 @@ def obtain_credentials(credentials):
         return None
 
 
-def fetch_api_description(url):
+def http_request(url, method, body=None, headers=None,
+                 disable_cert_check=False):
+    """Issue an http request"""
+    http = httplib2.Http(
+        disable_ssl_certificate_validation=disable_cert_check)
+    try:
+        return http.request(ascii_url(url), "GET")
+    except httplib2.SSLHandshakeError:
+        raise CommandError(
+            "Certificate verify failed, use --disable-cert-check to disable "
+            "the certificate check.")
+
+
+def fetch_api_description(url, disable_cert_check=False):
     """Obtain the description of remote API given its base URL."""
     url_describe = urljoin(url, "describe/")
-    http = httplib2.Http()
-    response, content = http.request(
-        ascii_url(url_describe), "GET")
+    response, content = http_request(
+        ascii_url(url_describe), "GET", disable_cert_check=disable_cert_check)
     if response.status != httplib.OK:
         raise CommandError(
             "{0.status} {0.reason}:\n{1}".format(response, content))
@@ -160,6 +172,9 @@ class cmd_login(Command):
                 "a long random-looking string composed of three parts, "
                 "separated by colons."
                 ))
+        parser.add_argument(
+            '--disable-cert-check', action='store_true', help=(
+                "Disable SSL certificate check"), default=False)
         parser.set_defaults(credentials=None)
 
     def __call__(self, options):
@@ -169,7 +184,8 @@ class cmd_login(Command):
         # Normalise the remote service's URL.
         url = ensure_trailing_slash(options.url)
         # Get description of remote API.
-        description = fetch_api_description(url)
+        disable_cert_check = options.disable_cert_check
+        description = fetch_api_description(url, disable_cert_check)
         # Save the config.
         profile_name = options.profile_name
         with ProfileConfig.open() as config:
@@ -253,6 +269,9 @@ class Action(Command):
         parser.add_argument(
             "-d", "--debug", action="store_true", default=False,
             help="Display more information about API responses.")
+        parser.add_argument(
+            '--disable-cert-check', action='store_true', help=(
+                "Disable SSL certificate check"), default=False)
 
     def __call__(self, options):
         # TODO: this is el-cheapo URI Template
@@ -272,9 +291,10 @@ class Action(Command):
         # on urllib2) so that we get full control over HTTP method. TODO:
         # create custom MAASDispatcher to use httplib2 so that MAASClient can
         # be used.
-        http = httplib2.Http()
-        response, content = http.request(
-            uri, self.method, body=body, headers=headers)
+        disable_cert_check = options.disable_cert_check
+        response, content = http_request(
+             uri, self.method, body=body, headers=headers,
+             disable_cert_check=disable_cert_check)
 
         # Output.
         if options.debug:
