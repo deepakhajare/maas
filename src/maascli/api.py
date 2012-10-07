@@ -15,6 +15,7 @@ __all__ = [
     "register_cli_commands",
     ]
 
+from collections import defaultdict
 from email.message import Message
 from getpass import getpass
 import httplib
@@ -382,15 +383,28 @@ def register_resources(profile, parser):
     description = profile["description"]
     resources = description["resources"]
     for resource in sorted(resources, key=itemgetter("name")):
-        auth_handler = resource["auth"]
-        anon_handler = resource["anon"]
+        # Don't consider the authenticated handler if this profile has no
+        # credentials associated with it.
         if anonymous:
-            auth_handler = None
-        # Register this the naive way, so that both handlers are added.
-        if auth_handler is not None:
-            register_handler(profile, auth_handler, parser)
-        if anon_handler is not None:
-            register_handler(profile, anon_handler, parser)
+            handlers = [resource["anon"]]
+        else:
+            handlers = [resource["auth"], resource["anon"]]
+        # Merge actions from the active handlers.
+        actions = defaultdict(list)
+        for handler in handlers:
+            if handler is not None:
+                for action in handler["actions"]:
+                    action_name = action["name"]
+                    actions[action_name].append(action)
+        # Always represent this resource using the authenticated handler, if
+        # defined, before the fall-back anonymous handler.
+        represent_as = resource["auth"] or resource["anon"]
+        represent_as = dict(represent_as, actions=[])
+        # Register the handler using the first actions discovered.
+        if len(actions) != 0:
+            represent_as["actions"].extend(
+                value[0] for value in actions.values())
+            register_handler(profile, represent_as, parser)
 
 
 commands = {
