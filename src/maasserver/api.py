@@ -134,7 +134,10 @@ from maasserver.exceptions import (
     NodeStateViolation,
     Unauthorized,
     )
-from maasserver.fields import mac_re, validate_mac
+from maasserver.fields import (
+    mac_re,
+    validate_mac,
+    )
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
