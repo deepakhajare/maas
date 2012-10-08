@@ -30,6 +30,7 @@ from maastesting.factory import factory
 from maastesting.fixtures import ProxiesDisabledFixture
 from maastesting.httpd import HTTPServerFixture
 from maastesting.testcase import TestCase
+from mock import sentinel
 
 
 class TestMAASOAuth(TestCase):
@@ -58,6 +59,22 @@ class TestMAASDispatcher(TestCase):
         self.assertEqual(
             body_from_file, body_from_dispatcher,
             "The content of %s differs from %s." % (url, filename))
+
+    def test_insecure_argument_passed_to_httplib2(self):
+        dispatcher = MAASDispatcher(sentinel.insecure)
+        self.assertEqual(
+            sentinel.insecure,
+            dispatcher.http.disable_ssl_certificate_validation)
+
+    def test_dispatch_query_passes_args_to_httplib2(self):
+        dispatcher = MAASDispatcher()
+        request = self.patch(dispatcher.http, "request")
+        dispatcher.dispatch_query(
+            request_url=sentinel.request_url, headers=sentinel.headers,
+            method=sentinel.method, data=sentinel.data)
+        request.assert_called_once_with(
+            sentinel.request_url, sentinel.method, headers=sentinel.headers,
+            body=sentinel.data)
 
 
 def make_url():

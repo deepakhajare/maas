@@ -70,7 +70,8 @@ class MAASDispatcher:
 
     def __init__(self, insecure=False):
         super(MAASDispatcher, self).__init__()
-        self.insecure = insecure
+        self.http = httplib2.Http(
+            disable_ssl_certificate_validation=insecure)
 
     def dispatch_query(self, request_url, headers, method="GET", data=None):
         """Synchronously dispatch an OAuth-signed request to L{request_url}.
@@ -85,8 +86,8 @@ class MAASDispatcher:
 
         :return: A open file-like object that contains the response.
         """
-        http = httplib2.Http(disable_ssl_certificate_validation=self.insecure)
-        return http.request(request_url, method, body=data, headers=headers)
+        return self.http.request(
+            request_url, method, body=data, headers=headers)
 
 
 class MAASClient:
