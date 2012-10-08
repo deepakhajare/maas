@@ -20,6 +20,7 @@ from maascli.auth import obtain_credentials
 from maascli.command import Command
 from maascli.config import ProfileConfig
 from maascli.utils import (
+    api_url,
     ensure_trailing_slash,
     parse_docstring,
     safe_name,
@@ -41,9 +42,10 @@ class cmd_login(Command):
                 "server and credentials within this tool."
                 ))
         parser.add_argument(
-            "url", help=(
-                "The URL of the remote API, e.g. "
-                "http://example.com/MAAS/api/1.0/"))
+            "url", type=api_url, help=(
+                "The URL of the remote API, e.g. http://example.com/MAAS/ "
+                "or http://example.com/MAAS/api/1.0/ if you wish to specify "
+                "the API version."))
         parser.add_argument(
             "credentials", nargs="?", default=None, help=(
                 "The credentials, also known as the API key, for the "
