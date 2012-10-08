@@ -146,10 +146,10 @@ urlpatterns += patterns('maasserver.views',
     # can have an empty name, thus leading to urls containing the
     # pattern '//' that is then reduced by apache into '/'.
     adminurl(
-        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]{0})'
+        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>)'
         'edit/$', ClusterInterfaceEdit.as_view()),
     adminurl(
-        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>[\w\-]{0})'
+        r'^clusters/(?P<uuid>[\w\-]+)/interfaces/(?P<interface>)'
         'delete/$', ClusterInterfaceDelete.as_view()),
     # /XXX
     adminurl(r'^settings/$', settings, name='settings'),
