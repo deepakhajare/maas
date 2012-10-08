@@ -47,6 +47,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.enum import POWER_TYPE
 
 
 class TestHelpers(DjangoTestCase):
@@ -271,11 +272,13 @@ class TestViews(DjangoTestCase):
         self.assertIn(
             'public-keys', response.content.decode('ascii').split('\n'))
 
-    def test_public_keys_for_node_without_public_keys_returns_not_found(self):
+    def test_public_keys_for_node_without_public_keys_returns_empty(self):
         url = reverse('metadata-meta-data', args=['latest', 'public-keys'])
         client = self.make_node_client()
         response = client.get(url)
-        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+        self.assertEqual(
+            (httplib.OK, ''),
+            (response.status_code, response.content))
 
     def test_public_keys_for_node_returns_list_of_keys(self):
         user, _ = factory.make_user_with_keys(n_keys=2, username='my-user')
@@ -521,9 +524,11 @@ class TestViews(DjangoTestCase):
             power_user=factory.getRandomString(),
             power_pass=factory.getRandomString())
         response = self.call_signal(
-            client, power_type="IPMI", power_parameters=json.dumps(params))
+            client, power_type="ipmi", power_parameters=json.dumps(params))
         self.assertEqual(httplib.OK, response.status_code, response.content)
         node = reload_object(node)
+        self.assertEqual(
+            POWER_TYPE.IPMI, node.power_type)
         self.assertEqual(
             params, node.power_parameters)
 
@@ -547,7 +552,7 @@ class TestViews(DjangoTestCase):
         response = self.call_signal(
             client, power_type="ipmi", power_parameters="badjson")
         self.assertEqual(
-            (httplib.BAD_REQUEST, "Failed to parse json power_parameters"),
+            (httplib.BAD_REQUEST, "Failed to parse JSON power_parameters"),
             (response.status_code, response.content))
 
     def test_api_retrieves_node_metadata_by_mac(self):
@@ -663,14 +668,24 @@ class TestEnlistViews(DjangoTestCase):
 
     def test_get_hostname(self):
         # instance-id must be available
-        md_url = reverse('enlist-metadata-meta-data',
-            args=['latest', 'local-hostname'])
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'local-hostname'])
         response = self.client.get(md_url)
         self.assertEqual(
             (httplib.OK, "text/plain"),
             (response.status_code, response["Content-Type"]))
         # just insist content is non-empty. It doesn't matter what it is.
         self.assertTrue(response.content)
+
+    def test_public_keys_returns_empty(self):
+        # An enlisting node has no SSH keys, but it does request them.
+        # If the node insists, we give it the empty list.
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'public-keys'])
+        response = self.client.get(md_url)
+        self.assertEqual(
+            (httplib.OK, ""),
+            (response.status_code, response.content))
 
     def test_metadata_bogus_is_404(self):
         md_url = reverse('enlist-metadata-meta-data',

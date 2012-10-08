@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from django.db.models.signals import post_save
+import django.dispatch
 from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
@@ -26,6 +28,10 @@ from maasserver.testing.testcase import TestCase
 from maasserver.worker_user import get_worker_user
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
+from mock import (
+    call,
+    Mock,
+    )
 from provisioningserver.omshell import (
     generate_omapi_key,
     Omshell,
@@ -38,15 +44,16 @@ from testtools.matchers import (
 
 
 def make_dhcp_settings():
-    """Create a dict of arbitrary nodegroup configuration parameters."""
-    return {
+    """Return an arbitrary dict of DHCP settings."""
+    network = factory.getRandomNetwork()
+    return network, {
         'interface': factory.make_name('interface'),
-        'subnet_mask': '255.0.0.0',
-        'broadcast_ip': '10.255.255.255',
-        'router_ip': factory.getRandomIPAddress(),
-        'ip_range_low': '10.0.0.1',
-        'ip_range_high': '10.254.254.254',
-    }
+        'subnet_mask': str(network.netmask),
+        'broadcast_ip': str(network.broadcast),
+        'router_ip': factory.getRandomIPInNetwork(network),
+        'ip_range_low': factory.getRandomIPInNetwork(network),
+        'ip_range_high': factory.getRandomIPInNetwork(network),
+        }
 
 
 class TestNodeGroupManager(TestCase):
@@ -65,11 +72,10 @@ class TestNodeGroupManager(TestCase):
         uuid = factory.getRandomUUID()
         ip = factory.getRandomIPAddress()
         nodegroup = NodeGroup.objects.new(name, uuid, ip)
+        dhcp_network, dhcp_settings = make_dhcp_settings()
         self.assertThat(
-            nodegroup,
-            MatchesStructure.fromExample({
-                item: None
-                for item in make_dhcp_settings().keys()}))
+            nodegroup, MatchesStructure.fromExample(
+                dict.fromkeys(dhcp_settings)))
 
     def test_new_requires_all_dhcp_settings_or_none(self):
         name = factory.make_name('nodegroup')
@@ -82,8 +88,8 @@ class TestNodeGroupManager(TestCase):
     def test_new_creates_nodegroup_with_given_dhcp_settings(self):
         name = factory.make_name('nodegroup')
         uuid = factory.make_name('uuid')
-        ip = factory.getRandomIPAddress()
-        dhcp_settings = make_dhcp_settings()
+        dhcp_network, dhcp_settings = make_dhcp_settings()
+        ip = factory.getRandomIPInNetwork(dhcp_network)
         nodegroup = NodeGroup.objects.new(name, uuid, ip, **dhcp_settings)
         nodegroup = reload_object(nodegroup)
         self.assertEqual(name, nodegroup.name)
@@ -118,7 +124,7 @@ class TestNodeGroupManager(TestCase):
             NodeGroup.objects.ensure_master(),
             MatchesStructure.fromExample({
                 'name': 'master',
-                'workder_id': 'master',
+                'worker_id': 'master',
                 'worker_ip': '127.0.0.1',
                 'subnet_mask': None,
                 'broadcast_ip': None,
@@ -173,6 +179,75 @@ class TestNodeGroupManager(TestCase):
             NodeGroup.DoesNotExist,
             NodeGroup.objects.get_by_natural_key,
             factory.make_name("nonexistent-nodegroup"))
+
+    def test__mass_change_status_changes_statuses(self):
+        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
+        nodegroup1 = factory.make_node_group(status=old_status)
+        nodegroup2 = factory.make_node_group(status=old_status)
+        new_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[old_status])
+        changed = NodeGroup.objects._mass_change_status(old_status, new_status)
+        self.assertEqual(
+            (
+                reload_object(nodegroup1).status,
+                reload_object(nodegroup2).status,
+                2,
+            ),
+            (
+                new_status,
+                new_status,
+                changed,
+            ))
+
+    def test__mass_change_status_calls_post_save_signal(self):
+        old_status = factory.getRandomEnum(NODEGROUP_STATUS)
+        nodegroup = factory.make_node_group(status=old_status)
+        recorder = Mock()
+
+        def post_save_NodeGroup(sender, instance, created, **kwargs):
+            recorder(instance)
+
+        django.dispatch.Signal.connect(
+            post_save, post_save_NodeGroup, sender=NodeGroup)
+        self.addCleanup(
+            django.dispatch.Signal.disconnect, post_save,
+            receiver=post_save_NodeGroup, sender=NodeGroup)
+        NodeGroup.objects._mass_change_status(
+            old_status, factory.getRandomEnum(NODEGROUP_STATUS))
+        self.assertEqual(
+            [call(nodegroup)], recorder.call_args_list)
+
+    def test_reject_all_pending_rejects_nodegroups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        changed = NodeGroup.objects.reject_all_pending()
+        self.assertEqual(
+            (NODEGROUP_STATUS.REJECTED, 1),
+            (reload_object(nodegroup).status, changed))
+
+    def test_reject_all_pending_does_not_change_others(self):
+        unaffected_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[NODEGROUP_STATUS.PENDING])
+        nodegroup = factory.make_node_group(status=unaffected_status)
+        changed_count = NodeGroup.objects.reject_all_pending()
+        self.assertEqual(
+            (unaffected_status, 0),
+            (reload_object(nodegroup).status, changed_count))
+
+    def test_accept_all_pending_accepts_nodegroups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        changed = NodeGroup.objects.accept_all_pending()
+        self.assertEqual(
+            (NODEGROUP_STATUS.ACCEPTED, 1),
+            (reload_object(nodegroup).status, changed))
+
+    def test_accept_all_pending_does_not_change_others(self):
+        unaffected_status = factory.getRandomEnum(
+            NODEGROUP_STATUS, but_not=[NODEGROUP_STATUS.PENDING])
+        nodegroup = factory.make_node_group(status=unaffected_status)
+        changed_count = NodeGroup.objects.accept_all_pending()
+        self.assertEqual(
+            (unaffected_status, 0),
+            (reload_object(nodegroup).status, changed_count))
 
 
 class TestNodeGroup(TestCase):

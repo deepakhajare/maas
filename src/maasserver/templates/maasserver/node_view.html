@@ -38,7 +38,7 @@
 
 {% block content %}
   <ul class="data-list">
-    <li class="block size2 first">
+    <li class="block size3 first">
       <h4>Hostname</h4>
       <span>{{ node.hostname }}</span>
     </li>
@@ -56,6 +56,35 @@
           {{ node.display_status }}
       </span>
     </li>
+    <li class="block first size3">
+      <h4>Architecture</h4>
+      <span>
+          {{ node.architecture }}
+      </span>
+    </li>
+    <li class="block size3">
+      <h4>CPU Count</h4>
+      <span>
+          {{ node.cpu_count }}
+      </span>
+    </li>
+    <li class="block size3">
+      <h4>Memory</h4>
+      <span>
+          {{ node.memory }} MB
+      </span>
+    </li>
+    <li class="block size3 first">
+      <h4>Tags</h4>
+      <span id="node_tags">
+          {% for tag in node.tags.all %}
+            <a href="{% url 'tag-view' tag.name %}">{{ tag }}</a>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+          {% if not node.tags.all %}
+            None
+          {% endif %}
+      </span>
+    </li>
     {% if error_text %}
     <li class="block first">
       <h4>Error output</h4>
@@ -69,7 +98,7 @@
     </li>
     {% endif %}
     {% if node.owner %}
-    <li class="block size2 first">
+    <li class="block size2">
       <h4>Owner</h4>
       <span>{{ node.owner }}</span>
     </li>

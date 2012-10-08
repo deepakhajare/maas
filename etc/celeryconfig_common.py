@@ -16,6 +16,10 @@ __metaclass__ = type
 # None to use the templates installed with the running version of MAAS.
 POWER_TEMPLATES_DIR = None
 
+# Location of power config files.  Use an absolute path, or leave as
+# None to use the files installed with the running version of MAAS.
+POWER_CONFIG_DIR = None
+
 # Location of MAAS' bind configuration files.
 DNS_CONFIG_DIR = '/etc/bind/maas'
 
@@ -42,6 +46,8 @@ BROKER_URL = 'amqp://guest:guest@localhost:5672//'
 # Location for log file.
 MAAS_CELERY_LOG = '/var/log/maas/celery.log'
 
+# Location for the cluster worker schedule file.
+MAAS_CLUSTER_CELERY_DB = '/var/lib/maas/celerybeat-cluster-schedule'
 
 WORKER_QUEUE_DNS = 'celery'
 WORKER_QUEUE_BOOT_IMAGES = 'celery'

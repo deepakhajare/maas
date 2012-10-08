@@ -21,6 +21,7 @@ __all__ = [
     "MAASAndNetworkForm",
     "NodeGroupInterfaceForm",
     "NodeGroupWithInterfacesForm",
+    "NodeGroupEdit",
     "NodeWithMACAddressesForm",
     "SSHKeyForm",
     "UbuntuForm",
@@ -51,6 +52,7 @@ from django.forms import (
     Form,
     ModelForm,
     )
+from lxml import etree
 from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
@@ -75,6 +77,7 @@ from maasserver.models import (
     SSHKey,
     Tag,
     )
+from maasserver.models.nodegroup import NODEGROUP_CLUSTER_NAME_TEMPLATE
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
 from provisioningserver.enum import (
@@ -645,46 +648,32 @@ class NodeGroupInterfaceForm(ModelForm):
 
     management = forms.TypedChoiceField(
         choices=NODEGROUPINTERFACE_MANAGEMENT_CHOICES, required=False,
-        coerce=int, empty_value=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT)
+        coerce=int, empty_value=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT,
+        help_text=(
+            "If you enable DHCP management, you will need to install the "
+            "'maas-dhcp' package on this cluster controller.  Similarly, you "
+            "will need to install the 'maas-dns' package on this region "
+            "controller to be able to enable DNS management."
+            ))
 
     class Meta:
         model = NodeGroupInterface
         fields = (
-            'ip',
             'interface',
+            'management',
+            'ip',
             'subnet_mask',
             'broadcast_ip',
             'router_ip',
             'ip_range_low',
             'ip_range_high',
-            'management',
             )
 
-    def clean_management(self):
-        # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
-        # is supported per NodeGroup.
-        management = self.cleaned_data['management']
-        if management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
-            other_interfaces = NodeGroupInterface.objects.all()
-            # Exclude context if it's already in the database.
-            if self.instance and self.instance.id is not None:
-                other_interfaces = (
-                    other_interfaces.exclude(id=self.instance.id))
-            # Narrow down to the those that are managed.
-            other_managed_interfaces = other_interfaces.exclude(
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
-            if other_managed_interfaces.exists():
-                raise ValidationError(
-                    {'management': [
-                        "Another managed interface already exists for this "
-                        "nodegroup."]})
-        return management
-
-    def save(self, nodegroup=None, *args, **kwargs):
+    def save(self, nodegroup=None, commit=True, *args, **kwargs):
         interface = super(NodeGroupInterfaceForm, self).save(commit=False)
         if nodegroup is not None:
             interface.nodegroup = nodegroup
-        if kwargs.get('commit', True):
+        if commit:
             interface.save(*args, **kwargs)
         return interface
 
@@ -702,10 +691,12 @@ class NodeGroupWithInterfacesForm(ModelForm):
     """Create a NodeGroup with unmanaged interfaces."""
 
     interfaces = forms.CharField(required=False)
+    cluster_name = forms.CharField(required=False)
 
     class Meta:
         model = NodeGroup
         fields = (
+            'cluster_name',
             'name',
             'uuid',
             )
@@ -720,6 +711,15 @@ class NodeGroupWithInterfacesForm(ModelForm):
             return DEFAULT_ZONE_NAME
         else:
             return data
+
+    def clean(self):
+        cleaned_data = super(NodeGroupWithInterfacesForm, self).clean()
+        cluster_name = cleaned_data.get("cluster_name")
+        uuid = cleaned_data.get("uuid")
+        if uuid and not cluster_name:
+            cleaned_data["cluster_name"] = (
+                NODEGROUP_CLUSTER_NAME_TEMPLATE % {'uuid': uuid})
+        return cleaned_data
 
     def clean_interfaces(self):
         data = self.cleaned_data['interfaces']
@@ -755,7 +755,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
             if len(managed) > 1:
                 raise ValidationError(
                     "Only one managed interface can be configured for this "
-                    "nodegroup")
+                    "cluster")
         return interfaces
 
     def save(self):
@@ -769,6 +769,25 @@ class NodeGroupWithInterfacesForm(ModelForm):
         return nodegroup
 
 
+class NodeGroupEdit(ModelForm):
+
+    name = forms.CharField(
+        label="DNS zone name",
+        help_text=(
+            "Name of the related DNS zone.  Note that this will only "
+            "be used if MAAS is managing a DNS zone for one of the interfaces "
+            "of this cluster.  See the 'status' of the interfaces below."),
+        required=False)
+
+    class Meta:
+        model = NodeGroup
+        fields = (
+            'cluster_name',
+            'status',
+            'name',
+            )
+
+
 class TagForm(ModelForm):
 
     class Meta:
@@ -778,3 +797,12 @@ class TagForm(ModelForm):
             'comment',
             'definition',
             )
+
+    def clean_definition(self):
+        definition = self.cleaned_data['definition']
+        try:
+            etree.XPath(definition)
+        except etree.XPathSyntaxError as e:
+            msg = 'Invalid xpath expression: %s' % (e,)
+            raise ValidationError({'definition': [msg]})
+        return definition

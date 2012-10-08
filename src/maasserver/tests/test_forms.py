@@ -65,6 +65,7 @@ from maasserver.node_action import (
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from netaddr import IPNetwork
 from provisioningserver.enum import POWER_TYPE_CHOICES
 from testtools.matchers import (
     AllMatch,
@@ -199,8 +200,8 @@ class NodeWithMACAddressesFormTest(TestCase):
 
     def test_sets_nodegroup_on_new_node_if_requested(self):
         nodegroup = factory.make_node_group(
-            ip_range_low='192.168.14.2', ip_range_high='192.168.14.254',
-            ip='192.168.14.1', subnet_mask='255.255.255.0')
+            network=IPNetwork("192.168.14.0/24"), ip_range_low='192.168.14.2',
+            ip_range_high='192.168.14.254', ip='192.168.14.1')
         form = NodeWithMACAddressesForm(
             self.make_params(nodegroup=nodegroup.get_managed_interface().ip))
         self.assertEqual(nodegroup, form.save().nodegroup)
@@ -210,11 +211,9 @@ class NodeWithMACAddressesFormTest(TestCase):
         # nodes.  You can't change it later.
         original_nodegroup = factory.make_node_group()
         node = factory.make_node(nodegroup=original_nodegroup)
-        factory.make_node_group(
-            ip_range_low='10.0.0.1', ip_range_high='10.0.0.2',
-            ip='10.0.0.1', subnet_mask='255.0.0.0')
+        factory.make_node_group(network=IPNetwork("192.168.1.0/24"))
         form = NodeWithMACAddressesForm(
-            self.make_params(nodegroup='10.0.0.1'), instance=node)
+            self.make_params(nodegroup='192.168.1.0'), instance=node)
         form.save()
         self.assertEqual(original_nodegroup, reload_object(node).nodegroup)
 
@@ -630,14 +629,15 @@ class TestMACAddressForm(TestCase):
 
 def make_interface_settings():
     """Create a dict of arbitrary interface configuration parameters."""
+    network = factory.getRandomNetwork()
     return {
-        'ip': factory.getRandomIPAddress(),
+        'ip': factory.getRandomIPInNetwork(network),
         'interface': factory.make_name('interface'),
-        'subnet_mask': factory.getRandomIPAddress(),
-        'broadcast_ip': factory.getRandomIPAddress(),
-        'router_ip': factory.getRandomIPAddress(),
-        'ip_range_low': factory.getRandomIPAddress(),
-        'ip_range_high': factory.getRandomIPAddress(),
+        'subnet_mask': str(network.netmask),
+        'broadcast_ip': str(network.broadcast),
+        'router_ip': factory.getRandomIPInNetwork(network),
+        'ip_range_low': factory.getRandomIPInNetwork(network),
+        'ip_range_high': factory.getRandomIPInNetwork(network),
         'management': factory.getRandomEnum(NODEGROUPINTERFACE_MANAGEMENT),
     }
 
@@ -665,11 +665,11 @@ class TestNodeGroupInterfaceForm(TestCase):
 
     def test_NodeGroupInterfaceForm_can_save_fields_being_None(self):
         settings = make_interface_settings()
+        settings['management'] = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
         for field_name in nullable_fields:
             del settings[field_name]
         form = NodeGroupInterfaceForm(data=settings)
-        nodegroup = factory.make_node_group(
-            management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
+        nodegroup = factory.make_node_group()
         interface = form.save(nodegroup=nodegroup)
         field_values = [
             getattr(interface, field_name) for field_name in nullable_fields]
@@ -782,7 +782,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid, 'interfaces': interfaces})
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "Only one managed interface can be configured for this nodegroup",
+            "Only one managed interface can be configured for this cluster",
             form._errors['interfaces'][0])
 
     def test_NodeGroupWithInterfacesForm_creates_multiple_interfaces(self):
@@ -799,6 +799,26 @@ class TestNodeGroupWithInterfacesForm(TestCase):
         form.save()
         nodegroup = NodeGroup.objects.get(uuid=uuid)
         self.assertEqual(2,  nodegroup.nodegroupinterface_set.count())
+
+    def test_NodeGroupWithInterfacesForm_populates_cluster_name_default(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'name': name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertIn(uuid, nodegroup.cluster_name)
+
+    def test_NodeGroupWithInterfacesForm_populates_cluster_name(self):
+        cluster_name = factory.make_name('cluster_name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'cluster_name': cluster_name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertEqual(cluster_name, nodegroup.cluster_name)
 
     def test_NodeGroupWithInterfacesForm_creates_unmanaged_interfaces(self):
         name = factory.make_name('name')

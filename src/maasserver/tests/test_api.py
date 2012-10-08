@@ -18,23 +18,25 @@ from abc import (
     )
 from base64 import b64encode
 from collections import namedtuple
+from cStringIO import StringIO
 from datetime import (
     datetime,
     timedelta,
     )
+from functools import partial
 import httplib
 from itertools import izip
 import json
 import os
 import random
 import shutil
+import sys
 
 from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
-from django.db.utils import DatabaseError
 from django.http import QueryDict
 from fixtures import Fixture
 from maasserver import api
@@ -45,6 +47,7 @@ from maasserver.api import (
     extract_oauth_key_from_auth_header,
     get_oauth_token,
     get_overrided_query_dict,
+    store_node_power_parameters,
     )
 from maasserver.enum import (
     ARCHITECTURE,
@@ -57,7 +60,10 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.exceptions import Unauthorized
+from maasserver.exceptions import (
+    MAASAPIBadRequest,
+    Unauthorized,
+    )
 from maasserver.fields import mac_error_msg
 from maasserver.forms import DEFAULT_ZONE_NAME
 from maasserver.models import (
@@ -70,6 +76,7 @@ from maasserver.models import (
     NodeGroupInterface,
     Tag,
     )
+from maasserver.models.node import generate_node_system_id
 from maasserver.models.user import (
     create_auth_token,
     get_auth_tokens,
@@ -220,6 +227,88 @@ class TestModuleHelpers(TestCase):
         self.assertEqual([data_value], results.getlist(key))
 
 
+class TestAuthentication(APIv10TestMixin, TestCase):
+    """Tests for `maasserver.api_auth`."""
+
+    def test_invalid_oauth_request(self):
+        # An OAuth-signed request that does not validate is an error.
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        get_auth_tokens(user).delete()  # Delete the user's API keys.
+        response = client.post(self.get_uri('nodes/'), {'op': 'start'})
+        observed = response.status_code, response.content
+        expected = (
+            Equals(httplib.UNAUTHORIZED),
+            Contains("Invalid access token:"),
+            )
+        self.assertThat(observed, MatchesListwise(expected))
+
+
+class TestStoreNodeParameters(TestCase):
+    """Tests for `store_node_power_parameters`."""
+
+    def setUp(self):
+        super(TestStoreNodeParameters, self).setUp()
+        self.node = factory.make_node()
+        self.save = self.patch(self.node, "save")
+        self.request = Mock()
+
+    def test_power_type_not_given(self):
+        # When power_type is not specified, nothing happens.
+        self.request.POST = {}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(POWER_TYPE.DEFAULT, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_has_calls([])
+
+    def test_power_type_set_but_no_parameters(self):
+        # When power_type is valid, it is set. However, if power_parameters is
+        # not specified, the node's power_parameters is left alone, and the
+        # node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {"power_type": power_type}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_parameters(self):
+        # When power_type is valid, and power_parameters is valid JSON, both
+        # fields are set on the node, and the node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        power_parameters = {"foo": [1, 2, 3]}
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": json.dumps(power_parameters),
+            }
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual(power_parameters, self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_invalid_parameters(self):
+        # When power_type is valid, but power_parameters is invalid JSON, the
+        # node is not saved, and an exception is raised.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": "Not JSON.",
+            }
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
+
+    def test_invalid_power_type(self):
+        # When power_type is invalid, the node is not saved, and an exception
+        # is raised.
+        self.request.POST = {"power_type": factory.make_name("bogus")}
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
+
+
 class MultipleUsersScenarios:
     """A mixin that uses testscenarios to repeat a testcase as different
     users.
@@ -287,6 +376,32 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_creates_node_with_power_parameters(self):
+        # We're setting power parameters so we disable start_commissioning to
+        # prevent anything from attempting to issue power instructions.
+        self.patch(Node, "start_commissioning")
+        hostname = factory.make_name("hostname")
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        power_type = POWER_TYPE.IPMI
+        power_parameters = {
+            "power_user": factory.make_name("power-user"),
+            "power_pass": factory.make_name("power-pass"),
+            }
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname,
+                'architecture': architecture,
+                'mac_addresses': factory.getRandomMACAddress(),
+                'power_parameters': json.dumps(power_parameters),
+                'power_type': power_type,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        [node] = Node.objects.filter(hostname=hostname)
+        self.assertEqual(power_parameters, node.power_parameters)
+        self.assertEqual(power_type, node.power_type)
 
     def test_POST_new_creates_node_with_arch_only(self):
         architecture = factory.getRandomChoice(
@@ -422,7 +537,9 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertIn('text/html', response['Content-Type'])
-        self.assertEqual("Unknown operation.", response.content)
+        self.assertEqual(
+            "Unrecognised signature: POST None",
+            response.content)
 
     def test_POST_fails_if_mac_duplicated(self):
         # Mac Addresses should be unique.
@@ -458,7 +575,8 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
         self.assertEqual(
-            "Unknown operation: 'invalid_operation'.", response.content)
+            "Unrecognised signature: POST invalid_operation",
+            response.content)
 
     def test_POST_new_rejects_invalid_data(self):
         # If the data provided to create a node with an invalid MAC
@@ -596,23 +714,25 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
         nodes_returned = json.loads(response.content)
         self.assertEqual([], nodes_returned)
 
-    def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
+    def test_POST_simple_user_can_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
             self.get_uri('nodes/'), {
                 'op': 'new',
                 'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
                 'power_type': POWER_TYPE.WAKE_ON_LAN,
-                'power_parameters_power_address': new_power_address,
+                'power_parameters': json.dumps(
+                    {"power_address": new_power_address}),
                 'mac_addresses': ['AA:BB:CC:DD:EE:FF'],
                 })
 
         node = Node.objects.get(
             system_id=json.loads(response.content)['system_id'])
         self.assertEqual(
-                (httplib.OK, '', POWER_TYPE.DEFAULT),
-                (response.status_code, node.power_parameters,
-                    node.power_type))
+            (httplib.OK, {"power_address": new_power_address},
+             POWER_TYPE.WAKE_ON_LAN),
+            (response.status_code, node.power_parameters,
+             node.power_type))
 
     def test_POST_returns_limited_fields(self):
         response = self.client.post(
@@ -857,9 +977,11 @@ class NodeAnonAPITest(APIv10TestMixin, TestCase):
 
     def test_anon_api_doc(self):
         # The documentation is accessible to anon users.
+        self.patch(sys, "stderr", StringIO())
         response = self.client.get(self.get_uri('doc/'))
-
         self.assertEqual(httplib.OK, response.status_code)
+        # No error or warning are emitted by docutils.
+        self.assertEqual("", sys.stderr.getvalue())
 
     def test_node_init_user_cannot_access(self):
         token = NodeKey.objects.get_token_for_node(factory.make_node())
@@ -1612,6 +1734,26 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             [matching_system_id], extract_system_ids(parsed_result))
 
+    def test_GET_list_with_invalid_macs_returns_sensible_error(self):
+        # If specifying an invalid MAC, make sure the error that's
+        # returned is not a crazy stack trace, but something nice to
+        # humans.
+        bad_mac1 = '00:E0:81:DD:D1:ZZ'  # ZZ is bad.
+        bad_mac2 = '00:E0:81:DD:D1:XX'  # XX is bad.
+        ok_mac = factory.make_mac_address()
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list',
+            'mac_address': [bad_mac1, bad_mac2, ok_mac],
+            })
+        observed = response.status_code, response.content
+        expected = (
+            Equals(httplib.BAD_REQUEST),
+            Contains(
+                "Invalid MAC address(es): 00:E0:81:DD:D1:ZZ, "
+                "00:E0:81:DD:D1:XX"),
+            )
+        self.assertThat(observed, MatchesListwise(expected))
+
     def test_GET_list_allocated_returns_only_allocated_with_user_token(self):
         # If the user's allocated nodes have different session tokens,
         # list_allocated should only return the nodes that have the
@@ -1787,6 +1929,17 @@ class TestNodesAPI(APITestCase):
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',
             'cpu_count': 2,
+        })
+        self.assertResponseCode(httplib.OK, response)
+        response_json = json.loads(response.content)
+        self.assertEqual(node.system_id, response_json['system_id'])
+
+    def test_POST_acquire_allocates_node_by_float_cpu(self):
+        # Asking for a needlessly precise number of cpus works.
+        node = factory.make_node(status=NODE_STATUS.READY, cpu_count=1)
+        response = self.client.post(self.get_uri('nodes/'), {
+            'op': 'acquire',
+            'cpu_count': '1.0',
         })
         self.assertResponseCode(httplib.OK, response)
         response_json = json.loads(response.content)
@@ -2384,11 +2537,10 @@ class TestTagAPI(APITestCase):
 
     def test_PUT_updates_node_associations(self):
         node1 = factory.make_node()
-        node1.set_hardware_details('<node><foo /></node>')
+        node1.set_hardware_details('<node><foo/></node>')
         node2 = factory.make_node()
-        node2.set_hardware_details('<node><bar /></node>')
+        node2.set_hardware_details('<node><bar/></node>')
         tag = factory.make_tag(definition='/node/foo')
-        tag.populate_nodes()
         self.assertItemsEqual([tag.name], node1.tag_names())
         self.assertItemsEqual([], node2.tag_names())
         self.become_admin()
@@ -2398,36 +2550,35 @@ class TestTagAPI(APITestCase):
         self.assertItemsEqual([], node1.tag_names())
         self.assertItemsEqual([tag.name], node2.tag_names())
 
-    def test_POST_nodes_with_no_nodes(self):
+    def test_GET_nodes_with_no_nodes(self):
         tag = factory.make_tag()
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual([], parsed_result)
 
-    def test_POST_nodes_returns_nodes(self):
+    def test_GET_nodes_returns_nodes(self):
         tag = factory.make_tag()
         node1 = factory.make_node()
         # Create a second node that isn't tagged.
         factory.make_node()
         node1.tags.add(tag)
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertEqual([node1.system_id],
                          [r['system_id'] for r in parsed_result])
 
-    def test_POST_nodes_hides_invisible_nodes(self):
+    def test_GET_nodes_hides_invisible_nodes(self):
         user2 = factory.make_user()
         node1 = factory.make_node()
-        node1.set_hardware_details('<node><foo /></node>')
+        node1.set_hardware_details('<node><foo/></node>')
         node2 = factory.make_node(status=NODE_STATUS.ALLOCATED, owner=user2)
-        node2.set_hardware_details('<node><bar /></node>')
+        node2.set_hardware_details('<node><bar/></node>')
         tag = factory.make_tag(definition='/node')
-        tag.populate_nodes()
-        response = self.client.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = self.client.get(self.get_tag_uri(tag), {'op': 'nodes'})
 
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
@@ -2435,7 +2586,7 @@ class TestTagAPI(APITestCase):
                          [r['system_id'] for r in parsed_result])
         # However, for the other user, they should see the result
         client2 = OAuthAuthenticatedClient(user2)
-        response = client2.post(self.get_tag_uri(tag), {'op': 'nodes'})
+        response = client2.get(self.get_tag_uri(tag), {'op': 'nodes'})
         self.assertEqual(httplib.OK, response.status_code)
         parsed_result = json.loads(response.content)
         self.assertItemsEqual([node1.system_id, node2.system_id],
@@ -2444,26 +2595,173 @@ class TestTagAPI(APITestCase):
     def test_PUT_invalid_definition(self):
         self.become_admin()
         node = factory.make_node()
-        node.set_hardware_details('<node ><child /></node>')
+        node.set_hardware_details('<node ><child/></node>')
         tag = factory.make_tag(definition='//child')
-        tag.populate_nodes()
         self.assertItemsEqual([tag.name], node.tag_names())
         response = self.client.put(self.get_tag_uri(tag),
             {'definition': 'invalid::tag'})
 
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        # Note: JAM 2012-09-26 we'd like to assert that the state in the DB is
-        #       properly aborted. However, the transactions are being handled
-        #       by TransactionMiddleware and are not hooked up in the test
-        #       suite. And the DB is currently in 'pending rollback' state, so
-        #       we cannot inspect it. So we test that we get a proper error
-        #       back, and test that the DB is in abort state. To test that
-        #       TransactionMiddleware is properly functioning needs a higher
-        #       level test.
-        self.assertRaises(DatabaseError, Tag.objects.all().count)
-        # tag = reload_object(tag)
-        # self.assertItemsEqual([tag.name], node.tag_names())
-        # self.assertEqual('/node/foo', tag.definition)
+        # The tag should not be modified
+        tag = reload_object(tag)
+        self.assertItemsEqual([tag.name], node.tag_names())
+        self.assertEqual('//child', tag.definition)
+
+    def test_POST_update_nodes_unknown_tag(self):
+        self.become_admin()
+        name = factory.make_name()
+        response = self.client.post(
+            self.get_uri('tags/%s/' % (name,)),
+            {'op': 'update_nodes'})
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_POST_update_nodes_changes_associations(self):
+        tag = factory.make_tag()
+        self.become_admin()
+        node_first = factory.make_node()
+        node_second = factory.make_node()
+        node_first.tags.add(tag)
+        self.assertItemsEqual([node_first], tag.node_set.all())
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node_second.system_id],
+             'remove': [node_first.system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([node_second], tag.node_set.all())
+        self.assertEqual({'added': 1, 'removed': 1}, parsed_result)
+
+    def test_POST_update_nodes_ignores_unknown_nodes(self):
+        tag = factory.make_tag()
+        self.become_admin()
+        unknown_add_system_id = generate_node_system_id()
+        unknown_remove_system_id = generate_node_system_id()
+        self.assertItemsEqual([], tag.node_set.all())
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [unknown_add_system_id],
+             'remove': [unknown_remove_system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([], tag.node_set.all())
+        self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
+
+    def test_POST_update_nodes_doesnt_require_add_or_remove(self):
+        tag = factory.make_tag()
+        node = factory.make_node()
+        self.become_admin()
+        self.assertItemsEqual([], tag.node_set.all())
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 1, 'removed': 0}, parsed_result)
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'remove': [node.system_id],
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 0, 'removed': 1}, parsed_result)
+
+    def test_POST_update_nodes_rejects_normal_user(self):
+        tag = factory.make_tag()
+        node = factory.make_node()
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id]})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_update_nodes_allows_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 1, 'removed': 0}, parsed_result)
+        self.assertItemsEqual([node], tag.node_set.all())
+
+    def test_POST_update_nodes_refuses_unidentified_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        # We don't pass nodegroup:uuid so we get refused
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_update_nodes_refuses_non_nodegroup_worker(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        response = self.client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+            })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_update_nodes_doesnt_modify_other_nodegroup_nodes(self):
+        tag = factory.make_tag()
+        nodegroup_mine = factory.make_node_group()
+        nodegroup_theirs = factory.make_node_group()
+        node_theirs = factory.make_node(nodegroup=nodegroup_theirs)
+        client = make_worker_client(nodegroup_mine)
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node_theirs.system_id],
+             'nodegroup': nodegroup_mine.uuid,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
+        self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_rebuild_rebuilds_node_mapping(self):
+        tag = factory.make_tag(definition='/foo/bar')
+        # Only one node matches the tag definition, rebuilding should notice
+        node_matching = factory.make_node()
+        node_matching.set_hardware_details('<foo><bar/></foo>')
+        node_bogus = factory.make_node()
+        node_bogus.set_hardware_details('<foo/>')
+        node_matching.tags.add(tag)
+        node_bogus.tags.add(tag)
+        self.assertItemsEqual(
+            [node_matching, node_bogus], tag.node_set.all())
+        self.become_admin()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'rebuild'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'rebuilding': tag.name}, parsed_result)
+        self.assertItemsEqual([node_matching], tag.node_set.all())
+
+    def test_POST_rebuild_unknown_404(self):
+        self.become_admin()
+        response = self.client.post(
+            self.get_uri('tags/unknown-tag/'), {'op': 'rebuild'})
+        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+
+    def test_POST_rebuild_requires_admin(self):
+        tag = factory.make_tag(definition='/foo/bar')
+        response = self.client.post(
+            self.get_tag_uri(tag), {'op': 'rebuild'})
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
 class TestTagsAPI(APITestCase):
@@ -2529,10 +2827,10 @@ class TestTagsAPI(APITestCase):
     def test_POST_new_populates_nodes(self):
         self.become_admin()
         node1 = factory.make_node()
-        node1.set_hardware_details('<node><child /></node>')
+        node1.set_hardware_details('<node><child/></node>')
         # Create another node that doesn't have a 'child'
         node2 = factory.make_node()
-        node2.set_hardware_details('<node />')
+        node2.set_hardware_details('<node/>')
         self.assertItemsEqual([], node1.tag_names())
         self.assertItemsEqual([], node2.tag_names())
         name = factory.getRandomString()
@@ -2720,21 +3018,22 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
 
 class TestPXEConfigAPI(AnonAPITestCase):
 
-    def get_params(self):
+    def get_mac_params(self):
         return {'mac': factory.make_mac_address().mac_address}
 
-    def get_optional_params(self):
-        return ['mac']
+    def get_default_params(self):
+        return dict()
 
     def get_pxeconfig(self, params=None):
         """Make a request to `pxeconfig`, and return its response dict."""
         if params is None:
-            params = self.get_params()
+            params = self.get_default_params()
         response = self.client.get(reverse('pxeconfig'), params)
         return json.loads(response.content)
 
     def test_pxeconfig_returns_json(self):
-        response = self.client.get(reverse('pxeconfig'), self.get_params())
+        response = self.client.get(
+            reverse('pxeconfig'), self.get_default_params())
         self.assertThat(
             (
                 response.status_code,
@@ -2756,13 +3055,56 @@ class TestPXEConfigAPI(AnonAPITestCase):
             self.get_pxeconfig(),
             ContainsAll(KernelParameters._fields))
 
-    def test_pxeconfig_defaults_to_i386_when_node_unknown(self):
+    def test_pxeconfig_returns_data_for_known_node(self):
+        response = self.client.get(reverse('pxeconfig'), self.get_mac_params())
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_pxeconfig_returns_no_content_for_unknown_node(self):
+        params = dict(mac=factory.getRandomMACAddress(delimiter=b'-'))
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+
+    def test_pxeconfig_returns_data_for_detailed_but_unknown_node(self):
+        architecture = factory.getRandomEnum(ARCHITECTURE)
+        arch, subarch = architecture.split('/')
+        params = dict(
+            mac=factory.getRandomMACAddress(delimiter=b'-'),
+            arch=arch,
+            subarch=subarch)
+        response = self.client.get(reverse('pxeconfig'), params)
+        self.assertEqual(httplib.OK, response.status_code)
+
+    def test_pxeconfig_defaults_to_i386_for_default(self):
         # As a lowest-common-denominator, i386 is chosen when the node is not
         # yet known to MAAS.
         expected_arch = tuple(ARCHITECTURE.i386.split('/'))
         params_out = self.get_pxeconfig()
         observed_arch = params_out["arch"], params_out["subarch"]
         self.assertEqual(expected_arch, observed_arch)
+
+    def test_pxeconfig_uses_fixed_hostname_for_enlisting_node(self):
+        self.assertEqual('maas-enlist', self.get_pxeconfig().get('hostname'))
+
+    def test_pxeconfig_uses_enlistment_domain_for_enlisting_node(self):
+        self.assertEqual(
+            Config.objects.get_config('enlistment_domain'),
+            self.get_pxeconfig().get('domain'))
+
+    def test_pxeconfig_splits_domain_from_node_hostname(self):
+        host = factory.make_name('host')
+        domain = factory.make_name('domain')
+        full_hostname = '.'.join([host, domain])
+        node = factory.make_node(hostname=full_hostname)
+        mac = factory.make_mac_address(node=node)
+        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
+        self.assertEqual(host, pxe_config.get('hostname'))
+        self.assertNotIn(domain, pxe_config.values())
+
+    def test_pxeconfig_uses_nodegroup_domain_for_node(self):
+        mac = factory.make_mac_address()
+        self.assertEqual(
+            mac.node.nodegroup.name,
+            self.get_pxeconfig({'mac': mac.mac_address}).get('domain'))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
@@ -2777,24 +3119,16 @@ class TestPXEConfigAPI(AnonAPITestCase):
             kernel_opts, 'get_ephemeral_name',
             FakeMethod(result=factory.getRandomString()))
 
-    def test_pxeconfig_requires_mac_address(self):
-        # The `mac` parameter is mandatory.
+    def test_pxeconfig_has_enlistment_preseed_url_for_default(self):
         self.silence_get_ephemeral_name()
-        self.assertEqual(
-            httplib.BAD_REQUEST,
-            self.get_without_param("mac").status_code)
-
-    def test_pxeconfig_has_enlistment_preseed_url_for_unknown_node(self):
-        self.silence_get_ephemeral_name()
-        params = self.get_params()
-        params['mac'] = factory.getRandomMACAddress()
+        params = self.get_default_params()
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(
             compose_enlistment_preseed_url(),
             json.loads(response.content)["preseed_url"])
 
     def test_pxeconfig_has_preseed_url_for_known_node(self):
-        params = self.get_params()
+        params = self.get_mac_params()
         node = MACAddress.objects.get(mac_address=params['mac']).node
         response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(
@@ -2829,7 +3163,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
     def test_pxeconfig_uses_boot_purpose(self):
         fake_boot_purpose = factory.make_name("purpose")
         self.patch(api, "get_boot_purpose", lambda node: fake_boot_purpose)
-        response = self.client.get(reverse('pxeconfig'), self.get_params())
+        response = self.client.get(reverse('pxeconfig'),
+                                   self.get_default_params())
         self.assertEqual(
             fake_boot_purpose,
             json.loads(response.content)["purpose"])
@@ -2969,6 +3304,21 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             (NODEGROUP_STATUS.ACCEPTED, DEFAULT_ZONE_NAME),
             (master.status, master.name))
 
+    def test_register_multiple_nodegroups(self):
+        uuids = {
+            factory.getRandomUUID(), factory.getRandomUUID(),
+            factory.getRandomUUID()}
+        for uuid in uuids:
+            self.client.post(
+                reverse('nodegroups_handler'),
+                {
+                    'op': 'register',
+                    'uuid': uuid,
+                })
+        self.assertSetEqual(
+            uuids,
+            set(NodeGroup.objects.values_list('uuid', flat=True)))
+
     def test_register_accepts_only_one_managed_interface(self):
         self.create_configured_master()
         name = factory.make_name('name')
@@ -2991,7 +3341,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
                 {'interfaces':
                     [
                         "Only one managed interface can be configured for "
-                        "this nodegroup"
+                        "this cluster"
                     ]},
             ),
             (response.status_code, json.loads(response.content)))
@@ -3159,7 +3509,11 @@ class TestNodeGroupInterfaceAPI(APITestCase):
         self.become_admin()
         nodegroup = factory.make_node_group()
         interface = nodegroup.get_managed_interface()
-        new_ip_range_high = factory.getRandomIPAddress()
+        get_ip_in_network = partial(
+            factory.getRandomIPInNetwork, interface.network)
+        new_ip_range_high = next(
+            ip for ip in iter(get_ip_in_network, None)
+            if ip != interface.ip_range_high)
         response = self.client.put(
             reverse(
                 'nodegroupinterface_handler',
@@ -3168,6 +3522,19 @@ class TestNodeGroupInterfaceAPI(APITestCase):
         self.assertEqual(
             (httplib.OK, new_ip_range_high),
             (response.status_code, reload_object(interface).ip_range_high))
+
+    def test_delete_interface(self):
+        self.become_admin()
+        nodegroup = factory.make_node_group()
+        interface = nodegroup.get_managed_interface()
+        response = self.client.delete(
+            reverse(
+                'nodegroupinterface_handler',
+                args=[nodegroup.uuid, interface.interface]))
+        self.assertEqual(httplib.NO_CONTENT, response.status_code)
+        self.assertFalse(
+            NodeGroupInterface.objects.filter(
+                interface=interface.interface, nodegroup=nodegroup).exists())
 
 
 def explain_unexpected_response(expected_status, response):
@@ -3397,6 +3764,95 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
             httplib.FORBIDDEN, response.status_code,
             explain_unexpected_response(httplib.FORBIDDEN, response))
 
+    def test_nodegroup_list_nodes_requires_authentication(self):
+        nodegroup = factory.make_node_group()
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
+    def test_nodegroup_list_nodes_does_not_work_for_normal_user(self):
+        nodegroup = factory.make_node_group()
+        log_in_as_normal_user(self.client)
+        response = self.client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_nodegroup_list_nodes_works_for_nodegroup_worker(self):
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        response = client.get(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'list_nodes'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual([node.system_id], parsed_result)
+
+    def make_node_hardware_details_request(self, client, nodegroup=None):
+        if nodegroup is None:
+            nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        return client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'node_hardware_details', 'system_ids': [node.system_id]})
+
+    def test_GET_node_hardware_details_requires_authentication(self):
+        response = self.make_node_hardware_details_request(self.client)
+        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+
+    def test_GET_node_hardware_details_refuses_nonworker(self):
+        log_in_as_normal_user(self.client)
+        response = self.make_node_hardware_details_request(self.client)
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
+    def test_GET_node_hardware_details_returns_hardware_details(self):
+        nodegroup = factory.make_node_group()
+        hardware_details = '<node/>'
+        node = factory.make_node(nodegroup=nodegroup)
+        node.set_hardware_details(hardware_details)
+        client = make_worker_client(nodegroup)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'node_hardware_details', 'system_ids': [node.system_id]})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([[node.system_id, hardware_details]], parsed_result)
+
+    def test_GET_node_hardware_details_does_not_see_other_groups(self):
+        hardware_details = '<node/>'
+        nodegroup_mine = factory.make_node_group()
+        nodegroup_theirs = factory.make_node_group()
+        node_mine = factory.make_node(nodegroup=nodegroup_mine)
+        node_mine.set_hardware_details(hardware_details)
+        node_theirs = factory.make_node(nodegroup=nodegroup_theirs)
+        node_theirs.set_hardware_details(hardware_details)
+        client = make_worker_client(nodegroup_mine)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup_mine.uuid]),
+            {'op': 'node_hardware_details',
+             'system_ids': [node_mine.system_id, node_theirs.system_id]})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual([[node_mine.system_id, hardware_details]],
+                         parsed_result)
+
+    def test_GET_node_hardware_details_with_no_details(self):
+        nodegroup = factory.make_node_group()
+        client = make_worker_client(nodegroup)
+        response = self.make_node_hardware_details_request(client, nodegroup)
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        node_system_id = parsed_result[0][0]
+        self.assertEqual([[node_system_id, None]], parsed_result)
+
 
 class TestBootImagesAPI(APITestCase):
 
@@ -3503,5 +3959,6 @@ class TestDescribe(AnonAPITestCase):
     def test_describe(self):
         response = self.client.get(reverse('describe'))
         description = json.loads(response.content)
-        self.assertSetEqual({"doc", "handlers"}, set(description))
+        self.assertSetEqual(
+            {"doc", "handlers", "resources"}, set(description))
         self.assertIsInstance(description["handlers"], list)

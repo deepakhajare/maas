@@ -9,8 +9,25 @@ power_address={{power_address}}
 power_user={{power_user}}
 power_pass={{power_pass}}
 ipmipower={{ipmipower}}
+ipmi_chassis_config={{ipmi_chassis_config}}
+config={{config_dir}}/{{ipmi_config}}
 
+# Determines the power command needed to execute the desired
+# action. This function receives ${power_change} as argument.
+formulate_power_command() {
+    case $1 in
+    'on') echo '--cycle --on-if-off' ;;
+    'off') echo '--off' ;;
+    *)
+        echo "Got unknown power state from ipmipower: '$1'" >&2
+        exit 1
+    esac
+}
 
+# Determines the current state on which the machine finds itself.
+# The argument passed comes from IPMI's stat command in the form:
+# <ipmi-ip-address>: <on/off>
+# This function evaluates whether it was <on/off>.
 formulate_power_state() {
     case $2 in
     'on') echo 'on' ;;
@@ -25,7 +42,9 @@ formulate_power_state() {
 issue_ipmi_command() {
     # See https://launchpad.net/bugs/1053391 for details of this workaround
     echo workaround |\
-    ${ipmipower} -h ${power_address} -u ${power_user} -p ${power_pass} --$1
+    ${ipmi_chassis_config} -h ${power_address} -u ${power_user} -p ${power_pass} --commit --filename ${config}
+    echo workaround |\
+    ${ipmipower} -h ${power_address} -u ${power_user} -p ${power_pass} "$@"
 }
 
 
@@ -38,5 +57,6 @@ get_power_state() {
 
 if [ "$(get_power_state)" != "${power_change}" ]
 then
-    issue_ipmi_command ${power_change}
+    power_command=$(formulate_power_command ${power_change})
+    issue_ipmi_command ${power_command}
 fi

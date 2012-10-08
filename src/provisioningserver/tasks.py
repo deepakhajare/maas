@@ -30,7 +30,10 @@ from subprocess import (
 
 from celery.app import app_or_default
 from celery.task import task
-from provisioningserver import boot_images
+from provisioningserver import (
+    boot_images,
+    tags,
+    )
 from provisioningserver.auth import (
     record_api_credentials,
     record_maas_url,
@@ -190,7 +193,6 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
     if zones is not None:
         for zone in zones:
             zone.write_config()
-            zone.write_reverse_config()
     # Write main config file.
     dns_config = DNSConfig(zones=zones)
     dns_config.write_config(**kwargs)
@@ -216,8 +218,8 @@ def write_dns_config(zones=(), callback=None, **kwargs):
 
 
 @task(queue=celery_config.WORKER_QUEUE_DNS)
-def write_dns_zone_config(zone, callback=None, **kwargs):
-    """Write out a DNS zone configuration file.
+def write_dns_zone_config(zones, callback=None, **kwargs):
+    """Write out DNS zones.
 
     :param zone: The zone data to write the configuration for.
     :type zone: :class:`DNSZoneData`
@@ -225,8 +227,8 @@ def write_dns_zone_config(zone, callback=None, **kwargs):
     :type callback: callable
     :param **kwargs: Keyword args passed to DNSZoneConfig.write_config()
     """
-    zone.write_config()
-    zone.write_reverse_config()
+    for zone in zones:
+        zone.write_config()
     if callback is not None:
         callback.delay()
 
@@ -336,3 +338,13 @@ def restart_dhcp_server():
 def report_boot_images():
     """For master worker only: report available netboot images."""
     boot_images.report_to_server()
+
+
+@task
+def update_node_tags(tag_name, tag_definition):
+    """Update the nodes for a new/changed tag definition.
+
+    :param tag_name: Name of the tag to update nodes for
+    :param tag_definition: Tag definition
+    """
+    tags.process_node_tags(tag_name, tag_definition)

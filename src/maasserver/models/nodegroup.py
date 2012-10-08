@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'NodeGroup',
+    'NODEGROUP_CLUSTER_NAME_TEMPLATE',
     ]
 
 
@@ -68,8 +69,10 @@ class NodeGroupManager(Manager):
         assert all(dhcp_values) or not any(dhcp_values), (
             "Provide all DHCP settings, or none at all.")
 
+        cluster_name = NODEGROUP_CLUSTER_NAME_TEMPLATE % {'uuid': uuid}
         nodegroup = NodeGroup(
-            name=name, uuid=uuid, dhcp_key=dhcp_key, status=status)
+            name=name, uuid=uuid, cluster_name=cluster_name, dhcp_key=dhcp_key,
+            status=status)
         nodegroup.save()
         nginterface = NodeGroupInterface(
             nodegroup=nodegroup, ip=ip, subnet_mask=subnet_mask,
@@ -108,6 +111,29 @@ class NodeGroupManager(Manager):
         for nodegroup in self.all():
             refresh_worker(nodegroup)
 
+    def _mass_change_status(self, old_status, new_status):
+        nodegroups = self.filter(status=old_status)
+        nodegroups_count = nodegroups.count()
+        # Change the nodegroups one by one in order to trigger the
+        # post_save signals.
+        for nodegroup in nodegroups:
+            nodegroup.status = new_status
+            nodegroup.save()
+        return nodegroups_count
+
+    def reject_all_pending(self):
+        """Change the status of the 'PENDING' nodegroup to 'REJECTED."""
+        return self._mass_change_status(
+            NODEGROUP_STATUS.PENDING, NODEGROUP_STATUS.REJECTED)
+
+    def accept_all_pending(self):
+        """Change the status of the 'PENDING' nodegroup to 'ACCEPTED."""
+        return self._mass_change_status(
+            NODEGROUP_STATUS.PENDING, NODEGROUP_STATUS.ACCEPTED)
+
+
+NODEGROUP_CLUSTER_NAME_TEMPLATE = "Cluster %(uuid)s"
+
 
 class NodeGroup(TimestampedModel):
 
@@ -116,12 +142,15 @@ class NodeGroup(TimestampedModel):
 
     objects = NodeGroupManager()
 
+    cluster_name = CharField(
+        max_length=100, unique=True, editable=True, blank=True, null=False)
+
     # A node group's name is also used for the group's DNS zone.
     name = CharField(
         max_length=80, unique=False, editable=True, blank=True, null=False)
 
     status = IntegerField(
-        choices=NODEGROUP_STATUS_CHOICES, editable=False,
+        choices=NODEGROUP_STATUS_CHOICES, editable=True,
         default=NODEGROUP_STATUS.DEFAULT_STATUS)
 
     # Credentials for the worker to access the API with.
@@ -138,7 +167,7 @@ class NodeGroup(TimestampedModel):
         max_length=36, unique=True, null=False, blank=False, editable=True)
 
     def __repr__(self):
-        return "<NodeGroup %r>" % self.name
+        return "<NodeGroup %s>" % self.uuid
 
     def accept(self):
         """Accept this nodegroup's enlistment."""

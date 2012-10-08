@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from itertools import product
 import os
 from subprocess import CalledProcessError
 import tempfile
@@ -23,6 +24,7 @@ from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
 from mock import Mock
 from provisioningserver import omshell
+import provisioningserver.omshell
 from provisioningserver.omshell import (
     generate_omapi_key,
     Omshell,
@@ -207,3 +209,41 @@ class Test_generate_omapi_key(TestCase):
 
         self.patch(omshell, 'call_dnssec_keygen', returns_junk)
         self.assertRaises(AssertionError, generate_omapi_key)
+
+    def test_run_repeated_keygen(self):
+        bad_patterns = {
+            "+no/", "/no/", "/no+", "+no+",
+            "+NO/", "/NO/", "/NO+", "+NO+",
+            }
+        bad_patterns_templates = {
+            "foo%sbar", "one\ntwo\n%s\nthree\n", "%s",
+            }
+        # Test that a known bad key is ignored and we generate a new one
+        # to replace it.
+        bad_keys = {
+            # This key is known to fail with omshell.
+            "YXY5pr+No/8NZeodSd27wWbI8N6kIjMF/nrnFIlPwVLuByJKkQcBRtfDrD"
+            "LLG2U9/ND7/bIlJxEGTUnyipffHQ==",
+            }
+        # Fabricate a range of keys containing the known-bad pattern.
+        bad_keys.update(
+            template % pattern for template, pattern in product(
+                bad_patterns_templates, bad_patterns))
+        # An iterator that we can exhaust without mutating bad_keys.
+        iter_bad_keys = iter(bad_keys)
+        # Reference to the original parse_key_value_file, before we patch.
+        parse_key_value_file = provisioningserver.omshell.parse_key_value_file
+
+        # Patch parse_key_value_file to return each of the known-bad keys
+        # we've created, followed by reverting to its usual behaviour.
+        def side_effect(*args, **kwargs):
+            try:
+                return {'Key': next(iter_bad_keys)}
+            except StopIteration:
+                return parse_key_value_file(*args, **kwargs)
+
+        mock = self.patch(provisioningserver.omshell, 'parse_key_value_file')
+        mock.side_effect = side_effect
+
+        # generate_omapi_key() does not return a key known to be bad.
+        self.assertNotIn(generate_omapi_key(), bad_keys)

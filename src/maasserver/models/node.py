@@ -16,7 +16,7 @@ __all__ = [
     "update_hardware_details",
     ]
 
-import contextlib
+import math
 import os
 from string import whitespace
 from uuid import uuid1
@@ -27,7 +27,6 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.db import connection
 from django.db.models import (
     BooleanField,
     CharField,
@@ -38,6 +37,7 @@ from django.db.models import (
     Q,
     )
 from django.shortcuts import get_object_or_404
+from lxml import etree
 from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
@@ -322,43 +322,37 @@ class NodeManager(Manager):
         return processed_nodes
 
 
-def update_hardware_details(node, xmlbytes):
+_xpath_processor_count = "count(//node[@id='core']/node[@class='processor'])"
+_xpath_memory_bytes = "//node[@id='memory']/size[@units='bytes'] div 1048576"
+
+
+def update_hardware_details(node, xmlbytes, tag_manager):
     """Set node hardware_details from lshw output and update related fields
 
-    This is designed to be called with individual nodes on commissioning and
-    is not optimised for batch updates.
-
-    There are a bunch of suboptimal things here:
-    * Is a function rather than method in hope south migration can reuse.
-    * Doing UPDATE then transaction.commit_unless_managed doesn't work?
-    * Scalar returns from xpath() work in postgres 9.2 or later only.
+    This is a helper function just so it can be used in the south migration
+    to do the correct updates to mem and cpu_count when hardware_details is
+    first set.
     """
+    try:
+        doc = etree.XML(xmlbytes)
+    except etree.XMLSyntaxError as e:
+        raise ValidationError(
+            {'hardware_details': ['Invalid XML: %s' % (e,)]})
     node.hardware_details = xmlbytes
-    node.save()
-    with contextlib.closing(connection.cursor()) as cursor:
-        cursor.execute("SELECT"
-            " array_length(xpath(%s, hardware_details), 1) AS count,"
-            " (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
-            " FROM maasserver_node"
-            " WHERE id = %s",
-            [
-                "//node[@id='core']/node[@class='processor']",
-                "//node[@id='memory']/size[@units='bytes']/text()",
-                node.id,
-            ])
-        cpu_count, memory = cursor.fetchone()
-        node.cpu_count = cpu_count or 0
-        node.memory = memory or 0
-        for tag in Tag.objects.all():
-            cursor.execute(
-                "SELECT xpath_exists(%s, hardware_details)"
-                " FROM maasserver_node WHERE id = %s",
-                [tag.definition,  node.id])
-            has_tag, = cursor.fetchone()
-            if has_tag:
-                node.tags.add(tag)
-            else:
-                node.tags.remove(tag)
+    # Same document, many queries: use XPathEvaluator.
+    evaluator = etree.XPathEvaluator(doc)
+    cpu_count = evaluator(_xpath_processor_count)
+    memory = evaluator(_xpath_memory_bytes)
+    if not memory or math.isnan(memory):
+        memory = 0
+    node.cpu_count = cpu_count or 0
+    node.memory = memory
+    for tag in tag_manager.all():
+        has_tag = evaluator(tag.definition)
+        if has_tag:
+            node.tags.add(tag)
+        else:
+            node.tags.remove(tag)
     node.save()
 
 
@@ -585,6 +579,10 @@ class Node(CleanSave, TimestampedModel):
         super(Node, self).delete()
 
     def set_mac_based_hostname(self, mac_address):
+        """Set default `hostname` based on `mac_address`
+
+        The hostname will include the `enlistment_domain` if set.
+        """
         mac_hostname = mac_address.replace(':', '').lower()
         domain = Config.objects.get_config("enlistment_domain")
         domain = domain.strip("." + whitespace)
@@ -650,6 +648,9 @@ class Node(CleanSave, TimestampedModel):
         power_params.setdefault('system_id', self.system_id)
         power_params.setdefault('virsh', '/usr/bin/virsh')
         power_params.setdefault('ipmipower', '/usr/sbin/ipmipower')
+        power_params.setdefault(
+            'ipmi_chassis_config', '/usr/sbin/ipmi-chassis-config')
+        power_params.setdefault('ipmi_config', 'ipmi.conf')
         power_params.setdefault('power_address', 'qemu://localhost/system')
         power_params.setdefault('username', '')
         power_params.setdefault('power_id', self.system_id)
@@ -687,4 +688,4 @@ class Node(CleanSave, TimestampedModel):
 
     def set_hardware_details(self, xmlbytes):
         """Set the `lshw -xml` output"""
-        update_hardware_details(self, xmlbytes)
+        update_hardware_details(self, xmlbytes, Tag.objects)

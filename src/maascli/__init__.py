@@ -11,29 +11,18 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
-    "Command",
-    "CommandError",
-    "register",
+    "main",
     ]
 
-from abc import (
-    ABCMeta,
-    abstractmethod,
-    )
 import argparse
+from argparse import RawDescriptionHelpFormatter
 import locale
 import sys
 
 from bzrlib import osutils
-from maascli.utils import (
-    parse_docstring,
-    safe_name,
-    )
-
-
-modules = {
-    "api": "maascli.api",
-    }
+from maascli.api import register_api_commands
+from maascli.cli import register_cli_commands
+from maascli.utils import parse_docstring
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -42,6 +31,10 @@ class ArgumentParser(argparse.ArgumentParser):
     Specifically, the one-shot `add_subparsers` call is disabled, replaced by
     a lazily evaluated `subparsers` property.
     """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", RawDescriptionHelpFormatter)
+        super(ArgumentParser, self).__init__(*args, **kwargs)
 
     def add_subparsers(self):
         raise NotImplementedError(
@@ -53,7 +46,8 @@ class ArgumentParser(argparse.ArgumentParser):
             return self.__subparsers
         except AttributeError:
             parent = super(ArgumentParser, self)
-            self.__subparsers = parent.add_subparsers(title="commands")
+            self.__subparsers = parent.add_subparsers(title="drill down")
+            self.__subparsers.metavar = "COMMAND"
             return self.__subparsers
 
 
@@ -64,19 +58,13 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[:1] + osutils.get_unicode_argv()
 
-    # Create the base argument parser.
+    module = __import__('maascli.api', fromlist=True)
+    help_title, help_body = parse_docstring(module)
     parser = ArgumentParser(
-        description="Control MAAS from the command-line.",
-        prog=argv[0], epilog="http://maas.ubuntu.com/")
-
-    # Register declared modules.
-    for name, module in sorted(modules.items()):
-        if isinstance(module, basestring):
-            module = __import__(module, fromlist=True)
-        help_title, help_body = parse_docstring(module)
-        module_parser = parser.subparsers.add_parser(
-            name, help=help_title, description=help_body)
-        register(module, module_parser)
+        description=help_body, prog=argv[0],
+        epilog="http://maas.ubuntu.com/")
+    register_cli_commands(parser)
+    register_api_commands(parser)
 
     # Run, doing polite things with exceptions.
     try:
@@ -86,50 +74,3 @@ def main(argv=None):
         raise SystemExit(1)
     except StandardError as error:
         parser.error("%s" % error)
-
-
-class Command:
-    """A base class for composing commands.
-
-    This adheres to the expectations of `register`.
-    """
-
-    __metaclass__ = ABCMeta
-
-    def __init__(self, parser):
-        super(Command, self).__init__()
-        self.parser = parser
-
-    @abstractmethod
-    def __call__(self, options):
-        """Execute this command."""
-
-
-CommandError = SystemExit
-
-
-def register(module, parser, prefix="cmd_"):
-    """Register commands in `module` with the given argument parser.
-
-    This looks for callable objects named `cmd_*` by default, calls them with
-    a new subparser, and registers them as the default value for `execute` in
-    the namespace.
-
-    If the module also has a `register` function, this is also called, passing
-    in the module being scanned, and the parser given to this function.
-    """
-    # Register commands.
-    trim = slice(len(prefix), None)
-    commands = {
-        name[trim]: command for name, command in vars(module).items()
-        if name.startswith(prefix) and callable(command)
-        }
-    for name, command in commands.items():
-        help_title, help_body = parse_docstring(command)
-        command_parser = parser.subparsers.add_parser(
-            safe_name(name), help=help_title, description=help_body)
-        command_parser.set_defaults(execute=command(command_parser))
-    # Extra subparser registration.
-    register_module = getattr(module, "register", None)
-    if callable(register_module):
-        register_module(module, parser)
