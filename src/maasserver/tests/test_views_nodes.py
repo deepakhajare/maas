@@ -383,7 +383,7 @@ class NodeViewsTest(LoggedInTestCase):
             {"query": "color=red"})
         error_string = fromstring(response.content).xpath(
             "string(//div[@id='nodes']//p[@class='form-errors'])")
-        self.assertRegexpMatches(error_string, "Invalid .* No such constraint")
+        self.assertEqual(error_string, "No such 'color' constraint")
 
     def test_node_list_query_selects_subset(self):
         tag = factory.make_tag("shiny")

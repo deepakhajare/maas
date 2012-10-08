@@ -46,6 +46,7 @@ from maasserver.exceptions import (
     InvalidConstraint,
     MAASAPIException,
     NoRabbit,
+    NoSuchConstraint,
     )
 from maasserver.forms import (
     get_action_form,
@@ -91,10 +92,10 @@ def _parse_constraints(query_string):
     constraints = {}
     for word in query_string.strip().split():
         parts = word.split("=", 1)
+        if parts[0] not in CONSTRAINTS_JUJU_MAP:
+            raise NoSuchConstraint(parts[0])
         if len(parts) != 2:
             raise InvalidConstraint(parts[0], "", "No constraint value given")
-        if parts[0] not in CONSTRAINTS_JUJU_MAP:
-            raise InvalidConstraint(parts[0], parts[1], "No such constraint")
         if parts[1] and parts[1] != "any":
             constraints[CONSTRAINTS_JUJU_MAP[parts[0]]] = parts[1]
     return constraints
