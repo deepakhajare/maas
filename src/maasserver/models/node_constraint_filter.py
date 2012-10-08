@@ -12,8 +12,10 @@ __all__ = [
     'constrain_nodes',
     ]
 
+import itertools
 import math
 
+from maasserver.enum import ARCHITECTURE_CHOICES
 from maasserver.exceptions import (
     InvalidConstraint,
     )
@@ -51,12 +53,66 @@ def constrain_tags(nodes, key, tag_expression):
     return nodes
 
 
+def generate_architecture_wildcards(choices=ARCHITECTURE_CHOICES):
+    """Map 'primary' architecture names to a list of full expansions.
+
+    Return a dictionary keyed by the primary architecture name (the part before
+    the '/'). The value of an entry is a frozenset of full architecture names
+    ('primary_arch/subarch') under the keyed primary architecture.
+
+    """
+
+    sorted_arch_list = sorted(choice[0] for choice in choices)
+
+    def extract_primary_arch(arch):
+        return arch.split('/')[0]
+
+    return {
+        primary_arch: frozenset(subarch_generator)
+        for primary_arch, subarch_generator in itertools.groupby(
+            sorted_arch_list, key=extract_primary_arch
+        )
+    }
+
+
+architecture_wildcards = generate_architecture_wildcards()
+
+
+# juju uses a general "arm" architecture constraint across all of its
+# providers. Since armhf is the cross-distro agreed Linux userspace
+# architecture and ABI, interpret "arm" to mean "armhf" in MAAS.
+#
+# Aliases cannot currently be recursive
+primary_architecture_aliases = {'arm': 'armhf'}
+
+
+def constrain_architecture(nodes, key, value):
+    assert(key == 'architecture')
+
+    # Replace an alias with its value if it is an alias
+    try:
+        aliased_value = primary_architecture_aliases[value]
+    except KeyError:
+        aliased_value = value
+
+    if aliased_value in (choice[0] for choice in ARCHITECTURE_CHOICES):
+        # Full 'arch/subarch' specified directly
+        return nodes.filter(architecture=aliased_value)
+    elif aliased_value in architecture_wildcards:
+        # Try to expand 'arch' to all available 'arch/subarch' matches
+        return nodes.filter(
+            architecture__in=architecture_wildcards[aliased_value])
+    else:
+        raise InvalidConstraint(
+            'architecture', value, 'Architecture not recognised')
+
+
 # this is the mapping of constraint names to how to apply the constraint
 constraint_filters = {
     # Currently architecture only supports exact matching. Eventually, we will
     # probably want more logic to note that eg, amd64 can be used for an i386
     # request
-    'architecture': constrain_identical,
+    'architecture': constrain_architecture,
     'hostname': constrain_identical,
     'cpu_count': constrain_int_greater_or_equal,
     'memory': constrain_int_greater_or_equal,
