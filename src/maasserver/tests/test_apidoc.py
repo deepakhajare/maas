@@ -121,7 +121,6 @@ class TestGeneratingDocs(TestCase):
         # handlers passed in.
         resources = [self.make_resource() for _ in range(5)]
         docs = list(generate_api_docs(resources))
-        self.assertEqual(len(resources), len(docs))
         self.assertEqual(
             [type(resource.handler) for resource in resources],
             [doc.handler for doc in docs])
