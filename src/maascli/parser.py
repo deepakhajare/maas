@@ -18,8 +18,6 @@ import argparse
 
 from maascli.api import register_api_commands
 from maascli.cli import register_cli_commands
-from maascli.config import ProfileConfig
-from maascli.profile import select_profile
 from maascli.utils import parse_docstring
 
 
@@ -70,17 +68,6 @@ def prepare_parser(argv):
     parser = ArgumentParser(
         description=help_body, prog=argv[0],
         epilog="http://maas.ubuntu.com/")
-    parser.add_argument(
-        '--profile', metavar='PROFILE', help=(
-            "Must come before all other arguments, if used.  "
-            "Name of a profile previously defined with the 'cli login' "
-            "sub-command.  If you specify this option, the command will "
-            "execute under that profile's login.  If only one profile is "
-            "logged in, you may omit this option.  The command will use "
-            "that one profile automatically."))
-    with ProfileConfig.open() as config:
-        profile_name = select_profile(config, get_profile_option(argv))
     register_cli_commands(parser)
-    if profile_name is not None:
-        register_api_commands(parser, profile_name)
+    register_api_commands(parser)
     return parser
