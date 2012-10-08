@@ -64,8 +64,8 @@ class cmd_login(Command):
         # Normalise the remote service's URL.
         url = ensure_trailing_slash(options.url)
         # Get description of remote API.
-        disable_cert_check = options.disable_cert_check
-        description = fetch_api_description(url, disable_cert_check)
+        insecure = options.insecure
+        description = fetch_api_description(url, insecure)
         # Save the config.
         profile_name = options.profile_name
         with ProfileConfig.open() as config:

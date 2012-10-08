@@ -42,10 +42,10 @@ from maascli.utils import (
 
 
 def http_request(url, method, body=None, headers=None,
-                 disable_cert_check=False):
+                 insecure=False):
     """Issue an http request."""
     http = httplib2.Http(
-        disable_ssl_certificate_validation=disable_cert_check)
+        disable_ssl_certificate_validation=insecure)
     try:
         return http.request(url, method, body=body, headers=headers)
     except httplib2.SSLHandshakeError:
@@ -54,11 +54,11 @@ def http_request(url, method, body=None, headers=None,
             "disable the certificate check.")
 
 
-def fetch_api_description(url, disable_cert_check=False):
+def fetch_api_description(url, insecure=False):
     """Obtain the description of remote API given its base URL."""
     url_describe = urljoin(url, "describe/")
     response, content = http_request(
-        ascii_url(url_describe), "GET", disable_cert_check=disable_cert_check)
+        ascii_url(url_describe), "GET", insecure=insecure)
     if response.status != httplib.OK:
         raise CommandError(
             "{0.status} {0.reason}:\n{1}".format(response, content))
@@ -163,10 +163,10 @@ class Action(Command):
         # on urllib2) so that we get full control over HTTP method. TODO:
         # create custom MAASDispatcher to use httplib2 so that MAASClient can
         # be used.
-        disable_cert_check = options.disable_cert_check
+        insecure = options.insecure
         response, content = http_request(
              uri, self.method, body=body, headers=headers,
-             disable_cert_check=disable_cert_check)
+             insecure=insecure)
 
         # Output.
         if options.debug:
