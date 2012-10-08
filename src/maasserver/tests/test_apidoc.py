@@ -55,7 +55,7 @@ class TestFindingResources(TestCase):
         self.assertSetEqual(set(), find_api_resources(module))
 
     def test_urlpatterns_not_present(self):
-        # The absence urlpatterns is an error.
+        # The absence of urlpatterns is an error.
         module = self.make_module()
         self.assertRaises(ImproperlyConfigured, find_api_resources, module)
 
