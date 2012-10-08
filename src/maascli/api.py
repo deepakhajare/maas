@@ -47,7 +47,7 @@ def http_request(url, method, body=None, headers=None,
     http = httplib2.Http(
         disable_ssl_certificate_validation=disable_cert_check)
     try:
-        return http.request(ascii_url(url), method)
+        return http.request(url, method)
     except httplib2.SSLHandshakeError:
         raise CommandError(
             "Certificate verification failed, use --disable-cert-check/-di to "
