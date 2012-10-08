@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from inspect import getdoc
 import new
 
 from django.conf import settings
@@ -56,7 +57,7 @@ class TestFindingResources(TestCase):
         self.assertSetEqual(set(), find_api_resources(module))
 
     def test_urlpatterns_not_present(self):
-        # The absence urlpatterns is an error.
+        # The absence of urlpatterns is an error.
         module = self.make_module()
         self.assertRaises(ImproperlyConfigured, find_api_resources, module)
 
@@ -122,7 +123,6 @@ class TestGeneratingDocs(TestCase):
         # handlers passed in.
         resources = [self.make_resource() for _ in range(5)]
         docs = list(generate_api_docs(resources))
-        self.assertEqual(len(resources), len(docs))
         self.assertEqual(
             [type(resource.handler) for resource in resources],
             [doc.handler for doc in docs])
@@ -130,8 +130,7 @@ class TestGeneratingDocs(TestCase):
     def test_handler_without_resource_uri(self):
         # generate_api_docs() raises an exception if a handler does not have a
         # resource_uri attribute.
-        resource = self.make_resource()
-        del type(resource.handler).resource_uri
+        resource = OperationsResource(BaseHandler)
         docs = generate_api_docs([resource])
         error = self.assertRaises(AssertionError, list, docs)
         self.assertEqual(
@@ -139,28 +138,34 @@ class TestGeneratingDocs(TestCase):
             unicode(error))
 
 
-class MegadethHandler(OperationsHandler):
-    """The mighty 'deth."""
+class ExampleHandler(OperationsHandler):
+    """An example handler."""
 
     create = read = delete = None
 
     @operation(idempotent=False)
-    def peace_sells_but_whos_buying(self, request, vic, rattlehead):
-        """Released 1986."""
+    def non_idempotent_operation(self, request, p_foo, p_bar):
+        """A non-idempotent operation.
+
+        Will piggyback on POST requests.
+        """
 
     @operation(idempotent=True)
-    def so_far_so_good_so_what(self, request, vic, rattlehead):
-        """Released 1988."""
+    def idempotent_operation(self, request, p_foo, p_bar):
+        """An idempotent operation.
+
+        Will piggyback on GET requests.
+        """
 
     @classmethod
     def resource_uri(cls):
         # Note that the arguments, after request, to each of the ops
         # above matches the parameters (index 1) in the tuple below.
-        return ("megadeth_view", ["vic", "rattlehead"])
+        return ("example_view", ["p_foo", "p_bar"])
 
 
-class RattleheadsHandler(OperationsHandler):
-    """Cover band, maybe."""
+class ExampleFallbackHandler(OperationsHandler):
+    """An example fall-back handler."""
 
     create = read = delete = update = None
 
@@ -179,15 +184,15 @@ class TestDescribingAPI(TestCase):
         # describe_handler() returns a description of a handler that can be
         # readily serialised into JSON, for example.
         expected_actions = [
-            {"doc": "Released 1988.",
+            {"doc": getdoc(ExampleHandler.idempotent_operation),
              "method": "GET",
-             "name": "so_far_so_good_so_what",
-             "op": "so_far_so_good_so_what",
+             "name": "idempotent_operation",
+             "op": "idempotent_operation",
              "restful": False},
-            {"doc": "Released 1986.",
+            {"doc": getdoc(ExampleHandler.non_idempotent_operation),
              "method": "POST",
-             "name": "peace_sells_but_whos_buying",
-             "op": "peace_sells_but_whos_buying",
+             "name": "non_idempotent_operation",
+             "op": "non_idempotent_operation",
              "restful": False},
             {"doc": None,
              "method": "PUT",
@@ -195,14 +200,14 @@ class TestDescribingAPI(TestCase):
              "op": None,
              "restful": True},
             ]
-        observed = describe_handler(MegadethHandler)
+        observed = describe_handler(ExampleHandler)
         # The description contains several entries.
         self.assertSetEqual(
             {"actions", "doc", "name", "params", "uri"},
             set(observed))
-        self.assertEqual(MegadethHandler.__doc__, observed["doc"])
-        self.assertEqual(MegadethHandler.__name__, observed["name"])
-        self.assertEqual(["vic", "rattlehead"], observed["params"])
+        self.assertEqual(ExampleHandler.__doc__, observed["doc"])
+        self.assertEqual(ExampleHandler.__name__, observed["name"])
+        self.assertEqual(["p_foo", "p_bar"], observed["params"])
         self.assertItemsEqual(expected_actions, observed["actions"])
 
     def test_describe_handler_with_maas_handler(self):
@@ -236,12 +241,12 @@ class TestDescribingAPI(TestCase):
         # When the resource does not require authentication, any configured
         # fallback is ignored, and only the resource's handler is described.
         # The resource name comes from this handler.
-        self.patch(MegadethHandler, "anonymous", RattleheadsHandler)
-        resource = OperationsResource(MegadethHandler)
+        self.patch(ExampleHandler, "anonymous", ExampleFallbackHandler)
+        resource = OperationsResource(ExampleHandler)
         expected = {
-            "anon": describe_handler(MegadethHandler),
+            "anon": describe_handler(ExampleHandler),
             "auth": None,
-            "name": "MegadethHandler",
+            "name": "ExampleHandler",
             }
         self.assertEqual(expected, describe_resource(resource))
 
@@ -249,11 +254,11 @@ class TestDescribingAPI(TestCase):
         # When the resource requires authentication, but has no fallback
         # anonymous handler, the first is described. The resource name comes
         # from this handler.
-        resource = OperationsResource(MegadethHandler, sentinel.auth)
+        resource = OperationsResource(ExampleHandler, sentinel.auth)
         expected = {
             "anon": None,
-            "auth": describe_handler(MegadethHandler),
-            "name": "MegadethHandler",
+            "auth": describe_handler(ExampleHandler),
+            "name": "ExampleHandler",
             }
         self.assertEqual(expected, describe_resource(resource))
 
@@ -261,11 +266,11 @@ class TestDescribingAPI(TestCase):
         # When the resource requires authentication, but has a fallback
         # anonymous handler, both are described. The resource name is taken
         # from the authenticated handler.
-        self.patch(MegadethHandler, "anonymous", RattleheadsHandler)
-        resource = OperationsResource(MegadethHandler, sentinel.auth)
+        self.patch(ExampleHandler, "anonymous", ExampleFallbackHandler)
+        resource = OperationsResource(ExampleHandler, sentinel.auth)
         expected = {
-            "anon": describe_handler(RattleheadsHandler),
-            "auth": describe_handler(MegadethHandler),
-            "name": "MegadethHandler",
+            "anon": describe_handler(ExampleFallbackHandler),
+            "auth": describe_handler(ExampleHandler),
+            "name": "ExampleHandler",
             }
         self.assertEqual(expected, describe_resource(resource))
