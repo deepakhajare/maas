@@ -89,7 +89,7 @@ architecture_wildcards['arm'] = architecture_wildcards['armhf']
 
 
 def constrain_architecture(nodes, key, value):
-    assert(key == 'architecture')
+    assert key == 'architecture', "This filter is for architecture only."
 
     if value in ARCHITECTURE_CHOICES_DICT:
         # Full 'arch/subarch' specified directly
@@ -100,7 +100,7 @@ def constrain_architecture(nodes, key, value):
             architecture__in=architecture_wildcards[value])
     else:
         raise InvalidConstraint(
-            'architecture', value, 'Architecture not recognised')
+            'architecture', value, "Architecture not recognised.")
 
 
 # this is the mapping of constraint names to how to apply the constraint

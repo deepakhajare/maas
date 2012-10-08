@@ -1911,7 +1911,7 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(node.architecture, response_json['architecture'])
 
     def test_POST_acquire_treats_unknown_arch_as_bad_request(self):
-        # Asking for an unknown arch returns an HTTP conflict
+        # Asking for an unknown arch returns an HTTP "400 Bad Request"
         factory.make_node(status=NODE_STATUS.READY)
         response = self.client.post(self.get_uri('nodes/'), {
             'op': 'acquire',

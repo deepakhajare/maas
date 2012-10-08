@@ -34,9 +34,9 @@ class TestConstrainNodes(TestCase):
         # Create a test architecture choice list of one architecture that only
         # has one available subarch (single_subarch) and two architectures that
         # have a matching primary architecture (double_subarch_{1,2})
-        single_subarch = factory.getRandomString(), factory.getRandomString()
-        double_subarch_1 = factory.getRandomString(), factory.getRandomString()
-        double_subarch_2 = double_subarch_1[0], factory.getRandomString()
+        single_subarch = factory.make_name('arch'), factory.make_name('arch')
+        double_subarch_1 = factory.make_name('arch'), factory.make_name('arch')
+        double_subarch_2 = double_subarch_1[0], factory.make_name('arch')
         choices = (
             ('/'.join(single_subarch), None),
             ('/'.join(double_subarch_1), None),
