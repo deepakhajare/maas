@@ -211,8 +211,9 @@ class TestFunctions(TestCase):
                 "http://example.com/api/7.9/",
             }.items()
         urls = [url for url, url_out in transformations]
+        urls_out = [url_out for url, url_out in transformations]
         expected = [
             AfterPreprocessing(utils.api_url, Equals(url_out))
-            for url, url_out in transformations
+            for url_out in urls_out
             ]
         self.assertThat(urls, MatchesListwise(expected))
