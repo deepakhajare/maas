@@ -75,6 +75,7 @@ __all__ = [
     "TagsHandler",
     "pxeconfig",
     "render_api_docs",
+    "store_node_power_parameters",
     ]
 
 from base64 import b64decode
@@ -134,7 +135,10 @@ from maasserver.exceptions import (
     NodeStateViolation,
     Unauthorized,
     )
-from maasserver.fields import validate_mac
+from maasserver.fields import (
+    mac_re,
+    validate_mac,
+    )
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
@@ -158,6 +162,7 @@ from maasserver.preseed import (
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from piston.handler import (
     AnonymousBaseHandler,
@@ -167,6 +172,7 @@ from piston.handler import (
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
 
 
@@ -418,6 +424,31 @@ DISPLAYED_NODE_FIELDS = (
     )
 
 
+def store_node_power_parameters(node, request):
+    """Store power parameters in request.
+
+    The parameters should be JSON, passed with key `power_parameters`.
+    """
+    power_type = request.POST.get("power_type", None)
+    if power_type is None:
+        return
+
+    power_types = map_enum(POWER_TYPE).values()
+    if power_type in power_types:
+        node.power_type = power_type
+    else:
+        raise MAASAPIBadRequest("Bad power_type '%s'" % power_type)
+
+    power_parameters = request.POST.get("power_parameters", None)
+    if power_parameters and not power_parameters.isspace():
+        try:
+            node.power_parameters = json.loads(power_parameters)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse JSON power_parameters")
+
+    node.save()
+
+
 class NodeHandler(OperationsHandler):
     """Manage individual Nodes."""
     create = None  # Disable create.
@@ -586,7 +617,10 @@ def create_node(request):
     Form = get_node_create_form(request.user)
     form = Form(altered_query_data)
     if form.is_valid():
-        return form.save()
+        node = form.save()
+        # Hack in the power parameters here.
+        store_node_power_parameters(node, request)
+        return node
     else:
         raise ValidationError(form.errors)
 
@@ -762,6 +796,12 @@ class NodesHandler(OperationsHandler):
         # Get filters from request.
         match_ids = get_optional_list(request.GET, 'id')
         match_macs = get_optional_list(request.GET, 'mac_address')
+        if match_macs is not None:
+            invalid_macs = [
+                mac for mac in match_macs if mac_re.match(mac) is None]
+            if len(invalid_macs) != 0:
+                raise ValidationError(
+                    "Invalid MAC address(es): %s" % ", ".join(invalid_macs))
         # Fetch nodes and apply filters.
         nodes = Node.objects.get_nodes(
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)

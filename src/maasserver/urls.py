@@ -19,10 +19,7 @@ from django.conf.urls.defaults import (
     url,
     )
 from django.contrib.auth.decorators import user_passes_test
-from django.views.generic.simple import (
-    direct_to_template,
-    redirect_to,
-    )
+from django.views.generic.simple import direct_to_template
 from maasserver.models import Node
 from maasserver.views.account import (
     login,
@@ -78,9 +75,6 @@ urlpatterns += patterns('maasserver.views',
         r'^robots\.txt$', direct_to_template,
         {'template': 'maasserver/robots.txt', 'mimetype': 'text/plain'},
         name='robots'),
-    url(
-        r'^favicon\.ico$', redirect_to, {'url': '/static/img/favicon.ico'},
-        name='favicon'),
 )
 
 ## URLs for logged-in users.

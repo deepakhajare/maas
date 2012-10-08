@@ -45,6 +45,7 @@ from maasserver.api import (
     extract_oauth_key_from_auth_header,
     get_oauth_token,
     get_overrided_query_dict,
+    store_node_power_parameters,
     )
 from maasserver.enum import (
     ARCHITECTURE,
@@ -57,7 +58,10 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.exceptions import Unauthorized
+from maasserver.exceptions import (
+    MAASAPIBadRequest,
+    Unauthorized,
+    )
 from maasserver.fields import mac_error_msg
 from maasserver.forms import DEFAULT_ZONE_NAME
 from maasserver.models import (
@@ -238,6 +242,71 @@ class TestAuthentication(APIv10TestMixin, TestCase):
         self.assertThat(observed, MatchesListwise(expected))
 
 
+class TestStoreNodeParameters(TestCase):
+    """Tests for `store_node_power_parameters`."""
+
+    def setUp(self):
+        super(TestStoreNodeParameters, self).setUp()
+        self.node = factory.make_node()
+        self.save = self.patch(self.node, "save")
+        self.request = Mock()
+
+    def test_power_type_not_given(self):
+        # When power_type is not specified, nothing happens.
+        self.request.POST = {}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(POWER_TYPE.DEFAULT, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_has_calls([])
+
+    def test_power_type_set_but_no_parameters(self):
+        # When power_type is valid, it is set. However, if power_parameters is
+        # not specified, the node's power_parameters is left alone, and the
+        # node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {"power_type": power_type}
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual("", self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_parameters(self):
+        # When power_type is valid, and power_parameters is valid JSON, both
+        # fields are set on the node, and the node is saved.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        power_parameters = {"foo": [1, 2, 3]}
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": json.dumps(power_parameters),
+            }
+        store_node_power_parameters(self.node, self.request)
+        self.assertEqual(power_type, self.node.power_type)
+        self.assertEqual(power_parameters, self.node.power_parameters)
+        self.save.assert_called_once_with()
+
+    def test_power_type_set_with_invalid_parameters(self):
+        # When power_type is valid, but power_parameters is invalid JSON, the
+        # node is not saved, and an exception is raised.
+        power_type = factory.getRandomChoice(POWER_TYPE_CHOICES)
+        self.request.POST = {
+            "power_type": power_type,
+            "power_parameters": "Not JSON.",
+            }
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
+
+    def test_invalid_power_type(self):
+        # When power_type is invalid, the node is not saved, and an exception
+        # is raised.
+        self.request.POST = {"power_type": factory.make_name("bogus")}
+        self.assertRaises(
+            MAASAPIBadRequest, store_node_power_parameters,
+            self.node, self.request)
+        self.save.assert_has_calls([])
+
+
 class MultipleUsersScenarios:
     """A mixin that uses testscenarios to repeat a testcase as different
     users.
@@ -305,6 +374,32 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         self.assertNotEqual(0, len(parsed_result.get('system_id')))
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(architecture, diane.architecture)
+
+    def test_POST_new_creates_node_with_power_parameters(self):
+        # We're setting power parameters so we disable start_commissioning to
+        # prevent anything from attempting to issue power instructions.
+        self.patch(Node, "start_commissioning")
+        hostname = factory.make_name("hostname")
+        architecture = factory.getRandomChoice(ARCHITECTURE_CHOICES)
+        power_type = POWER_TYPE.IPMI
+        power_parameters = {
+            "power_user": factory.make_name("power-user"),
+            "power_pass": factory.make_name("power-pass"),
+            }
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname,
+                'architecture': architecture,
+                'mac_addresses': factory.getRandomMACAddress(),
+                'power_parameters': json.dumps(power_parameters),
+                'power_type': power_type,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        [node] = Node.objects.filter(hostname=hostname)
+        self.assertEqual(power_parameters, node.power_parameters)
+        self.assertEqual(power_type, node.power_type)
 
     def test_POST_new_creates_node_with_arch_only(self):
         architecture = factory.getRandomChoice(
@@ -617,23 +712,25 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
         nodes_returned = json.loads(response.content)
         self.assertEqual([], nodes_returned)
 
-    def test_POST_simple_user_cannot_set_power_type_and_parameters(self):
+    def test_POST_simple_user_can_set_power_type_and_parameters(self):
         new_power_address = factory.getRandomString()
         response = self.client.post(
             self.get_uri('nodes/'), {
                 'op': 'new',
                 'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
                 'power_type': POWER_TYPE.WAKE_ON_LAN,
-                'power_parameters_power_address': new_power_address,
+                'power_parameters': json.dumps(
+                    {"power_address": new_power_address}),
                 'mac_addresses': ['AA:BB:CC:DD:EE:FF'],
                 })
 
         node = Node.objects.get(
             system_id=json.loads(response.content)['system_id'])
         self.assertEqual(
-                (httplib.OK, '', POWER_TYPE.DEFAULT),
-                (response.status_code, node.power_parameters,
-                    node.power_type))
+            (httplib.OK, {"power_address": new_power_address},
+             POWER_TYPE.WAKE_ON_LAN),
+            (response.status_code, node.power_parameters,
+             node.power_type))
 
     def test_POST_returns_limited_fields(self):
         response = self.client.post(
@@ -1632,6 +1729,26 @@ class TestNodesAPI(APITestCase):
         parsed_result = json.loads(response.content)
         self.assertItemsEqual(
             [matching_system_id], extract_system_ids(parsed_result))
+
+    def test_GET_list_with_invalid_macs_returns_sensible_error(self):
+        # If specifying an invalid MAC, make sure the error that's
+        # returned is not a crazy stack trace, but something nice to
+        # humans.
+        bad_mac1 = '00:E0:81:DD:D1:ZZ'  # ZZ is bad.
+        bad_mac2 = '00:E0:81:DD:D1:XX'  # XX is bad.
+        ok_mac = factory.make_mac_address()
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list',
+            'mac_address': [bad_mac1, bad_mac2, ok_mac],
+            })
+        observed = response.status_code, response.content
+        expected = (
+            Equals(httplib.BAD_REQUEST),
+            Contains(
+                "Invalid MAC address(es): 00:E0:81:DD:D1:ZZ, "
+                "00:E0:81:DD:D1:XX"),
+            )
+        self.assertThat(observed, MatchesListwise(expected))
 
     def test_GET_list_allocated_returns_only_allocated_with_user_token(self):
         # If the user's allocated nodes have different session tokens,
