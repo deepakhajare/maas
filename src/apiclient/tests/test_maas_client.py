@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from os.path import relpath
 from random import randint
 from urlparse import (
     parse_qs,
@@ -26,6 +27,8 @@ from apiclient.maas_client import (
     )
 from apiclient.testing.django import parse_headers_and_body_with_django
 from maastesting.factory import factory
+from maastesting.fixtures import ProxiesDisabledFixture
+from maastesting.httpd import HTTPServerFixture
 from maastesting.testcase import TestCase
 
 
@@ -40,11 +43,21 @@ class TestMAASOAuth(TestCase):
 
 class TestMAASDispatcher(TestCase):
 
+    def setUp(self):
+        super(TestMAASDispatcher, self).setUp()
+        self.useFixture(ProxiesDisabledFixture())
+
     def test_dispatch_query_makes_direct_call(self):
-        contents = factory.getRandomString()
-        url = "file://%s" % self.make_file(contents=contents)
+        dispatch_query = MAASDispatcher().dispatch_query
+        filename = relpath(__file__)
+        with HTTPServerFixture() as httpd:
+            url = urljoin(httpd.url, filename)
+            body_from_dispatcher = dispatch_query(url, {})[1]
+        with open(filename, "rb") as file_in:
+            body_from_file = file_in.read()
         self.assertEqual(
-            contents, MAASDispatcher().dispatch_query(url, {}).read())
+            body_from_file, body_from_dispatcher,
+            "The content of %s differs from %s." % (url, filename))
 
 
 def make_url():
