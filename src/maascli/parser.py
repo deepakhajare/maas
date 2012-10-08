@@ -16,7 +16,7 @@ __all__ = [
 
 import argparse
 
-from maascli.api import register_api_commands
+from maascli import api
 from maascli.cli import register_cli_commands
 from maascli.utils import parse_docstring
 
@@ -63,11 +63,10 @@ def get_profile_option(argv):
 
 def prepare_parser(argv):
     """Create and populate an arguments parser for the maascli command."""
-    module = __import__('maascli.api', fromlist=True)
-    help_title, help_body = parse_docstring(module)
+    help_title, help_body = parse_docstring(api)
     parser = ArgumentParser(
         description=help_body, prog=argv[0],
         epilog="http://maas.ubuntu.com/")
     register_cli_commands(parser)
-    register_api_commands(parser)
+    api.register_api_commands(parser)
     return parser
