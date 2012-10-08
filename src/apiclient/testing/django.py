@@ -27,23 +27,6 @@ from maasserver.utils import ignore_unused
 ignore_unused(emitters)
 
 
-def parse_headers_and_body_with_mimer(headers, body):
-    """Use piston's Mimer functionality to handle the content.
-
-    :return: The value of 'request.data' after using Piston's translate_mime on
-        the input.
-    """
-    environ = {'wsgi.input': BytesIO(body)}
-    for name, value in headers.items():
-        environ[name.upper().replace('-', '_')] = value
-    environ['REQUEST_METHOD'] = 'POST'
-    environ['SCRIPT_NAME'] = ''
-    environ['PATH_INFO'] = ''
-    request = WSGIRequest(environ)
-    translate_mime(request)
-    return request.data
-
-
 def parse_headers_and_body_with_django(headers, body):
     """Parse `headers` and `body` with Django's :class:`MultiPartParser`.
 
@@ -72,3 +55,20 @@ def parse_headers_and_body_with_django(headers, body):
         META=meta, input_data=BytesIO(body),
         upload_handlers=[handler])
     return parser.parse()
+
+
+def parse_headers_and_body_with_mimer(headers, body):
+    """Use piston's Mimer functionality to handle the content.
+
+    :return: The value of 'request.data' after using Piston's translate_mime on
+        the input.
+    """
+    environ = {'wsgi.input': BytesIO(body)}
+    for name, value in headers.items():
+        environ[name.upper().replace('-', '_')] = value
+    environ['REQUEST_METHOD'] = 'POST'
+    environ['SCRIPT_NAME'] = ''
+    environ['PATH_INFO'] = ''
+    request = WSGIRequest(environ)
+    translate_mime(request)
+    return request.data

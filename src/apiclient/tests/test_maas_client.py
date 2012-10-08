@@ -219,6 +219,21 @@ class TestMAASClient(TestCase):
         self.assertTrue(request["request_url"].endswith('?op=%s' % (method,)))
         self.assertEqual({"parameter": [param]}, post)
 
+    def test_post_as_json(self):
+        param = factory.getRandomString()
+        method = factory.getRandomString()
+        list_param = [factory.getRandomString() for i in range(10)]
+        client = make_client()
+        client.post(make_path(), method, as_json=True,
+                    param=param, list_param=list_param)
+        request = client.dispatcher.last_call
+        self.assertEqual('application/json',
+                         request['headers'].get('Content-Type'))
+        content = parse_headers_and_body_with_mimer(
+            request['headers'], request['data'])
+        self.assertTrue(request["request_url"].endswith('?op=%s' % (method,)))
+        self.assertEqual({'param': param, 'list_param': list_param}, content)
+
     def test_put_dispatches_to_resource(self):
         path = make_path()
         client = make_client()

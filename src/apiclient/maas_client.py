@@ -177,13 +177,16 @@ class MAASClient:
         return self.dispatcher.dispatch_query(
             url, method="GET", headers=headers)
 
-    def post(self, path, op, **kwargs):
+    def post(self, path, op, as_json=False, **kwargs):
         """Dispatch POST method `op` on `path`, with the given parameters.
 
+        :param as_json: Instead of POSTing the content as multipart
+            x-www-form-urlencoded post it as application/json
         :return: The result of the dispatch_query call on the dispatcher.
         """
         kwargs['op'] = op
-        url, headers, body = self._formulate_change(path, kwargs)
+        url, headers, body = self._formulate_change(
+            path, kwargs, as_json=as_json)
         return self.dispatcher.dispatch_query(
             url, method="POST", headers=headers, data=body)
 
