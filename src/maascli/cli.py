@@ -53,7 +53,7 @@ class cmd_login(Command):
                 "separated by colons."
                 ))
         parser.add_argument(
-            '-di', '--disable-cert-check', action='store_true', help=(
+            '-k', '--insecure', action='store_true', help=(
                 "Disable SSL certificate check"), default=False)
         parser.set_defaults(credentials=None)
 

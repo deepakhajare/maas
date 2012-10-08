@@ -96,7 +96,8 @@ class TestFunctions(TestCase):
         self.assertEqual(
             content, api.fetch_api_description("http://example.com/api/1.0/"))
         request.assert_called_once_with(
-            b"http://example.com/api/1.0/describe/", "GET")
+            b"http://example.com/api/1.0/describe/", "GET", body=None,
+            headers=None)
 
     def test_fetch_api_description_not_okay(self):
         # If the response is not 200 OK, fetch_api_description throws toys.
@@ -170,7 +171,7 @@ class TestFunctions(TestCase):
             CommandError, api.http_request, factory.make_name('fake_url'),
             factory.make_name('fake_method'))
         error_expected = (
-            "Certificate verification failed, use --disable-cert-check/-di to "
+            "Certificate verification failed, use --insecure/-k to "
             "disable the certificate check.")
         self.assertEqual(error_expected, "%s" % error)
 
