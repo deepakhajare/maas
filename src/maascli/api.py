@@ -83,8 +83,8 @@ def http_request(url, method, body=None, headers=None,
         return http.request(ascii_url(url), "GET")
     except httplib2.SSLHandshakeError:
         raise CommandError(
-            "Certificate verify failed, use --disable-cert-check to disable "
-            "the certificate check.")
+            "Certificate verification failed, use --disable-cert-check/-di to "
+            "disable the certificate check.")
 
 
 def fetch_api_description(url, disable_cert_check=False):
@@ -173,7 +173,7 @@ class cmd_login(Command):
                 "separated by colons."
                 ))
         parser.add_argument(
-            '--disable-cert-check', action='store_true', help=(
+            '-di', '--disable-cert-check', action='store_true', help=(
                 "Disable SSL certificate check"), default=False)
         parser.set_defaults(credentials=None)
 
@@ -270,7 +270,7 @@ class Action(Command):
             "-d", "--debug", action="store_true", default=False,
             help="Display more information about API responses.")
         parser.add_argument(
-            '--disable-cert-check', action='store_true', help=(
+            '-di', '--disable-cert-check', action='store_true', help=(
                 "Disable SSL certificate check"), default=False)
 
     def __call__(self, options):

@@ -236,8 +236,8 @@ class TestFunctions(TestCase):
             CommandError, api.http_request, factory.make_name('fake_url'),
             factory.make_name('fake_method'))
         error_expected = (
-            "Certificate verify failed, use --disable-cert-check to disable "
-            "the certificate check.")
+            "Certificate verification failed, use --disable-cert-check/-di to "
+            "disable the certificate check.")
         self.assertEqual(error_expected, "%s" % error)
 
 
