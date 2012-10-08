@@ -42,8 +42,8 @@ from netaddr.core import AddrFormatError
 # network.  A smaller number will be rejected as it creates a huge
 # address space that is currently not well supported by the DNS
 # machinery.
-# For instance, if MINIMUM_PREFIX_LEN is 9, a /8 will be rejected.
-MINIMUM_PREFIX_LEN = 9
+# For instance, if MINIMUM_NETMASK_BITS is 9, a /8 will be rejected.
+MINIMUM_NETMASK_BITS = 16
 
 
 class NodeGroupInterface(CleanSave, TimestampedModel):
@@ -123,11 +123,11 @@ class NodeGroupInterface(CleanSave, TimestampedModel):
         if self.management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
             network = self.network
             if network is not None:
-                if network.prefixlen < MINIMUM_PREFIX_LEN:
+                if network.prefixlen < MINIMUM_NETMASK_BITS:
                     message = (
                         "Cannot create an address space bigger than "
                         "a /%d network.  This network is a /%d network." %
-                            (MINIMUM_PREFIX_LEN, network.prefixlen))
+                            (MINIMUM_NETMASK_BITS, network.prefixlen))
                     raise ValidationError(
                     {
                         'broadcast_ip': [message],

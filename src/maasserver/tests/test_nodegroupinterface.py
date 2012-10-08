@@ -19,7 +19,7 @@ from maasserver.enum import (
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES_DICT,
     )
 from maasserver.models import NodeGroup
-from maasserver.models.nodegroupinterface import MINIMUM_PREFIX_LEN
+from maasserver.models.nodegroupinterface import MINIMUM_NETMASK_BITS
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from netaddr import IPNetwork
@@ -100,13 +100,13 @@ class TestNodeGroupInterface(TestCase):
             exception.message_dict)
 
     def test_clean_network_rejects_huge_network(self):
-        big_network = IPNetwork('1.2.3.4/%d' % (MINIMUM_PREFIX_LEN - 1))
+        big_network = IPNetwork('1.2.3.4/%d' % (MINIMUM_NETMASK_BITS - 1))
         exception = self.assertRaises(
             ValidationError, factory.make_node_group, network=big_network)
         message = (
             "Cannot create an address space bigger than a /%d network.  "
             "This network is a /%d network." %
-                (MINIMUM_PREFIX_LEN, MINIMUM_PREFIX_LEN - 1))
+                (MINIMUM_NETMASK_BITS, MINIMUM_NETMASK_BITS - 1))
         self.assertEqual(
             {
                 'subnet_mask': [message],
@@ -115,12 +115,12 @@ class TestNodeGroupInterface(TestCase):
             exception.message_dict)
 
     def test_clean_network_accepts_network_if_not_too_big(self):
-        network = IPNetwork('1.2.3.4/%d' % MINIMUM_PREFIX_LEN)
+        network = IPNetwork('1.2.3.4/%d' % MINIMUM_NETMASK_BITS)
         self.assertIsInstance(
             factory.make_node_group(network=network), NodeGroup)
 
     def test_clean_network_accepts_big_network_if_unmanaged(self):
-        network = IPNetwork('1.2.3.4/%d' % (MINIMUM_PREFIX_LEN - 1))
+        network = IPNetwork('1.2.3.4/%d' % (MINIMUM_NETMASK_BITS - 1))
         nodegroup = factory.make_node_group(
             network=network,
             management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
