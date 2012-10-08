@@ -24,6 +24,7 @@ from maascli import (
     )
 from maascli.command import CommandError
 from maascli.config import ProfileConfig
+from maascli.testing.config import make_configs
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mock import (
@@ -38,44 +39,13 @@ from testtools.matchers import (
     )
 
 
-class FakeConfig(dict):
-    """Fake `ProfileConfig`.  A dict that's also a context manager."""
-    def __enter__(self, *args, **kwargs):
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        pass
-
-
 class TestRegisterAPICommands(TestCase):
     """Tests for `register_api_commands`."""
 
-    def make_profile(self):
-        """Fake a profile."""
-        profile = factory.make_name('profile')
-        url = 'http://%s.example.com/' % profile
-        fake_open = self.patch(ProfileConfig, 'open')
-        fake_open.return_value = FakeConfig({
-            profile: {
-                'name': profile,
-                'url': url,
-                'description': {
-                    'handlers': [{
-                        'name': factory.make_name('handler'),
-                        'doc': "Short\n\nLong",
-                        'params': [],
-                        'actions': [{
-                            'name': factory.make_name('action'),
-                            'doc': "Doc\n\nstring",
-                        }],
-                    }],
-                },
-            },
-        })
-        return profile
-
     def test_registers_subparsers(self):
-        profile = self.make_profile()
+        config = make_configs()
+        profile = config.keys()[0]
+        self.patch(ProfileConfig, 'open').return_value = config
         parser = ArgumentParser()
         self.assertIsNone(parser._subparsers)
         api.register_api_commands(parser)
