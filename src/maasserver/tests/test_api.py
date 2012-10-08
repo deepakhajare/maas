@@ -1616,6 +1616,22 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             [matching_system_id], extract_system_ids(parsed_result))
 
+    def test_GET_list_with_invalid_macs_returns_sensible_error(self):
+        # If specifying an invalid MAC, make sure the error that's
+        # returned is not a crazy stack trace, but something nice to
+        # humans.
+        bad_mac = '00:E0:81:DD:D1:ZZ'  # ZZ is bad.
+        response = self.client.get(self.get_uri('nodes/'), {
+            'op': 'list',
+            'mac_address': [bad_mac],
+            })
+        observed = response.status_code, response.content
+        expected = (
+            Equals(httplib.BAD_REQUEST),
+            Contains("Invalid MAC address: 00:E0:81:DD:D1:ZZ"),
+            )
+        self.assertThat(observed, MatchesListwise(expected))
+
     def test_GET_list_allocated_returns_only_allocated_with_user_token(self):
         # If the user's allocated nodes have different session tokens,
         # list_allocated should only return the nodes that have the
