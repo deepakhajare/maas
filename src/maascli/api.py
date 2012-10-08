@@ -402,9 +402,12 @@ def register_resources(profile, parser):
         # Always represent this resource using the authenticated handler, if
         # defined, before the fall-back anonymous handler, even if this
         # profile does not have credentials.
-        represent_as = resource["auth"] or resource["anon"]
-        represent_as = dict(represent_as, name=resource["name"], actions=[])
-        # Register the handler using the first actions discovered.
+        represent_as = dict(
+            resource["auth"] or resource["anon"],
+            name=resource["name"], actions=[])
+        # Each value in the actions dict is a list of one or more action
+        # descriptions. Here we register the handler with only the first of
+        # each of those.
         if len(actions) != 0:
             represent_as["actions"].extend(
                 value[0] for value in actions.values())
