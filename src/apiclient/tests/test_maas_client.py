@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import json
 from random import randint
 from urlparse import (
     parse_qs,
@@ -24,7 +25,10 @@ from apiclient.maas_client import (
     MAASDispatcher,
     MAASOAuth,
     )
-from apiclient.testing.django import parse_headers_and_body_with_django
+from apiclient.testing.django import (
+    parse_headers_and_body_with_django,
+    parse_headers_and_body_with_mimer,
+    )
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 
@@ -145,6 +149,16 @@ class TestMAASClient(TestCase):
         post, _ = parse_headers_and_body_with_django(headers, body)
         self.assertEqual(
             {name: [value] for name, value in params.items()}, post)
+
+    def test_formulate_change_as_json(self):
+        params = {factory.getRandomString(): factory.getRandomString()}
+        url, headers, body = make_client()._formulate_change(
+            make_path(), params, as_json=True)
+        self.assertEqual('application/json', headers.get('Content-Type'))
+        self.assertEqual(len(body), headers.get('Content-Length'))
+        self.assertEqual(params, json.loads(body))
+        data = parse_headers_and_body_with_mimer(headers, body)
+        self.assertEqual(params, data)
 
     def test_get_dispatches_to_resource(self):
         path = make_path()

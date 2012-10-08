@@ -19,6 +19,7 @@ __all__ = [
 from urllib import urlencode
 import urllib2
 
+from apiclient.encode_json import encode_json_data
 from apiclient.multipart import encode_multipart_data
 import oauth.oauth as oauth
 
@@ -138,7 +139,7 @@ class MAASClient:
         self.auth.sign_request(url, headers)
         return url, headers
 
-    def _formulate_change(self, path, params):
+    def _formulate_change(self, path, params, as_json=False):
         """Return URL, headers, and body for a non-GET request.
 
         This is similar to _formulate_get, except parameters are encoded as
@@ -146,6 +147,9 @@ class MAASClient:
 
         :param path: Path to the object to issue a GET on.
         :param params: A dict of parameter values.
+        :param as_json: Encode params as application/json instead of
+            application/x-www-form-urlencoded. Only use this if you know the
+            API already supports JSON requests.
         :return: A tuple: URL, headers, and body for the request.
         """
         url = self._make_url(path)
@@ -153,7 +157,10 @@ class MAASClient:
             params = dict(params)
             op = params.pop('op')
             url += '?' + urlencode({'op': op})
-        body, headers = encode_multipart_data(params, {})
+        if as_json:
+            body, headers = encode_json_data(params)
+        else:
+            body, headers = encode_multipart_data(params, {})
         self.auth.sign_request(url, headers)
         return url, headers, body
 
