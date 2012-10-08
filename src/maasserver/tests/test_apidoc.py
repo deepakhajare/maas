@@ -128,8 +128,7 @@ class TestGeneratingDocs(TestCase):
     def test_handler_without_resource_uri(self):
         # generate_api_docs() raises an exception if a handler does not have a
         # resource_uri attribute.
-        resource = self.make_resource()
-        del type(resource.handler).resource_uri
+        resource = OperationsResource(BaseHandler)
         docs = generate_api_docs([resource])
         error = self.assertRaises(AssertionError, list, docs)
         self.assertEqual(
