@@ -636,11 +636,15 @@ class ParseConstraintsTests(TestCase):
 
     def test_arch_empty(self):
         constraints = nodes_views._parse_constraints("arch=")
-        self.assertEqual({"architecture": ""}, constraints)
+        self.assertEqual({}, constraints)
 
     def test_name(self):
         constraints = nodes_views._parse_constraints("maas-name=node")
         self.assertEqual({"hostname": "node"}, constraints)
+
+    def test_name_any(self):
+        constraints = nodes_views._parse_constraints("maas-name=any")
+        self.assertEqual({}, constraints)
 
     def test_name_unicode(self):
         constraints = nodes_views._parse_constraints("maas-name=\xa7")

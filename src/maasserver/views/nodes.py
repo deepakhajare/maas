@@ -95,7 +95,8 @@ def _parse_constraints(query_string):
             raise InvalidConstraint(parts[0], "", "No constraint value given")
         if parts[0] not in CONSTRAINTS_JUJU_MAP:
             raise InvalidConstraint(parts[0], parts[1], "No such constraint")
-        constraints[CONSTRAINTS_JUJU_MAP[parts[0]]] = parts[1]
+        if parts[1] and parts[1] != "any":
+            constraints[CONSTRAINTS_JUJU_MAP[parts[0]]] = parts[1]
     return constraints
 
 
