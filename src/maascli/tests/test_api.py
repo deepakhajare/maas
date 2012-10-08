@@ -25,6 +25,10 @@ from maascli import (
 from maascli.command import CommandError
 from maascli.config import ProfileConfig
 from maascli.testing.config import make_configs
+from maascli.utils import (
+    handler_command_name,
+    safe_name,
+    )
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from mock import (
@@ -42,15 +46,39 @@ from testtools.matchers import (
 class TestRegisterAPICommands(TestCase):
     """Tests for `register_api_commands`."""
 
+    def make_profile(self):
+        """Fake a profile."""
+        self.patch(ProfileConfig, 'open').return_value = make_configs()
+        return ProfileConfig.open.return_value
+
     def test_registers_subparsers(self):
-        config = make_configs()
-        profile = config.keys()[0]
-        self.patch(ProfileConfig, 'open').return_value = config
+        profile_name = self.make_profile().keys()[0]
         parser = ArgumentParser()
         self.assertIsNone(parser._subparsers)
         api.register_api_commands(parser)
         self.assertIsNotNone(parser._subparsers)
-        self.assertIsNotNone(parser.subparsers.choices[profile])
+        self.assertIsNotNone(parser.subparsers.choices[profile_name])
+
+    def test_handlers_registered_using_correct_names(self):
+        profile = self.make_profile()
+        parser = ArgumentParser()
+        api.register_api_commands(parser)
+        for resource in profile.values()[0]["description"]["resources"]:
+            for action in resource["auth"]["actions"]:
+                # Profile names are matched as-is.
+                profile_name = profile.keys()[0]
+                # Handler names are processed with handler_command_name before
+                # being added to the argument parser tree.
+                handler_name = handler_command_name(resource["name"])
+                # Action names are processed with safe_name before being added
+                # to the argument parser tree.
+                action_name = safe_name(action["name"])
+                # Parsing these names as command-line arguments yields an
+                # options object. Its execute attribute is an instance of
+                # Action (or a subclass thereof).
+                options = parser.parse_args(
+                    (profile_name, handler_name, action_name))
+                self.assertIsInstance(options.execute, api.Action)
 
 
 class TestFunctions(TestCase):
