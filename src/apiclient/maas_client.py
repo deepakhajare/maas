@@ -16,8 +16,6 @@ __all__ = [
     'MAASOAuth',
     ]
 
-from collections import Mapping
-
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import urlencode
 import httplib2
