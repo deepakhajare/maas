@@ -1156,7 +1156,12 @@ class NodeGroupHandler(OperationsHandler):
         to be stored in the cluster controllers (nodegroup) instead of the
         master controller.
         """
-        system_ids = request.POST.getlist('system_ids')
+        # If sent as x-www-form-urlencoded data, it comes in as a MultiDict, if
+        # sent as json it comes in as a simple dict(list).
+        if getattr(request.data, 'getlist', None) is not None:
+            system_ids = request.data.getlist('system_ids')
+        else:
+            system_ids = request.data['system_ids']
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         check_nodegroup_access(request, nodegroup)
         nodes = Node.objects.filter(
@@ -1368,7 +1373,12 @@ class TagHandler(OperationsHandler):
         return Tag.objects.get_nodes(name, user=request.user)
 
     def _get_nodes_for(self, request, param, nodegroup):
-        system_ids = get_optional_list(request.POST, param)
+        # The application/x-www-form-urlencoded handler uses a MultiDict, but
+        # the application/json handler uses just a dict(key=[list])
+        if getattr(request.data, 'getlist', None) is not None:
+            system_ids = request.data.getlist(param)
+        else:
+            system_ids = request.data[param]
         if system_ids:
             nodes = Node.objects.filter(system_id__in=system_ids)
             if nodegroup is not None:
@@ -1400,7 +1410,7 @@ class TagHandler(OperationsHandler):
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
         nodegroup = None
         if not request.user.is_superuser:
-            uuid = request.POST.get('nodegroup', None)
+            uuid = request.data.get('nodegroup', None)
             if uuid is None:
                 raise PermissionDenied(
                     'Must be a superuser or supply a nodegroup')
