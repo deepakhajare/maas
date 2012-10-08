@@ -12,11 +12,9 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "register_api_commands",
-    "register_cli_commands",
     ]
 
 from email.message import Message
-from getpass import getpass
 import httplib
 from itertools import chain
 import json
@@ -26,10 +24,6 @@ from urlparse import (
     urlparse,
     )
 
-from apiclient.creds import (
-    convert_string_to_tuple,
-    convert_tuple_to_string,
-    )
 from apiclient.maas_client import MAASOAuth
 from apiclient.multipart import encode_multipart_data
 from apiclient.utils import ascii_url
@@ -40,7 +34,6 @@ from maascli.command import (
     )
 from maascli.config import ProfileConfig
 from maascli.utils import (
-    ensure_trailing_slash,
     handler_command_name,
     parse_docstring,
     safe_name,
@@ -48,38 +41,24 @@ from maascli.utils import (
     )
 
 
-def try_getpass(prompt):
-    """Call `getpass`, ignoring EOF errors."""
+def http_request(url, method, body=None, headers=None,
+                 insecure=False):
+    """Issue an http request."""
+    http = httplib2.Http(
+        disable_ssl_certificate_validation=insecure)
     try:
-        return getpass(prompt)
-    except EOFError:
-        return None
+        return http.request(url, method, body=body, headers=headers)
+    except httplib2.SSLHandshakeError:
+        raise CommandError(
+            "Certificate verification failed, use --insecure/-k to "
+            "disable the certificate check.")
 
 
-def obtain_credentials(credentials):
-    """Prompt for credentials if possible.
-
-    If the credentials are "-" then read from stdin without interactive
-    prompting.
-    """
-    if credentials == "-":
-        credentials = sys.stdin.readline().strip()
-    elif credentials is None:
-        credentials = try_getpass(
-            "API key (leave empty for anonymous access): ")
-    # Ensure that the credentials have a valid form.
-    if credentials and not credentials.isspace():
-        return convert_string_to_tuple(credentials)
-    else:
-        return None
-
-
-def fetch_api_description(url):
+def fetch_api_description(url, insecure=False):
     """Obtain the description of remote API given its base URL."""
     url_describe = urljoin(url, "describe/")
-    http = httplib2.Http()
-    response, content = http.request(
-        ascii_url(url_describe), "GET")
+    response, content = http_request(
+        ascii_url(url_describe), "GET", insecure=insecure)
     if response.status != httplib.OK:
         raise CommandError(
             "{0.status} {0.reason}:\n{1}".format(response, content))
@@ -134,97 +113,6 @@ def print_headers(headers, file=sys.stdout):
         print(form % (cap(header), headers[header]), file=file)
 
 
-class cmd_login(Command):
-    """Log-in to a remote API, storing its description and credentials.
-
-    If credentials are not provided on the command-line, they will be prompted
-    for interactively.
-    """
-
-    def __init__(self, parser):
-        super(cmd_login, self).__init__(parser)
-        parser.add_argument(
-            "profile_name", metavar="profile-name", help=(
-                "The name with which you will later refer to this remote "
-                "server and credentials within this tool."
-                ))
-        parser.add_argument(
-            "url", help=(
-                "The URL of the remote API, e.g. "
-                "http://example.com/MAAS/api/1.0/"))
-        parser.add_argument(
-            "credentials", nargs="?", default=None, help=(
-                "The credentials, also known as the API key, for the "
-                "remote MAAS server. These can be found in the user "
-                "preferences page in the web UI; they take the form of "
-                "a long random-looking string composed of three parts, "
-                "separated by colons."
-                ))
-        parser.set_defaults(credentials=None)
-
-    def __call__(self, options):
-        # Try and obtain credentials interactively if they're not given, or
-        # read them from stdin if they're specified as "-".
-        credentials = obtain_credentials(options.credentials)
-        # Normalise the remote service's URL.
-        url = ensure_trailing_slash(options.url)
-        # Get description of remote API.
-        description = fetch_api_description(url)
-        # Save the config.
-        profile_name = options.profile_name
-        with ProfileConfig.open() as config:
-            config[profile_name] = {
-                "credentials": credentials,
-                "description": description,
-                "name": profile_name,
-                "url": url,
-                }
-
-
-class cmd_refresh(Command):
-    """Refresh the API descriptions of all profiles."""
-
-    def __call__(self, options):
-        with ProfileConfig.open() as config:
-            for profile_name in config:
-                profile = config[profile_name]
-                url = profile["url"]
-                profile["description"] = fetch_api_description(url)
-                config[profile_name] = profile
-
-
-class cmd_logout(Command):
-    """Log-out of a remote API, purging any stored credentials."""
-
-    def __init__(self, parser):
-        super(cmd_logout, self).__init__(parser)
-        parser.add_argument(
-            "profile_name", metavar="profile-name", help=(
-                "The name with which a remote server and its credentials "
-                "are referred to within this tool."
-                ))
-
-    def __call__(self, options):
-        with ProfileConfig.open() as config:
-            del config[options.profile_name]
-
-
-class cmd_list(Command):
-    """List remote APIs that have been logged-in to."""
-
-    def __call__(self, options):
-        with ProfileConfig.open() as config:
-            for profile_name in config:
-                profile = config[profile_name]
-                url = profile["url"]
-                creds = profile["credentials"]
-                if creds is None:
-                    print(profile_name, url)
-                else:
-                    creds = convert_tuple_to_string(creds)
-                    print(profile_name, url, creds)
-
-
 class Action(Command):
     """A generic MAAS API action.
 
@@ -253,6 +141,9 @@ class Action(Command):
         parser.add_argument(
             "-d", "--debug", action="store_true", default=False,
             help="Display more information about API responses.")
+        parser.add_argument(
+            '-k', '--insecure', action='store_true', help=(
+                "Disable SSL certificate check"), default=False)
 
     def __call__(self, options):
         # TODO: this is el-cheapo URI Template
@@ -272,9 +163,10 @@ class Action(Command):
         # on urllib2) so that we get full control over HTTP method. TODO:
         # create custom MAASDispatcher to use httplib2 so that MAASClient can
         # be used.
-        http = httplib2.Http()
-        response, content = http.request(
-            uri, self.method, body=body, headers=headers)
+        insecure = options.insecure
+        response, content = http_request(
+             uri, self.method, body=body, headers=headers,
+             insecure=insecure)
 
         # Output.
         if options.debug:
@@ -375,23 +267,6 @@ def register_handlers(profile, parser):
         handler_parser = parser.subparsers.add_parser(
             handler_name, help=help_title, description=help_body)
         register_actions(profile, handler, handler_parser)
-
-
-commands = {
-    'login': cmd_login,
-    'logout': cmd_logout,
-    'list': cmd_list,
-    'refresh': cmd_refresh,
-}
-
-
-def register_cli_commands(parser):
-    """Register the CLI's meta-subcommands on `parser`."""
-    for name, command in commands.items():
-        help_title, help_body = parse_docstring(command)
-        command_parser = parser.subparsers.add_parser(
-            safe_name(name), help=help_title, description=help_body)
-        command_parser.set_defaults(execute=command(command_parser))
 
 
 def register_api_commands(parser):

@@ -15,14 +15,13 @@ __all__ = [
     ]
 
 import argparse
+from argparse import RawDescriptionHelpFormatter
 import locale
 import sys
 
 from bzrlib import osutils
-from maascli.api import (
-    register_api_commands,
-    register_cli_commands,
-    )
+from maascli.api import register_api_commands
+from maascli.cli import register_cli_commands
 from maascli.utils import parse_docstring
 
 
@@ -32,6 +31,10 @@ class ArgumentParser(argparse.ArgumentParser):
     Specifically, the one-shot `add_subparsers` call is disabled, replaced by
     a lazily evaluated `subparsers` property.
     """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", RawDescriptionHelpFormatter)
+        super(ArgumentParser, self).__init__(*args, **kwargs)
 
     def add_subparsers(self):
         raise NotImplementedError(
@@ -43,7 +46,8 @@ class ArgumentParser(argparse.ArgumentParser):
             return self.__subparsers
         except AttributeError:
             parent = super(ArgumentParser, self)
-            self.__subparsers = parent.add_subparsers(title="commands")
+            self.__subparsers = parent.add_subparsers(title="drill down")
+            self.__subparsers.metavar = "COMMAND"
             return self.__subparsers
 
 

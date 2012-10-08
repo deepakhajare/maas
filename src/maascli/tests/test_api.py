@@ -16,9 +16,7 @@ import collections
 import httplib
 import io
 import json
-import sys
 
-from apiclient.creds import convert_tuple_to_string
 import httplib2
 from maascli import (
     api,
@@ -28,7 +26,10 @@ from maascli.command import CommandError
 from maascli.config import ProfileConfig
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
-from mock import sentinel
+from mock import (
+    Mock,
+    sentinel,
+    )
 from testtools.matchers import (
     Equals,
     IsInstance,
@@ -82,72 +83,8 @@ class TestRegisterAPICommands(TestCase):
         self.assertIsNotNone(parser.subparsers.choices[profile])
 
 
-class TestRegisterCLICommands(TestCase):
-    """Tests for `register_cli_commands`."""
-
-    def test_registers_subparsers(self):
-        parser = ArgumentParser()
-        self.assertIsNone(parser._subparsers)
-        api.register_cli_commands(parser)
-        self.assertIsNotNone(parser._subparsers)
-
-    def test_subparsers_have_appropriate_execute_defaults(self):
-        parser = ArgumentParser()
-        api.register_cli_commands(parser)
-        self.assertIsInstance(
-            parser.subparsers.choices['login'].get_default('execute'),
-            api.cmd_login)
-
-
 class TestFunctions(TestCase):
     """Test for miscellaneous functions in `maascli.api`."""
-
-    def test_try_getpass(self):
-        getpass = self.patch(api, "getpass")
-        getpass.return_value = sentinel.credentials
-        self.assertIs(sentinel.credentials, api.try_getpass(sentinel.prompt))
-        getpass.assert_called_once_with(sentinel.prompt)
-
-    def test_try_getpass_eof(self):
-        getpass = self.patch(api, "getpass")
-        getpass.side_effect = EOFError
-        self.assertIsNone(api.try_getpass(sentinel.prompt))
-        getpass.assert_called_once_with(sentinel.prompt)
-
-    @staticmethod
-    def make_credentials():
-        return (
-            factory.make_name("cred"),
-            factory.make_name("cred"),
-            factory.make_name("cred"),
-            )
-
-    def test_obtain_credentials_from_stdin(self):
-        # When "-" is passed to obtain_credentials, it reads credentials from
-        # stdin, trims whitespace, and converts it into a 3-tuple of creds.
-        credentials = self.make_credentials()
-        stdin = self.patch(sys, "stdin")
-        stdin.readline.return_value = (
-            convert_tuple_to_string(credentials) + "\n")
-        self.assertEqual(credentials, api.obtain_credentials("-"))
-        stdin.readline.assert_called_once()
-
-    def test_obtain_credentials_via_getpass(self):
-        # When None is passed to obtain_credentials, it attempts to obtain
-        # credentials via getpass, then converts it into a 3-tuple of creds.
-        credentials = self.make_credentials()
-        getpass = self.patch(api, "getpass")
-        getpass.return_value = convert_tuple_to_string(credentials)
-        self.assertEqual(credentials, api.obtain_credentials(None))
-        getpass.assert_called_once()
-
-    def test_obtain_credentials_empty(self):
-        # If the entered credentials are empty or only whitespace,
-        # obtain_credentials returns None.
-        getpass = self.patch(api, "getpass")
-        getpass.return_value = None
-        self.assertEqual(None, api.obtain_credentials(None))
-        getpass.assert_called_once()
 
     def test_fetch_api_description(self):
         content = factory.make_name("content")
@@ -159,7 +96,8 @@ class TestFunctions(TestCase):
         self.assertEqual(
             content, api.fetch_api_description("http://example.com/api/1.0/"))
         request.assert_called_once_with(
-            b"http://example.com/api/1.0/describe/", "GET")
+            b"http://example.com/api/1.0/describe/", "GET", body=None,
+            headers=None)
 
     def test_fetch_api_description_not_okay(self):
         # If the response is not 200 OK, fetch_api_description throws toys.
@@ -224,6 +162,18 @@ class TestFunctions(TestCase):
             ("      One: %(one)s\n"
              "  Two-Two: %(two-two)s\n") % headers,
             buf.getvalue())
+
+    def test_http_request_raises_error_if_cert_verify_fails(self):
+        self.patch(
+            httplib2.Http, "request",
+            Mock(side_effect=httplib2.SSLHandshakeError()))
+        error = self.assertRaises(
+            CommandError, api.http_request, factory.make_name('fake_url'),
+            factory.make_name('fake_method'))
+        error_expected = (
+            "Certificate verification failed, use --insecure/-k to "
+            "disable the certificate check.")
+        self.assertEqual(error_expected, "%s" % error)
 
 
 class TestIsResponseTextual(TestCase):
