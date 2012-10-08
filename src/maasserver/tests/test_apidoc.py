@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+from inspect import getdoc
 import new
 
 from django.conf import settings
@@ -136,24 +137,30 @@ class TestGeneratingDocs(TestCase):
             unicode(error))
 
 
-class MegadethHandler(OperationsHandler):
-    """The mighty 'deth."""
+class ExampleHandler(OperationsHandler):
+    """An example handler."""
 
     create = read = delete = None
 
     @operation(idempotent=False)
-    def peace_sells_but_whos_buying(self, request, vic, rattlehead):
-        """Released 1986."""
+    def non_idempotent_operation(self, request, p_foo, p_bar):
+        """A non-idempotent operation.
+
+        Will piggyback on POST requests.
+        """
 
     @operation(idempotent=True)
-    def so_far_so_good_so_what(self, request, vic, rattlehead):
-        """Released 1988."""
+    def idempotent_operation(self, request, p_foo, p_bar):
+        """An idempotent operation.
+
+        Will piggyback on GET requests.
+        """
 
     @classmethod
     def resource_uri(cls):
         # Note that the arguments, after request, to each of the ops
         # above matches the parameters (index 1) in the tuple below.
-        return ("megadeth_view", ["vic", "rattlehead"])
+        return ("example_view", ["p_foo", "p_bar"])
 
 
 class TestDescribingAPI(TestCase):
@@ -170,15 +177,15 @@ class TestDescribingAPI(TestCase):
         # describe_handler() returns a description of a handler that can be
         # readily serialised into JSON, for example.
         expected_actions = [
-            {"doc": "Released 1988.",
+            {"doc": getdoc(ExampleHandler.idempotent_operation),
              "method": "GET",
-             "name": "so_far_so_good_so_what",
-             "op": "so_far_so_good_so_what",
+             "name": "idempotent_operation",
+             "op": "idempotent_operation",
              "restful": False},
-            {"doc": "Released 1986.",
+            {"doc": getdoc(ExampleHandler.non_idempotent_operation),
              "method": "POST",
-             "name": "peace_sells_but_whos_buying",
-             "op": "peace_sells_but_whos_buying",
+             "name": "non_idempotent_operation",
+             "op": "non_idempotent_operation",
              "restful": False},
             {"doc": None,
              "method": "PUT",
@@ -186,14 +193,14 @@ class TestDescribingAPI(TestCase):
              "op": None,
              "restful": True},
             ]
-        observed = describe_handler(MegadethHandler)
+        observed = describe_handler(ExampleHandler)
         # The description contains several entries.
         self.assertSetEqual(
             {"actions", "doc", "name", "params", "uri"},
             set(observed))
-        self.assertEqual(MegadethHandler.__doc__, observed["doc"])
-        self.assertEqual(MegadethHandler.__name__, observed["name"])
-        self.assertEqual(["vic", "rattlehead"], observed["params"])
+        self.assertEqual(ExampleHandler.__doc__, observed["doc"])
+        self.assertEqual(ExampleHandler.__name__, observed["name"])
+        self.assertEqual(["p_foo", "p_bar"], observed["params"])
         self.assertItemsEqual(expected_actions, observed["actions"])
 
     def test_describe_handler_with_maas_handler(self):
@@ -226,7 +233,7 @@ class TestDescribingAPI(TestCase):
     def test_describe_resource(self):
         # describe_resource() returns a description of a resource. Right now
         # it is just the description of the resource's handler class.
-        resource = OperationsResource(MegadethHandler)
+        resource = OperationsResource(ExampleHandler)
         self.assertEqual(
-            describe_handler(MegadethHandler),
+            describe_handler(ExampleHandler),
             describe_resource(resource))
