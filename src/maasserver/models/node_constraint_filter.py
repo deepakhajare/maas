@@ -15,7 +15,10 @@ __all__ = [
 import itertools
 import math
 
-from maasserver.enum import ARCHITECTURE_CHOICES
+from maasserver.enum import (
+    ARCHITECTURE_CHOICES,
+    ARCHITECTURE_CHOICES_DICT,
+    )
 from maasserver.exceptions import (
     InvalidConstraint,
     )
@@ -80,28 +83,21 @@ architecture_wildcards = generate_architecture_wildcards()
 
 # juju uses a general "arm" architecture constraint across all of its
 # providers. Since armhf is the cross-distro agreed Linux userspace
-# architecture and ABI, interpret "arm" to mean "armhf" in MAAS.
-#
-# Aliases cannot currently be recursive
-primary_architecture_aliases = {'arm': 'armhf'}
+# architecture and ABI and ARM servers are expected to only use armhf,
+# interpret "arm" to mean "armhf" in MAAS.
+architecture_wildcards['arm'] = architecture_wildcards['armhf']
 
 
 def constrain_architecture(nodes, key, value):
     assert(key == 'architecture')
 
-    # Replace an alias with its value if it is an alias
-    try:
-        aliased_value = primary_architecture_aliases[value]
-    except KeyError:
-        aliased_value = value
-
-    if aliased_value in (choice[0] for choice in ARCHITECTURE_CHOICES):
+    if value in ARCHITECTURE_CHOICES_DICT:
         # Full 'arch/subarch' specified directly
-        return nodes.filter(architecture=aliased_value)
-    elif aliased_value in architecture_wildcards:
+        return nodes.filter(architecture=value)
+    elif value in architecture_wildcards:
         # Try to expand 'arch' to all available 'arch/subarch' matches
         return nodes.filter(
-            architecture__in=architecture_wildcards[aliased_value])
+            architecture__in=architecture_wildcards[value])
     else:
         raise InvalidConstraint(
             'architecture', value, 'Architecture not recognised')

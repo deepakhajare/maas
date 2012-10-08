@@ -31,6 +31,9 @@ class TestConstrainNodes(TestCase):
         self.assertItemsEqual(expected_nodes, nodes)
 
     def test_generate_architecture_wildcards(self):
+        # Create a test architecture choice list of one architecture that only
+        # has one available subarch (single_subarch) and two architectures that
+        # have a matching primary architecture (double_subarch_{1,2})
         single_subarch = factory.getRandomString(), factory.getRandomString()
         double_subarch_1 = factory.getRandomString(), factory.getRandomString()
         double_subarch_2 = double_subarch_1[0], factory.getRandomString()
@@ -40,6 +43,9 @@ class TestConstrainNodes(TestCase):
             ('/'.join(double_subarch_2), None),
         )
 
+        # single_subarch should end up in the dict essentially unchanged, and
+        # the double_subarchs should have been flattened into a single dict
+        # element with a list of them.
         self.assertEquals({
             single_subarch[0]: frozenset([choices[0][0]]),
             double_subarch_1[0]: frozenset([choices[1][0], choices[2][0]]),
