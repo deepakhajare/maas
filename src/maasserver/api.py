@@ -762,10 +762,7 @@ class NodesHandler(OperationsHandler):
         # Get filters from request.
         match_ids = get_optional_list(request.GET, 'id')
         match_macs = get_optional_list(request.GET, 'mac_address')
-        invalid_macs = []
-        for mac in match_macs:
-            if mac_re.match(mac) is None:
-                invalid_macs.append(mac)
+        invalid_macs = [mac for mac in match_macs if mac_re.match(mac) is None]
         if len(invalid_macs) != 0:
             raise ValidationError(
                 "Invalid MAC address(es): %s" % ", ".join(invalid_macs))
