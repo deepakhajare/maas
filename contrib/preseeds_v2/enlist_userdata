@@ -41,7 +41,18 @@ misc_bucket:
       sleep 60
       [ -e $bfile ] && exit 0
    fi
-   poweroff
+   # delay the poweroff to avoid annoying cloud-init messages
+   sh -fc 'i=0; while [ $i -lt 30 ] && i=$(($i+1)); do
+        state=$(status cloud-final);
+        set -- $state
+        case "$2" in
+           stop/*) poweroff; exit 0;;
+        esac
+        echo "$state [$2] after $i"
+        sleep 1
+     done
+     echo "giving up after 30 seconds"
+     poweroff' </dev/null & 
 
 packages: [ maas-enlist ]
 output: {all: '| tee -a /var/log/cloud-init-output.log'}

@@ -95,7 +95,17 @@ fail() {
 
 shutdown() {
     echo "Finished, powering off."
-    /sbin/shutdown -P now
+    sh -fc 'i=0; while [ $i -lt 30 ] && i=$(($i+1)); do
+        state=$(status cloud-final);
+        set -- $state
+        case "$2" in
+            stop/*) poweroff; exit 0;;
+        esac
+        echo "$state [$2] after $i"
+        sleep 1
+     done
+     echo "giving up after 30 seconds"
+     poweroff' </dev/null & 
 }
 
 main() {
