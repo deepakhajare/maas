@@ -75,6 +75,7 @@ __all__ = [
     "TagsHandler",
     "pxeconfig",
     "render_api_docs",
+    "store_node_power_parameters",
     ]
 
 from base64 import b64decode
@@ -112,8 +113,8 @@ from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
 from maasserver.apidoc import (
-    describe_handler,
-    find_api_handlers,
+    describe_resource,
+    find_api_resources,
     generate_api_docs,
     )
 from maasserver.components import (
@@ -134,7 +135,10 @@ from maasserver.exceptions import (
     NodeStateViolation,
     Unauthorized,
     )
-from maasserver.fields import validate_mac
+from maasserver.fields import (
+    mac_re,
+    validate_mac,
+    )
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
@@ -153,11 +157,13 @@ from maasserver.models import (
     NodeGroupInterface,
     Tag,
     )
+from maasserver.models.node import CONSTRAINTS_MAAS_MAP
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from maasserver.utils import map_enum
 from maasserver.utils.orm import get_one
 from piston.handler import (
     AnonymousBaseHandler,
@@ -167,6 +173,7 @@ from piston.handler import (
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
 
 
@@ -434,6 +441,31 @@ DISPLAYED_NODE_FIELDS = (
     )
 
 
+def store_node_power_parameters(node, request):
+    """Store power parameters in request.
+
+    The parameters should be JSON, passed with key `power_parameters`.
+    """
+    power_type = request.POST.get("power_type", None)
+    if power_type is None:
+        return
+
+    power_types = map_enum(POWER_TYPE).values()
+    if power_type in power_types:
+        node.power_type = power_type
+    else:
+        raise MAASAPIBadRequest("Bad power_type '%s'" % power_type)
+
+    power_parameters = request.POST.get("power_parameters", None)
+    if power_parameters and not power_parameters.isspace():
+        try:
+            node.power_parameters = json.loads(power_parameters)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse JSON power_parameters")
+
+    node.save()
+
+
 class NodeHandler(OperationsHandler):
     """Manage individual Nodes."""
     create = None  # Disable create.
@@ -602,7 +634,10 @@ def create_node(request):
     Form = get_node_create_form(request.user)
     form = Form(altered_query_data)
     if form.is_valid():
-        return form.save()
+        node = form.save()
+        # Hack in the power parameters here.
+        store_node_power_parameters(node, request)
+        return node
     else:
         raise ValidationError(form.errors)
 
@@ -663,17 +698,6 @@ class AnonNodesHandler(AnonymousOperationsHandler):
         return ('nodes_handler', [])
 
 
-# Map the constraint as passed in the request to the name of the constraint in
-# the database. Many of them have the same name
-_constraints_map = {
-    'name': 'hostname',
-    'tags': 'tags',
-    'arch': 'architecture',
-    'cpu_count': 'cpu_count',
-    'mem': 'memory',
-    }
-
-
 def extract_constraints(request_params):
     """Extract a dict of node allocation constraints from http parameters.
 
@@ -683,9 +707,9 @@ def extract_constraints(request_params):
     :rtype: :class:`dict`
     """
     constraints = {}
-    for request_name in _constraints_map:
+    for request_name in CONSTRAINTS_MAAS_MAP:
         if request_name in request_params:
-            db_name = _constraints_map[request_name]
+            db_name = CONSTRAINTS_MAAS_MAP[request_name]
             constraints[db_name] = request_params[request_name]
     return constraints
 
@@ -778,6 +802,12 @@ class NodesHandler(OperationsHandler):
         # Get filters from request.
         match_ids = get_optional_list(request.GET, 'id')
         match_macs = get_optional_list(request.GET, 'mac_address')
+        if match_macs is not None:
+            invalid_macs = [
+                mac for mac in match_macs if mac_re.match(mac) is None]
+            if len(invalid_macs) != 0:
+                raise ValidationError(
+                    "Invalid MAC address(es): %s" % ", ".join(invalid_macs))
         # Fetch nodes and apply filters.
         nodes = Node.objects.get_nodes(
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
@@ -1163,6 +1193,7 @@ class NodeGroupHandler(OperationsHandler):
         """Return specific hardware_details for each node specified.
 
         For security purposes we do:
+
         a) Requests are only fulfilled for the worker assigned to the
            nodegroup.
         b) Requests for nodes that are not part of the nodegroup are just
@@ -1518,6 +1549,8 @@ def render_api_docs():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
+    from maasserver import urls_api as urlconf
+
     module = sys.modules[__name__]
     output = StringIO()
     line = partial(print, file=output)
@@ -1529,8 +1562,8 @@ def render_api_docs():
     line('----------')
     line()
 
-    handlers = find_api_handlers(module)
-    for doc in generate_api_docs(handlers):
+    resources = find_api_resources(urlconf)
+    for doc in generate_api_docs(resources):
         uri_template = doc.resource_uri_template
         exports = doc.handler.exports.items()
         for (http_method, operation), function in sorted(exports):
@@ -1736,14 +1769,23 @@ def describe(request):
 
     Returns a JSON object describing the whole MAAS API.
     """
-    module = sys.modules[__name__]
+    from maasserver import urls_api as urlconf
     description = {
         "doc": "MAAS API",
-        "handlers": [
-            describe_handler(handler)
-            for handler in find_api_handlers(module)
+        "resources": [
+            describe_resource(resource)
+            for resource in find_api_resources(urlconf)
             ],
         }
+    # For backward compatibility, add "handlers" as an alias for all not-None
+    # anon and auth handlers in "resources".
+    description["handlers"] = []
+    description["handlers"].extend(
+        resource["anon"] for resource in description["resources"]
+        if resource["anon"] is not None)
+    description["handlers"].extend(
+        resource["auth"] for resource in description["resources"]
+        if resource["auth"] is not None)
     return HttpResponse(
         json.dumps(description),
         content_type="application/json")

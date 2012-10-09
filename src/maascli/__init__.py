@@ -14,37 +14,11 @@ __all__ = [
     "main",
     ]
 
-import argparse
 import locale
 import sys
 
 from bzrlib import osutils
-from maascli.api import (
-    register_api_commands,
-    register_cli_commands,
-    )
-from maascli.utils import parse_docstring
-
-
-class ArgumentParser(argparse.ArgumentParser):
-    """Specialisation of argparse's parser with better support for subparsers.
-
-    Specifically, the one-shot `add_subparsers` call is disabled, replaced by
-    a lazily evaluated `subparsers` property.
-    """
-
-    def add_subparsers(self):
-        raise NotImplementedError(
-            "add_subparsers has been disabled")
-
-    @property
-    def subparsers(self):
-        try:
-            return self.__subparsers
-        except AttributeError:
-            parent = super(ArgumentParser, self)
-            self.__subparsers = parent.add_subparsers(title="commands")
-            return self.__subparsers
+from maascli.parser import prepare_parser
 
 
 def main(argv=None):
@@ -54,13 +28,7 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv[:1] + osutils.get_unicode_argv()
 
-    module = __import__('maascli.api', fromlist=True)
-    help_title, help_body = parse_docstring(module)
-    parser = ArgumentParser(
-        description=help_body, prog=argv[0],
-        epilog="http://maas.ubuntu.com/")
-    register_cli_commands(parser)
-    register_api_commands(parser)
+    parser = prepare_parser(argv)
 
     # Run, doing polite things with exceptions.
     try:

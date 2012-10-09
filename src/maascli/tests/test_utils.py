@@ -12,15 +12,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from urllib import unquote
-
-from django.utils.encoding import smart_unicode
 from maascli import utils
 from maastesting.testcase import TestCase
 from testtools.matchers import (
+    AfterPreprocessing,
     Equals,
-    IsInstance,
-    MatchesAll,
+    MatchesListwise,
     )
 
 
@@ -46,39 +43,18 @@ class TestDocstringParsing(TestCase):
             utils.parse_docstring("Title"))
 
     def test_unwrapping(self):
-        # parse_docstring dedents and unwraps the title and body paragraphs.
+        # parse_docstring unwraps the title paragraph, and dedents the body
+        # paragraphs.
         self.assertEqual(
             ("Title over two lines",
-             "Paragraph over two lines\n\n"
-             "Another paragraph over two lines"),
+             "Paragraph over\ntwo lines\n\n"
+             "Another paragraph\nover two lines"),
             utils.parse_docstring("""
                 Title over
                 two lines
 
                 Paragraph over
                 two lines
-
-                Another paragraph
-                over two lines
-                """))
-
-    def test_no_unwrapping_for_indented_paragraphs(self):
-        # parse_docstring dedents body paragraphs, but does not unwrap those
-        # with indentation beyond the rest.
-        self.assertEqual(
-            ("Title over two lines",
-             "Paragraph over two lines\n\n"
-             "  An indented paragraph\n  which will remain wrapped\n\n"
-             "Another paragraph over two lines"),
-            utils.parse_docstring("""
-                Title over
-                two lines
-
-                Paragraph over
-                two lines
-
-                  An indented paragraph
-                  which will remain wrapped
 
                 Another paragraph
                 over two lines
@@ -196,22 +172,23 @@ class TestFunctions(TestCase):
         self.assertIsInstance(utils.ensure_trailing_slash(u"fred"), unicode)
         self.assertIsInstance(utils.ensure_trailing_slash(b"fred"), bytes)
 
-    def test_urlencode_encodes_utf8_and_quotes(self):
-        # urlencode UTF-8 encodes unicode strings and applies standard query
-        # string quoting rules, and always returns a byte string.
-        data = [("=\u1234", "&\u4321")]
-        query = utils.urlencode(data)
-        self.assertThat(
-            query, MatchesAll(
-                Equals(b"%3D%E1%88%B4=%26%E4%8C%A1"),
-                IsInstance(bytes)))
-
-    def test_urlencode_roundtrip_through_django(self):
-        # Check that urlencode's approach works with Django, as described on
-        # https://docs.djangoproject.com/en/dev/ref/unicode/.
-        data = [("=\u1234", "&\u4321")]
-        query = utils.urlencode(data)
-        name, value = query.split(b"=")
-        name, value = unquote(name), unquote(value)
-        name, value = smart_unicode(name), smart_unicode(value)
-        self.assertEqual(data, [(name, value)])
+    def test_api_url(self):
+        transformations = {
+            "http://example.com/":
+                "http://example.com/api/1.0/",
+            "http://example.com/foo":
+                "http://example.com/foo/api/1.0/",
+            "http://example.com/foo/":
+                "http://example.com/foo/api/1.0/",
+            "http://example.com/api/7.9":
+                "http://example.com/api/7.9/",
+            "http://example.com/api/7.9/":
+                "http://example.com/api/7.9/",
+            }.items()
+        urls = [url for url, url_out in transformations]
+        urls_out = [url_out for url, url_out in transformations]
+        expected = [
+            AfterPreprocessing(utils.api_url, Equals(url_out))
+            for url_out in urls_out
+            ]
+        self.assertThat(urls, MatchesListwise(expected))

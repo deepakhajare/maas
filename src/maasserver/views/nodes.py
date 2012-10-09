@@ -43,8 +43,10 @@ from maasserver.enum import (
     NODE_STATUS,
     )
 from maasserver.exceptions import (
+    InvalidConstraint,
     MAASAPIException,
     NoRabbit,
+    NoSuchConstraint,
     )
 from maasserver.forms import (
     get_action_form,
@@ -56,6 +58,8 @@ from maasserver.models import (
     MACAddress,
     Node,
     )
+from maasserver.models.node import CONSTRAINTS_JUJU_MAP
+from maasserver.models.node_constraint_filter import constrain_nodes
 from maasserver.preseed import (
     get_enlist_preseed,
     get_preseed,
@@ -78,19 +82,52 @@ def get_longpoll_context():
         return {}
 
 
+def _parse_constraints(query_string):
+    """Turn query string from user into constraints dict
+
+    This is basically the same as the juju constraints, but will differ
+    somewhat in error handling. For instance, juju might reject a negative
+    cpu constraint whereas this lets it through to return zero results.
+    """
+    constraints = {}
+    for word in query_string.strip().split():
+        parts = word.split("=", 1)
+        if parts[0] not in CONSTRAINTS_JUJU_MAP:
+            raise NoSuchConstraint(parts[0])
+        if len(parts) != 2:
+            raise InvalidConstraint(parts[0], "", "No constraint value given")
+        if parts[1] and parts[1] != "any":
+            constraints[CONSTRAINTS_JUJU_MAP[parts[0]]] = parts[1]
+    return constraints
+
+
 class NodeListView(ListView):
 
     context_object_name = "node_list"
 
+    def get(self, request, *args, **kwargs):
+        self.query = request.GET.get("query")
+        self.query_error = None
+        return super(NodeListView, self).get(request, *args, **kwargs)
+
     def get_queryset(self):
         # Return node list sorted, newest first.
-        return Node.objects.get_nodes(
+        nodes = Node.objects.get_nodes(
             user=self.request.user,
             perm=NODE_PERMISSION.VIEW).order_by('-created')
+        if self.query:
+            try:
+                return constrain_nodes(nodes, _parse_constraints(self.query))
+            except InvalidConstraint as e:
+                self.query_error = e
+                return Node.objects.none()
+        return nodes
 
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)
         context.update(get_longpoll_context())
+        context["input_query"] = self.query
+        context["input_query_error"] = self.query_error
         return context
 
 

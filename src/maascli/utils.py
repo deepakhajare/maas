@@ -15,14 +15,15 @@ __all__ = [
     "handler_command_name",
     "parse_docstring",
     "safe_name",
-    "urlencode",
     ]
 
 from functools import partial
-from inspect import getdoc
+from inspect import (
+    cleandoc,
+    getdoc,
+    )
 import re
-from textwrap import dedent
-from urllib import quote_plus
+from urlparse import urlparse
 
 
 re_paragraph_splitter = re.compile(
@@ -38,26 +39,19 @@ empty = ""
 
 
 def parse_docstring(thing):
-    doc = thing if isinstance(thing, (str, unicode)) else getdoc(thing)
-    doc = empty if doc is None else doc.expandtabs().strip()
+    is_string = isinstance(thing, basestring)
+    doc = cleandoc(thing) if is_string else getdoc(thing)
+    doc = empty if doc is None else doc
     # Break the docstring into two parts: title and body.
     parts = docstring_split(doc)
     if len(parts) == 2:
-        title, body = parts[0], dedent(parts[1])
+        title, body = parts[0], parts[1]
     else:
         title, body = parts[0], empty
     # Remove line breaks from the title line.
     title = remove_line_breaks(title)
-    # Remove line breaks from non-indented paragraphs in the body.
-    paragraphs = []
-    for paragraph in paragraph_split(body):
-        if not paragraph[:1].isspace():
-            paragraph = remove_line_breaks(paragraph)
-        paragraphs.append(paragraph)
-    # Rejoin the paragraphs, normalising on newline.
-    body = (newline + newline).join(
-        paragraph.replace("\r\n", newline).replace("\r", newline)
-        for paragraph in paragraphs)
+    # Normalise line-breaks on newline.
+    body = body.replace("\r\n", newline).replace("\r", newline)
     return title, body
 
 
@@ -90,17 +84,17 @@ def ensure_trailing_slash(string):
     return (string + slash) if not string.endswith(slash) else string
 
 
-def urlencode(data):
-    """A version of `urllib.urlencode` that isn't insane.
+def api_url(string):
+    """Ensure that `string` looks like a URL to the API.
 
-    This only cares that `data` is an iterable of iterables. Each sub-iterable
-    must be of overall length 2, i.e. a name/value pair.
+    This ensures that the API version is specified explicitly (i.e. the path
+    ends with /api/{version}). If not, version 1.0 is selected. It also
+    ensures that the path ends with a forward-slash.
 
-    Unicode strings will be encoded to UTF-8. This is what Django expects; see
-    `smart_text` in the Django documentation.
+    This is suitable for use as an argument type with argparse.
     """
-    enc = lambda string: quote_plus(
-        string.encode("utf-8") if isinstance(string, unicode) else string)
-    return b"&".join(
-        b"%s=%s" % (enc(name), enc(value))
-        for name, value in data)
+    url = urlparse(string)
+    url = url._replace(path=ensure_trailing_slash(url.path))
+    if re.search("/api/[0-9.]+/?$", url.path) is None:
+        url = url._replace(path=url.path + "api/1.0/")
+    return url.geturl()
