@@ -14,7 +14,7 @@ misc_bucket:
    # In certain hardware, the parameters for the ipmi_si kernel module
    # might need to be specified. If you wish to send parameters, uncomment
    # the following line.
-   IPMI_SI_PARAMS="type=kcs ports=0xca2"
+   #IPMI_SI_PARAMS="type=kcs ports=0xca2"
 
    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX")
    IPMI_CONFIG_D="${TEMP_D}/ipmi.d"
