@@ -341,10 +341,17 @@ def report_boot_images():
 
 
 @task
-def update_node_tags(tag_name, tag_definition):
+def update_node_tags(tag_name, tag_definition, retry=True):
     """Update the nodes for a new/changed tag definition.
 
     :param tag_name: Name of the tag to update nodes for
     :param tag_definition: Tag definition
+    :param retry: Whether to retry on failure
     """
-    tags.process_node_tags(tag_name, tag_definition)
+    try:
+        tags.process_node_tags(tag_name, tag_definition)
+    except CalledProcessError, exc:
+        if retry:
+            return update_node_tags.retry(tag_name, tag_definition)
+        else:
+            raise
