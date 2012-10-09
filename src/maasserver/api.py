@@ -338,6 +338,22 @@ def get_optional_list(data, key, default=None):
         return value
 
 
+def get_list_from_dict_or_multidict(data, key, default=None):
+    """Get a list from 'data'.
+
+    If data is a MultiDict, then we use 'getlist' if the data is a plain dict,
+    then we just use __getitem__.
+
+    The rationale is that data POSTed as multipart/form-data gets parsed into a
+    MultiDict, but data POSTed as application/json gets parsed into a plain
+    dict(key:list).
+    """
+    getlist = getattr(data, 'getlist', None)
+    if getlist is not None:
+        return getlist(key, default)
+    return data.get(key, default)
+
+
 def extract_oauth_key_from_auth_header(auth_data):
     """Extract the oauth key from auth data in HTTP header.
 
@@ -1156,12 +1172,8 @@ class NodeGroupHandler(OperationsHandler):
         to be stored in the cluster controllers (nodegroup) instead of the
         master controller.
         """
-        # If sent as x-www-form-urlencoded data, it comes in as a MultiDict, if
-        # sent as json it comes in as a simple dict(list).
-        if getattr(request.data, 'getlist', None) is not None:
-            system_ids = request.data.getlist('system_ids')
-        else:
-            system_ids = request.data['system_ids']
+        system_ids = get_list_from_dict_or_multidict(
+            request.data, 'system_ids', [])
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         check_nodegroup_access(request, nodegroup)
         nodes = Node.objects.filter(
@@ -1373,12 +1385,7 @@ class TagHandler(OperationsHandler):
         return Tag.objects.get_nodes(name, user=request.user)
 
     def _get_nodes_for(self, request, param, nodegroup):
-        # The application/x-www-form-urlencoded handler uses a MultiDict, but
-        # the application/json handler uses just a dict(key=[list])
-        if getattr(request.data, 'getlist', None) is not None:
-            system_ids = request.data.getlist(param)
-        else:
-            system_ids = request.data[param]
+        system_ids = get_list_from_dict_or_multidict(request.data, param)
         if system_ids:
             nodes = Node.objects.filter(system_id__in=system_ids)
             if nodegroup is not None:
