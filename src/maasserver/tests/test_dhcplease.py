@@ -199,10 +199,9 @@ class TestDHCPLeaseManager(TestCase):
         node = factory.make_node(
             nodegroup=nodegroup,
             hostname='%s.%s' % (hostname, domain))
-        factory.make_mac_address(node=node)
+        mac = factory.make_mac_address(node=node)
         lease = factory.make_dhcp_lease(
-            nodegroup=nodegroup,
-            mac=factory.make_mac_address(node=node).mac_address)
+            nodegroup=nodegroup, mac=mac.mac_address)
         mapping = DHCPLease.objects.get_hostname_ip_mapping(nodegroup)
         self.assertEqual({hostname: lease.ip}, mapping)
 
