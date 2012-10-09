@@ -27,8 +27,8 @@ from maasserver.fields import MACAddressField
 from maasserver.models.cleansave import CleanSave
 
 
-def strip_out_domain(hostname):
-    """Remove the domain part of a hostname, if any."""
+def strip_domain(hostname):
+    """Return `hostname` with the domain part removed."""
     return hostname.split('.', 1)[0]
 
 
@@ -141,10 +141,10 @@ class DHCPLeaseManager(Manager):
         AND mac.mac_address = lease.mac
         AND lease.nodegroup_id = %s
         """, (nodegroup.id, nodegroup.id))
-        return dict([
-            (strip_out_domain(hostname), ip)
+        return dict(
+            (strip_domain(hostname), ip)
             for hostname, ip in cursor.fetchall()
-            ])
+            )
 
 
 class DHCPLease(CleanSave, Model):

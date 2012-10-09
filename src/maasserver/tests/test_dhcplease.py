@@ -14,7 +14,7 @@ __all__ = []
 
 from maasserver import dns
 from maasserver.models import DHCPLease
-from maasserver.models.dhcplease import strip_out_domain
+from maasserver.models.dhcplease import strip_domain
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.utils import ignore_unused
@@ -49,7 +49,7 @@ class TestDHCPLease(TestCase):
 
 class TestUtitilies(TestCase):
 
-    def test_strip_out_domain(self):
+    def test_strip_domain(self):
         input_and_results = [
             ('name.domain',  'name'),
             ('name', 'name'),
@@ -58,7 +58,7 @@ class TestUtitilies(TestCase):
             ]
         inputs = [input for input, _ in input_and_results]
         results = [result for _, result in input_and_results]
-        self.assertEqual(results, map(strip_out_domain, inputs))
+        self.assertEqual(results, map(strip_domain, inputs))
 
 
 class TestDHCPLeaseManager(TestCase):
