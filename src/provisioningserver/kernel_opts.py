@@ -158,7 +158,7 @@ def compose_arch_opts(params):
     if (params.arch, params.subarch) == ("armhf", "highbank"):
         return ["console=ttyAMA0"]
     else:
-        # On Intel let the kernel figure out what is best by default (LP: #1061977)
+        # On Intel there are no working sane console= defaults (LP: #1061977)
         return []
 
 
