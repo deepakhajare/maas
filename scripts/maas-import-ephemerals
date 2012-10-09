@@ -270,8 +270,8 @@ EOF
 
 
 copy_first_available() {
-    # Copy file $2 or $3 (the first that is available) to destination $1.
-    local destination="$1" preferred_file="$2" alternate_file="$3"
+    # Copy file $1 or $2 (the first that is available) to destination $3.
+    local preferred_file="$1" alternate_file="$2" destination="$3"
     local actual=""
 
     if [ -f "${preferred_file}" ]; then
@@ -301,9 +301,9 @@ install_tftp_image() {
     # deletes it.
     tmpdir="$(mktemp -d)"
 
-    copy_first_available "$tmpdir/linux" "$src/linux" "$src/kernel" ||
+    copy_first_available "$src/linux" "$src/kernel" "$tmpdir/linux" ||
         return 1
-    copy_first_available "$tmpdir/initrd.gz" "$src/initrd.gz" "$src/initrd" ||
+    copy_first_available "$src/initrd.gz" "$src/initrd" "$tmpdir/initrd.gz" ||
         return 1
 
     local cmd out=""
