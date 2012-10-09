@@ -53,7 +53,8 @@ class TestMAASDispatcher(TestCase):
         filename = relpath(__file__)
         with HTTPServerFixture() as httpd:
             url = urljoin(httpd.url, filename)
-            body_from_dispatcher = dispatch_query(url, {})[1]
+            response = dispatch_query(url, headers={})
+            headers_from_dispatcher, body_from_dispatcher = response
         with open(filename, "rb") as file_in:
             body_from_file = file_in.read()
         self.assertEqual(
