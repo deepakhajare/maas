@@ -102,6 +102,28 @@ class TestLeasesParser(TestCase):
             """ % params))
         self.assertEqual({params['ip']: params['mac']}, leases)
 
+    def test_parse_leases_parses_host(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        leases = parse_leases(dedent("""\
+            host %(ip)s {
+                dynamic;
+                hardware ethernet %(mac)s;
+                fixed-address %(ip)s;
+            }
+            """ % params))
+        self.assertEqual({params['ip']: params['mac']}, leases)
+
+    def test_parse_leases_parses_host_rubout(self):
+        leases = parse_leases(dedent("""\
+            host %s {
+                deleted;
+            }
+            """ % factory.getRandomIPAddress()))
+        self.assertEqual({}, leases)
+
     def test_parse_leases_ignores_incomplete_lease_at_end(self):
         params = {
             'ip': factory.getRandomIPAddress(),
@@ -186,11 +208,34 @@ class TestLeasesParser(TestCase):
             """ % params))
         self.assertEqual({params['ip']: params['new_owner']}, leases)
 
-    def test_host_declaration_is_like_a_lease_without_expiration_date(self):
-        self.fail("TEST THIS")
+    def test_host_declaration_is_like_an_unexpired_lease(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        leases = parse_leases(dedent("""\
+            host %(ip)s {
+                hardware ethernet %(mac)s;
+                fixed-address %(ip)s;
+            }
+            """ % params))
+        self.assertEqual({params['ip']: params['mac']}, leases)
 
     def test_host_rubout_undoes_host_declaration(self):
-        self.fail("TEST THIS")
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        leases = parse_leases(dedent("""\
+            host %(ip)s {
+                hardware ethernet %(mac)s;
+                fixed-address %(ip)s;
+            }
+            host %(ip)s {
+                deleted;
+            }
+            """ % params))
+        self.assertEqual({}, leases)
 
     def test_host_followed_by_expired_lease_remains_valid(self):
         self.fail("TEST THIS")
