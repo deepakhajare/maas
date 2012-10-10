@@ -47,7 +47,6 @@ from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
-from provisioningserver import tasks as tasks_module
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
 from testtools.matchers import FileContains
@@ -150,11 +149,12 @@ class NodeTest(TestCase):
 
     def test_delete_node_also_deletes_dhcp_host_map(self):
         lease = factory.make_dhcp_lease()
-        node = factory.make_node(
-            mac=lease.mac, nodegroup=lease.nodegroup)
-        mock = self.patch(tasks_module, "remove_dhcp_host_map")
+        node = factory.make_node(nodegroup=lease.nodegroup)
+        node.add_mac_address(lease.mac)
+        mocked_task = self.patch(node_module, "remove_dhcp_host_map")
+        mocked_apply_async = self.patch(mocked_task, "apply_async")
         node.delete()
-        mock.remove_dhcp_host_map.assert_called_once_with(
+        mocked_apply_async.assert_called_once_with(
             queue=lease.nodegroup.uuid, ip_address=lease.ip,
             server_address="127.0.0.1", omapi_key=lease.nodegroup.dhcp_key)
 
