@@ -80,7 +80,6 @@ class DjangoTestCase(TestCase, django.test.TestCase):
         return counter.num_queries, res
 
 
-
 class TransactionTestCase(TestCase, django.test.TransactionTestCase):
     """`TransactionTestCase` for Metal as a Service.
 
