@@ -59,13 +59,14 @@ class TagManager(Manager):
         tag = get_object_or_404(Tag, name=name)
         return tag
 
-    def get_nodes(self, tag_name, user, prefetch_mac=False):
+    def get_nodes(self, tag, user, prefetch_mac=False):
         """Get the list of nodes that have this tag.
 
         This list is restricted to only nodes that the user has VIEW permission
         for.
         """
-        tag = self.get_tag_or_404(name=tag_name, user=user)
+        if isinstance(tag, basestring):
+            tag = self.get_tag_or_404(name=tag_name, user=user)
         # The privacy logic is taken from Node. Note that we could filter in
         # python by iterating over all nodes and checking
         #   user.has_perm(VIEW, node)

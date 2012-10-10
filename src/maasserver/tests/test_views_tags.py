@@ -53,6 +53,25 @@ class TagViewsTest(LoggedInTestCase):
         self.assertNotIn(node.system_id, content_text)
         self.assertIn(node_link, get_content_links(response))
 
+    def test_view_tag_properly_prefetches_mac(self):
+        tag = factory.make_tag()
+        nodegroup = factory.make_node_group()
+        nodes = [factory.make_node(nodegroup=nodegroup, mac=True)
+                 for i in range(50)]
+        for node in nodes:
+            node.tags.add(tag)
+        tag_link = reverse('tag-view', args=[tag.name])
+        # 8 Queries:
+        #   1) Get the session
+        #   2) Get the user
+        #   3) maasserver_tag to lookup the tag itself
+        #   4) maasserver_componenterror
+        #   5) maasserver_config
+        #   6) maasserver_node (to get all 50 nodes)
+        #   7) maasserver_macaddress (to get the macs for all 50 nodes)
+        with self.assertNumQueries(7):
+            response = self.client.get(tag_link)
+
     def test_view_tag_hides_private_nodes(self):
         tag = factory.make_tag()
         node = factory.make_node(set_hostname=True)
