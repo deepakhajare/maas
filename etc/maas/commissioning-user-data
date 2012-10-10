@@ -93,23 +93,24 @@ fail() {
    exit 1
 }
 
-shutdown() {
-    echo "Finished, powering off."
-    sh -fc 'i=0; while [ $i -lt 30 ] && i=$(($i+1)); do
-        state=$(status cloud-final);
-        set -- $state
-        case "$2" in
-            stop/*) poweroff; exit 0;;
-        esac
-        echo "$state [$2] after $i"
-        sleep 1
-     done
-     echo "giving up after 30 seconds"
-     poweroff' </dev/null & 
+configure_shutdown() {
+   cat >/etc/init/maas-poweroff.conf <<EOF
+   description "poweroff when maas task is done"
+   start on stopped cloud-final
+   console output
+   task
+   script
+     [ ! -e /tmp/block-poweroff ] || exit 0
+     poweroff
+   end script
+EOF
+   # reload required due to lack of inotify in overlayfs (LP: #882147)
+   initctl reload-configuration
 }
 
 main() {
-   trap shutdown EXIT
+   configure_shutdown
+
    # Install tools and load modules.
    aptget update
    aptget install freeipmi-tools
