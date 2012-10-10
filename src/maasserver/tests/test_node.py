@@ -158,6 +158,17 @@ class NodeTest(TestCase):
             queue=lease.nodegroup.uuid, ip_address=lease.ip,
             server_address="127.0.0.1", omapi_key=lease.nodegroup.dhcp_key)
 
+    def test_delete_node_removes_multiple_host_maps(self):
+        lease1 = factory.make_dhcp_lease()
+        lease2 = factory.make_dhcp_lease(nodegroup=lease1.nodegroup)
+        node = factory.make_node(nodegroup=lease1.nodegroup)
+        node.add_mac_address(lease1.mac)
+        node.add_mac_address(lease2.mac)
+        mocked_task = self.patch(node_module, "remove_dhcp_host_map")
+        mocked_apply_async = self.patch(mocked_task, "apply_async")
+        node.delete()
+        self.assertEqual(2, mocked_apply_async.call_count)
+
     def test_set_mac_based_hostname_default_enlistment_domain(self):
         # The enlistment domain defaults to `local`.
         node = factory.make_node()
