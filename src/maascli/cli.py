@@ -14,13 +14,15 @@ __all__ = [
     'register_cli_commands',
     ]
 
+from textwrap import fill
+
 from apiclient.creds import convert_tuple_to_string
 from maascli.api import fetch_api_description
 from maascli.auth import obtain_credentials
 from maascli.command import Command
 from maascli.config import ProfileConfig
 from maascli.utils import (
-    ensure_trailing_slash,
+    api_url,
     parse_docstring,
     safe_name,
     )
@@ -41,9 +43,10 @@ class cmd_login(Command):
                 "server and credentials within this tool."
                 ))
         parser.add_argument(
-            "url", help=(
-                "The URL of the remote API, e.g. "
-                "http://example.com/MAAS/api/1.0/"))
+            "url", type=api_url, help=(
+                "The URL of the remote API, e.g. http://example.com/MAAS/ "
+                "or http://example.com/MAAS/api/1.0/ if you wish to specify "
+                "the API version."))
         parser.add_argument(
             "credentials", nargs="?", default=None, help=(
                 "The credentials, also known as the API key, for the "
@@ -61,11 +64,8 @@ class cmd_login(Command):
         # Try and obtain credentials interactively if they're not given, or
         # read them from stdin if they're specified as "-".
         credentials = obtain_credentials(options.credentials)
-        # Normalise the remote service's URL.
-        url = ensure_trailing_slash(options.url)
         # Get description of remote API.
-        insecure = options.insecure
-        description = fetch_api_description(url, insecure)
+        description = fetch_api_description(options.url, options.insecure)
         # Save the config.
         profile_name = options.profile_name
         with ProfileConfig.open() as config:
@@ -73,8 +73,25 @@ class cmd_login(Command):
                 "credentials": credentials,
                 "description": description,
                 "name": profile_name,
-                "url": url,
+                "url": options.url,
                 }
+            profile = config[profile_name]
+        self.print_whats_next(profile)
+
+    @staticmethod
+    def print_whats_next(profile):
+        """Explain what to do next."""
+        what_next = [
+            "You are now logged in to the MAAS server at {url} "
+            "with the profile name '{name}'.",
+            "For help with the available commands, try:",
+            "  maas-cli {name} --help",
+            ]
+        print()
+        for message in what_next:
+            message = message.format(**profile)
+            print(fill(message))
+            print()
 
 
 class cmd_refresh(Command):

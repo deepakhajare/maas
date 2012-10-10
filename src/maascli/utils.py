@@ -15,7 +15,6 @@ __all__ = [
     "handler_command_name",
     "parse_docstring",
     "safe_name",
-    "urlencode",
     ]
 
 from functools import partial
@@ -24,7 +23,7 @@ from inspect import (
     getdoc,
     )
 import re
-from urllib import quote_plus
+from urlparse import urlparse
 
 
 re_paragraph_splitter = re.compile(
@@ -85,17 +84,17 @@ def ensure_trailing_slash(string):
     return (string + slash) if not string.endswith(slash) else string
 
 
-def urlencode(data):
-    """A version of `urllib.urlencode` that isn't insane.
+def api_url(string):
+    """Ensure that `string` looks like a URL to the API.
 
-    This only cares that `data` is an iterable of iterables. Each sub-iterable
-    must be of overall length 2, i.e. a name/value pair.
+    This ensures that the API version is specified explicitly (i.e. the path
+    ends with /api/{version}). If not, version 1.0 is selected. It also
+    ensures that the path ends with a forward-slash.
 
-    Unicode strings will be encoded to UTF-8. This is what Django expects; see
-    `smart_text` in the Django documentation.
+    This is suitable for use as an argument type with argparse.
     """
-    enc = lambda string: quote_plus(
-        string.encode("utf-8") if isinstance(string, unicode) else string)
-    return b"&".join(
-        b"%s=%s" % (enc(name), enc(value))
-        for name, value in data)
+    url = urlparse(string)
+    url = url._replace(path=ensure_trailing_slash(url.path))
+    if re.search("/api/[0-9.]+/?$", url.path) is None:
+        url = url._replace(path=url.path + "api/1.0/")
+    return url.geturl()

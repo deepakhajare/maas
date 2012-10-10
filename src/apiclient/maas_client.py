@@ -16,10 +16,11 @@ __all__ = [
     'MAASOAuth',
     ]
 
-from urllib import urlencode
 import urllib2
 
+from apiclient.encode_json import encode_json_data
 from apiclient.multipart import encode_multipart_data
+from apiclient.utils import urlencode
 import oauth.oauth as oauth
 
 
@@ -133,12 +134,12 @@ class MAASClient:
         """
         url = self._make_url(path)
         if params is not None and len(params) > 0:
-            url += "?" + urlencode(params)
+            url += "?" + urlencode(params.items())
         headers = {}
         self.auth.sign_request(url, headers)
         return url, headers
 
-    def _formulate_change(self, path, params):
+    def _formulate_change(self, path, params, as_json=False):
         """Return URL, headers, and body for a non-GET request.
 
         This is similar to _formulate_get, except parameters are encoded as
@@ -146,14 +147,20 @@ class MAASClient:
 
         :param path: Path to the object to issue a GET on.
         :param params: A dict of parameter values.
+        :param as_json: Encode params as application/json instead of
+            multipart/form-data. Only use this if you know the API already
+            supports JSON requests.
         :return: A tuple: URL, headers, and body for the request.
         """
         url = self._make_url(path)
         if 'op' in params:
             params = dict(params)
             op = params.pop('op')
-            url += '?' + urlencode({'op': op})
-        body, headers = encode_multipart_data(params, {})
+            url += '?' + urlencode([('op', op)])
+        if as_json:
+            body, headers = encode_json_data(params)
+        else:
+            body, headers = encode_multipart_data(params, {})
         self.auth.sign_request(url, headers)
         return url, headers, body
 
@@ -170,13 +177,16 @@ class MAASClient:
         return self.dispatcher.dispatch_query(
             url, method="GET", headers=headers)
 
-    def post(self, path, op, **kwargs):
+    def post(self, path, op, as_json=False, **kwargs):
         """Dispatch POST method `op` on `path`, with the given parameters.
 
+        :param as_json: Instead of POSTing the content as multipart/form-data
+            POST it as application/json
         :return: The result of the dispatch_query call on the dispatcher.
         """
         kwargs['op'] = op
-        url, headers, body = self._formulate_change(path, kwargs)
+        url, headers, body = self._formulate_change(
+            path, kwargs, as_json=as_json)
         return self.dispatcher.dispatch_query(
             url, method="POST", headers=headers, data=body)
 
