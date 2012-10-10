@@ -61,13 +61,22 @@ class TagViewsTest(LoggedInTestCase):
                  for i in range(20)]
         for node in nodes[:10]:
             node.tags.add(tag)
-        num_queries, _ = self.getNumQueries(self.client.get, tag_link)
+        num_queries, response = self.getNumQueries(self.client.get, tag_link)
+        self.assertEqual(
+            20,
+            len([link for link in get_content_links(response)
+                if link.startswith('/nodes/node')]))
         # Need to get the tag, and the nodes, and the macs of the nodes
         self.assertTrue(num_queries > 3)
         for node in nodes[10:]:
             node.tags.add(tag)
-        num_bonus_queries, _ = self.getNumQueries(self.client.get, tag_link)
+        num_bonus_queries, response = self.getNumQueries(
+            self.client.get, tag_link)
         self.assertEqual(num_queries, num_bonus_queries)
+        self.assertEqual(
+            20,
+            len([link for link in get_content_links(response)
+                if link.startswith('/nodes/node')]))
 
     def test_view_tag_hides_private_nodes(self):
         tag = factory.make_tag()
