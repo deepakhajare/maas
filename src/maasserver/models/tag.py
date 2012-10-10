@@ -66,7 +66,7 @@ class TagManager(Manager):
         for.
         """
         if isinstance(tag, basestring):
-            tag = self.get_tag_or_404(name=tag_name, user=user)
+            tag = self.get_tag_or_404(name=tag, user=user)
         # The privacy logic is taken from Node. Note that we could filter in
         # python by iterating over all nodes and checking
         #   user.has_perm(VIEW, node)

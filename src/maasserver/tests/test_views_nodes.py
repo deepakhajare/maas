@@ -99,22 +99,20 @@ class NodeViewsTest(LoggedInTestCase):
             [link for link in get_content_links(response)
                 if link.startswith('/nodes/node')])
 
-    def test_node_list_properly_prefetches_mac(self):
+    def test_node_list_num_queries_is_independent_of_num_nodes(self):
         nodegroup = factory.make_node_group()
         nodes = [factory.make_node(nodegroup=nodegroup, mac=True)
-                 for i in range(50)]
+                 for i in range(10)]
         url = reverse('node-list')
-        # 8 Queries:
-        #   1) Get the session
-        #   2) Get the user
-        #   3) Check maasserver_componenterror
-        #   4) maasserver_config
-        #   5) maasserver_nodegroup
-        #   6) maasserver_nodegroupinterface
-        #   7) maasserver_node (to get all 50 nodes)
-        #   8) maasserver_macaddress (to get the macs for all 50 nodes)
-        with self.assertNumQueries(8):
-            response = self.client.get(url)
+        num_queries, response = self.getNumQueries(self.client.get, url)
+        # Make sure we counted at least the queries to get the nodes, the
+        # nodegroup and the mac addresses.
+        self.assertTrue(num_queries > 3)
+        # Add 10 nodes should still have the same number of queries
+        nodes.extend([factory.make_node(nodegroup=nodegroup, mac=True)
+                      for i in range(10)])
+        num_bonus_queries, response = self.getNumQueries(self.client.get, url)
+        self.assertEqual(num_queries, num_bonus_queries)
 
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.

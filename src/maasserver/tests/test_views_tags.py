@@ -53,24 +53,21 @@ class TagViewsTest(LoggedInTestCase):
         self.assertNotIn(node.system_id, content_text)
         self.assertIn(node_link, get_content_links(response))
 
-    def test_view_tag_properly_prefetches_mac(self):
+    def test_view_tag_num_queries_is_independent_of_num_nodes(self):
         tag = factory.make_tag()
+        tag_link = reverse('tag-view', args=[tag.name])
         nodegroup = factory.make_node_group()
         nodes = [factory.make_node(nodegroup=nodegroup, mac=True)
-                 for i in range(50)]
-        for node in nodes:
+                 for i in range(20)]
+        for node in nodes[:10]:
             node.tags.add(tag)
-        tag_link = reverse('tag-view', args=[tag.name])
-        # 8 Queries:
-        #   1) Get the session
-        #   2) Get the user
-        #   3) maasserver_tag to lookup the tag itself
-        #   4) maasserver_componenterror
-        #   5) maasserver_config
-        #   6) maasserver_node (to get all 50 nodes)
-        #   7) maasserver_macaddress (to get the macs for all 50 nodes)
-        with self.assertNumQueries(7):
-            response = self.client.get(tag_link)
+        num_queries, _ = self.getNumQueries(self.client.get, tag_link)
+        # Need to get the tag, and the nodes, and the macs of the nodes
+        self.assertTrue(num_queries > 3)
+        for node in nodes[10:]:
+            node.tags.add(tag)
+        num_bonus_queries, _ = self.getNumQueries(self.client.get, tag_link)
+        self.assertEqual(num_queries, num_bonus_queries)
 
     def test_view_tag_hides_private_nodes(self):
         tag = factory.make_tag()
