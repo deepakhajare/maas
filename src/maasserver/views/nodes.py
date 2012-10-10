@@ -115,6 +115,9 @@ class NodeListView(ListView):
         nodes = Node.objects.get_nodes(
             user=self.request.user,
             perm=NODE_PERMISSION.VIEW).order_by('-created')
+        # The nodes are linked via their mac addresses, so we prefetch all of
+        # them, to do 1 large query rather than N small queries.
+        nodes = nodes.prefetch_related('macaddress_set')
         if self.query:
             try:
                 return constrain_nodes(nodes, _parse_constraints(self.query))
