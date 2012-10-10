@@ -185,3 +185,27 @@ class TestLeasesParser(TestCase):
             }
             """ % params))
         self.assertEqual({params['ip']: params['new_owner']}, leases)
+
+    def test_host_declaration_is_like_a_lease_without_expiration_date(self):
+        self.fail("TEST THIS")
+
+    def test_host_rubout_undoes_host_declaration(self):
+        self.fail("TEST THIS")
+
+    def test_host_followed_by_expired_lease_remains_valid(self):
+        self.fail("TEST THIS")
+
+    def test_expired_lease_followed_by_host_is_valid(self):
+        self.fail("TEST THIS")
+
+    def test_rubbed_out_host_followed_by_valid_lease_is_valid(self):
+        self.fail("TEST THIS")
+
+    def test_rubbed_out_host_followed_by_expired_lease_is_expired(self):
+        self.fail("TEST THIS")
+
+    def test_expired_lease_followed_by_rubbed_out_host_is_expired(self):
+        self.fail("TEST THIS")
+
+    def test_valid_lease_followed_by_host_rubout_remains_valid(self):
+        self.fail("TEST THIS")
