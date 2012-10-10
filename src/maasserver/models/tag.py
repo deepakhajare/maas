@@ -59,7 +59,7 @@ class TagManager(Manager):
         tag = get_object_or_404(Tag, name=name)
         return tag
 
-    def get_nodes(self, tag_name, user):
+    def get_nodes(self, tag_name, user, prefetch_mac=False):
         """Get the list of nodes that have this tag.
 
         This list is restricted to only nodes that the user has VIEW permission
@@ -71,10 +71,13 @@ class TagManager(Manager):
         #   user.has_perm(VIEW, node)
         # It seems better to do this in the DB, though.
         if user.is_superuser:
-            return tag.node_set.all()
+            nodes = tag.node_set.all()
         else:
-            return tag.node_set.filter(
+            nodes = tag.node_set.filter(
                 Q(owner__isnull=True) | Q(owner=user))
+        if prefetch_mac:
+            nodes = nodes.prefetch_related('macaddress_set')
+        return nodes
 
 
 class Tag(CleanSave, TimestampedModel):

@@ -124,6 +124,21 @@ class TagTest(TestCase):
         self.assertItemsEqual([node1, node2],
                               Tag.objects.get_nodes(tag.name, user2))
 
+    def test_get_nodes_with_mac_does_one_query(self):
+        user = factory.make_user()
+        tag = factory.make_tag()
+        nodes = [factory.make_node(mac=True) for counter in range(5)]
+        for node in nodes:
+            node.tags.add(tag)
+        def iterate_all_macs():
+            nodes = Tag.objects.get_nodes(tag.name, user, prefetch_mac=True)
+            for node in nodes:
+                for mac in node.macaddress_set.all():
+                    pass
+        # 1 query to lookup the tag, 1 to find the associated nodes, and 1 to
+        # grab the mac addresses.
+        self.assertNumQueries(3, iterate_all_macs)
+
     def test_rollsback_invalid_xpath(self):
         node = factory.make_node()
         node.set_hardware_details('<node><foo /></node>')
