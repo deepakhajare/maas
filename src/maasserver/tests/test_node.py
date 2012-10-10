@@ -47,6 +47,7 @@ from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
+from provisioningserver import tasks as tasks_module
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
 from testtools.matchers import FileContains
@@ -146,6 +147,16 @@ class NodeTest(TestCase):
     def test_cannot_delete_allocated_node(self):
         node = factory.make_node(status=NODE_STATUS.ALLOCATED)
         self.assertRaises(NodeStateViolation, node.delete)
+
+    def test_delete_node_also_deletes_dhcp_host_map(self):
+        lease = factory.make_dhcp_lease()
+        node = factory.make_node(
+            mac=lease.mac, nodegroup=lease.nodegroup)
+        mock = self.patch(tasks_module, "remove_dhcp_host_map")
+        node.delete()
+        mock.remove_dhcp_host_map.assert_called_once_with(
+            queue=lease.nodegroup.uuid, ip_address=lease.ip,
+            server_address="127.0.0.1", omapi_key=lease.nodegroup.dhcp_key)
 
     def test_set_mac_based_hostname_default_enlistment_domain(self):
         # The enlistment domain defaults to `local`.
