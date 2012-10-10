@@ -63,7 +63,7 @@ class TagViewsTest(LoggedInTestCase):
             node.tags.add(tag)
         num_queries, response = self.getNumQueries(self.client.get, tag_link)
         self.assertEqual(
-            20,
+            10,
             len([link for link in get_content_links(response)
                 if link.startswith('/nodes/node')]))
         # Need to get the tag, and the nodes, and the macs of the nodes
