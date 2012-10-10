@@ -36,7 +36,7 @@ class TagView(UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super(TagView, self).get_context_data(**kwargs)
-        nodes = Tag.objects.get_nodes(context['tag'], self.request.user)
-        nodes = nodes.prefetch_related('macaddress_set')
+        nodes = Tag.objects.get_nodes(context['tag'], self.request.user,
+            prefetch_mac=True)
         context['node_list'] = nodes
         return context
