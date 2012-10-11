@@ -130,31 +130,22 @@ class PaginatedListView(ListView):
             return self.request.path.rsplit("/", 1)[-1] or "."
         return "?" + new_query.urlencode()
 
-    def first_page_link(self, page_obj):
-        if page_obj.number == 1:
-            return ""
-        return self._make_page_link(1)
-
-    def previous_page_link(self, page_obj):
-        if not page_obj.has_previous():
-            return ""
-        return self._make_page_link(page_obj.previous_page_number())
-
-    def next_page_link(self, page_obj):
-        if not page_obj.has_next():
-            return ""
-        return self._make_page_link(page_obj.next_page_number())
-
-    def last_page_link(self, page_obj):
-        if page_obj.number == page_obj.paginator.num_pages:
-            return ""
-        return self._make_page_link(page_obj.paginator.num_pages)
-
     def get_context_data(self, **kwargs):
         context = super(PaginatedListView, self).get_context_data(**kwargs)
-        for key in ("first_page_link", "previous_page_link", "next_page_link",
-                "last_page_link"):
-            context[key] = getattr(self, key)(context['page_obj'])
+        page_obj = context["page_obj"]
+        if page_obj.has_previous():
+            context["first_page_link"] = self._make_page_link(1)
+            context["previous_page_link"] = self._make_page_link(
+                page_obj.previous_page_number())
+        else:
+            context["first_page_link"] = context["previous_page_link"] = ""
+        if page_obj.has_next():
+            context["next_page_link"] = self._make_page_link(
+                page_obj.next_page_number())
+            context["last_page_link"] = self._make_page_link(
+                page_obj.paginator.num_pages)
+        else:
+            context["next_page_link"] = context["last_page_link"] = ""
         return context
 
 
