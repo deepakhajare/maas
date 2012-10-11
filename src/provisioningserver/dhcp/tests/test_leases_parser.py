@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""..."""
+"""Tests for the DHCP leases parser."""
 
 from __future__ import (
     absolute_import,
@@ -20,6 +20,8 @@ from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.dhcp.leases_parser import (
     get_expiry_date,
+    gather_hosts,
+    gather_leases,
     has_expired,
     parse_leases,
     )
@@ -27,13 +29,28 @@ from provisioningserver.dhcp.leases_parser import (
 
 class TestLeasesParser(TestCase):
 
-    def fake_parsed_lease(self, ip=None, mac=None, ends=None):
+    def fake_parsed_lease(self, ip=None, mac=None, ends=None,
+                          entry_type='lease'):
         """Fake a lease as produced by the parser."""
         if ip is None:
             ip = factory.getRandomIPAddress()
         if mac is None:
             mac = factory.getRandomMACAddress()
-        return namedtuple('lease', ['ip', 'mac', 'ends'])(ip, mac, ends)
+        Hardware = namedtuple('Hardware', ['mac'])
+        Lease = namedtuple(
+            'Lease', ['lease_or_host', 'ip', 'hardware', 'ends'])
+        return Lease(entry_type, ip, Hardware(mac), ends)
+
+    def fake_parsed_host(self, ip=None, mac=None):
+        """Fake a host declaration as produced by the parser."""
+        return self.fake_parsed_lease(ip=ip, mac=mac, entry_type='host')
+
+    def fake_parsed_rubout(self, ip=None):
+        """Fake a "rubout" host declaration."""
+        if ip is None:
+            ip = factory.getRandomIPAddress()
+        Rubout = namedtuple('Rubout', ['lease_or_host', 'ip'])
+        return Rubout('host', ip)
 
     def test_get_expiry_date_parses_expiry_date(self):
         lease = self.fake_parsed_lease(ends='0 2011/01/02 03:04:05')
@@ -64,6 +81,73 @@ class TestLeasesParser(TestCase):
         earlier = '1 2001/01/01 00:00:00'
         self.assertTrue(
             has_expired(self.fake_parsed_lease(ends=earlier), now))
+
+    def test_gather_leases_finds_current_leases(self):
+        now = datetime.utcnow()
+        lease = self.fake_parsed_lease()
+        self.assertEqual(
+            {lease.ip: lease.hardware.mac},
+            gather_leases([lease], now))
+
+    def test_gather_leases_ignores_expired_leases(self):
+        now = datetime.utcnow()
+        earlier = '1 2001/01/01 00:00:00'
+        lease = self.fake_parsed_lease(ends=earlier)
+        self.assertEqual({}, gather_leases([lease], now))
+
+    def test_gather_leases_combines_expired_and_current_leases(self):
+        now = datetime.utcnow()
+        earlier = '1 2001/01/01 00:00:00'
+        ip = factory.getRandomIPAddress()
+        old_owner = factory.getRandomMACAddress()
+        new_owner = factory.getRandomMACAddress()
+        leases = [
+            self.fake_parsed_lease(ip=ip, mac=old_owner, ends=earlier),
+            self.fake_parsed_lease(ip=ip, mac=new_owner),
+            ]
+        self.assertEqual({ip: new_owner}, gather_leases(leases, now))
+
+    def test_gather_leases_ignores_ordering(self):
+        now = datetime.utcnow()
+        earlier = '1 2001/01/01 00:00:00'
+        ip = factory.getRandomIPAddress()
+        old_owner = factory.getRandomMACAddress()
+        new_owner = factory.getRandomMACAddress()
+        leases = [
+            self.fake_parsed_lease(ip=ip, mac=new_owner),
+            self.fake_parsed_lease(ip=ip, mac=old_owner, ends=earlier),
+            ]
+        self.assertEqual({ip: new_owner}, gather_leases(leases, now))
+
+    def test_gather_leases_ignores_host_declarations(self):
+        now = datetime.utcnow()
+        host = self.fake_parsed_host()
+        self.assertEqual({}, gather_leases([host], now))
+
+    def test_gather_hosts_finds_hosts(self):
+        host = self.fake_parsed_host()
+        self.assertEqual({host.ip: host.hardware.mac}, gather_hosts([host]))
+
+    def test_gather_hosts_ignores_unaccompanied_rubouts(self):
+        self.assertEqual({}, gather_hosts([self.fake_parsed_rubout()]))
+
+    def test_gather_hosts_ignores_rubbed_out_entries(self):
+        ip = factory.getRandomIPAddress()
+        hosts = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_rubout(ip=ip),
+            ]
+        self.assertEqual({}, gather_hosts(hosts))
+
+    def test_gather_hosts_follows_reassigned_host(self):
+        ip = factory.getRandomIPAddress()
+        new_owner = factory.getRandomMACAddress()
+        hosts = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_rubout(ip=ip),
+            self.fake_parsed_host(ip=ip, mac=new_owner),
+            ]
+        self.assertEqual({ip: new_owner}, gather_hosts(hosts))
 
     def test_parse_leases_copes_with_empty_file(self):
         self.assertEqual({}, parse_leases(""))
