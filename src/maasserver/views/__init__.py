@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "HelpfulDeleteView",
+    "PaginatedListView",
     "process_form",
     "AccountsEdit",
     "AccountsView",
@@ -29,7 +30,10 @@ from django.http import (
     Http404,
     HttpResponseRedirect,
     )
-from django.views.generic import DeleteView
+from django.views.generic import (
+    DeleteView,
+    ListView,
+    )
 
 
 class HelpfulDeleteView(DeleteView):
@@ -108,6 +112,41 @@ class HelpfulDeleteView(DeleteView):
         """Redirect to the post-deletion page, showing the given message."""
         self.show_notice(feedback_message)
         return HttpResponseRedirect(self.get_next_url())
+
+
+class PaginatedListView(ListView):
+    """"""
+
+    paginate_by = 50
+
+    def _make_page_link(self, page_number):
+        new_query = self.request.GET.copy()
+        if page_number == 1 and "page" in new_query:
+            del new_query["page"]
+        else:
+            new_query["page"] = str(page_number)
+        if not new_query:
+            return "."
+        return "?" + new_query.urlencode()
+
+    def first_page_link(self, page_obj):
+        return self._make_page_link(1)
+
+    def previous_page_link(self, page_obj):
+        return self._make_page_link(page_obj.previous_page_number())
+
+    def next_page_link(self, page_obj):
+        return self._make_page_link(page_obj.next_page_number())
+
+    def last_page_link(self, page_obj):
+        return self._make_page_link(page_obj.paginator.num_pages)
+
+    def get_context_data(self, **kwargs):
+        context = super(PaginatedListView, self).get_context_data(**kwargs)
+        for key in ("first_page_link", "previous_page_link", "next_page_link",
+                "last_page_link"):
+            context[key] = getattr(self, key)(context['page_obj'])
+        return context
 
 
 def process_form(request, form_class, redirect_url, prefix,
