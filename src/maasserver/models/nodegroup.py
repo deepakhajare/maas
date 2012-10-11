@@ -202,6 +202,10 @@ class NodeGroup(TimestampedModel):
                     management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED))
 
     def ensure_dhcp_key(self):
+        """If self.dhcp_key is empty: create a valid dhcp key.
+
+        This method persists the dhcp key without triggering the model
+        signals (pre_save/post_save/etc)."""
         if self.dhcp_key == '':
             dhcp_key = generate_omapi_key()
             self.dhcp_key = dhcp_key
