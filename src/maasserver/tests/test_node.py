@@ -49,7 +49,11 @@ from metadataserver.models import (
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
-from testtools.matchers import FileContains
+from testtools.matchers import (
+    Equals,
+    FileContains,
+    MatchesListwise,
+    )
 
 
 class NodeTest(TestCase):
@@ -154,9 +158,16 @@ class NodeTest(TestCase):
         mocked_task = self.patch(node_module, "remove_dhcp_host_map")
         mocked_apply_async = self.patch(mocked_task, "apply_async")
         node.delete()
-        mocked_apply_async.assert_called_once_with(
-            queue=lease.nodegroup.uuid, ip_address=lease.ip,
-            server_address="127.0.0.1", omapi_key=lease.nodegroup.dhcp_key)
+        args, kwargs = mocked_apply_async.call_args
+        expected = (
+            Equals(kwargs['queue']),
+            Equals({
+                'ip_address': lease.ip,
+                'server_address': "127.0.0.1",
+                'omapi_key': lease.nodegroup.dhcp_key,
+                }))
+        observed = node.work_queue, kwargs['kwargs']
+        self.assertThat(observed, MatchesListwise(expected))
 
     def test_delete_node_removes_multiple_host_maps(self):
         lease1 = factory.make_dhcp_lease()

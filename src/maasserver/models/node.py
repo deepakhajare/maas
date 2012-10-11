@@ -604,16 +604,16 @@ class Node(CleanSave, TimestampedModel):
         nodegroup = self.nodegroup
         if nodegroup.get_managed_interface() is not None:
             # Delete the host map(s) in the DHCP server.
-            for mac in self.macaddress_set.all():
-                lease = get_one(
-                    DHCPLease.objects.filter(
-                        mac=mac.mac_address, nodegroup=nodegroup))
-                remove_dhcp_host_map.apply_async(
-                    queue=nodegroup.uuid,
+            macs = self.macaddress_set.values_list('mac_address', flat=True)
+            leases = DHCPLease.objects.filter(
+                mac__in=macs, nodegroup=nodegroup)
+            for lease in leases:
+                task_kwargs = dict(
                     ip_address=lease.ip,
                     server_address="127.0.0.1",
                     omapi_key=nodegroup.dhcp_key)
-
+                remove_dhcp_host_map.apply_async(
+                    queue=nodegroup.uuid, kwargs=task_kwargs)
         # Delete the related mac addresses.
         self.macaddress_set.all().delete()
 
