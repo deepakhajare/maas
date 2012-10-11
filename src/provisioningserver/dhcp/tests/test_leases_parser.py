@@ -287,6 +287,21 @@ class TestLeasesParser(TestCase):
             """ % params))
         self.assertEqual({params['ip']: params['new_owner']}, leases)
 
+    def test_parse_leases_recognizes_host_deleted_statement_as_rubout(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        leases = parse_leases(dedent("""\
+            host %(ip)s {
+                dynamic;
+                hardware ethernet %(mac)s;
+                fixed-address %(ip)s;
+                deleted;
+            }
+            """ % params))
+        self.assertEqual({}, leases)
+
     def test_host_declaration_is_like_an_unexpired_lease(self):
         params = {
             'ip': factory.getRandomIPAddress(),

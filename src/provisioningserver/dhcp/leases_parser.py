@@ -53,6 +53,7 @@ lease_or_host = oneOf(['lease', 'host'], caseless=True)
 
 hardware = CaselessKeyword("hardware") + hardware_type("type") + mac("mac")
 ends = CaselessKeyword("ends") + expiry("expiry")
+deleted = CaselessKeyword("deleted")
 
 lone_statement_names = [
     'abandoned',
@@ -87,7 +88,8 @@ other_statement_names = [
 other_statement = oneOf(other_statement_names, caseless=True) + args
 
 lease_statement = (
-    hardware | ends | set_statement | lone_statement | other_statement
+    hardware | deleted | ends | set_statement | lone_statement |
+    other_statement
     ) + Suppress(';')
 lease_parser = (
     lease_or_host("lease_or_host") + ip("ip") +
@@ -156,8 +158,7 @@ def gather_leases(hosts_and_leases):
 def get_host_mac(host):
     """Get the MAC address from a host declaration.  A rubout has none."""
     assert is_host(host)
-    deleted_statement = getattr(host, 'deleted', None)
-    if deleted_statement not in (None, '', b''):
+    if 'deleted' in host:
         return None
     hardware = getattr(host, 'hardware', None)
     if hardware in (None, '', b''):
