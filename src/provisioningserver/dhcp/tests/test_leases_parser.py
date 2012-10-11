@@ -19,9 +19,10 @@ from textwrap import dedent
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.dhcp.leases_parser import (
-    get_expiry_date,
+    combine_entries,
     gather_hosts,
     gather_leases,
+    get_expiry_date,
     has_expired,
     parse_leases,
     )
@@ -299,143 +300,74 @@ class TestLeasesParser(TestCase):
             """ % params))
         self.assertEqual({params['ip']: params['mac']}, leases)
 
-    def test_host_followed_by_expired_lease_remains_valid(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2001/01/01 00:00:00',
-        }
-        leases = parse_leases(dedent("""\
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            """ % params))
-        self.assertEqual({params['ip']: params['mac']}, leases)
+    def test_combine_entries_accepts_host_followed_by_expired_lease(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        earlier = '1 2001/01/01 00:00:00'
+        entries = [
+            self.fake_parsed_host(ip=ip, mac=mac),
+            self.fake_parsed_lease(ip=ip, ends=earlier),
+            ]
+        self.assertEqual({ip: mac}, combine_entries(entries))
 
-    def test_expired_lease_followed_by_host_is_valid(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2001/01/01 00:00:00',
-        }
-        leases = parse_leases(dedent("""\
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            """ % params))
-        self.assertEqual({params['ip']: params['mac']}, leases)
+    def test_combine_entries_accepts_expired_lease_followed_by_host(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        earlier = '1 2001/01/01 00:00:00'
+        entries = [
+            self.fake_parsed_lease(ip=ip, ends=earlier),
+            self.fake_parsed_host(ip=ip, mac=mac),
+            ]
+        self.assertEqual({ip: mac}, combine_entries(entries))
 
-    def test_rubbed_out_host_followed_by_valid_lease_is_valid(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2035/12/31 23:59:59',
-        }
-        leases = parse_leases(dedent("""\
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            host %(ip)s {
-                deleted;
-            }
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            """ % params))
-        self.assertEqual({params['ip']: params['mac']}, leases)
+    def test_combine_entries_accepts_rubout_followed_by_current_lease(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        entries = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_rubout(ip=ip),
+            self.fake_parsed_lease(ip=ip, mac=mac),
+            ]
+        self.assertEqual({ip: mac}, combine_entries(entries))
 
-    def test_rubbed_out_host_followed_by_expired_lease_is_expired(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2001/01/01 00:00:00',
-        }
-        leases = parse_leases(dedent("""\
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            host %(ip)s {
-                deleted;
-            }
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            """ % params))
-        self.assertEqual({}, leases)
+    def test_combine_entries_ignores_rubout_followed_by_expired_lease(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        earlier = '1 2001/01/01 00:00:00'
+        entries = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_rubout(ip=ip),
+            self.fake_parsed_lease(ip=ip, mac=mac, ends=earlier),
+            ]
+        self.assertEqual({}, combine_entries(entries))
 
-    def test_expired_lease_followed_by_rubbed_out_host_is_expired(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2001/01/01 00:00:00',
-        }
-        leases = parse_leases(dedent("""\
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            host %(ip)s {
-                deleted;
-            }
-            """ % params))
-        self.assertEqual({}, leases)
+    def test_combine_entries_ignores_expired_lease_followed_by_rubout(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        earlier = '1 2001/01/01 00:00:00'
+        entries = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_lease(ip=ip, mac=mac, ends=earlier),
+            self.fake_parsed_rubout(ip=ip),
+            ]
+        self.assertEqual({}, combine_entries(entries))
 
-    def test_valid_lease_followed_by_host_rubout_remains_valid(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'mac': factory.getRandomMACAddress(),
-            'ends': '1 2035/12/31 23:59:59',
-        }
-        leases = parse_leases(dedent("""\
-            host %(ip)s {
-                hardware ethernet %(mac)s;
-                fixed-address %(ip)s;
-            }
-            lease %(ip)s {
-                hardware ethernet %(mac)s;
-                ends %(ends)s;
-            }
-            host %(ip)s {
-                deleted;
-            }
-            """ % params))
-        self.assertEqual({params['ip']: params['mac']}, leases)
+    def test_combine_entries_accepts_valid_lease_followed_by_rubout(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        entries = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_lease(ip=ip, mac=mac),
+            self.fake_parsed_rubout(ip=ip),
+            ]
+        self.assertEqual({ip: mac}, combine_entries(entries))
 
-    def test_rubout_followed_by_new_host_declaration_keeps_newest(self):
-        params = {
-            'ip': factory.getRandomIPAddress(),
-            'old_owner': factory.getRandomMACAddress(),
-            'new_owner': factory.getRandomMACAddress(),
-        }
-        leases = parse_leases(dedent("""\
-            host %(ip)s {
-                hardware ethernet %(old_owner)s;
-                fixed-address %(ip)s;
-            }
-            host %(ip)s {
-                deleted;
-            }
-            host %(ip)s {
-                hardware ethernet %(new_owner)s;
-                fixed-address %(ip)s;
-            }
-            """ % params))
-        self.assertEqual({params['ip']: params['new_owner']}, leases)
+    def test_combine_entries_accepts_reassigned_host(self):
+        ip = factory.getRandomIPAddress()
+        mac = factory.getRandomMACAddress()
+        entries = [
+            self.fake_parsed_host(ip=ip),
+            self.fake_parsed_rubout(ip=ip),
+            self.fake_parsed_host(ip=ip, mac=mac),
+            ]
+        self.assertEqual({ip: mac}, combine_entries(entries))

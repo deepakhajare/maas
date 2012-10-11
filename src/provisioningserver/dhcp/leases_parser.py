@@ -182,6 +182,13 @@ def gather_hosts(hosts_and_leases):
 
 
 def combine_entries(entries):
+    """Combine the hosts and leases declarations in a parsed leases file.
+
+    :param entries: Parsed host/leases entries from a leases file.
+    :return: A dict mapping leased IP addresses to the respective MAC
+        addresses that currently own them (regardless of whether they
+        were found in a lease or in a host declaration).
+    """
     leases = gather_leases(entries)
     leases.update(gather_hosts(entries))
     return leases
