@@ -732,6 +732,12 @@ class NodesHandler(OperationsHandler):
         return node
 
     def _check_system_ids_exist(self, system_ids):
+        """Check that the requested system_ids actually exist in the DB.
+
+        We don't check if the current user has rights to do anything with them
+        yet, just that the strings are valid. If not valid raise a BadRequest
+        error.
+        """
         if not system_ids:
             return
         existing_nodes = Node.objects.filter(system_id__in=system_ids)
