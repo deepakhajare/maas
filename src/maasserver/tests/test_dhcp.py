@@ -111,7 +111,8 @@ class TestDHCP(TestCase):
     def test_configure_dhcp_is_called_with_valid_dhcp_key(self):
         self.patch(dhcp, 'write_dhcp_config')
         self.patch(settings, "DHCP_CONNECT", True)
-        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED, dhcp_key='')
         configure_dhcp(nodegroup)
         args, kwargs = dhcp.write_dhcp_config.apply_async.call_args
         self.assertThat(kwargs['kwargs']['omapi_key'], EndsWith('=='))
