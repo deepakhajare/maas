@@ -201,6 +201,13 @@ class NodeGroup(TimestampedModel):
                 nodegroup=self).exclude(
                     management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED))
 
+    def ensure_dhcp_key(self):
+        if self.dhcp_key == '':
+            dhcp_key = generate_omapi_key()
+            self.dhcp_key = dhcp_key
+            # Persist the dhcp_key without triggering the signals.
+            NodeGroup.objects.filter(id=self.id).update(dhcp_key=dhcp_key)
+
     @property
     def work_queue(self):
         """The name of the queue for tasks specific to this nodegroup."""
