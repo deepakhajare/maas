@@ -16,10 +16,6 @@ import httplib
 from random import randint
 from xmlrpclib import Fault
 
-from django.db.models import (
-    CharField,
-    Model,
-    )
 from django.conf.urls.defaults import patterns
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
@@ -34,7 +30,6 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
-    TestModelTestCase,
     )
 from maasserver.views import (
     HelpfulDeleteView,
@@ -250,29 +245,35 @@ class HelpfulDeleteViewTest(TestCase):
             view.compose_feedback_deleted(view.obj))
 
 
-class SimpleModel(Model):
+class SimpleFakeModel:
+    """Pretend model object for testing"""
 
-    name = CharField(max_length=255)
+    def __init__(self, counter):
+        self.id = counter
 
 
 class SimpleListView(PaginatedListView):
+    """Simple paginated view for testing"""
 
-    model = SimpleModel
     paginate_by = 2
 
+    def __init__(self, query_results):
+        self._query_results = list(query_results)
 
-class PaginatedListViewTests(TestModelTestCase):
-    """Check PaginatedListView page links inserted into context are correct
+    def get_queryset(self):
+        """Return precanned list of objects
 
-    These tests use a real model and put data in the database, ideally they
-    would just fake that bit instead.
-    """
+        Really this should return a QuerySet object, but for basic usage a
+        list is close enough.
+        """
+        return self._query_results
 
-    app = "maasserver.tests"
+
+class PaginatedListViewTests(TestCase):
+    """Check PaginatedListView page links inserted into context are correct"""
 
     def test_single_page(self):
-        SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(1)])
         request = RequestFactory().get('/index')
         response = view.dispatch(request)
         context = response.context_data
@@ -282,9 +283,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("", context["last_page_link"])
 
     def test_on_first_page(self):
-        for _ in range(5):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(5)])
         request = RequestFactory().get('/index')
         response = view.dispatch(request)
         context = response.context_data
@@ -294,9 +293,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("?page=3", context["last_page_link"])
 
     def test_on_second_page(self):
-        for _ in range(7):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(7)])
         request = RequestFactory().get('/index?page=2')
         response = view.dispatch(request)
         context = response.context_data
@@ -306,9 +303,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("?page=4", context["last_page_link"])
 
     def test_on_final_page(self):
-        for _ in range(5):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(5)])
         request = RequestFactory().get('/index?page=3')
         response = view.dispatch(request)
         context = response.context_data
@@ -318,9 +313,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("", context["last_page_link"])
 
     def test_relative_to_directory(self):
-        for _ in range(3):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(3)])
         request = RequestFactory().get('/index/?page=2')
         response = view.dispatch(request)
         context = response.context_data
@@ -330,9 +323,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("", context["last_page_link"])
 
     def test_preserves_query_string(self):
-        for _ in range(5):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(6)])
         request = RequestFactory().get('/index?lookup=value')
         response = view.dispatch(request)
         context = response.context_data
@@ -343,9 +334,7 @@ class PaginatedListViewTests(TestModelTestCase):
         self.assertEqual("?lookup=value&page=3", context["last_page_link"])
 
     def test_preserves_query_string_with_page(self):
-        for _ in range(7):
-            SimpleModel.objects.create(name=factory.getRandomString())
-        view = SimpleListView()
+        view = SimpleListView([SimpleFakeModel(i) for i in range(8)])
         request = RequestFactory().get('/index?page=3&lookup=value')
         response = view.dispatch(request)
         context = response.context_data
