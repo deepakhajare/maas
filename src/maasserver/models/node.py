@@ -64,10 +64,7 @@ from maasserver.models.dhcplease import DHCPLease
 from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
 from maasserver.utils import get_db_state
-from maasserver.utils.orm import (
-    get_first,
-    get_one,
-    )
+from maasserver.utils.orm import get_first
 from piston.models import Token
 from provisioningserver.enum import (
     POWER_TYPE,
