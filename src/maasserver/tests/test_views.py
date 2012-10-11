@@ -16,6 +16,10 @@ import httplib
 from random import randint
 from xmlrpclib import Fault
 
+from django.db.models import (
+    CharField,
+    Model,
+    )
 from django.conf.urls.defaults import patterns
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
@@ -30,8 +34,12 @@ from maasserver.testing.factory import factory
 from maasserver.testing.testcase import (
     LoggedInTestCase,
     TestCase,
+    TestModelTestCase,
     )
-from maasserver.views import HelpfulDeleteView
+from maasserver.views import (
+    HelpfulDeleteView,
+    PaginatedListView,
+    )
 from maasserver.views.nodes import NodeEdit
 from maastesting.matchers import ContainsAll
 
@@ -240,6 +248,112 @@ class HelpfulDeleteViewTest(TestCase):
         self.assertEqual(
             "%s deleted." % object_name.capitalize(),
             view.compose_feedback_deleted(view.obj))
+
+
+class SimpleModel(Model):
+
+    name = CharField(max_length=255)
+
+
+class SimpleListView(PaginatedListView):
+
+    model = SimpleModel
+    paginate_by = 2
+
+
+class PaginatedListViewTests(TestModelTestCase):
+    """Check PaginatedListView page links inserted into context are correct
+
+    These tests use a real model and put data in the database, ideally they
+    would just fake that bit instead.
+    """
+
+    app = "maasserver.tests"
+
+    def test_single_page(self):
+        SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("", context["first_page_link"])
+        self.assertEqual("", context["previous_page_link"])
+        self.assertEqual("", context["next_page_link"])
+        self.assertEqual("", context["last_page_link"])
+
+    def test_on_first_page(self):
+        for _ in range(5):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("", context["first_page_link"])
+        self.assertEqual("", context["previous_page_link"])
+        self.assertEqual("?page=2", context["next_page_link"])
+        self.assertEqual("?page=3", context["last_page_link"])
+
+    def test_on_second_page(self):
+        for _ in range(7):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index?page=2')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("index", context["first_page_link"])
+        self.assertEqual("index", context["previous_page_link"])
+        self.assertEqual("?page=3", context["next_page_link"])
+        self.assertEqual("?page=4", context["last_page_link"])
+
+    def test_on_final_page(self):
+        for _ in range(5):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index?page=3')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("index", context["first_page_link"])
+        self.assertEqual("?page=2", context["previous_page_link"])
+        self.assertEqual("", context["next_page_link"])
+        self.assertEqual("", context["last_page_link"])
+
+    def test_relative_to_directory(self):
+        for _ in range(3):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index/?page=2')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual(".", context["first_page_link"])
+        self.assertEqual(".", context["previous_page_link"])
+        self.assertEqual("", context["next_page_link"])
+        self.assertEqual("", context["last_page_link"])
+
+    def test_preserves_query_string(self):
+        for _ in range(5):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index?lookup=value')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("", context["first_page_link"])
+        self.assertEqual("", context["previous_page_link"])
+        # Does this depend on dict hash values for order or does django sort?
+        self.assertEqual("?lookup=value&page=2", context["next_page_link"])
+        self.assertEqual("?lookup=value&page=3", context["last_page_link"])
+
+    def test_preserves_query_string_with_page(self):
+        for _ in range(7):
+            SimpleModel.objects.create(name=factory.getRandomString())
+        view = SimpleListView()
+        request = RequestFactory().get('/index?page=3&lookup=value')
+        response = view.dispatch(request)
+        context = response.context_data
+        self.assertEqual("?lookup=value", context["first_page_link"])
+        # Does this depend on dict hash values for order or does django sort?
+        self.assertEqual("?lookup=value&page=2", context["previous_page_link"])
+        self.assertEqual("?lookup=value&page=4", context["next_page_link"])
+        self.assertEqual("?lookup=value&page=4", context["last_page_link"])
 
 
 class MAASExceptionHandledInView(LoggedInTestCase):

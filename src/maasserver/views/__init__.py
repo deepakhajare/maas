@@ -121,8 +121,9 @@ class PaginatedListView(ListView):
 
     def _make_page_link(self, page_number):
         new_query = self.request.GET.copy()
-        if page_number == 1 and "page" in new_query:
-            del new_query["page"]
+        if page_number == 1:
+            if "page" in new_query:
+                del new_query["page"]
         else:
             new_query["page"] = str(page_number)
         if not new_query:
@@ -130,15 +131,23 @@ class PaginatedListView(ListView):
         return "?" + new_query.urlencode()
 
     def first_page_link(self, page_obj):
+        if page_obj.number == 1:
+            return ""
         return self._make_page_link(1)
 
     def previous_page_link(self, page_obj):
+        if not page_obj.has_previous():
+            return ""
         return self._make_page_link(page_obj.previous_page_number())
 
     def next_page_link(self, page_obj):
+        if not page_obj.has_next():
+            return ""
         return self._make_page_link(page_obj.next_page_number())
 
     def last_page_link(self, page_obj):
+        if page_obj.number == page_obj.paginator.num_pages:
+            return ""
         return self._make_page_link(page_obj.paginator.num_pages)
 
     def get_context_data(self, **kwargs):
