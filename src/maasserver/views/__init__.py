@@ -126,7 +126,7 @@ class PaginatedListView(ListView):
         else:
             new_query["page"] = str(page_number)
         if not new_query:
-            return "."
+            return self.request.path.rsplit("/", 1)[-1] or "."
         return "?" + new_query.urlencode()
 
     def first_page_link(self, page_obj):
