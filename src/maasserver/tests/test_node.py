@@ -546,7 +546,7 @@ class NodeTest(TestCase):
           )
         node.set_hardware_details(xmlbytes)
         node = reload_object(node)
-        self.assertEqual(3584, node.memory)
+        self.assertEqual(7680, node.memory)
 
     def test_hardware_updates_tags_match(self):
         tag1 = factory.make_tag(factory.getRandomString(10), "/node")
