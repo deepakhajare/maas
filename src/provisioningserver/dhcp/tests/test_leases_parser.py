@@ -23,7 +23,11 @@ from provisioningserver.dhcp.leases_parser import (
     gather_hosts,
     gather_leases,
     get_expiry_date,
+    get_host_mac,
     has_expired,
+    is_host,
+    is_lease,
+    lease_parser,
     parse_leases,
     )
 
@@ -143,6 +147,68 @@ class TestLeasesParser(TestCase):
             self.fake_parsed_host(ip=ip, mac=new_owner),
             ]
         self.assertEqual({ip: new_owner}, gather_hosts(hosts))
+
+    def test_is_lease_and_is_host_recognize_lease(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        [parsed_lease] = lease_parser.searchString(dedent("""\
+            lease %(ip)s {
+                hardware ethernet %(mac)s;
+            }
+            """ % params))
+        self.assertEqual(
+            (True, False),
+            (is_lease(parsed_lease), is_host(parsed_lease)))
+
+    def test_is_lease_and_is_host_recognize_host(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        [parsed_host] = lease_parser.searchString(dedent("""\
+            host %(ip)s {
+                hardware ethernet %(mac)s;
+            }
+            """ % params))
+        self.assertEqual(
+            (False, True),
+            (is_lease(parsed_host), is_host(parsed_host)))
+
+    def test_get_host_mac_returns_None_for_host(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        [parsed_host] = lease_parser.searchString(dedent("""\
+            host %(ip)s {
+                hardware ethernet %(mac)s;
+            }
+            """ % params))
+        self.assertEqual(params['mac'], get_host_mac(parsed_host))
+
+    def test_get_host_mac_returns_None_for_rubout(self):
+        ip = factory.getRandomIPAddress()
+        [parsed_host] = lease_parser.searchString(dedent("""\
+            host %s {
+                deleted;
+            }
+            """ % ip))
+        self.assertIsNone(get_host_mac(parsed_host))
+
+    def test_get_host_mac_returns_None_for_rubout_even_with_mac(self):
+        params = {
+            'ip': factory.getRandomIPAddress(),
+            'mac': factory.getRandomMACAddress(),
+        }
+        [parsed_host] = lease_parser.searchString(dedent("""\
+            host %(ip)s {
+                deleted;
+                hardware ethernet %(mac)s;
+            }
+            """ % params))
+        self.assertIsNone(get_host_mac(parsed_host))
 
     def test_parse_leases_copes_with_empty_file(self):
         self.assertEqual({}, parse_leases(""))
