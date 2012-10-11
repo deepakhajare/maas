@@ -141,8 +141,9 @@ def has_expired(lease, now):
         return expiry_date < now
 
 
-def gather_leases(hosts_and_leases, now):
+def gather_leases(hosts_and_leases):
     """Find current leases among `hosts_and_leases`."""
+    now = datetime.utcnow()
     # If multiple leases for the same address are valid at the same
     # time, for whatever reason, the dict will contain the one that was
     # last appended to the leases file.
@@ -180,6 +181,12 @@ def gather_hosts(hosts_and_leases):
             if mac is not None}
 
 
+def combine_entries(entries):
+    leases = gather_leases(entries)
+    leases.update(gather_hosts(entries))
+    return leases
+
+
 def parse_leases(leases_contents):
     """Parse contents of a leases file.
 
@@ -187,8 +194,5 @@ def parse_leases(leases_contents):
     :return: A dict mapping each currently leased IP address to the MAC
         address that it is associated with.
     """
-    now = datetime.utcnow()
     entries = lease_parser.searchString(leases_contents)
-    leases = gather_leases(entries, now)
-    leases.update(gather_hosts(entries))
-    return leases
+    return combine_entries(entries)
