@@ -347,7 +347,7 @@ UPDATE_NODE_TAGS_MAX_RETRY = 10
 UPDATE_NODE_TAGS_RETRY_DELAY = 2
 
 
-@task(max_retries=RNDC_COMMAND_MAX_RETRY)
+@task(max_retries=UPDATE_NODE_TAGS_MAX_RETRY)
 def update_node_tags(tag_name, tag_definition, retry=True):
     """Update the nodes for a new/changed tag definition.
 
