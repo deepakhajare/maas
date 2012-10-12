@@ -313,14 +313,14 @@ class PaginatedListViewTests(TestCase):
         self.assertEqual("", context["last_page_link"])
 
     def test_relative_to_directory(self):
-        view = SimpleListView([SimpleFakeModel(i) for i in range(3)])
+        view = SimpleListView([SimpleFakeModel(i) for i in range(6)])
         request = RequestFactory().get('/index/?page=2')
         response = view.dispatch(request)
         context = response.context_data
         self.assertEqual(".", context["first_page_link"])
         self.assertEqual(".", context["previous_page_link"])
-        self.assertEqual("", context["next_page_link"])
-        self.assertEqual("", context["last_page_link"])
+        self.assertEqual("?page=3", context["next_page_link"])
+        self.assertEqual("?page=3", context["last_page_link"])
 
     def test_preserves_query_string(self):
         view = SimpleListView([SimpleFakeModel(i) for i in range(6)])

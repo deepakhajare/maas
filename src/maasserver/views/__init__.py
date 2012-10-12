@@ -115,7 +115,12 @@ class HelpfulDeleteView(DeleteView):
 
 
 class PaginatedListView(ListView):
-    """"""
+    """Paginating extension to :class:`django.views.generic.ListView`
+
+    Adds to the normal list view pagination support by including context
+    variables for relative links to other pages, correctly preserving the
+    existing query string and path.
+    """
 
     paginate_by = 50
 
