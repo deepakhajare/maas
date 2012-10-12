@@ -1158,7 +1158,7 @@ class NodeGroupHandler(OperationsHandler):
 
     NodeGroup is the internal name for a cluster.
 
-    The NodeGroup is identified by its uuid, a random identifier that looks
+    The NodeGroup is identified by its UUID, a random identifier that looks
     something like:
 
         5977f6ab-9160-4352-b4db-d71a99066c4f
