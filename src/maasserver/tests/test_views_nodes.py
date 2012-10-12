@@ -17,6 +17,7 @@ from unittest import skip
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from lxml.etree import XPath
 from lxml.html import fromstring
 from maasserver import messages
 import maasserver.api
@@ -422,6 +423,32 @@ class NodeViewsTest(LoggedInTestCase):
         document = fromstring(response.content)
         node_links = document.xpath("//div[@id='nodes']/table//a/@href")
         self.assertEqual([node2_link], node_links)
+
+    def test_node_list_query_paginates(self):
+        """Node listing is split across multiple pages with links"""
+        # Set a very small page size to save creating lots of nodes
+        page_size = 2
+        self.patch(nodes_views.NodeListView, 'paginate_by', page_size)
+        nodes = [factory.make_node() for _ in range(page_size + 1)]
+        # Order node links with newest first as the view is expected to
+        node_links = [reverse('node-view', args=[node.system_id])
+            for node in reversed(nodes)]
+        expr_node_links = XPath("//div[@id='nodes']/table//a/@href")
+        expr_page_anchors = XPath("//div[@class='pagination']//a")
+        # Fetch first page, should link newest two nodes and page 2
+        response = self.client.get(reverse('node-list'))
+        page1 = fromstring(response.content)
+        self.assertEqual(node_links[:page_size], expr_node_links(page1))
+        self.assertEqual([("next", "?page=2"), ("last", "?page=2")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page1)])
+        # Fetch second page, should link oldest node and node list page
+        response = self.client.get(reverse('node-list'), {"page": 2})
+        page2 = fromstring(response.content)
+        self.assertEqual(node_links[page_size:], expr_node_links(page2))
+        self.assertEqual([("first", "."), ("previous", ".")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page2)])
 
 
 class NodePreseedViewTest(LoggedInTestCase):
