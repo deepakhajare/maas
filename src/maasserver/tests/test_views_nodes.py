@@ -446,7 +446,7 @@ class NodeViewsTest(LoggedInTestCase):
         # Fetch second page, should link next nodes and adjacent pages
         response = self.client.get(reverse('node-list'), {"page": 2})
         page2 = fromstring(response.content)
-        self.assertEqual(node_links[page_size:page_size*2],
+        self.assertEqual(node_links[page_size:page_size * 2],
             expr_node_links(page2))
         self.assertEqual([("first", "."), ("previous", "."),
                 ("next", "?page=3"), ("last", "?page=3")],
@@ -455,7 +455,7 @@ class NodeViewsTest(LoggedInTestCase):
         # Fetch third page, should link oldest node and node list page
         response = self.client.get(reverse('node-list'), {"page": 3})
         page3 = fromstring(response.content)
-        self.assertEqual(node_links[page_size*2:], expr_node_links(page3))
+        self.assertEqual(node_links[page_size * 2:], expr_node_links(page3))
         self.assertEqual([("first", "."), ("previous", "?page=2")],
             [(a.text.lower(), a.get("href"))
                 for a in expr_page_anchors(page3)])
