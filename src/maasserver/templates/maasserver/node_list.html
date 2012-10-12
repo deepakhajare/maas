@@ -2,7 +2,7 @@
 
 {% block nav-active-node-list %}active{% endblock %}
 {% block title %}Nodes{% endblock %}
-{% block page-title %}{{ page_obj.paginator.count }}{% if input_query %} matching{% endif %} node{{ page_obj.paginator.count|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
+{% block page-title %}{{ paginator.count }}{% if input_query %} matching{% endif %} node{{ paginator.count|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
 {% block site-switcher %}{% endblock %}
 {% block header-search %}{% endblock %}
 
