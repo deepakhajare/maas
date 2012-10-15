@@ -165,7 +165,9 @@ class ClusterInterfaceCreateTest(AdminLoggedInTestCase):
             'cluster-interface-create', args=[nodegroup.uuid])
         data = factory.get_interface_fields()
         response = self.client.post(create_link, data)
-        self.assertEqual(httplib.FOUND, response.status_code, response.content)
+        self.assertEqual(
+            (httplib.FOUND, reverse('cluster-edit', args=[nodegroup.uuid])),
+            (response.status_code, extract_redirect(response)))
         interface = NodeGroupInterface.objects.get(
             nodegroup__uuid=nodegroup.uuid, interface=data['interface'])
         self.assertThat(
