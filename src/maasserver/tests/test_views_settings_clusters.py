@@ -148,7 +148,9 @@ class ClusterInterfaceEditTest(AdminLoggedInTestCase):
             args=[nodegroup.uuid, interface.interface])
         data = factory.get_interface_fields()
         response = self.client.post(edit_link, data)
-        self.assertEqual(httplib.FOUND, response.status_code, response.content)
+        self.assertEqual(
+            (httplib.FOUND, reverse('cluster-edit', args=[nodegroup.uuid])),
+            (response.status_code, extract_redirect(response)))
         self.assertThat(
             reload_object(interface),
             MatchesStructure.byEquality(**data))
