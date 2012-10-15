@@ -125,6 +125,17 @@ class PaginatedListView(ListView):
     paginate_by = 50
 
     def _make_page_link(self, page_number):
+        """Gives relative url reference to `page_number` from current page
+
+        The return will be one of:
+        - A query string including the page number and other params
+        - The final path segment if there are no params
+        - '.' if there are no params and there is no final path segment
+
+        See RFCs 1808 and 3986 for relative url resolution rules.
+
+        The page number is not checked for sanity, pass only valid pages.
+        """
         new_query = self.request.GET.copy()
         if page_number == 1:
             if "page" in new_query:
@@ -136,6 +147,12 @@ class PaginatedListView(ListView):
         return "?" + new_query.urlencode()
 
     def get_context_data(self, **kwargs):
+        """Gives context data also populated with page links
+
+        If already on the first or last page, the same-document reference will
+        be given for relative links in that direction, which may be safely
+        replaced in the template with a non-anchor element.
+        """
         context = super(PaginatedListView, self).get_context_data(**kwargs)
         page_obj = context["page_obj"]
         if page_obj.has_previous():
