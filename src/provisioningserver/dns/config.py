@@ -310,11 +310,10 @@ class DNSForwardZoneConfig(DNSZoneConfigBase):
         """
         # We filter out cases where the two host names are identical: it
         # would be wrong to define a CNAME that maps to itself.
-        return (
-            (hostname, generated_hostname(ip))
-            for hostname, ip in self.mapping.items()
-                if generated_hostname(ip) != hostname
-        )
+        for hostname, ip in self.mapping.items():
+            generated_name = generated_hostname(ip)
+            if generated_name != hostname:
+                yield (hostname, generated_name)
 
     def get_static_mapping(self):
         """Return a generator with the mapping fqdn->ip for the generated ips.
