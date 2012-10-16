@@ -61,7 +61,7 @@ class DNSConfigFail(Exception):
 DEFAULT_CONTROLS = """
 controls {
     inet 127.0.0.1 port 953 allow { localhost; };
-    };
+};
 """
 
 
