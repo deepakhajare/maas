@@ -43,15 +43,6 @@ def top_module_name(name):
     return name.split(".", 1)[0]
 
 
-def guess_module_name(filename):
-    """Guess a module name from a filename.
-
-    e.g. foo/bar.py -> bar
-    """
-    head, tail = path.splitext(filename)
-    return path.basename(head)
-
-
 def find_standard_library_modules(seed=python_standard_libs):
     """Find all standard-library modules."""
     finder = ModuleFinder()
