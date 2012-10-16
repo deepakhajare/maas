@@ -57,7 +57,8 @@ class DNSConfigFail(Exception):
     """Raised if there's a problem with a DNS config."""
 
 
-# Default 'controls' statement.
+# Default 'controls' statement included in the configuration so that the
+# default RNDC can be used (by init scripts).
 DEFAULT_CONTROLS = """
 controls {
     inet 127.0.0.1 port 953 allow { localhost; };
