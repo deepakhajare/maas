@@ -35,14 +35,6 @@ sys.path.insert(0, path.dirname(__file__))
 from python_standard_libs import python_standard_libs
 
 
-def top_module_name(name):
-    """Return the top-level module name.
-
-    e.g. os.path -> os
-    """
-    return name.split(".", 1)[0]
-
-
 def find_standard_library_modules(seed=python_standard_libs):
     """Find all standard-library modules."""
     finder = ModuleFinder()
@@ -71,7 +63,7 @@ if __name__ == '__main__':
     # library.
     modules = (
         module for name, module in finder.modules.items()
-        if top_module_name(name) not in standard_libs
+        if name not in standard_libs
         )
     # Collect the absolute paths for each module, eliminating those modules
     # with no filename.
