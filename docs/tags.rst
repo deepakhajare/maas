@@ -14,18 +14,19 @@ OpenCL which would make use of this hardware.
 Tag definitions
 ---------------
 
+
 Before we can create a tag we need to know how we will select which nodes it
 gets applied to. MAAS collects hardware information from the nodes using the 
-"lshw" utility (http://ezix.org/project/wiki/HardwareLiSter) to return detailed
-information in XML format. The definitions used in creating a tag are then
-constructed using XPath expressions.
+`"lshw" utility <http://ezix.org/project/wiki/HardwareLiSter>`_ to return 
+detailed information in XML format. The definitions used in creating a tag are 
+then constructed using XPath expressions.
 If you are unfamiliar with XPath expressions, it is well worth checking out the 
-documentation (http://www.w3schools.com/xpath/xpath_syntax.asp).
+`w3schools documentation <http://www.w3schools.com/xpath/xpath_syntax.asp>`_.
 For the lshw XML, we will just check all the available nodes for some properties.
 In our example case, we might want to find GPUs with a clock speed of over 1GHz. 
 In this case, the relevant XML node from the output will be labelled "display"
 and does have a property called clock, so it will look like this::
-
+ 
  //node[@id="display"]/clock > 1000000000
 
 Now we have a definition, we can go ahead and create a tag.
@@ -50,6 +51,9 @@ To check which nodes this tag applies to we can use the tag command::
 
   $ maas-cli maas tag nodes gpu 
 
+The process of updating the tags does take some time  - not a lot of time, but 
+if nothing shows up straight away, try running the command again after a minute 
+or so.
 
 Using the tag
 -------------
@@ -67,7 +71,7 @@ To use the 'gpu' tag we created to run a service called 'cuda' we would use::
 You could list several tags if required, and mix in other juju constraints if 
 needed::
 
-  $ juju deploy --constraints "mem=1024 maas-tags=gpu,intel"  cuda
+  $ juju deploy --constraints "mem=1024 maas-tags=gpu,intel" cuda
   
   
 
@@ -78,24 +82,28 @@ Although in the current version of MAAS there is no provision for creating
 arbitrary tags of your own devising ("nodes which make a lot of noise" perhaps),
 this is on the roadmap for future versions.
 However, it is still possible to override the explicit hardware matching by 
-manually adding or removing a tag from a specific node. In this example we are 
-assuming you are using the 'maas' profile and you have a tag called 'my_tag'::
+manually adding or removing a tag from a specific node. Until later releases 
+fully support different methods of tagging, **this is not advised**, though it is 
+possible, and may help as a workaround to some problems.
 
-  $ maas-cli maas tag update-nodes my_tag add="[system_id]"
+In this example we are assuming you are using the 'maas' profile and you have a 
+tag called 'my_tag'::
+
+  $ maas-cli maas tag update-nodes my_tag add="<system_id>"
  
 Conversely, you can easily remove a tag from a particular node, or indeed add 
 and remove them at the same time::
 
-  $ maas-cli maas tag update-nodes my_tag add=[system_id_1] \
-    add=[system_id_2] add=[system_id_3] remove=[system_id_4]
+  $ maas-cli maas tag update-nodes my_tag add=<system_id_1> \
+    add=<system_id_2> add=<system_id_3> remove=<system_id_4>
    
 .. tip::
    If you add and remove the same node in one operation, it ends up having
-   the tag removed (even if the tag was in place before the operation)
+   the tag removed (even if the tag was in place before the operation).
     
 .. warning::
    If you run the 'rebuild' command to remap the tags to nodes, any manually
-   altered tag associations will be lost
+   altered tag associations will be lost.
   
     
 

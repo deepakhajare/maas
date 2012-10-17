@@ -525,11 +525,11 @@ Usage: maas-cli <profile> tag [-d --degug] [-h --help] [-k
    Creates a new tag with the given name and definition. A comment is
    optional. Names must be unique, obviously - an error will be
    returned if the given name already exists. The definition is in the form of 
-   an XPath expression which parses the XML returned by running lshw on the node
-   .
+   an XPath expression which parses the XML returned by running ``lshw`` on the 
+   node.
    
 Example:
-Adding a tag to all nodes which have an Intel gpu::
+Adding a tag to all nodes which have an Intel GPU::
 
    $ maas-cli maas tags new name='intel-gpu' \
        comment='Machines which have an Intel display driver' \
