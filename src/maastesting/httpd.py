@@ -77,7 +77,6 @@ class SilentHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         """
         path = self.translate_path(self.path)
-        self.AS_GZIP = False
         f = None
         if os.path.isdir(path):
             if not self.path.endswith('/'):
@@ -103,7 +102,6 @@ class SilentHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return None
         if self.is_gzip_accepted():
-            self.AS_GZIP = True
             return self.start_gz_response(ctype, f)
         else:
             return self.start_response(ctype, f)

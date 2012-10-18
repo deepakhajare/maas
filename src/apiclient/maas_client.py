@@ -104,8 +104,7 @@ class MAASDispatcher:
             # to seek the file object.
             res_content_io = BytesIO(res.read())
             ungz = gzip.GzipFile(mode='rb', fileobj=res_content_io)
-            ungz.code = res.code
-            return ungz
+            res = res.__class__(ungz, res.headers, res.url, res.code)
         return res
 
 

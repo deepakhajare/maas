@@ -84,6 +84,7 @@ class TestMAASDispatcher(TestCase):
         factory.make_file(location='.', name=name, contents=content)
         called = []
         orig_urllib = urllib2.urlopen
+
         def logging_urlopen(*args, **kwargs):
             called.append((args, kwargs))
             return orig_urllib(*args, **kwargs)
