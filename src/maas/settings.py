@@ -247,6 +247,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
+    'django.middleware.gzip.GzipMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'
