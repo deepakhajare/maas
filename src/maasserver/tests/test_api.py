@@ -2142,28 +2142,30 @@ class TestNodesAPI(APITestCase):
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
         self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
 
-    def test_POST_release_fails_if_nodes_do_not_exits(self):
+    def test_POST_release_fails_if_nodes_do_not_exist(self):
          # Make sure there is a node, it just isn't among the ones to release
         factory.make_node()
-        node_ids = set(factory.getRandomString() for i in xrange(5))
+        node_ids = {factory.getRandomString() for i in xrange(5)}
         response = self.client.post(
             self.get_uri('nodes/'), {
                 'op': 'release',
                 'nodes': node_ids
                 })
-        node_ids = ', '.join(node_ids)
-        self.assertEqual(
-            (httplib.BAD_REQUEST, "Unknown node(s): %s." % node_ids),
-            (response.status_code, response.content))
+        # Awkward parsing, but the order may vary and it's not JSON
+        s = response.content
+        returned_ids = s[s.find(':')+2:s.rfind('.')].split(', ')
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn("Unknown node(s): ", response.content)
+        self.assertItemsEqual(node_ids, returned_ids)
 
     def test_POST_release_forbidden_if_user_cannot_edit_node(self):
         # Create a bunch of nodes, owned by the logged in user
-        node_ids = set(
+        node_ids = {
             factory.make_node(
                 status=NODE_STATUS.ALLOCATED,
                 owner=self.logged_in_user).system_id
             for i in xrange(3)
-            )
+            }
         # And one with no owner
         another_node = factory.make_node(status=NODE_STATUS.RESERVED)
         node_ids.add(another_node.system_id)
@@ -2180,11 +2182,11 @@ class TestNodesAPI(APITestCase):
             (response.status_code, response.content))
         
     def test_POST_release_rejects_impossible_state_changes(self):
-        acceptable_states = set([
+        acceptable_states = {
             NODE_STATUS.ALLOCATED,
             NODE_STATUS.RESERVED,
             NODE_STATUS.READY,
-            ])
+            }
         unacceptable_states = (
             set(map_enum(NODE_STATUS).values()) - acceptable_states)
         owner = self.logged_in_user
@@ -2198,7 +2200,7 @@ class TestNodesAPI(APITestCase):
                 })
         expected = ', '.join(
             "%s ('%s')" % (node.system_id, node.display_status())
-            for node in reversed(nodes)   # the result is in reverse order
+            for node in nodes
             if node.status not in acceptable_states)
         self.assertEqual(
             (httplib.CONFLICT,
@@ -2208,11 +2210,11 @@ class TestNodesAPI(APITestCase):
 
     def test_POST_release_returns_modified_nodes(self):
         owner = self.logged_in_user
-        acceptable_states = set([
+        acceptable_states = {
             NODE_STATUS.READY,
             NODE_STATUS.ALLOCATED,
             NODE_STATUS.RESERVED,
-            ])
+            }
         nodes = [
             factory.make_node(status=status, owner=owner)
             for status in acceptable_states
@@ -2227,7 +2229,7 @@ class TestNodesAPI(APITestCase):
         # The first node is READY, so shouldn't be touched
         self.assertItemsEqual(
             [nodes[1].system_id, nodes[2].system_id],
-            extract_system_ids(parsed_result))
+            parsed_result)
         
 
 class MACAddressAPITest(APITestCase):

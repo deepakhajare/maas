@@ -807,7 +807,7 @@ class NodesHandler(OperationsHandler):
     def release(self, request):
         """Release multiple nodes.
 
-        TBD: not sure about the proper description..
+        This places the nodes back into the pool, ready to be reallocated.
 
         :param nodes: system_ids of the nodes which are to be released.
            (An empty list is acceptable).
@@ -828,7 +828,7 @@ class NodesHandler(OperationsHandler):
                 "following node(s): %s." % (
                     ', '.join(system_ids - permitted_ids)))
 
-        released = []
+        released_ids = []
         failed = []
         for node in nodes:
             if node.status == NODE_STATUS.READY:
@@ -836,7 +836,7 @@ class NodesHandler(OperationsHandler):
                 pass
             elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
                 node.release()
-                released.append(node)
+                released_ids.append(node.system_id)
             else:
                 failed.append(
                     "%s ('%s')"
@@ -847,7 +847,7 @@ class NodesHandler(OperationsHandler):
                 "Node(s) cannot be released in their current state: %s."
                 % ', '.join(failed))
         
-        return released
+        return released_ids
         
     @operation(idempotent=True)
     def list(self, request):
