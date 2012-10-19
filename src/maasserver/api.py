@@ -846,9 +846,8 @@ class NodesHandler(OperationsHandler):
             raise NodeStateViolation(
                 "Node(s) cannot be released in their current state: %s."
                 % ', '.join(failed))
-        
         return released_ids
-        
+
     @operation(idempotent=True)
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by criteria.
