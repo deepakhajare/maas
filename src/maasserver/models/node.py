@@ -493,7 +493,7 @@ class Node(CleanSave, TimestampedModel):
 
     def tag_names(self):
         # We don't use self.tags.values_list here because this does not
-        # take advantage of the pre-fetching.
+        # take advantage of the cache.
         return [tag.name for tag in self.tags.all()]
 
     def clean_status(self):
