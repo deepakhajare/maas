@@ -188,7 +188,7 @@ def run(args):
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
-    setup_logging_subsystem("INFO")
+    setup_logging_subsystem(loglevel="INFO", logfile=get_maas_celery_log())
     connection_details = register(args.server_url)
     while connection_details is None:
         sleep(60)
