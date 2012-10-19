@@ -25,7 +25,7 @@ from apiclient.maas_client import (
     MAASDispatcher,
     MAASOAuth,
     )
-from celery.app import app_or_default
+from celery.log import get_task_logger
 from lxml import etree
 from provisioningserver.auth import (
     get_recorded_api_credentials,
@@ -35,7 +35,7 @@ from provisioningserver.auth import (
 import simplejson as json
 
 
-task_logger = app_or_default().log.get_task_logger(name=__name__)
+task_logger = get_task_logger(name=__name__)
 
 
 class MissingCredentials(Exception):
