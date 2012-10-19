@@ -115,7 +115,7 @@ class NodeListView(PaginatedListView):
     def get_queryset(self):
         # Return node list sorted, newest first.
         nodes = Node.objects.get_nodes(
-            user=self.request.user, prefetch_mac=True,
+            user=self.request.user, prefetch_related=True,
             perm=NODE_PERMISSION.VIEW,).order_by('-created')
         if self.query:
             try:
