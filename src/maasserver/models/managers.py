@@ -19,7 +19,7 @@ from django.db.models import Manager
 
 
 class BulkManager(Manager):
-    """A Manager which loads objects in bulk.
+    """A Manager which loads objects from the cache if it's populated.
 
     Even when iterator() is explicitely called (which happens in piston when
     related collections are fetched), this manager will fetch objects in bulk
