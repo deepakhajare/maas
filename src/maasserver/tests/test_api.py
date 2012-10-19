@@ -1669,8 +1669,8 @@ class TestNodesAPI(APITestCase):
         self.create_nodes(nodegroup, 10)
         num_queries2, response2 = self.getNumQueries(
             self.client.get, self.get_uri('nodes/'), {'op': 'list'})
-        # Make sure the responses is ok as it's not useful to compare the
-        # number of queries unless the responses are as expected.
+        # Make sure the responses are ok as it's not useful to compare the
+        # number of queries if they are not.
         self.assertEqual(
             [httplib.OK, httplib.OK, 10, 20],
             [
