@@ -28,5 +28,3 @@ class BulkManager(Manager):
 
     def iterator(self):
         return self.all()
-
-
