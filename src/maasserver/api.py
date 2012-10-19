@@ -87,7 +87,6 @@ from datetime import (
 from functools import partial
 import httplib
 from inspect import getdoc
-import simplejson as json
 import sys
 from textwrap import dedent
 
@@ -175,6 +174,7 @@ from piston.resource import Resource
 from piston.utils import rc
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
+import simplejson as json
 
 
 class OperationsResource(Resource):
@@ -874,6 +874,9 @@ class NodesHandler(OperationsHandler):
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         if match_macs is not None:
             nodes = nodes.filter(macaddress__mac_address__in=match_macs)
+        # Prefetch related macaddresses and tags.
+        nodes = nodes.prefetch_related('macaddress_set__node')
+        nodes = nodes.prefetch_related('tags')
         return nodes.order_by('id')
 
     @operation(idempotent=True)
