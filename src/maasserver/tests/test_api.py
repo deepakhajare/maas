@@ -2198,15 +2198,18 @@ class TestNodesAPI(APITestCase):
                 'op': 'release',
                 'nodes': [node.system_id for node in nodes],
                 })
-        expected = ', '.join(
+        # Awkward parsing again, because a string is returned, not JSON
+        expected = [
             "%s ('%s')" % (node.system_id, node.display_status())
             for node in nodes
-            if node.status not in acceptable_states)
-        self.assertEqual(
-            (httplib.CONFLICT,
-             "Node(s) cannot be released in their current state: %s."
-             % expected),
-            (response.status_code, response.content))
+            if node.status not in acceptable_states]
+        s = response.content
+        returned = s[s.rfind(':')+2:s.rfind('.')].split(', ') 
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+        self.assertIn(
+            "Node(s) cannot be released in their current state:",
+            response.content)
+        self.assertItemsEqual(expected, returned)
 
     def test_POST_release_returns_modified_nodes(self):
         owner = self.logged_in_user
