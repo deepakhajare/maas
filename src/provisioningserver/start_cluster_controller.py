@@ -32,7 +32,10 @@ from apiclient.maas_client import (
     NoAuth,
     )
 from celery.app import app_or_default
-from celery.log import get_task_logger
+from celery.log import (
+    get_task_logger,
+    setup_logging_subsystem,
+    )
 from provisioningserver.network import discover_networks
 
 
@@ -185,6 +188,7 @@ def run(args):
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
+    setup_logging_subsystem("INFO")
     connection_details = register(args.server_url)
     while connection_details is None:
         sleep(60)
