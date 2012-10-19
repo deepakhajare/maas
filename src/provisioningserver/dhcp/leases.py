@@ -52,7 +52,10 @@ from provisioningserver.auth import (
     get_recorded_nodegroup_uuid,
     )
 from provisioningserver.dhcp.leases_parser import parse_leases
-from provisioningserver.logging import task_logger
+
+
+task_logger = app_or_default().log.get_task_logger(name=__name__)
+
 
 # Cache key for the modification time on last-processed leases file.
 LEASES_TIME_CACHE_KEY = 'leases_time'
