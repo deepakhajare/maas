@@ -92,11 +92,14 @@ class SettingsTest(AdminLoggedInTestCase):
                     'enlistment_domain': new_domain,
                     'http_proxy': new_proxy,
                 }))
-        get_config = Config.objects.get_config
         self.assertEqual(httplib.FOUND, response.status_code, response.content)
-        self.assertEqual(new_name, get_config('maas_name'))
-        self.assertEqual(new_domain, get_config('enlistment_domain'))
-        self.assertEqual(new_proxy, get_config('http_proxy'))
+        self.assertEqual(
+            (new_name,
+             new_domain,
+             new_proxy),
+            (Config.objects.get_config('maas_name'),
+             Config.objects.get_config('enlistment_domain'),
+             Config.objects.get_config('http_proxy')))
 
     def test_settings_commissioning_POST(self):
         new_after_commissioning = factory.getRandomEnum(
