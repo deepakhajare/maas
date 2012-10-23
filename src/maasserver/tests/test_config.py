@@ -29,6 +29,14 @@ class ConfigDefaultTest(TestCase, TestWithFixtures):
         default_config = get_default_config()
         self.assertEqual(gethostname(), default_config['maas_name'])
 
+    def test_defaults(self):
+        expected = get_default_config()
+        observed = {
+            name: Config.objects.get_config(name)
+            for name in expected
+            }
+        self.assertEqual(expected, observed)
+
 
 class CallRecorder:
     """A utility class which tracks the calls to its 'call' method and
