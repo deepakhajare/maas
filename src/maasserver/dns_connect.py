@@ -38,6 +38,9 @@ def dns_post_save_NodeGroup(sender, instance, created, **kwargs):
         write_full_dns_config()
 
 
+# XXX rvb 2012-09-12: This is only needed because we use that
+# information to pre-populate the zone file.  Once we stop doing that,
+# this can be removed.
 @receiver(post_save, sender=NodeGroupInterface)
 def dns_post_save_NodeGroupInterface(sender, instance, created, **kwargs):
     """Create or update DNS zones related to the saved nodegroupinterface."""
