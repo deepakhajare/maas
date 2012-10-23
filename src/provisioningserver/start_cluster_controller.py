@@ -74,16 +74,6 @@ def get_cluster_uuid():
     return app_or_default().conf.CLUSTER_UUID
 
 
-def get_maas_celery_log():
-    """Read location for MAAS Celery log file from the config."""
-    return app_or_default().conf.MAAS_CELERY_LOG
-
-
-def get_maas_celerybeat_db():
-    """Read location for MAAS Celery schedule file from the config."""
-    return app_or_default().conf.MAAS_CLUSTER_CELERY_DB
-
-
 def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
@@ -140,15 +130,7 @@ def start_celery(connection_details, user, group):
 
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
-
-    command = [
-        'celeryd',
-        '--logfile=%s' % get_maas_celery_log(),
-        '--schedule=%s' % get_maas_celerybeat_db(),
-        '--loglevel=INFO',
-        '--beat',
-        '-Q', get_cluster_uuid(),
-        ]
+    command = 'celeryd', '--beat', '--queues', get_cluster_uuid()
 
     # Change gid first, just in case changing the uid might deprive
     # us of the privileges required to setgid.
@@ -188,7 +170,7 @@ def run(args):
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
-    setup_logging_subsystem(loglevel="INFO", logfile=get_maas_celery_log())
+    setup_logging_subsystem()
     connection_details = register(args.server_url)
     while connection_details is None:
         sleep(60)
