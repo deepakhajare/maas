@@ -572,7 +572,7 @@ class MAASAndNetworkForm(ConfigForm):
     http_proxy = forms.URLField(
         label="Proxy for HTTP and HTTPS traffic", required=False,
         help_text=(
-            "This is used by the cluster and region controllers, for "
+            "This is used by the cluster and region controllers for "
             "downloading PXE boot images and other provisioning-related "
             "resources. It is not passed into provisioned nodes."))
 
