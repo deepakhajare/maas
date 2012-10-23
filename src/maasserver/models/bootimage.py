@@ -17,10 +17,12 @@ __all__ = [
 
 from django.db.models import (
     CharField,
+    ForeignKey,
     Manager,
     Model,
     )
 from maasserver import DefaultMeta
+from maasserver.models.nodegroup import NodeGroup
 
 
 class BootImageManager(Manager):
@@ -69,10 +71,14 @@ class BootImage(Model):
 
     class Meta(DefaultMeta):
         unique_together = (
-            ('architecture', 'subarchitecture', 'release', 'purpose'),
+            ('nodegroup', 'architecture', 'subarchitecture', 'release',
+             'purpose'),
             )
 
     objects = BootImageManager()
+
+    # Nodegroup (cluster controller) that has the images.
+    nodegroup = ForeignKey(NodeGroup, null=False, editable=False, unique=False)
 
     # System architecture (e.g. "i386") that the image is for.
     architecture = CharField(max_length=255, blank=False, editable=False)
