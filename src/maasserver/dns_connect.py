@@ -56,7 +56,8 @@ def dns_post_edit_management_NodeGroupInterface(instance, old_field, deleted):
     from maasserver.dns import write_full_dns_config
     if old_field == NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS:
         # Force the dns config to be written as this might have been
-        # triggered by the last DNS-enabled interface being deleted.
+        # triggered by the last DNS-enabled interface being deleted
+        # or switched off (i.e. management set to DHCP or UNMANAGED).
         write_full_dns_config(force=True)
 
 
