@@ -15,6 +15,7 @@ __all__ = []
 
 from functools import partial
 from itertools import islice
+import logging
 import socket
 
 from celery.task import task
@@ -35,6 +36,7 @@ from maastesting.bindfixture import BINDServer
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.tests.test_bindfixture import dig_call
+from mock import Mock
 from netaddr import (
     IPNetwork,
     IPRange,
@@ -50,6 +52,8 @@ from provisioningserver.dns.utils import generated_hostname
 from rabbitfixture.server import allocate_ports
 from testresources import FixtureResource
 from testtools.matchers import (
+    Contains,
+    FileContains,
     IsInstance,
     MatchesAll,
     MatchesListwise,
@@ -98,6 +102,19 @@ class TestDNSUtilities(TestCase):
             FakeMethod(failure=socket.error))
         self.patch_DEFAULT_MAAS_URL_with_random_values()
         self.assertRaises(dns.DNSException, dns.get_dns_server_address)
+
+    def test_get_dns_server_address_logs_warning_if_ip_is_localhost(self):
+        logger = logging.getLogger('maas')
+        logfile = self.make_file(contents="")
+        handler = logging.handlers.RotatingFileHandler(logfile)
+        logger.addHandler(handler)
+        self.addCleanup(logger.removeHandler, handler)
+        self.patch(
+            dns, 'get_maas_facing_server_address',
+            Mock(return_value='127.0.0.1'))
+        dns.get_dns_server_address()
+        warning_text = "The DNS server will use the address '127.0.0.1'"
+        self.assertThat(logfile, FileContains(matcher=Contains(warning_text)))
 
     def test_is_dns_managed(self):
         nodegroups_with_expected_results = {
@@ -149,12 +166,15 @@ class TestDNSConfigModifications(TestCase):
         # Reload BIND.
         self.bind.runner.rndc('reload')
 
+    def create_managed_nodegroup(self):
+        return factory.make_node_group(
+            network=IPNetwork('192.168.0.1/24'),
+            status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+
     def create_nodegroup_with_lease(self, lease_number=1, nodegroup=None):
         if nodegroup is None:
-            nodegroup = factory.make_node_group(
-                network=IPNetwork('192.168.0.1/24'),
-                status=NODEGROUP_STATUS.ACCEPTED,
-                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+            nodegroup = self.create_managed_nodegroup()
         interface = nodegroup.get_managed_interface()
         node = factory.make_node(
             nodegroup=nodegroup, set_hostname=True)
@@ -223,10 +243,17 @@ class TestDNSConfigModifications(TestCase):
 
     def test_is_dns_enabled_return_false_if_DNS_CONNECT_False(self):
         self.patch(settings, 'DNS_CONNECT', False)
+        self.create_managed_nodegroup()
         self.assertFalse(dns.is_dns_enabled())
 
-    def test_is_dns_enabled_return_True(self):
+    def test_is_dns_enabled_return_True_if_DNS_CONNECT_True(self):
         self.patch(settings, 'DNS_CONNECT', True)
+        self.create_managed_nodegroup()
+        self.assertTrue(dns.is_dns_enabled())
+
+    def test_is_dns_enabled_return_False_no_configured_interface(self):
+        self.patch(settings, 'DNS_CONNECT', True)
+        self.create_managed_nodegroup()
         self.assertTrue(dns.is_dns_enabled())
 
     def test_write_full_dns_loads_full_dns_config(self):
@@ -244,6 +271,7 @@ class TestDNSConfigModifications(TestCase):
     def test_write_full_dns_passes_reload_retry_parameter(self):
         self.patch(settings, 'DNS_CONNECT', True)
         recorder = FakeMethod()
+        self.create_managed_nodegroup()
 
         @task
         def recorder_task(*args, **kwargs):
@@ -252,6 +280,12 @@ class TestDNSConfigModifications(TestCase):
         dns.write_full_dns_config(reload_retry=True)
         self.assertEqual(
             ([(['reload'], True)]), recorder.extract_args())
+
+    def test_write_full_dns_doesnt_call_task_it_no_interface_configured(self):
+        self.patch(settings, 'DNS_CONNECT', True)
+        patched_task = self.patch(tasks, 'write_full_dns_config')
+        dns.write_full_dns_config()
+        self.assertEqual(0, patched_task.call_count)
 
     def test_dns_config_has_NS_record(self):
         ip = factory.getRandomIPAddress()
@@ -267,11 +301,6 @@ class TestDNSConfigModifications(TestCase):
         ip_of_ns_record = dig_call(
             port=self.bind.config.port, commands=[ns_record, '+short'])
         self.assertEqual(ip, ip_of_ns_record)
-
-    def test_is_dns_enabled_follows_DNS_CONNECT(self):
-        rand_bool = factory.getRandomBoolean()
-        self.patch(settings, "DNS_CONNECT", rand_bool)
-        self.assertEqual(rand_bool, dns.is_dns_enabled())
 
     def test_add_nodegroup_creates_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
@@ -304,6 +333,19 @@ class TestDNSConfigModifications(TestCase):
         self.assertEqual([''], self.dig_reverse_resolve(old_ip))
         # The ip from the new network resolves.
         self.assertDNSMatches(generated_hostname(ip), nodegroup.name, ip)
+
+    def test_changing_interface_management_updates_DNS_zone(self):
+        self.patch(settings, "DNS_CONNECT", True)
+        network = IPNetwork('192.168.7.1/24')
+        ip = factory.getRandomIPInNetwork(network)
+        nodegroup = factory.make_node_group(
+                network=network, status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        interface = nodegroup.get_managed_interface()
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
+        interface.save()
+        self.assertEqual([''], self.dig_resolve(generated_hostname(ip)))
+        self.assertEqual([''], self.dig_reverse_resolve(ip))
 
     def test_delete_nodegroup_disables_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)

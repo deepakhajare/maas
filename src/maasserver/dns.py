@@ -37,6 +37,7 @@ from maasserver.exceptions import MAASException
 from maasserver.models import (
     DHCPLease,
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.sequence import (
     INT_MAX,
@@ -64,9 +65,19 @@ def next_zone_serial():
     return '%0.10d' % zone_serial.nextval()
 
 
-def is_dns_enabled():
-    """Is MAAS configured to manage DNS?"""
-    return settings.DNS_CONNECT
+def is_dns_enabled(check_interfaces=True):
+    """Is MAAS configured to manage DNS?
+
+    :param check_interfaces: Check that this MAAS server has at least
+        one interface configured to manage DNS.
+    :type check_interfaces: bool
+    """
+    interfaces_with_dns = (
+        NodeGroupInterface.objects.filter(
+             management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS))
+    return (
+        settings.DNS_CONNECT and
+        (not check_interfaces or interfaces_with_dns.exists()))
 
 
 class DNSException(MAASException):
@@ -90,8 +101,7 @@ def warn_loopback(ip):
             "loopback network.  This may not be a problem if you're not using "
             "MAAS's DNS features or if you don't rely on this information.  "
             "Be sure to configure the DEFAULT_MAAS_URL setting in MAAS's "
-            "settings.py (or demo.py/development.py if you are running a "
-            "development system)."
+            "/etc/maas/maas_local_settings.py."
             % ip)
 
 
@@ -286,7 +296,8 @@ def add_zone(nodegroup):
         zones=zones_to_write, callback=write_dns_config_subtask)
 
 
-def write_full_dns_config(active=True, reload_retry=False):
+def write_full_dns_config(active=True, reload_retry=False,
+                          force=False):
     """Write the DNS configuration.
 
     :param active: If True, write the DNS config for all the nodegroups.
@@ -296,8 +307,11 @@ def write_full_dns_config(active=True, reload_retry=False):
     :param reload_retry: Should the reload rndc command be retried in case
         of failure?  Defaults to `False`.
     :type reload_retry: bool
+    :param force: Write the configuration even if no interface is
+        configured to manage DNS.
+    :type check_interfaces: bool
     """
-    if not is_dns_enabled():
+    if not is_dns_enabled(check_interfaces=not force):
         return
     if active:
         zones = ZoneGenerator(NodeGroup.objects.all()).as_list()
