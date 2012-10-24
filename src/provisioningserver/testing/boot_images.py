@@ -15,10 +15,11 @@ __all__ = [
     'make_boot_image_params_on_wire',
     ]
 
-from maasserver.testing.factory import factory
+import uuid
+from maastesting.factory import factory
 
 
-def make_boot_image_params():
+def make_boot_image_params(nodegroup):
     """Create an arbitrary dict of boot-image parameters.
 
     These are the parameters that together describe a kind of boot that we
@@ -27,7 +28,7 @@ def make_boot_image_params():
     these fit together.
     """
     fields = dict(
-        nodegroup=factory.make_node_group(),
+        nodegroup=nodegroup,
         architecture=factory.make_name('architecture'),
         subarchitecture=factory.make_name('subarchitecture'),
         release=factory.make_name('release'),
@@ -40,7 +41,8 @@ def make_boot_image_params_on_wire(image_params=None):
     transmission to the API, i.e. they are serializable.
     """
     if image_params is None:
-        image_params = make_boot_image_params()
-    image_params = dict(
-        image_params, nodegroup=image_params['nodegroup'].uuid)
+        image_params = make_boot_image_params(nodegroup=str(uuid.uuid4()))
+    else:
+        image_params = dict(
+            image_params, nodegroup=image_params['nodegroup'].uuid)
     return image_params

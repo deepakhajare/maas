@@ -4050,7 +4050,8 @@ class TestBootImagesAPI(APITestCase):
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_report_boot_images_stores_images(self):
-        image = make_boot_image_params()
+        nodegroup = factory.make_node_group()
+        image = make_boot_image_params(nodegroup)
         api_image = make_boot_image_params_on_wire(image)
         client = make_worker_client(NodeGroup.objects.ensure_master())
         response = self.report_images([api_image], client=client)
@@ -4085,7 +4086,8 @@ class TestBootImagesAPI(APITestCase):
     def test_report_boot_images_removes_warning_if_images_found(self):
         self.patch(api, 'register_persistent_error')
         self.patch(api, 'discard_persistent_error')
-        image = make_boot_image_params()
+        nodegroup = factory.make_node_group()
+        image = make_boot_image_params(nodegroup=nodegroup)
         nodegroup = image['nodegroup']
         client = make_worker_client(nodegroup)
 
