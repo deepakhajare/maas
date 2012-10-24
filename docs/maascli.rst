@@ -400,7 +400,7 @@ that nodegroup, and pass it the relevant interface details::
          router_ip=192.168.123.1          \
 
 Replacing the example values with those required for this network. The only 
-non-obvious parameter is 'management which takes the values 0 (no management), 1
+non-obvious parameter is 'management' which takes the values 0 (no management), 1
 (manage DHCP) and 2 (manage DHCP and DNS).
 
 
