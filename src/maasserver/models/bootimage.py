@@ -31,25 +31,30 @@ class BootImageManager(Manager):
     Don't import or instantiate this directly; access as `BootImage.objects`.
     """
 
-    def get_by_natural_key(self, architecture, subarchitecture, release,
-                           purpose):
+    def get_by_natural_key(self, nodegroup, architecture, subarchitecture,
+                           release, purpose):
         """Look up a specific image."""
         return self.get(
-            architecture=architecture, subarchitecture=subarchitecture,
-            release=release, purpose=purpose)
+            nodegroup=nodegroup, architecture=architecture,
+            subarchitecture=subarchitecture, release=release,
+            purpose=purpose)
 
-    def register_image(self, architecture, subarchitecture, release, purpose):
+    def register_image(self, nodegroup, architecture, subarchitecture,
+                       release, purpose):
         """Register an image if it wasn't already registered."""
         self.get_or_create(
-            architecture=architecture, subarchitecture=subarchitecture,
-            release=release, purpose=purpose)
+            nodegroup=nodegroup, architecture=architecture,
+            subarchitecture=subarchitecture, release=release,
+            purpose=purpose)
 
-    def have_image(self, architecture, subarchitecture, release, purpose):
+    def have_image(self, nodegroup, architecture, subarchitecture, release,
+                   purpose):
         """Is an image for the given kind of boot available?"""
         try:
             self.get_by_natural_key(
-                architecture=architecture, subarchitecture=subarchitecture,
-                release=release, purpose=purpose)
+                nodegroup=nodegroup, architecture=architecture,
+                subarchitecture=subarchitecture, release=release,
+                purpose=purpose)
             return True
         except BootImage.DoesNotExist:
             return False

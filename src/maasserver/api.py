@@ -1861,11 +1861,14 @@ class BootImagesHandler(OperationsHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
-        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
         images = json.loads(get_mandatory_param(request.data, 'images'))
 
         for image in images:
+            uuid = image['nodegroup']
+            nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+            check_nodegroup_access(request, nodegroup)
             BootImage.objects.register_image(
+                nodegroup=nodegroup,
                 architecture=image['architecture'],
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],

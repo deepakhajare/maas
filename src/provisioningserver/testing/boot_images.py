@@ -12,12 +12,13 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'make_boot_image_params',
+    'make_boot_image_params_on_wire',
     ]
 
-from maastesting.factory import factory
+from maasserver.testing.factory import factory
 
 
-def make_boot_image_params(**kwargs):
+def make_boot_image_params():
     """Create an arbitrary dict of boot-image parameters.
 
     These are the parameters that together describe a kind of boot that we
@@ -26,9 +27,20 @@ def make_boot_image_params(**kwargs):
     these fit together.
     """
     fields = dict(
+        nodegroup=factory.make_node_group(),
         architecture=factory.make_name('architecture'),
         subarchitecture=factory.make_name('subarchitecture'),
         release=factory.make_name('release'),
         purpose=factory.make_name('purpose'))
-    fields.update(kwargs)
     return fields
+
+
+def make_boot_image_params_on_wire(image_params=None):
+    """As for make_boot_image_params except the parameters are suitable for
+    transmission to the API, i.e. they are serializable.
+    """
+    if image_params is None:
+        image_params = make_boot_image_params()
+    image_params = dict(
+        image_params, nodegroup=image_params['nodegroup'].uuid)
+    return image_params
