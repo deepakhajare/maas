@@ -110,13 +110,25 @@ class NodeListView(PaginatedListView):
     def get(self, request, *args, **kwargs):
         self.query = request.GET.get("query")
         self.query_error = None
+        self.sort_by = request.GET.get("sort")
+        self.sort_dir = request.GET.get("dir", "asc")
+
+        # Default sorting is descending by creation date
+        if self.sort_by is None:
+            self.sort_by = "created"
+            self.sort_dir = "desc"
+
         return super(NodeListView, self).get(request, *args, **kwargs)
 
     def get_queryset(self):
-        # Return node list sorted, newest first.
+        order_by = self.sort_by
+        if self.sort_dir == 'desc':
+            order_by = '-' + order_by
+        # Return node list sorted, newest first by default,
+        # unless sorting params are present.
         nodes = Node.objects.get_nodes(
             user=self.request.user, prefetch_mac=True,
-            perm=NODE_PERMISSION.VIEW,).order_by('-created')
+            perm=NODE_PERMISSION.VIEW,).order_by(order_by)
         if self.query:
             try:
                 return constrain_nodes(nodes, _parse_constraints(self.query))
@@ -125,11 +137,38 @@ class NodeListView(PaginatedListView):
                 return Node.objects.none()
         return nodes
 
+    def _prepare_sort_links(self):
+        """Returns 2 dicts, with sort fields as keys and
+        links and CSS classes for the that field.
+        """
+
+        fields = ('hostname', 'status')
+        links = {field: self.request.path + '?' for field in fields}
+        classes = {field: 'sort-none' for field in fields}
+
+        params = self.request.GET.copy()
+        reverse_dir = 'asc' if self.sort_dir == 'desc' else 'desc'
+
+        for field in fields:
+            params['sort'] = field
+            if field == self.sort_by:
+                params['dir'] = self.sort_dir
+                classes[field] = 'sort-%s' % self.sort_dir
+            else:
+                params['dir'] = reverse_dir
+
+            links[field] += params.urlencode()
+
+        return links, classes
+
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)
         context.update(get_longpoll_context())
         context["input_query"] = self.query
         context["input_query_error"] = self.query_error
+        links, classes = self._prepare_sort_links()
+        context["sort_links"] = links
+        context["sort_classes"] = classes
         return context
 
 
