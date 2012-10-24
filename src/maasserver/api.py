@@ -130,7 +130,6 @@ from maasserver.enum import (
 from maasserver.exceptions import (
     MAASAPIBadRequest,
     MAASAPINotFound,
-    IncorrectTagDefinition,
     NodesNotAvailable,
     NodeStateViolation,
     Unauthorized,
@@ -1574,9 +1573,10 @@ class TagHandler(OperationsHandler):
             check_nodegroup_access(request, nodegroup)
         definition = request.data.get('definition', None)
         if definition is not None and tag.definition != definition:
-            raise IncorrectTagDefinition(
+            return HttpResponse(
                 "Definition supplied '%s' doesn't match current definition '%s'"
-                % (definition, tag.definition))
+                % (definition, tag.definition),
+                status=httplib.CONFLICT)
         nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
         tag.node_set.add(*nodes_to_add)
         nodes_to_remove = self._get_nodes_for(request, 'remove', nodegroup)

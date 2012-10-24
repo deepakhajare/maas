@@ -19,6 +19,7 @@ __all__ = [
 
 
 import httplib
+import urllib2
 
 from apiclient.maas_client import (
     MAASClient,
@@ -120,14 +121,19 @@ def post_updated_nodes(client, tag_name, tag_definition, uuid, added, removed):
     path = '/api/1.0/tags/%s/' % (tag_name,)
     task_logger.debug('Updating nodes for %s %s, adding %s removing %s'
         % (tag_name, uuid, len(added), len(removed)))
-    response = client.post(
-        path, op='update_nodes', as_json=True,
-        nodegroup=uuid, definition=tag_definition, add=added, remove=removed)
-    if response.code == httplib.CONFLICT:
-        task_logger.info('Got a CONFLICT while updating tag: %s',
-                         response.read())
-        return {}
-    return process_response(response)
+    try:
+        return process_response(client.post(
+            path, op='update_nodes', as_json=True, nodegroup=uuid,
+            definition=tag_definition, add=added, remove=removed))
+    except urllib2.HTTPError as e:
+        if e.code == httplib.CONFLICT:
+            if e.fp is not None:
+                msg = e.fp.read()
+            else:
+                msg = e.msg
+            task_logger.info('Got a CONFLICT while updating tag: %s', msg)
+            return {}
+        raise
 
 
 def process_batch(xpath, hardware_details):

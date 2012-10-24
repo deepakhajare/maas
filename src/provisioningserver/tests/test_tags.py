@@ -20,6 +20,7 @@ from maastesting.fakemethod import (
     FakeMethod,
     MultiFakeMethod,
     )
+import urllib2
 from mock import MagicMock
 from provisioningserver.auth import (
     get_recorded_nodegroup_uuid,
@@ -123,8 +124,8 @@ class TestTagUpdating(PservTestCase):
         content = ("Definition supplied '%s' doesn't match"
                    " current definition '%s'"
                    % (wrong_tag_definition, right_tag_defintion))
-        response = FakeResponse(httplib.CONFLICT, content)
-        post_mock = MagicMock(return_value=response)
+        err = urllib2.HTTPError('url', httplib.CONFLICT, content, {}, None)
+        post_mock = MagicMock(side_effect=err)
         self.patch(client, 'post', post_mock)
         result = tags.post_updated_nodes(client, name, wrong_tag_definition,
             uuid, ['add-system-id'], ['remove-1', 'remove-2'])

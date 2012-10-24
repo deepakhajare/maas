@@ -84,11 +84,6 @@ class NodesNotAvailable(NodeStateViolation):
     api_error = httplib.CONFLICT
 
 
-class IncorrectTagDefinition(MAASAPIException):
-    """Tag update request doesn't match the current definition."""
-    api_error = httplib.CONFLICT
-
-
 class InvalidConstraint(MAASAPIBadRequest):
     """Node allocation constraint given cannot be interpreted."""
 
