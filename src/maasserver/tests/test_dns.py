@@ -243,18 +243,18 @@ class TestDNSConfigModifications(TestCase):
 
     def test_is_dns_enabled_return_false_if_DNS_CONNECT_False(self):
         self.patch(settings, 'DNS_CONNECT', False)
-        self.create_managed_nodegroup()
         self.assertFalse(dns.is_dns_enabled())
 
     def test_is_dns_enabled_return_True_if_DNS_CONNECT_True(self):
         self.patch(settings, 'DNS_CONNECT', True)
-        self.create_managed_nodegroup()
         self.assertTrue(dns.is_dns_enabled())
 
-    def test_is_dns_enabled_return_False_no_configured_interface(self):
-        self.patch(settings, 'DNS_CONNECT', True)
+    def test_is_dns_in_use_return_False_no_configured_interface(self):
+        self.assertFalse(dns.is_dns_in_use())
+
+    def test_is_dns_in_use_return_True_if_configured_interface(self):
         self.create_managed_nodegroup()
-        self.assertTrue(dns.is_dns_enabled())
+        self.assertTrue(dns.is_dns_in_use())
 
     def test_write_full_dns_loads_full_dns_config(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()

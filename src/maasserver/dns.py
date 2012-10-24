@@ -65,19 +65,17 @@ def next_zone_serial():
     return '%0.10d' % zone_serial.nextval()
 
 
-def is_dns_enabled(check_interfaces=True):
-    """Is MAAS configured to manage DNS?
-
-    :param check_interfaces: Check that this MAAS server has at least
-        one interface configured to manage DNS.
-    :type check_interfaces: bool
-    """
+def is_dns_in_use():
+    """Is there at least one interface configured to manage DNS?"""
     interfaces_with_dns = (
         NodeGroupInterface.objects.filter(
              management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS))
-    return (
-        settings.DNS_CONNECT and
-        (not check_interfaces or interfaces_with_dns.exists()))
+    return interfaces_with_dns.exists()
+
+
+def is_dns_enabled():
+    """Is MAAS configured to manage DNS?"""
+    return settings.DNS_CONNECT
 
 
 class DNSException(MAASException):
@@ -261,7 +259,7 @@ def change_dns_zones(nodegroups):
         zone should be updated.
     :type nodegroups: list (or :class:`NodeGroup`)
     """
-    if not is_dns_enabled():
+    if not (is_dns_enabled() and is_dns_in_use()):
         return
     serial = next_zone_serial()
     for zone in ZoneGenerator(nodegroups, serial):
@@ -281,7 +279,7 @@ def add_zone(nodegroup):
     :param nodegroup: The nodegroup for which the zone should be added.
     :type nodegroup: :class:`NodeGroup`
     """
-    if not is_dns_enabled():
+    if not (is_dns_enabled() and is_dns_in_use()):
         return
     zones_to_write = ZoneGenerator(nodegroup).as_list()
     if len(zones_to_write) == 0:
@@ -309,9 +307,11 @@ def write_full_dns_config(active=True, reload_retry=False,
     :type reload_retry: bool
     :param force: Write the configuration even if no interface is
         configured to manage DNS.
-    :type check_interfaces: bool
+    :type force: bool
     """
-    if not is_dns_enabled(check_interfaces=not force):
+    write_conf = (
+        is_dns_enabled() and (force or is_dns_in_use()))
+    if not write_conf:
         return
     if active:
         zones = ZoneGenerator(NodeGroup.objects.all()).as_list()
