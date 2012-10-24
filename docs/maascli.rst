@@ -340,9 +340,9 @@ Usage: maas-cli <profile> node-groups [-d --debug] [-h --help] [-k
 
 node-group-interface
 ^^^^^^^^^^^^^^^^^^^^
-For managing the applied interfaces. See :ref:<node_group_interfaces>.
+For managing the applied interfaces. See also :ref:<node_group_interfaces>.
 
-Usage: maas-cli *<profile>* node-group-interfaces [-d --degug] [-h
+Usage: maas-cli *<profile>* node-group-interfaces [-d --debug] [-h
 --help] [-k --insecure] read | update | delete [parameters...]
 
 ..program:: maas-cli node-group-interface
@@ -377,6 +377,31 @@ Usage: maas-cli *<profile>* node-group-interfaces [-d --degug] [-h
 .. option:: delete <uuid> <interface>
 
    Removes the entry for the given uuid and interface.
+   
+   .. _cli-dhcp:
+
+Example:
+Configuring DHCP and DNS.
+
+To enable MAAS to manage DHCP and DNS, it needs to be supplied with the relevant 
+interface information. To do this we need to first determine the uuid of the
+node group affected::
+
+ $ uuid=`maas-cli <profile> node-groups list | grep uuid | cut -d\" -f4`
+ 
+Once we have the uuid we can use this to update the node-group-interface for
+that nodegroup, and pass it the relevant interface details::
+
+ $ maas-cli <profile> node-group-interface update $uuid eth0 \
+         ip_range_high=192.168.123.200    \
+         ip_range_low=192.168.123.100     \
+         management=2                     \
+         broadcast_ip=192.168.123.255     \
+         router_ip=192.168.123.1          \
+
+Replacing the example values with those required for this network. The only 
+non-obvious parameter is 'management which takes the values 0 (no management), 1
+(manage DHCP) and 2 (manage DHCP and DNS).
 
 
 .. _node-group-interfaces
@@ -436,20 +461,6 @@ Usage: maas-cli *<profile>* node-group-interfaces [-d --degug] [-h
       ip_range_high=<value>  
            The highest value of IP address to allocate via DHCP
 
-.. _cli-dhcp:
-
-Example:
-Configuring DHCP and DNS under a new label called 'master'::
-
- $ maas-cli maas node-group-interfaces new master \
-     ip=192.168.21.5             \
-     interface=eth1              \
-     management=2                \
-     subnet_mask=255.255.255.0   \
-     broadcast_ip=192.168.21.255 \
-     router_ip=192.168.21.1      \
-     ip_range_low=192.168.21.10  \
-     ip_range_high=192.168.21.50
 
 
 
