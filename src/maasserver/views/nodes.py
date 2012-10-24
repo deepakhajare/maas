@@ -125,10 +125,12 @@ class NodeListView(PaginatedListView):
         if self.sort_dir == 'desc':
             order_by = '-' + order_by
         # Return node list sorted, newest first by default,
-        # unless sorting params are present.
+        # unless sorting params are present. Also ensure the
+        # order is stable in the case of sorting by non-unique
+        # columns, like status
         nodes = Node.objects.get_nodes(
             user=self.request.user, prefetch_mac=True,
-            perm=NODE_PERMISSION.VIEW,).order_by(order_by)
+            perm=NODE_PERMISSION.VIEW,).order_by(order_by, '-created')
         if self.query:
             try:
                 return constrain_nodes(nodes, _parse_constraints(self.query))
@@ -143,7 +145,8 @@ class NodeListView(PaginatedListView):
         """
 
         fields = ('hostname', 'status')
-        links = {field: self.request.path + '?' for field in fields}
+        # Build relative URLs for the links, just with the params
+        links = {field: '?' for field in fields}
         classes = {field: 'sort-none' for field in fields}
 
         params = self.request.GET.copy()
@@ -152,10 +155,10 @@ class NodeListView(PaginatedListView):
         for field in fields:
             params['sort'] = field
             if field == self.sort_by:
-                params['dir'] = self.sort_dir
+                params['dir'] = reverse_dir
                 classes[field] = 'sort-%s' % self.sort_dir
             else:
-                params['dir'] = reverse_dir
+                params['dir'] = 'asc'
 
             links[field] += params.urlencode()
 

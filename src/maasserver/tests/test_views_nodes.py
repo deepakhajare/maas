@@ -13,7 +13,12 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
+from operator import attrgetter
 from unittest import skip
+from urlparse import (
+    parse_qsl,
+    urlparse,
+    )
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -80,12 +85,11 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(enlist_preseed_link, get_content_links(response))
 
     def test_node_list_contains_column_sort_links(self):
-        # Just creare some nodes to have something in the list
-        for i in xrange(3):
-            factory.make_node()
+        # Just create a node to have something in the list
+        factory.make_node()
         response = self.client.get(reverse('node-list'))
-        sort_hostname = reverse('node-list') + '?sort=hostname&dir=asc'
-        sort_status = reverse('node-list') + '?sort=status&dir=asc'
+        sort_hostname = '?sort=hostname&dir=asc'
+        sort_status = '?sort=status&dir=asc'
         self.assertIn(sort_hostname, get_content_links(response))
         self.assertIn(sort_status, get_content_links(response))
 
@@ -94,7 +98,7 @@ class NodeViewsTest(LoggedInTestCase):
         nodes = [factory.make_node(hostname=n) for n in names]
 
         # First check the ascending sort order
-        sorted_nodes = sorted(nodes, key=lambda x: x.hostname)
+        sorted_nodes = sorted(nodes, key=attrgetter('hostname'))
         response = self.client.get(
             reverse('node-list'), {
                 'sort': 'hostname',
@@ -108,16 +112,11 @@ class NodeViewsTest(LoggedInTestCase):
                 if link.startswith('/nodes/node')])
 
         # Now check the reverse order
-        sorted_nodes = sorted(
-            nodes, key=lambda x: x.hostname, reverse=True)
+        node_links = list(reversed(node_links))
         response = self.client.get(
             reverse('node-list'), {
                 'sort': 'hostname',
                 'dir': 'desc'})
-        node_links = [
-            reverse('node-view', args=[node.system_id])
-
-            for node in sorted_nodes]
         self.assertEqual(
             node_links,
             [link for link in get_content_links(response)
@@ -132,7 +131,7 @@ class NodeViewsTest(LoggedInTestCase):
         nodes = [factory.make_node(status=s) for s in statuses]
 
         # First check the ascending sort order
-        sorted_nodes = sorted(nodes, key=lambda x: x.status)
+        sorted_nodes = sorted(nodes, key=attrgetter('status'))
         response = self.client.get(
             reverse('node-list'), {
                 'sort': 'status',
@@ -146,15 +145,11 @@ class NodeViewsTest(LoggedInTestCase):
                 if link.startswith('/nodes/node')])
 
         # Now check the reverse order
-        sorted_nodes = sorted(
-            nodes, key=lambda x: x.status, reverse=True)
+        node_links = list(reversed(node_links))
         response = self.client.get(
             reverse('node-list'), {
                 'sort': 'status',
                 'dir': 'desc'})
-        node_links = [
-            reverse('node-view', args=[node.system_id])
-            for node in sorted_nodes]
         self.assertEqual(
             node_links,
             [link for link in get_content_links(response)
@@ -180,11 +175,16 @@ class NodeViewsTest(LoggedInTestCase):
         response = self.client.get(reverse('node-list'), params)
         document = fromstring(response.content)
         header_links = document.xpath("//div[@id='nodes']/table//th/a/@href")
+        fields = iter(('hostname', 'status'))
+        field_dirs = iter(('desc', 'asc'))
         for link in header_links:
-            self.assertIn('page=1', link)
-            self.assertIn('query=maas-tags%3Dshiny', link)
-            self.assertIn('sort=', link)
-            self.assertIn('dir=', link)
+            self.assertThat(
+                parse_qsl(urlparse(link).query),
+                ContainsAll([
+                    ('page', '1'),
+                    ('query', 'maas-tags=shiny'),
+                    ('sort', next(fields)),
+                    ('dir', next(field_dirs))]))
 
     def test_node_list_displays_sorted_list_of_nodes(self):
         # Nodes are sorted on the node list page, newest first.
@@ -528,10 +528,8 @@ class NodeViewsTest(LoggedInTestCase):
             {"query": "maas-tags=shiny cpu=2"})
         node2_link = reverse('node-view', args=[node2.system_id])
         document = fromstring(response.content)
-        # Exclude header sorting links
-        node_links = filter(
-            lambda x: 'sort=' not in x,
-            document.xpath("//div[@id='nodes']/table//a/@href"))
+        node_links = document.xpath(
+            "//div[@id='nodes']/table//td/a/@href")
         self.assertEqual([node2_link], node_links)
 
     def test_node_list_paginates(self):
@@ -544,23 +542,21 @@ class NodeViewsTest(LoggedInTestCase):
         # Order node links with newest first as the view is expected to
         node_links = [reverse('node-view', args=[node.system_id])
             for node in reversed(nodes)]
-        expr_node_links = XPath("//div[@id='nodes']/table//a/@href")
+        expr_node_links = XPath("//div[@id='nodes']/table//td/a/@href")
         expr_page_anchors = XPath("//div[@class='pagination']//a")
         # Fetch first page, should link newest two nodes and page 2
         response = self.client.get(reverse('node-list'))
         page1 = fromstring(response.content)
-         # Exclude header sorting links
-        self.assertEqual(node_links[:page_size],
-            filter(lambda x: 'sort=' not in x, expr_node_links(page1)))
+        self.assertEqual(node_links[:page_size], expr_node_links(page1))
         self.assertEqual([("next", "?page=2"), ("last", "?page=3")],
             [(a.text.lower(), a.get("href"))
                 for a in expr_page_anchors(page1)])
         # Fetch second page, should link next nodes and adjacent pages
         response = self.client.get(reverse('node-list'), {"page": 2})
         page2 = fromstring(response.content)
-        # Exclude header sorting links
-        self.assertEqual(node_links[page_size:page_size * 2],
-            filter(lambda x: 'sort=' not in x, expr_node_links(page2)))
+        self.assertEqual(
+            node_links[page_size:page_size * 2],
+            expr_node_links(page2))
         self.assertEqual([("first", "."), ("previous", "."),
                 ("next", "?page=3"), ("last", "?page=3")],
             [(a.text.lower(), a.get("href"))
@@ -568,15 +564,10 @@ class NodeViewsTest(LoggedInTestCase):
         # Fetch third page, should link oldest node and node list page
         response = self.client.get(reverse('node-list'), {"page": 3})
         page3 = fromstring(response.content)
-         # Exclude header sorting links
-        page3_node_links = filter(
-            lambda x: 'sort=' not in x, expr_node_links(page3))
-        page3_anchors = filter(
-            lambda x: 'sort=' not in x, expr_page_anchors(page3))
-        self.assertEqual(node_links[page_size * 2:], page3_node_links)
+        self.assertEqual(node_links[page_size * 2:], expr_node_links(page3))
         self.assertEqual([("first", "."), ("previous", "?page=2")],
             [(a.text.lower(), a.get("href"))
-                for a in page3_anchors])
+                for a in expr_page_anchors(page3)])
 
     def test_node_list_query_paginates(self):
         """Node list query subset is split across multiple pages with links"""
@@ -592,11 +583,9 @@ class NodeViewsTest(LoggedInTestCase):
             {"query": "maas-tags=odd", "page": 3})
         document = fromstring(response.content)
         self.assertIn("5 matching nodes", document.xpath("string(//h1)"))
-         # Exclude header sorting links
-        self.assertEqual([last_node_link],
-            filter(
-                lambda x: 'sort=' not in x,
-                document.xpath("//div[@id='nodes']/table//a/@href")))
+        self.assertEqual(
+            [last_node_link],
+            document.xpath("//div[@id='nodes']/table//td/a/@href"))
         self.assertEqual([("first", "?query=maas-tags%3Dodd"),
                 ("previous", "?query=maas-tags%3Dodd&page=2")],
             [(a.text.lower(), a.get("href"))
