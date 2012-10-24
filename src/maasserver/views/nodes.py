@@ -111,26 +111,25 @@ class NodeListView(PaginatedListView):
         self.query = request.GET.get("query")
         self.query_error = None
         self.sort_by = request.GET.get("sort")
-        self.sort_dir = request.GET.get("dir", "asc")
-
-        # Default sorting is descending by creation date
-        if self.sort_by is None:
-            self.sort_by = "created"
-            self.sort_dir = "desc"
+        self.sort_dir = request.GET.get("dir")
 
         return super(NodeListView, self).get(request, *args, **kwargs)
 
     def get_queryset(self):
-        order_by = self.sort_by
-        if self.sort_dir == 'desc':
-            order_by = '-' + order_by
-        # Return node list sorted, newest first by default,
-        # unless sorting params are present. Also ensure the
-        # order is stable in the case of sorting by non-unique
-        # columns, like status
+        # Default sort - newest first, unless sorting params are
+        # present. In addition, to ensure order consistency, when
+        # sorting by non-unique fields (like status), we always
+        # sort by the unique creation date as well
+        if self.sort_by is not None:
+            prefix = '-' if self.sort_dir == 'desc' else ''
+            order_by = (prefix + self.sort_by, '-created')
+        else:
+            order_by = ('-created', )
+
+        # Return the sorted node list
         nodes = Node.objects.get_nodes(
             user=self.request.user, prefetch_mac=True,
-            perm=NODE_PERMISSION.VIEW,).order_by(order_by, '-created')
+            perm=NODE_PERMISSION.VIEW,).order_by(*order_by)
         if self.query:
             try:
                 return constrain_nodes(nodes, _parse_constraints(self.query))
