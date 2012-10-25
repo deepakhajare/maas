@@ -38,10 +38,10 @@ table.list.clickable tr:hover td {
     padding-right: 16px;
     }
 .sort-asc {
-    background-image: url('../?img/sort_down.png');
+    background-image: url('../?img/sort_ascending.png');
     }
 .sort-desc {
-    background-image: url('../?img/sort_up.png');
+    background-image: url('../?img/sort_descending.png');
     }
 /* ul list */
 ul.list {
