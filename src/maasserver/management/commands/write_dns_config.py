@@ -28,7 +28,7 @@ from maasserver.dns import write_full_dns_config
 class Command(BaseCommand):
     help = (
         "Write the DNS configuration files and reload the DNS server if "
-        "this MAAS server has cluster controllers configured to manage DNS.")
+        "this region has cluster controllers configured to manage DNS.")
 
     def handle(self, *args, **options):
         write_full_dns_config()
