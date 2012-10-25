@@ -36,7 +36,10 @@ from maastesting.bindfixture import BINDServer
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.tests.test_bindfixture import dig_call
-from mock import Mock
+from mock import (
+    call,
+    Mock,
+    )
 from netaddr import (
     IPNetwork,
     IPRange,
@@ -52,8 +55,6 @@ from provisioningserver.dns.utils import generated_hostname
 from rabbitfixture.server import allocate_ports
 from testresources import FixtureResource
 from testtools.matchers import (
-    Contains,
-    FileContains,
     IsInstance,
     MatchesAll,
     MatchesListwise,
@@ -104,17 +105,14 @@ class TestDNSUtilities(TestCase):
         self.assertRaises(dns.DNSException, dns.get_dns_server_address)
 
     def test_get_dns_server_address_logs_warning_if_ip_is_localhost(self):
-        logger = logging.getLogger('maas')
-        logfile = self.make_file(contents="")
-        handler = logging.handlers.RotatingFileHandler(logfile)
-        logger.addHandler(handler)
-        self.addCleanup(logger.removeHandler, handler)
+        logger = self.patch(logging, 'getLogger')
         self.patch(
             dns, 'get_maas_facing_server_address',
             Mock(return_value='127.0.0.1'))
         dns.get_dns_server_address()
-        warning_text = "The DNS server will use the address '127.0.0.1'"
-        self.assertThat(logfile, FileContains(matcher=Contains(warning_text)))
+        self.assertEqual(
+            call(dns.WARNING_MESSAGE % '127.0.0.1'),
+            logger.return_value.warn.call_args)
 
     def test_is_dns_managed(self):
         nodegroups_with_expected_results = {

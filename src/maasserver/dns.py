@@ -91,16 +91,18 @@ def is_dns_managed(nodegroup):
         interface.management == NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
 
 
+WARNING_MESSAGE = (
+    "The DNS server will use the address '%s',  which is inside the "
+    "loopback network.  This may not be a problem if you're not using "
+    "MAAS's DNS features or if you don't rely on this information.  "
+    "Be sure to configure the DEFAULT_MAAS_URL setting in MAAS's "
+    "/etc/maas/maas_local_settings.py.")
+
+
 def warn_loopback(ip):
     """Warn if the given IP address is in the loopback network."""
     if IPAddress(ip) in IPNetwork('127.0.0.1/8'):
-        logging.getLogger('maas').warn(
-            "The DNS server will use the address '%s',  which is inside the "
-            "loopback network.  This may not be a problem if you're not using "
-            "MAAS's DNS features or if you don't rely on this information.  "
-            "Be sure to configure the DEFAULT_MAAS_URL setting in MAAS's "
-            "/etc/maas/maas_local_settings.py."
-            % ip)
+        logging.getLogger('maas').warn(WARNING_MESSAGE % ip)
 
 
 def get_dns_server_address():
@@ -294,14 +296,9 @@ def add_zone(nodegroup):
         zones=zones_to_write, callback=write_dns_config_subtask)
 
 
-def write_full_dns_config(active=True, reload_retry=False,
-                          force=False):
+def write_full_dns_config(reload_retry=False, force=False):
     """Write the DNS configuration.
 
-    :param active: If True, write the DNS config for all the nodegroups.
-        Otherwise write an empty DNS config (with no zones).  Defaults
-        to `True`.
-    :type active: bool
     :param reload_retry: Should the reload rndc command be retried in case
         of failure?  Defaults to `False`.
     :type reload_retry: bool
@@ -313,10 +310,7 @@ def write_full_dns_config(active=True, reload_retry=False,
         is_dns_enabled() and (force or is_dns_in_use()))
     if not write_conf:
         return
-    if active:
-        zones = ZoneGenerator(NodeGroup.objects.all()).as_list()
-    else:
-        zones = []
+    zones = ZoneGenerator(NodeGroup.objects.all()).as_list()
     tasks.write_full_dns_config.delay(
         zones=zones,
         callback=tasks.rndc_command.subtask(
