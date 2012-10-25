@@ -570,6 +570,21 @@ class NodeTest(TestCase):
         node = reload_object(node)
         self.assertEqual([], list(node.tags.all()))
 
+    def test_fqdn_returns_hostname_if_contain_domains(self):
+        hostname_with_domain = '%s.%s' % (
+            factory.getRandomString(),  factory.getRandomString())
+        node = factory.make_node(hostname=hostname_with_domain)
+        self.assertEqual(hostname_with_domain, node.fqdn)
+
+    def test_fqdn_concatenates_domain_to_hostname(self):
+        hostname_without_domain = factory.make_name('hostname')
+        domain = factory.make_name('domain')
+        nodegroup = factory.make_node_group(domain)
+        node = factory.make_node(
+            hostname=hostname_without_domain, nodegroup=nodegroup)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        self.assertEqual(expected_hostname, node.fqdn)
+
 
 class NodeTransitionsTests(TestCase):
     """Test the structure of NODE_TRANSITIONS."""

@@ -491,6 +491,16 @@ class Node(CleanSave, TimestampedModel):
         else:
             return self.system_id
 
+    @property
+    def fqdn(self):
+        """Fully qualified domain name for this node."""
+        if '.' in self.hostname:
+            # If the hostname contains a domain, return this as is.
+            return self.hostname
+        else:
+            # Build the FQDN by using the nodegroup.name.
+            return '%s.%s' % (self.hostname, self.nodegroup.name)
+
     def tag_names(self):
         # We don't use self.tags.values_list here because this does not
         # take advantage of the cache.
