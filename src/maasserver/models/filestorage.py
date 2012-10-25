@@ -53,9 +53,9 @@ class FileStorageManager(Manager):
         # not expected.
         content = Bin(file_object.read())
         storage, created = self.get_or_create(
-            filename=filename, defaults={'data': content})
+            filename=filename, defaults={'content': content})
         if not created:
-            storage.data = content
+            storage.content = content
             storage.save()
         return storage
 
@@ -64,17 +64,14 @@ class FileStorage(CleanSave, Model):
     """A simple file storage keyed on file name.
 
     :ivar filename: A unique file name to use for the data being stored.
-    :ivar data: The file's actual data.
+    :ivar content: The file's actual data.
     """
 
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
 
-    upload_dir = "storage"
-
     filename = CharField(max_length=255, unique=True, editable=False)
-
-    data = BinaryField(null=False)
+    content = BinaryField(null=False)
 
     objects = FileStorageManager()
 

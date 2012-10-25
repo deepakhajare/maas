@@ -39,20 +39,20 @@ class FileStorageTest(TestCase):
 
     def test_save_file_creates_storage(self):
         filename = factory.getRandomString()
-        data = self.make_data()
-        storage = FileStorage.objects.save_file(filename, BytesIO(data))
+        content = self.make_data()
+        storage = FileStorage.objects.save_file(filename, BytesIO(content))
         self.assertEqual(
-            (filename, data),
-            (storage.filename, storage.data))
+            (filename, content),
+            (storage.filename, storage.content))
 
     def test_storage_can_be_retrieved(self):
         filename = factory.getRandomString()
-        data = self.make_data()
-        factory.make_file_storage(filename=filename, data=data)
+        content = self.make_data()
+        factory.make_file_storage(filename=filename, content=content)
         storage = FileStorage.objects.get(filename=filename)
         self.assertEqual(
-            (filename, data),
-            (storage.filename, storage.data))
+            (filename, content),
+            (storage.filename, storage.content))
 
     def test_stores_binary_data(self):
         # This horrible binary data could never, ever, under any
@@ -68,8 +68,8 @@ class FileStorageTest(TestCase):
 
         # And yet, because FileStorage supports binary data, it comes
         # out intact.
-        storage = factory.make_file_storage(filename="x", data=binary_data)
-        self.assertEqual(binary_data, storage.data)
+        storage = factory.make_file_storage(filename="x", content=binary_data)
+        self.assertEqual(binary_data, storage.content)
 
     def test_overwrites_file(self):
         # If a file of the same name has already been stored, the
@@ -77,10 +77,10 @@ class FileStorageTest(TestCase):
         # data.
         filename = factory.make_name('filename')
         old_storage = factory.make_file_storage(
-            filename=filename, data=self.make_data('old data'))
+            filename=filename, content=self.make_data('old data'))
         new_data = self.make_data('new-data')
         new_storage = factory.make_file_storage(
-            filename=filename, data=new_data)
+            filename=filename, content=new_data)
         self.assertEqual(old_storage.filename, new_storage.filename)
         self.assertEqual(
-            new_data, FileStorage.objects.get(filename=filename).data)
+            new_data, FileStorage.objects.get(filename=filename).content)
