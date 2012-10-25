@@ -15,7 +15,7 @@ profile you use. The currently available options are explained below.
 Description
 ^^^^^^^^^^^
 
-.. include:: maascli.rst
+.. include:: ../maascli.rst
 
 Further Documentation
 ^^^^^^^^^^^^^^^^^^^^^

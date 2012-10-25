@@ -227,7 +227,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('manpage-maascli', 'maas', u'MAAS API commandline utility',
+    ('man/maas-cli.8', 'maas-cli', u'MAAS API commandline utility',
      [u'Canonical 2012'], 8)
 ]
 
