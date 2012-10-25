@@ -12,14 +12,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'make_boot_image_params',
-    'make_boot_image_params_on_wire',
     ]
 
-import uuid
 from maastesting.factory import factory
 
 
-def make_boot_image_params(nodegroup):
+def make_boot_image_params():
     """Create an arbitrary dict of boot-image parameters.
 
     These are the parameters that together describe a kind of boot that we
@@ -27,22 +25,8 @@ def make_boot_image_params(nodegroup):
     Ubuntu release, and boot purpose.  See the `tftppath` module for how
     these fit together.
     """
-    fields = dict(
-        nodegroup=nodegroup,
+    return dict(
         architecture=factory.make_name('architecture'),
         subarchitecture=factory.make_name('subarchitecture'),
         release=factory.make_name('release'),
         purpose=factory.make_name('purpose'))
-    return fields
-
-
-def make_boot_image_params_on_wire(image_params=None):
-    """As for make_boot_image_params except the parameters are suitable for
-    transmission to the API, i.e. they are serializable.
-    """
-    if image_params is None:
-        image_params = make_boot_image_params(nodegroup=str(uuid.uuid4()))
-    else:
-        image_params = dict(
-            image_params, nodegroup=image_params['nodegroup'].uuid)
-    return image_params

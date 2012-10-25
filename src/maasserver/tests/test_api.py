@@ -124,10 +124,7 @@ from provisioningserver.enum import (
 from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.omshell import Omshell
 from provisioningserver.pxe import tftppath
-from provisioningserver.testing.boot_images import (
-    make_boot_image_params,
-    make_boot_image_params_on_wire,
-    )
+from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
 from testtools.matchers import (
     AllMatch,
@@ -4029,52 +4026,55 @@ class TestBootImagesAPI(APITestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
-    def report_images(self, images, client=None):
+    def report_images(self, nodegroup, images, client=None):
         if client is None:
             client = self.client
         return client.post(
-            reverse('boot_images_handler'),
-            {'op': 'report_boot_images', 'images': json.dumps(images)})
+            reverse('boot_images_handler'), {
+                'images': json.dumps(images),
+                'nodegroup': nodegroup.uuid,
+                'op': 'report_boot_images',
+                })
 
     def test_report_boot_images_does_not_work_for_normal_user(self):
-        NodeGroup.objects.ensure_master()
+        nodegroup = NodeGroup.objects.ensure_master()
         log_in_as_normal_user(self.client)
-        image = make_boot_image_params_on_wire()
-        response = self.report_images([image])
+        response = self.report_images(nodegroup, [])
         self.assertEqual(
             httplib.FORBIDDEN, response.status_code, response.content)
 
     def test_report_boot_images_works_for_master_worker(self):
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([], client=client)
+        nodegroup = NodeGroup.objects.ensure_master()
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [], client=client)
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_report_boot_images_stores_images(self):
-        nodegroup = factory.make_node_group()
-        image = make_boot_image_params(nodegroup)
-        api_image = make_boot_image_params_on_wire(image)
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([api_image], client=client)
+        nodegroup = NodeGroup.objects.ensure_master()
+        image = make_boot_image_params()
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
         self.assertTrue(
-            BootImage.objects.have_image(**image))
+            BootImage.objects.have_image(nodegroup=nodegroup, **image))
 
     def test_report_boot_images_ignores_unknown_image_properties(self):
-        image = make_boot_image_params_on_wire()
+        nodegroup = NodeGroup.objects.ensure_master()
+        image = make_boot_image_params()
         image['nonesuch'] = factory.make_name('nonesuch'),
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([image], client=client)
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
 
     def test_report_boot_images_warns_if_no_images_found(self):
+        nodegroup = NodeGroup.objects.ensure_master()
         recorder = self.patch(api, 'register_persistent_error')
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-
-        response = self.report_images([], client=client)
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
@@ -4087,12 +4087,10 @@ class TestBootImagesAPI(APITestCase):
         self.patch(api, 'register_persistent_error')
         self.patch(api, 'discard_persistent_error')
         nodegroup = factory.make_node_group()
-        image = make_boot_image_params(nodegroup=nodegroup)
-        nodegroup = image['nodegroup']
+        image = make_boot_image_params()
         client = make_worker_client(nodegroup)
 
-        response = self.report_images(
-            [make_boot_image_params_on_wire(image)], client=client)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
