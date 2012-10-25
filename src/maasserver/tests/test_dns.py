@@ -260,12 +260,6 @@ class TestDNSConfigModifications(TestCase):
         dns.write_full_dns_config()
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
-    def test_write_full_dns_can_write_inactive_config(self):
-        nodegroup, node, lease = self.create_nodegroup_with_lease()
-        self.patch(settings, 'DNS_CONNECT', True)
-        dns.write_full_dns_config(active=False)
-        self.assertEqual([''], self.dig_resolve(generated_hostname(lease.ip)))
-
     def test_write_full_dns_passes_reload_retry_parameter(self):
         self.patch(settings, 'DNS_CONNECT', True)
         recorder = FakeMethod()
