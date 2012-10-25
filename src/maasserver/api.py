@@ -162,7 +162,10 @@ from maasserver.preseed import (
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
-from maasserver.utils import map_enum
+from maasserver.utils import (
+    absolute_reverse,
+    map_enum,
+    )
 from maasserver.utils.orm import get_one
 from piston.handler import (
     AnonymousBaseHandler,
@@ -1896,9 +1899,9 @@ class BootImagesHandler(OperationsHandler):
                 maas-import-pxe-files script has not run yet, or it failed.
 
                 Try running it manually on the affected
-                <a href="/settings/#accepted-clusters">cluster controllers.</a>
+                <a href="%s#accepted-clusters">cluster controllers.</a>
                 If it succeeds, this message will go away within 5 minutes.
-                """)
+                """ % absolute_reverse("settings"))
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
         else:
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)

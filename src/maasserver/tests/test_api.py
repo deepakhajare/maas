@@ -4135,6 +4135,10 @@ class TestBootImagesAPI(APITestCase):
         self.assertIn(
             COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])
+        # Check that the persistent error message contains a link to the
+        # clusters listing.
+        self.assertIn(
+            "/settings/#accepted-clusters", recorder.call_args_list[0][0][1])
 
     def test_report_boot_images_warns_if_any_nodegroup_has_no_images(self):
         nodegroup = NodeGroup.objects.ensure_master()
