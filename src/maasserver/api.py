@@ -1884,13 +1884,20 @@ class BootImagesHandler(OperationsHandler):
                 release=image['release'],
                 purpose=image['purpose'])
 
-        if len(images) == 0:
+        # Work out if any nodegroups are missing images.
+        nodegroup_ids_with_images = BootImage.objects.values_list(
+            "nodegroup_id", flat=True)
+        nodegroups_missing_images = NodeGroup.objects.exclude(
+            id__in=nodegroup_ids_with_images).filter(
+                status=NODEGROUP_STATUS.ACCEPTED)
+        if nodegroups_missing_images.exists():
             warning = dedent("""\
-                No boot images have been imported yet.  Either the
+                Some cluster controllers are missing boot images.  Either the
                 maas-import-pxe-files script has not run yet, or it failed.
 
-                Try running it manually.  If it succeeds, this message will
-                go away within 5 minutes.
+                Try running it manually on the affected
+                <a href="/settings/#accepted-clusters">cluster controllers.</a>
+                If it succeeds, this message will go away within 5 minutes.
                 """)
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
         else:
