@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from base64 import b64encode
 import datetime
+import os.path
 
+from django.conf import settings
 from django.db import models
 from south.db import db
 from south.v2 import SchemaMigration
@@ -14,16 +16,14 @@ def get_unmigrated_filestorages(orm):
 
 def read_file(storage):
     """Read file contents from a FileStorage."""
-    path = os.path.join(settings.MEDIA_ROOT, storage.data)
-    with open(path, 'rb') as input_file:
-        return input_file.read()
+    return storage.data.read()
 
 
 def copy_files_into_database(orm):
     """Copy file contents into the "content" field."""
     for storage in get_unmigrated_filestorages(orm):
         raw_content = read_file(storage)
-        storage.content = b64encode(raw_content)
+        storage.content = b64encode(raw_content).decode('ascii')
         storage.save()
 
 
