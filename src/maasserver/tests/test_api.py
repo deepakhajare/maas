@@ -36,6 +36,7 @@ from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
@@ -1309,6 +1310,18 @@ class TestNodeAPI(APITestCase):
             )
 
         self.assertEqual(httplib.OK, response.status_code)
+
+    def test_PUT_refuses_to_update_hostname_on_allocated_node(self):
+        # A node's hostname can't be changed while it's in use.  Juju
+        # may still want to refer to the node by its existing hostname.
+        old_name = factory.make_name('old-hostname')
+        new_name = factory.make_name('new-hostname')
+        node = factory.make_node(
+            owner=self.logged_in_user, hostname=old_name,
+            status=NODE_STATUS.ALLOCATED)
+        self.assertRaises(
+            ValidationError,
+            self.client.put, self.get_node_uri(node), {'hostname': new_name})
 
     def test_PUT_admin_can_change_power_type(self):
         self.become_admin()
