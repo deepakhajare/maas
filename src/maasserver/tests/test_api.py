@@ -1319,9 +1319,12 @@ class TestNodeAPI(APITestCase):
         node = factory.make_node(
             owner=self.logged_in_user, hostname=old_name,
             status=NODE_STATUS.ALLOCATED)
-        self.assertRaises(
-            ValidationError,
-            self.client.put, self.get_node_uri(node), {'hostname': new_name})
+        response = self.client.put(self.get_node_uri(node), {'hostname': new_name})
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        expected_text = "Can't change hostname to %s: node is in use." % new_name
+        self.assertEqual(
+            (httplib.BAD_REQUEST, expected_text),
+            (response.status_code, response.content))
 
     def test_PUT_admin_can_change_power_type(self):
         self.become_admin()

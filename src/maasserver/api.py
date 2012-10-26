@@ -503,10 +503,14 @@ class NodeHandler(OperationsHandler):
             The default is 'false'.
         :type power_parameters_skip_validation: basestring
         """
-
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         data = get_overrided_query_dict(model_to_dict(node), request.data)
+        data_hostname = data.get('hostname', node.hostname)
+        hostname_changed = (data_hostname != node.hostname)
+        if hostname_changed and node.status == NODE_STATUS.ALLOCATED:
+            raise ValidationError(
+                "Can't change hostname to %s: node is in use." % data_hostname)
         Form = get_node_edit_form(request.user)
         form = Form(data, instance=node)
         if form.is_valid():
