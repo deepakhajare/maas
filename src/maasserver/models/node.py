@@ -498,7 +498,8 @@ class Node(CleanSave, TimestampedModel):
             # If the hostname contains a domain, return this as is.
             return self.hostname
         else:
-            # Build the FQDN by using the nodegroup.name.
+            # Build the FQDN by using the hostname and nodegroup.name
+            # as the domain name.
             return '%s.%s' % (self.hostname, self.nodegroup.name)
 
     def tag_names(self):
