@@ -381,7 +381,7 @@ class WithMACAddressesMixin:
             node.add_mac_address(mac)
         hostname = self.cleaned_data['hostname']
         stripped_hostname = strip_domain(hostname)
-        # Generate a hostname for this hode if provided the hostname is
+        # Generate a hostname for this node if provided the hostname is
         # IP-based or an empty string.
         generate_hostname = (
             hostname == "" or
