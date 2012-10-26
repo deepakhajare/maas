@@ -36,7 +36,6 @@ from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
-from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
 from fixtures import Fixture
@@ -1319,12 +1318,32 @@ class TestNodeAPI(APITestCase):
         node = factory.make_node(
             owner=self.logged_in_user, hostname=old_name,
             status=NODE_STATUS.ALLOCATED)
-        response = self.client.put(self.get_node_uri(node), {'hostname': new_name})
+        response = self.client.put(
+            self.get_node_uri(node), {'hostname': new_name})
         self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        expected_text = "Can't change hostname to %s: node is in use." % new_name
+        expected_text = (
+            "Can't change hostname to %s: node is in use." % new_name)
         self.assertEqual(
             (httplib.BAD_REQUEST, expected_text),
             (response.status_code, response.content))
+        self.assertEqual(old_name, reload_object(node).hostname)
+
+    def test_PUT_accepts_unchanged_hostname_on_allocated_node(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED)
+        old_name = node.hostname
+        response = self.client.put(
+            self.get_node_uri(node), {'hostname': node.hostname})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(old_name, reload_object(node).hostname)
+
+    def test_PUT_accepts_omitted_hostname_on_allocated_node(self):
+        node = factory.make_node(
+            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED)
+        old_name = node.hostname
+        response = self.client.put(self.get_node_uri(node), {})
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(old_name, reload_object(node).hostname)
 
     def test_PUT_admin_can_change_power_type(self):
         self.become_admin()
