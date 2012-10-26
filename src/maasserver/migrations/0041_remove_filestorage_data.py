@@ -21,9 +21,10 @@ class Migration(SchemaMigration):
         db.delete_column(u'maasserver_filestorage', 'data')
 
         # Cleaning up any obsolete FileStorage files.
-        rmtree(
-            os.path.join(settings.MEDIA_ROOT, upload_dir),
-            ignore_errors=True)
+        if settings.MEDIA_ROOT and os.path.isdir(settings.MEDIA_ROOT):
+            rmtree(
+                os.path.join(settings.MEDIA_ROOT, upload_dir),
+                ignore_errors=True)
 
     def backwards(self, orm):
 
