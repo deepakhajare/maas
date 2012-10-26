@@ -110,8 +110,12 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
-from mock import Mock
+from mock import (
+    ANY,
+    Mock,
+    )
 from provisioningserver import (
+    boot_images,
     kernel_opts,
     tasks,
     )
@@ -2885,6 +2889,24 @@ class TestTagAPI(APITestCase):
         self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
         self.assertItemsEqual([], tag.node_set.all())
 
+    def test_POST_update_nodes_ignores_incorrect_definition(self):
+        tag = factory.make_tag()
+        orig_def = tag.definition
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        tag.definition = '//new/node/definition'
+        tag.save()
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+             'definition': orig_def,
+            })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+        self.assertItemsEqual([], node.tags.all())
+
     def test_POST_rebuild_rebuilds_node_mapping(self):
         tag = factory.make_tag(definition='/foo/bar')
         # Only one node matches the tag definition, rebuilding should notice
@@ -2902,6 +2924,18 @@ class TestTagAPI(APITestCase):
         parsed_result = json.loads(response.content)
         self.assertEqual({'rebuilding': tag.name}, parsed_result)
         self.assertItemsEqual([node_matching], tag.node_set.all())
+
+    def test_POST_rebuild_leaves_manual_tags(self):
+        tag = factory.make_tag(definition='')
+        node = factory.make_node()
+        node.tags.add(tag)
+        self.assertItemsEqual([node], tag.node_set.all())
+        self.become_admin()
+        response = self.client.post(self.get_tag_uri(tag), {'op': 'rebuild'})
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual({'rebuilding': tag.name}, parsed_result)
+        self.assertItemsEqual([node], tag.node_set.all())
 
     def test_POST_rebuild_unknown_404(self):
         self.become_admin()
@@ -2953,6 +2987,24 @@ class TestTagsAPI(APITestCase):
         self.assertEqual(name, parsed_result['name'])
         self.assertEqual(comment, parsed_result['comment'])
         self.assertEqual(definition, parsed_result['definition'])
+        self.assertTrue(Tag.objects.filter(name=name).exists())
+
+    def test_POST_new_without_definition_creates_tag(self):
+        self.become_admin()
+        name = factory.getRandomString()
+        comment = factory.getRandomString()
+        response = self.client.post(
+            self.get_uri('tags/'),
+            {
+                'op': 'new',
+                'name': name,
+                'comment': comment,
+            })
+        self.assertEqual(httplib.OK, response.status_code)
+        parsed_result = json.loads(response.content)
+        self.assertEqual(name, parsed_result['name'])
+        self.assertEqual(comment, parsed_result['comment'])
+        self.assertEqual("", parsed_result['definition'])
         self.assertTrue(Tag.objects.filter(name=name).exists())
 
     def test_POST_new_invalid_tag_name(self):
@@ -4045,48 +4097,76 @@ class TestBootImagesAPI(APITestCase):
         ('celery', FixtureResource(CeleryFixture())),
         )
 
-    def report_images(self, images, client=None):
+    def report_images(self, nodegroup, images, client=None):
         if client is None:
             client = self.client
         return client.post(
-            reverse('boot_images_handler'),
-            {'op': 'report_boot_images', 'images': json.dumps(images)})
+            reverse('boot_images_handler'), {
+                'images': json.dumps(images),
+                'nodegroup': nodegroup.uuid,
+                'op': 'report_boot_images',
+                })
 
     def test_report_boot_images_does_not_work_for_normal_user(self):
-        NodeGroup.objects.ensure_master()
+        nodegroup = NodeGroup.objects.ensure_master()
         log_in_as_normal_user(self.client)
-        response = self.report_images([])
-        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        response = self.report_images(nodegroup, [])
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code, response.content)
 
     def test_report_boot_images_works_for_master_worker(self):
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([], client=client)
+        nodegroup = NodeGroup.objects.ensure_master()
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [], client=client)
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_report_boot_images_stores_images(self):
+        nodegroup = NodeGroup.objects.ensure_master()
         image = make_boot_image_params()
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([image], client=client)
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
         self.assertTrue(
-            BootImage.objects.have_image(**image))
+            BootImage.objects.have_image(nodegroup=nodegroup, **image))
 
     def test_report_boot_images_ignores_unknown_image_properties(self):
+        nodegroup = NodeGroup.objects.ensure_master()
         image = make_boot_image_params()
         image['nonesuch'] = factory.make_name('nonesuch'),
-        client = make_worker_client(NodeGroup.objects.ensure_master())
-        response = self.report_images([image], client=client)
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
 
     def test_report_boot_images_warns_if_no_images_found(self):
+        nodegroup = NodeGroup.objects.ensure_master()
+        factory.make_node_group()  # Second nodegroup with no images.
         recorder = self.patch(api, 'register_persistent_error')
-        client = make_worker_client(NodeGroup.objects.ensure_master())
+        client = make_worker_client(nodegroup)
+        response = self.report_images(nodegroup, [], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
 
-        response = self.report_images([], client=client)
+        self.assertIn(
+            COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+        # Check that the persistent error message contains a link to the
+        # clusters listing.
+        self.assertIn(
+            "/settings/#accepted-clusters", recorder.call_args_list[0][0][1])
+
+    def test_report_boot_images_warns_if_any_nodegroup_has_no_images(self):
+        nodegroup = NodeGroup.objects.ensure_master()
+        # Second nodegroup with no images.
+        factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+        recorder = self.patch(api, 'register_persistent_error')
+        client = make_worker_client(nodegroup)
+        image = make_boot_image_params()
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
@@ -4095,13 +4175,24 @@ class TestBootImagesAPI(APITestCase):
             COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])
 
+    def test_report_boot_images_ignores_non_accepted_groups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        recorder = self.patch(api, 'register_persistent_error')
+        client = make_worker_client(nodegroup)
+        image = make_boot_image_params()
+        response = self.report_images(nodegroup, [image], client=client)
+        self.assertEqual(0, recorder.call_count)
+
     def test_report_boot_images_removes_warning_if_images_found(self):
         self.patch(api, 'register_persistent_error')
         self.patch(api, 'discard_persistent_error')
-        client = make_worker_client(NodeGroup.objects.ensure_master())
+        nodegroup = factory.make_node_group()
+        image = make_boot_image_params()
+        client = make_worker_client(nodegroup)
 
-        response = self.report_images(
-            [make_boot_image_params()], client=client)
+        response = self.report_images(nodegroup, [image], client=client)
         self.assertEqual(
             (httplib.OK, "OK"),
             (response.status_code, response.content))
@@ -4113,15 +4204,20 @@ class TestBootImagesAPI(APITestCase):
             COMPONENT.IMPORT_PXE_FILES)
 
     def test_worker_calls_report_boot_images(self):
+        # report_boot_images() uses the report_boot_images op on the nodes
+        # handlers to send image information.
         refresh_worker(NodeGroup.objects.ensure_master())
         self.patch(MAASClient, 'post')
         self.patch(tftppath, 'list_boot_images', Mock(return_value=[]))
+        self.patch(boot_images, "get_cluster_uuid")
 
         tasks.report_boot_images.delay()
 
+        # We're not concerned about the payloads (images and nodegroup) here;
+        # those are tested in provisioningserver.tests.test_boot_images.
         MAASClient.post.assert_called_once_with(
             reverse('boot_images_handler').lstrip('/'), 'report_boot_images',
-            images=json.dumps([]))
+            images=ANY, nodegroup=ANY)
 
 
 class TestDescribe(AnonAPITestCase):

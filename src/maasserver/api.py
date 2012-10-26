@@ -163,6 +163,7 @@ from maasserver.preseed import (
     )
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import (
+    absolute_reverse,
     map_enum,
     strip_domain,
     )
@@ -1555,6 +1556,10 @@ class TagHandler(OperationsHandler):
 
         :param add: system_ids of nodes to add to this tag.
         :param remove: system_ids of nodes to remove from this tag.
+        :param definition: (optional) If supplied, the definition will be
+            validated against the current definition of the tag. If the value
+            does not match, then the update will be dropped (assuming this was
+            just a case of a worker being out-of-date)
         :param nodegroup: A uuid of a nodegroup being processed. This value is
             optional. If not supplied, the requester must be a superuser. If
             supplied, then the requester must be the worker associated with
@@ -1570,6 +1575,12 @@ class TagHandler(OperationsHandler):
                     'Must be a superuser or supply a nodegroup')
             nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
             check_nodegroup_access(request, nodegroup)
+        definition = request.data.get('definition', None)
+        if definition is not None and tag.definition != definition:
+            return HttpResponse(
+                "Definition supplied '%s' doesn't match current definition '%s'"
+                % (definition, tag.definition),
+                status=httplib.CONFLICT)
         nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
         tag.node_set.add(*nodes_to_add)
         nodes_to_remove = self._get_nodes_for(request, 'remove', nodegroup)
@@ -1864,24 +1875,34 @@ class BootImagesHandler(OperationsHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
-        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
+        nodegroup_uuid = get_mandatory_param(request.data, "nodegroup")
+        nodegroup = get_object_or_404(NodeGroup, uuid=nodegroup_uuid)
+        check_nodegroup_access(request, nodegroup)
         images = json.loads(get_mandatory_param(request.data, 'images'))
 
         for image in images:
             BootImage.objects.register_image(
+                nodegroup=nodegroup,
                 architecture=image['architecture'],
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],
                 purpose=image['purpose'])
 
-        if len(images) == 0:
+        # Work out if any nodegroups are missing images.
+        nodegroup_ids_with_images = BootImage.objects.values_list(
+            "nodegroup_id", flat=True)
+        nodegroups_missing_images = NodeGroup.objects.exclude(
+            id__in=nodegroup_ids_with_images).filter(
+                status=NODEGROUP_STATUS.ACCEPTED)
+        if nodegroups_missing_images.exists():
             warning = dedent("""\
-                No boot images have been imported yet.  Either the
+                Some cluster controllers are missing boot images.  Either the
                 maas-import-pxe-files script has not run yet, or it failed.
 
-                Try running it manually.  If it succeeds, this message will
-                go away within 5 minutes.
-                """)
+                Try running it manually on the affected
+                <a href="%s#accepted-clusters">cluster controllers.</a>
+                If it succeeds, this message will go away within 5 minutes.
+                """ % absolute_reverse("settings"))
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
         else:
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
