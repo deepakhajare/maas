@@ -1846,13 +1846,12 @@ def pxeconfig(request):
 
     purpose = get_boot_purpose(node)
     server_address = get_maas_facing_server_address()
-    cluster_host_port = get_mandatory_param(request.GET, "local")
-    cluster_host, cluster_port = cluster_host_port.rsplit(":")
+    cluster_address = get_mandatory_param(request.GET, "local")
 
     params = KernelParameters(
         arch=arch, subarch=subarch, release=series, purpose=purpose,
         hostname=hostname, domain=domain, preseed_url=preseed_url,
-        log_host=server_address, fs_host=cluster_host)
+        log_host=server_address, fs_host=cluster_address)
 
     return HttpResponse(
         json.dumps(params._asdict()),
