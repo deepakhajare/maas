@@ -334,7 +334,7 @@ class UserDataHandler(MetadataViewHandler):
                 mimetype='application/octet-stream')
         except NodeUserData.DoesNotExist:
             logger.info(
-                "No user data for node named %s was found" % node.hostname)
+                "No user data registered for node named %s" % node.hostname)
             return HttpResponse(status=httplib.NOT_FOUND)
 
 
