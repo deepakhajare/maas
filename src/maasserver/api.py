@@ -889,9 +889,12 @@ class NodesHandler(OperationsHandler):
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         if match_macs is not None:
             nodes = nodes.filter(macaddress__mac_address__in=match_macs)
-        # Prefetch related macaddresses and tags.
+        # Prefetch related macaddresses, tags and nodegroups (plus
+        # related interfaces).
         nodes = nodes.prefetch_related('macaddress_set__node')
         nodes = nodes.prefetch_related('tags')
+        nodes = nodes.prefetch_related('nodegroup')
+        nodes = nodes.prefetch_related('nodegroup__nodegroupinterface_set')
         return nodes.order_by('id')
 
     @operation(idempotent=True)
