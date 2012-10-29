@@ -767,6 +767,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'netboot',
                 'power_type',
                 'tag_names',
+                'resource_uri',
             ],
             list(parsed_result))
 
