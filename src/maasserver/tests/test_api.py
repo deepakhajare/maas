@@ -1310,41 +1310,6 @@ class TestNodeAPI(APITestCase):
 
         self.assertEqual(httplib.OK, response.status_code)
 
-    def test_PUT_refuses_to_update_hostname_on_allocated_node(self):
-        # A node's hostname can't be changed while it's in use.  Juju
-        # may still want to refer to the node by its existing hostname.
-        old_name = factory.make_name('old-hostname')
-        new_name = factory.make_name('new-hostname')
-        node = factory.make_node(
-            owner=self.logged_in_user, hostname=old_name,
-            status=NODE_STATUS.ALLOCATED)
-        response = self.client.put(
-            self.get_node_uri(node), {'hostname': new_name})
-        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
-        expected_text = (
-            "Can't change hostname to %s: node is in use." % new_name)
-        self.assertEqual(
-            (httplib.BAD_REQUEST, expected_text),
-            (response.status_code, response.content))
-        self.assertEqual(old_name, reload_object(node).hostname)
-
-    def test_PUT_accepts_unchanged_hostname_on_allocated_node(self):
-        node = factory.make_node(
-            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED)
-        old_name = node.hostname
-        response = self.client.put(
-            self.get_node_uri(node), {'hostname': node.hostname})
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(old_name, reload_object(node).hostname)
-
-    def test_PUT_accepts_omitted_hostname_on_allocated_node(self):
-        node = factory.make_node(
-            owner=self.logged_in_user, status=NODE_STATUS.ALLOCATED)
-        old_name = node.hostname
-        response = self.client.put(self.get_node_uri(node), {})
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(old_name, reload_object(node).hostname)
-
     def test_PUT_admin_can_change_power_type(self):
         self.become_admin()
         original_power_type = factory.getRandomChoice(

@@ -507,15 +507,6 @@ class NodeHandler(OperationsHandler):
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         data = get_overrided_query_dict(model_to_dict(node), request.data)
 
-        # Don't allow the hostname to be changed if the node is
-        # currently allocated.  Juju knows the node by its old name, so
-        # changing the name would confuse things.
-        data_hostname = data.get('hostname', node.hostname)
-        hostname_changed = (data_hostname != node.hostname)
-        if hostname_changed and node.status == NODE_STATUS.ALLOCATED:
-            raise ValidationError(
-                "Can't change hostname to %s: node is in use." % data_hostname)
-
         Form = get_node_edit_form(request.user)
         form = Form(data, instance=node)
         if form.is_valid():
