@@ -440,7 +440,6 @@ DISPLAYED_NODE_FIELDS = (
     'status',
     'netboot',
     'power_type',
-    'power_parameters',
     'tag_names',
     )
 
@@ -987,7 +986,7 @@ def get_file(handler, request):
         db_file = FileStorage.objects.get(filename=filename)
     except FileStorage.DoesNotExist:
         raise MAASAPINotFound("File not found")
-    return HttpResponse(db_file.data.read(), status=httplib.OK)
+    return HttpResponse(db_file.content, status=httplib.OK)
 
 
 class AnonFilesHandler(AnonymousOperationsHandler):
@@ -1578,7 +1577,8 @@ class TagHandler(OperationsHandler):
         definition = request.data.get('definition', None)
         if definition is not None and tag.definition != definition:
             return HttpResponse(
-                "Definition supplied '%s' doesn't match current definition '%s'"
+                "Definition supplied '%s' "
+                "doesn't match current definition '%s'"
                 % (definition, tag.definition),
                 status=httplib.CONFLICT)
         nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
