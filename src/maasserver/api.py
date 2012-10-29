@@ -478,6 +478,12 @@ class NodeHandler(OperationsHandler):
     model = Node
     fields = DISPLAYED_NODE_FIELDS
 
+    # Override the 'hostname' field so that it returns the FQDN instead as
+    # this is used by Juju to reach that node.
+    @classmethod
+    def hostname(handler, node):
+        return node.fqdn
+
     def read(self, request, system_id):
         """Read a specific Node."""
         return Node.objects.get_node_or_404(
@@ -651,7 +657,14 @@ def create_node(request):
 class AnonNodesHandler(AnonymousOperationsHandler):
     """Anonymous access to Nodes."""
     create = read = update = delete = None
+    model = Node
     fields = DISPLAYED_NODE_FIELDS
+
+    # Override the 'hostname' field so that it returns the FQDN instead as
+    # this is used by Juju to reach that node.
+    @classmethod
+    def hostname(handler, node):
+        return node.fqdn
 
     @operation(idempotent=False)
     def new(self, request):
