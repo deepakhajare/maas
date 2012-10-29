@@ -382,7 +382,8 @@ class WithMACAddressesMixin:
         hostname = self.cleaned_data['hostname']
         stripped_hostname = strip_domain(hostname)
         # Generate a hostname for this node if the provided hostname is
-        # IP-based or an empty string.
+        # IP-based (because this means that this name comes from a DNS
+        # reverse query to the MAAS DNS) or an empty string.
         generate_hostname = (
             hostname == "" or
             IP_BASED_HOSTNAME_REGEXP.match(stripped_hostname) != None)
