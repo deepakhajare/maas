@@ -683,7 +683,6 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'status',
                 'netboot',
                 'power_type',
-                'power_parameters',
                 'tag_names',
             ],
             list(parsed_result))
@@ -759,7 +758,6 @@ class SimpleUserLoggedInEnlistmentAPITest(APIv10TestMixin, LoggedInTestCase):
                 'status',
                 'netboot',
                 'power_type',
-                'power_parameters',
                 'resource_uri',
                 'tag_names',
             ],
@@ -900,7 +898,6 @@ class AdminLoggedInEnlistmentAPITest(APIv10TestMixin, AdminLoggedInTestCase):
                 'status',
                 'netboot',
                 'power_type',
-                'power_parameters',
                 'resource_uri',
                 'tag_names',
             ],
@@ -2518,7 +2515,8 @@ class FileStorageAPITestMixin:
 class AnonymousFileStorageAPITest(FileStorageAPITestMixin, AnonAPITestCase):
 
     def test_get_works_anonymously(self):
-        factory.make_file_storage(filename="foofilers", data=b"give me rope")
+        factory.make_file_storage(
+            filename="foofilers", content=b"give me rope")
         response = self.make_API_GET_request("get", "foofilers")
 
         self.assertEqual(httplib.OK, response.status_code)
@@ -2588,7 +2586,8 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
         self.assertEqual("file two", response.content)
 
     def test_get_file_succeeds(self):
-        factory.make_file_storage(filename="foofilers", data=b"give me rope")
+        factory.make_file_storage(
+            filename="foofilers", content=b"give me rope")
         response = self.make_API_GET_request("get", "foofilers")
 
         self.assertEqual(httplib.OK, response.status_code)
@@ -4124,6 +4123,7 @@ class TestBootImagesAPI(APITestCase):
 
     def test_report_boot_images_warns_if_no_images_found(self):
         nodegroup = NodeGroup.objects.ensure_master()
+        factory.make_node_group()  # Second nodegroup with no images.
         recorder = self.patch(api, 'register_persistent_error')
         client = make_worker_client(nodegroup)
         response = self.report_images(nodegroup, [], client=client)
@@ -4134,6 +4134,37 @@ class TestBootImagesAPI(APITestCase):
         self.assertIn(
             COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])
+        # Check that the persistent error message contains a link to the
+        # clusters listing.
+        self.assertIn(
+            "/settings/#accepted-clusters", recorder.call_args_list[0][0][1])
+
+    def test_report_boot_images_warns_if_any_nodegroup_has_no_images(self):
+        nodegroup = NodeGroup.objects.ensure_master()
+        # Second nodegroup with no images.
+        factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+        recorder = self.patch(api, 'register_persistent_error')
+        client = make_worker_client(nodegroup)
+        image = make_boot_image_params()
+        response = self.report_images(nodegroup, [image], client=client)
+        self.assertEqual(
+            (httplib.OK, "OK"),
+            (response.status_code, response.content))
+
+        self.assertIn(
+            COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+
+    def test_report_boot_images_ignores_non_accepted_groups(self):
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        recorder = self.patch(api, 'register_persistent_error')
+        client = make_worker_client(nodegroup)
+        image = make_boot_image_params()
+        response = self.report_images(nodegroup, [image], client=client)
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(0, recorder.call_count)
 
     def test_report_boot_images_removes_warning_if_images_found(self):
         self.patch(api, 'register_persistent_error')
