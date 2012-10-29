@@ -199,7 +199,7 @@ class NodeGroup(TimestampedModel):
         # filtering in SQL so that this will use the cached version of
         # self.nodegroupinterface_set if it is there.
         for interface in self.nodegroupinterface_set.all():
-            if interface.management == NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
+            if interface.management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
                 return interface
         return None
 
