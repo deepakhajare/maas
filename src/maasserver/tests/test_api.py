@@ -3368,6 +3368,14 @@ class TestPXEConfigAPI(AnonAPITestCase):
             fake_boot_purpose,
             json.loads(response.content)["purpose"])
 
+    def test_pxeconfig_returns_fs_host_as_cluster_controller(self):
+        # The kernel parameter `fs_host` points to the cluster controller
+        # address, which is passed over within the `local` parameter.
+        params = self.get_default_params()
+        local_host, local_port = params["local"].rsplit(":")
+        kernel_params = KernelParameters(**self.get_pxeconfig(params))
+        self.assertEqual(local_host, kernel_params.fs_host)
+
 
 class TestNodeGroupsAPI(APIv10TestMixin, MultipleUsersScenarios, TestCase):
     scenarios = [
