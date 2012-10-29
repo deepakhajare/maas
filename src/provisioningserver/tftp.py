@@ -213,10 +213,12 @@ class TFTPBackend(FilesystemSynchronousBackend):
                 if value is not None
                 }
             # Send the local and remote endpoint addresses.
-            if get("local") is not None:
-                params["local"] = "%s:%d" % get("local")
-            if get("remote") is not None:
-                params["remote"] = "%s:%d" % get("remote")
+            local_host, local_port = get("local", (None, None))
+            if local_host is not None:
+                params["local"] = local_host
+            remote_host, remote_port = get("remote", (None, None))
+            if remote_host is not None:
+                params["remote"] = remote_host
             d = self.get_config_reader(params)
             d.addErrback(self.get_page_errback, file_name)
             return d

@@ -238,8 +238,8 @@ class TestTFTPBackend(TestCase):
         # passed over the wire as address:port strings.
         expected_params = {
             "mac": mac,
-            "local": "%s:%d" % call_context["local"],
-            "remote": "%s:%d" % call_context["remote"],
+            "local": call_context["local"][0],  # address only.
+            "remote": call_context["remote"][0],  # address only.
             }
         observed_params = json.loads(output)
         self.assertEqual(expected_params, observed_params)
