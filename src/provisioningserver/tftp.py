@@ -34,6 +34,7 @@ from tftp.backend import (
     IReader,
     )
 from tftp.errors import FileNotFound
+from twisted.python.context import get
 from twisted.web.client import getPage
 import twisted.web.error
 from zope.interface import implementer
@@ -211,6 +212,11 @@ class TFTPBackend(FilesystemSynchronousBackend):
                 for key, value in config_file_match.groupdict().items()
                 if value is not None
                 }
+            # Send the local and remote endpoint addresses.
+            if get("local") is not None:
+                params["local"] = "%s:%d" % get("local")
+            if get("remote") is not None:
+                params["remote"] = "%s:%d" % get("remote")
             d = self.get_config_reader(params)
             d.addErrback(self.get_page_errback, file_name)
             return d
