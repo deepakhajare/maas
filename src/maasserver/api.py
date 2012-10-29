@@ -1792,6 +1792,8 @@ def pxeconfig(request):
     :param arch: Architecture name (in the pxelinux namespace, eg. 'arm' not
         'armhf').
     :param subarch: Subarchitecture name (in the pxelinux namespace).
+    :param local: The IP address of the cluster controller.
+    :param remote: The IP address of the booting node.
     """
     node = get_node_from_mac_string(request.GET.get('mac', None))
 
