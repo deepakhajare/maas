@@ -804,12 +804,12 @@ class NodeGroupEdit(ModelForm):
     def clean_name(self):
         old_name = self.instance.name
         new_name = self.cleaned_data['name']
-        if not new_name:
-            return old_name
-        if new_name == old_name:
+        if new_name == old_name or not new_name:
+            # No change to the name.  Return old name.
             return old_name
 
-        return new_name
+        raise ValidationError(
+            "Can't rename DNS zone to %s; nodes are in use." % new_name)
 
 
 class TagForm(ModelForm):
