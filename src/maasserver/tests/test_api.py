@@ -700,6 +700,29 @@ class NodeHostnameEnlistmentTest(APIv10TestMixin, MultipleUsersScenarios,
         self.assertEqual(
             expected_hostname, parsed_result.get('hostname'))
 
+    def test_created_node_gets_domain_from_cluster_appended(self):
+        hostname_without_domain = factory.make_name('hostname')
+        domain = factory.make_name('domain')
+        factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            name=domain,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname_without_domain,
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': [factory.getRandomMACAddress()],
+            })
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        parsed_result = json.loads(response.content)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        self.assertEqual(
+            expected_hostname, parsed_result.get('hostname'))
+
 
 class NonAdminEnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios,
                                 TestCase):
