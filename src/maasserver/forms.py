@@ -801,6 +801,16 @@ class NodeGroupEdit(ModelForm):
             'name',
             )
 
+    def clean_name(self):
+        old_name = self.instance.name
+        new_name = self.cleaned_data['name']
+        if not new_name:
+            return old_name
+        if new_name == old_name:
+            return old_name
+
+        return new_name
+
 
 class TagForm(ModelForm):
 
