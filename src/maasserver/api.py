@@ -89,7 +89,6 @@ import httplib
 from inspect import getdoc
 import sys
 from textwrap import dedent
-from urlparse import urljoin
 
 from celery.app import app_or_default
 from django.conf import settings
@@ -1921,12 +1920,12 @@ def describe(request):
         for resource in find_api_resources(urlconf)
         ]
     # Make all URIs absolute.
+    absolute = request.build_absolute_uri
     for resource in resources:
         for handler_type in "anon", "auth":
             handler = resource[handler_type]
             if handler is not None:
-                handler["uri"] = urljoin(
-                    settings.DEFAULT_MAAS_URL, handler["uri"])
+                handler["uri"] = absolute(handler["uri"])
     # Package it all up.
     description = {
         "doc": "MAAS API",

@@ -4226,14 +4226,24 @@ class TestDescribe(AnonAPITestCase):
             {"doc", "handlers", "resources"}, set(description))
         self.assertIsInstance(description["handlers"], list)
 
+
+class TestDescribeAbsoluteURIs(AnonAPITestCase):
+    """Tests for the `describe` view's URI manipulation."""
+
+    scenarios = (
+        ("http", dict(scheme="http")),
+        ("https", dict(scheme="https")),
+        )
+
     def test_handler_uris_are_absolute(self):
-        valid_schemes = {"http", "https"}
-        response = self.client.get(reverse('describe'))
+        server = factory.make_name("server").lower()
+        extra = {"SERVER_NAME": server, "wsgi.url_scheme": self.scheme}
+        response = self.client.get(reverse('describe'), **extra)
         description = json.loads(response.content)
         for resource in description["resources"]:
             for handler_type in "anon", "auth":
                 handler = resource[handler_type]
                 if handler is not None:
                     uri = urlparse(handler["uri"])
-                    self.assertIn(uri.scheme, valid_schemes)
-                    self.assertNotEqual("", uri.netloc)
+                    self.assertEqual(server, uri.hostname)
+                    self.assertEqual(self.scheme, uri.scheme)
