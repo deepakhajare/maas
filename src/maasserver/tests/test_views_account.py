@@ -34,3 +34,12 @@ class TestLogin(TestCase):
         response = self.client.get('/accounts/login/')
         self.assertTrue(response.context['no_users'])
         self.assertEqual(path, response.context['create_command'])
+    
+    def test_login_redirects_when_authenticated(self):
+        name = factory.getRandomString()
+        password = factory.getRandomString()
+        factory.make_user(name, password)
+        self.client.login(username=name, password=password)
+        response = self.client.get('/accounts/login/', follow=True)
+        self.assertEqual(302, response.redirect_chain[0][1])
+        self.assertEqual('http://testserver/', response.redirect_chain[0][0])
