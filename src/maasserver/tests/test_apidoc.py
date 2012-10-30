@@ -234,7 +234,7 @@ class TestDescribingAPI(TestCase):
         # The URI is a URI Template <http://tools.ietf.org/html/rfc6570>, the
         # components of which correspond to the parameters declared.
         self.assertEqual(
-            "http://example.com/api/1.0/nodes/{system_id}/",
+            "api/1.0/nodes/{system_id}/",
             description["uri"])
 
     def test_describe_resource_anonymous_resource(self):

@@ -19,9 +19,7 @@ __all__ = [
 
 from inspect import getdoc
 from itertools import izip_longest
-from urlparse import urljoin
 
-from django.conf import settings
 from django.core.urlresolvers import (
     get_resolver,
     RegexURLPattern,
@@ -138,10 +136,7 @@ def describe_handler(handler):
         handler = type(handler)
 
     uri_template = generate_doc(handler).resource_uri_template
-    if uri_template is None:
-        uri_template = settings.DEFAULT_MAAS_URL
-    else:
-        uri_template = urljoin(settings.DEFAULT_MAAS_URL, uri_template)
+    uri_template = "" if uri_template is None else uri_template.lstrip("/")
 
     resource_uri = getattr(handler, "resource_uri", lambda: ())
     view_name, uri_params, uri_kw = merge(resource_uri(), (None, (), {}))
