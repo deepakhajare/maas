@@ -808,8 +808,19 @@ class NodeGroupEdit(ModelForm):
             # No change to the name.  Return old name.
             return old_name
 
-        raise ValidationError(
-            "Can't rename DNS zone to %s; nodes are in use." % new_name)
+        interface = self.instance.get_managed_interface()
+        if interface.management != NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS:
+            # MAAS is not managing DNS on this network, so the user can
+            # rename the zone at will.
+            return new_name
+
+        nodes_in_use = Node.objects.filter(
+            nodegroup=self.instance, status=NODE_STATUS.ALLOCATED)
+        if nodes_in_use.exists():
+            raise ValidationError(
+                "Can't rename DNS zone to %s; nodes are in use." % new_name)
+
+        return new_name
 
 
 class TagForm(ModelForm):
