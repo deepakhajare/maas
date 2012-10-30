@@ -290,6 +290,7 @@ class HostTransport(object):
 class BackendCallingContext(unittest.TestCase):
 
     def setUp(self):
+        super(BackendCallingContext, self).setUp()
         self.backend = ContextCapturingBackend("local", "remote")
         self.tftp = TFTP(self.backend)
         self.tftp.transport = HostTransport(("12.34.56.78", 1234))
