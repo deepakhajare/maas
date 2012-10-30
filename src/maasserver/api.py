@@ -89,6 +89,7 @@ import httplib
 from inspect import getdoc
 import sys
 from textwrap import dedent
+from urlparse import urljoin
 
 from celery.app import app_or_default
 from django.conf import settings
@@ -1915,12 +1916,21 @@ def describe(request):
     Returns a JSON object describing the whole MAAS API.
     """
     from maasserver import urls_api as urlconf
+    resources = [
+        describe_resource(resource)
+        for resource in find_api_resources(urlconf)
+        ]
+    # Make all URIs absolute.
+    for resource in resources:
+        for handler_type in "anon", "auth":
+            handler = resource[handler_type]
+            if handler is not None:
+                handler["uri"] = urljoin(
+                    settings.DEFAULT_MAAS_URL, handler["uri"])
+    # Package it all up.
     description = {
         "doc": "MAAS API",
-        "resources": [
-            describe_resource(resource)
-            for resource in find_api_resources(urlconf)
-            ],
+        "resources": resources,
         }
     # For backward compatibility, add "handlers" as an alias for all not-None
     # anon and auth handlers in "resources".

@@ -31,6 +31,7 @@ import os
 import random
 import shutil
 import sys
+from urlparse import urlparse
 
 from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
@@ -4224,3 +4225,15 @@ class TestDescribe(AnonAPITestCase):
         self.assertSetEqual(
             {"doc", "handlers", "resources"}, set(description))
         self.assertIsInstance(description["handlers"], list)
+
+    def test_handler_uris_are_absolute(self):
+        valid_schemes = {"http", "https"}
+        response = self.client.get(reverse('describe'))
+        description = json.loads(response.content)
+        for resource in description["resources"]:
+            for handler_type in "anon", "auth":
+                handler = resource[handler_type]
+                if handler is not None:
+                    uri = urlparse(handler["uri"])
+                    self.assertIn(uri.scheme, valid_schemes)
+                    self.assertNotEqual("", uri.netloc)
