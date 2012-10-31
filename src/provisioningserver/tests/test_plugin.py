@@ -30,6 +30,11 @@ from testtools.deferredruntest import (
     AsynchronousDeferredRunTest,
     )
 from testtools.matchers import (
+    AfterPreprocessing,
+    AllMatch,
+    Equals,
+    IsInstance,
+    MatchesAll,
     MatchesException,
     Raises,
     )
@@ -143,19 +148,39 @@ class TestProvisioningServiceMaker(TestCase):
         # The "tftp" service is a multi-service containing UDP servers for
         # each interface defined by get_all_interface_addresses().
         self.assertIsInstance(tftp_services, MultiService)
-        for interface in interfaces:
-            tftp_service = tftp_services.getServiceNamed(interface)
-            self.assertIsInstance(tftp_service, UDPServer)
-            port, protocol = tftp_service.args
-            self.assertEqual(config["tftp"]["port"], port)
-            self.assertIsInstance(protocol, TFTP)
-            self.assertIsInstance(protocol.backend, TFTPBackend)
-            self.assertEqual({"interface": interface}, tftp_service.kwargs)
-            self.assertEqual(
-                (config["tftp"]["root"],
-                 config["tftp"]["generator"]),
-                (protocol.backend.base.path,
-                 protocol.backend.generator_url.geturl()))
+        services = [
+            tftp_services.getServiceNamed(interface)
+            for interface in interfaces
+            ]
+        expected_backend = MatchesAll(
+            IsInstance(TFTPBackend),
+            AfterPreprocessing(
+                lambda backend: backend.base.path,
+                Equals(config["tftp"]["root"])),
+            AfterPreprocessing(
+                lambda backend: backend.generator_url.geturl(),
+                Equals(config["tftp"]["generator"])))
+        expected_protocol = MatchesAll(
+            IsInstance(TFTP),
+            AfterPreprocessing(
+                lambda protocol: protocol.backend,
+                expected_backend))
+        expected_service = MatchesAll(
+            IsInstance(UDPServer),
+            AfterPreprocessing(
+                lambda service: len(service.args),
+                Equals(2)),
+            AfterPreprocessing(
+                lambda service: service.args[0],  # port
+                Equals(config["tftp"]["port"])),
+            AfterPreprocessing(
+                lambda service: service.args[1],  # protocol
+                expected_protocol))
+        self.assertThat(services, AllMatch(expected_service))
+        # Only the interface used for each service differs.
+        self.assertEqual(
+            [service.kwargs for service in services],
+            [{"interface": interface} for interface in interfaces])
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
