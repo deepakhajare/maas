@@ -17,6 +17,7 @@ import os
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from provisioningserver import plugin
 from provisioningserver.plugin import (
     Options,
     ProvisioningRealm,
@@ -120,6 +121,13 @@ class TestProvisioningServiceMaker(TestCase):
 
     def test_tftp_service(self):
         # A TFTP service is configured and added to the top-level service.
+        interfaces = [
+            factory.getRandomIPAddress(),
+            factory.getRandomIPAddress(),
+            ]
+        self.patch(
+            plugin, "get_all_interface_addresses",
+            lambda: interfaces)
         config = {
             "tftp": {
                 "generator": "http://candlemass/solitude",
@@ -131,17 +139,23 @@ class TestProvisioningServiceMaker(TestCase):
         options["config-file"] = self.write_config(config)
         service_maker = ProvisioningServiceMaker("Harry", "Hill")
         service = service_maker.makeService(options)
-        tftp_service = service.getServiceNamed("tftp")
-        self.assertIsInstance(tftp_service, UDPServer)
-        port, protocol = tftp_service.args
-        self.assertEqual(config["tftp"]["port"], port)
-        self.assertIsInstance(protocol, TFTP)
-        self.assertIsInstance(protocol.backend, TFTPBackend)
-        self.assertEqual(
-            (config["tftp"]["root"],
-             config["tftp"]["generator"]),
-            (protocol.backend.base.path,
-             protocol.backend.generator_url.geturl()))
+        tftp_services = service.getServiceNamed("tftp")
+        # The "tftp" service is a multi-service containing UDP servers for
+        # each interface defined by get_all_interface_addresses().
+        self.assertIsInstance(tftp_services, MultiService)
+        for interface in interfaces:
+            tftp_service = tftp_services.getServiceNamed(interface)
+            self.assertIsInstance(tftp_service, UDPServer)
+            port, protocol = tftp_service.args
+            self.assertEqual(config["tftp"]["port"], port)
+            self.assertIsInstance(protocol, TFTP)
+            self.assertIsInstance(protocol.backend, TFTPBackend)
+            self.assertEqual({"interface": interface}, tftp_service.kwargs)
+            self.assertEqual(
+                (config["tftp"]["root"],
+                 config["tftp"]["generator"]),
+                (protocol.backend.base.path,
+                 protocol.backend.generator_url.geturl()))
 
 
 class TestSingleUsernamePasswordChecker(TestCase):
