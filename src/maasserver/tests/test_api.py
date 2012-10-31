@@ -132,9 +132,12 @@ from provisioningserver.pxe import tftppath
 from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
 from testtools.matchers import (
+    AfterPreprocessing,
     AllMatch,
     Contains,
     Equals,
+    Is,
+    MatchesAny,
     MatchesListwise,
     MatchesStructure,
     StartsWith,
@@ -4240,10 +4243,15 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
         extra = {"SERVER_NAME": server, "wsgi.url_scheme": self.scheme}
         response = self.client.get(reverse('describe'), **extra)
         description = json.loads(response.content)
-        for resource in description["resources"]:
-            for handler_type in "anon", "auth":
-                handler = resource[handler_type]
-                if handler is not None:
-                    uri = urlparse(handler["uri"])
-                    self.assertEqual(server, uri.hostname)
-                    self.assertEqual(self.scheme, uri.scheme)
+        expected_handler = MatchesAny(
+            Is(None), AfterPreprocessing(
+                lambda handler: urlparse(handler["uri"]),
+                MatchesStructure.byEquality(
+                    scheme=self.scheme, hostname=server)))
+        handlers = [
+            resource[handler_type]
+            for resource in description["resources"]
+            for handler_type in "anon", "auth"
+            ]
+        self.assertNotEqual([], handlers)
+        self.assertThat(handlers, AllMatch(expected_handler))
