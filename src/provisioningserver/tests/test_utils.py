@@ -17,7 +17,6 @@ from argparse import (
     Namespace,
     )
 import os
-import netifaces
 from random import randint
 import stat
 import StringIO
@@ -36,12 +35,18 @@ from maastesting.factory import factory
 from maastesting.fakemethod import FakeMethod
 from maastesting.testcase import TestCase
 from mock import Mock
+import netifaces
+from netifaces import (
+    AF_LINK,
+    AF_INET,
+    AF_INET6,
+    )
 import provisioningserver
 from provisioningserver.utils import (
-    get_all_interface_addresses,
     ActionScript,
     atomic_write,
     AtomicWriteScript,
+    get_all_interface_addresses,
     get_mtime,
     incremental_write,
     maas_custom_config_markers,
@@ -66,39 +71,39 @@ class TestInterfaceFunctions(TestCase):
 
     example_interfaces = {
         'eth0': {
-            17: [{'addr': '00:1d:ba:86:aa:fe',
-                  'broadcast': 'ff:ff:ff:ff:ff:ff'}],
+            AF_LINK: [{'addr': '00:1d:ba:86:aa:fe',
+                       'broadcast': 'ff:ff:ff:ff:ff:ff'}],
             },
         'lo': {
-            2: [{'addr': '127.0.0.1',
-                 'netmask': '255.0.0.0',
-                 'peer': '127.0.0.1'}],
-            10: [{'addr': '::1',
-                  'netmask': 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'}],
-            17: [{'addr': '00:00:00:00:00:00',
-                  'peer': '00:00:00:00:00:00'}],
+            AF_INET: [{'addr': '127.0.0.1',
+                       'netmask': '255.0.0.0',
+                       'peer': '127.0.0.1'}],
+            AF_INET6: [{'addr': '::1',
+                        'netmask': 'ff:ff:ff:ff:ff:ff'}],
+            AF_LINK: [{'addr': '00:00:00:00:00:00',
+                       'peer': '00:00:00:00:00:00'}],
             },
         'lxcbr0': {
-            2: [{'addr': '10.0.3.1',
-                 'broadcast': '10.0.3.255',
-                 'netmask': '255.255.255.0'}],
-            10: [{'addr': 'fe80::9894:6fff:fe8b:22%lxcbr0',
-                  'netmask': 'ffff:ffff:ffff:ffff::'}],
-            17: [{'addr': '9a:94:6f:8b:00:22',
-                  'broadcast': 'ff:ff:ff:ff:ff:ff'}]},
+            AF_INET: [{'addr': '10.0.3.1',
+                       'broadcast': '10.0.3.255',
+                       'netmask': '255.255.255.0'}],
+            AF_INET6: [{'addr': 'fe80::9894:6fff:fe8b:22%lxcbr0',
+                        'netmask': 'ffff:ffff:ffff:ffff::'}],
+            AF_LINK: [{'addr': '9a:94:6f:8b:00:22',
+                       'broadcast': 'ff:ff:ff:ff:ff:ff'}]},
         'tun0': {
-            2: [{'addr': '10.99.244.250',
-                 'netmask': '255.255.255.255',
-                 'peer': '10.99.244.249'}],
+            AF_INET: [{'addr': '10.99.244.250',
+                       'netmask': '255.255.255.255',
+                       'peer': '10.99.244.249'}],
             },
         'wlan0': {
-            2: [{'addr': '10.155.1.159',
-                 'broadcast': '10.155.31.255',
-                 'netmask': '255.255.224.0'}],
-            10: [{'addr': 'fe80::221:5dff:fe85:d2e4%wlan0',
-                  'netmask': 'ffff:ffff:ffff:ffff::'}],
-            17: [{'addr': '00:21:5d:85:d2:e4',
-                  'broadcast': 'ff:ff:ff:ff:ff:ff'}],
+            AF_INET: [{'addr': '10.155.1.159',
+                       'broadcast': '10.155.31.255',
+                       'netmask': '255.255.224.0'}],
+            AF_INET6: [{'addr': 'fe80::221:5dff:fe85:d2e4%wlan0',
+                        'netmask': 'ffff:ffff:ffff:ffff::'}],
+            AF_LINK: [{'addr': '00:21:5d:85:dAF_INET:e4',
+                       'broadcast': 'ff:ff:ff:ff:ff:ff'}],
             },
         }
 
