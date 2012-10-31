@@ -1927,7 +1927,7 @@ def describe(request):
         for handler_type in "anon", "auth":
             handler = resource[handler_type]
             if handler is not None:
-                handler["uri"] = absolute(handler["uri"])
+                handler["uri"] = absolute(handler["path"])
     # Package it all up.
     description = {
         "doc": "MAAS API",
