@@ -135,8 +135,8 @@ def describe_handler(handler):
     if isinstance(handler, BaseHandler):
         handler = type(handler)
 
-    uri_template = generate_doc(handler).resource_uri_template
-    uri_template = "" if uri_template is None else uri_template.lstrip("/")
+    path = generate_doc(handler).resource_uri_template
+    path = "" if path is None else path.lstrip("/")
 
     resource_uri = getattr(handler, "resource_uri", lambda: ())
     view_name, uri_params, uri_kw = merge(resource_uri(), (None, (), {}))
@@ -149,7 +149,7 @@ def describe_handler(handler):
         "doc": getdoc(handler),
         "name": handler.__name__,
         "params": uri_params,
-        "uri": uri_template,
+        "path": path,
         }
 
 

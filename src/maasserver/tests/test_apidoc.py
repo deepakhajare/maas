@@ -203,7 +203,7 @@ class TestDescribingAPI(TestCase):
         observed = describe_handler(ExampleHandler)
         # The description contains several entries.
         self.assertSetEqual(
-            {"actions", "doc", "name", "params", "uri"},
+            {"actions", "doc", "name", "params", "path"},
             set(observed))
         self.assertEqual(ExampleHandler.__doc__, observed["doc"])
         self.assertEqual(ExampleHandler.__name__, observed["name"])
@@ -235,7 +235,7 @@ class TestDescribingAPI(TestCase):
         # components of which correspond to the parameters declared.
         self.assertEqual(
             "api/1.0/nodes/{system_id}/",
-            description["uri"])
+            description["path"])
 
     def test_describe_resource_anonymous_resource(self):
         # When the resource does not require authentication, any configured
