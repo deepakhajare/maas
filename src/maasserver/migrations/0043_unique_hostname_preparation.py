@@ -13,7 +13,6 @@ class Migration(DataMigration):
             other_nodes = (
                 orm['maasserver.node'].objects.filter(
                     hostname=node.hostname).exclude(id=node.id))
-            import pdb;pdb.set_trace()
             if other_nodes.exists():
                 number = 1
                 while True:
