@@ -173,3 +173,11 @@ class TestBuildAbsoluteURI(TestCase):
         self.assertEqual(
             "http://example.com/foobar",
             build_absolute_uri(request, "bar"))
+
+    def test_preserve_two_leading_slashes(self):
+        # Whilst this shouldn't ordinarily happen, two leading slashes in the
+        # path should be preserved, and not treated specially.
+        request = self.make_request(path="//foo/bar", path_info="/bar")
+        self.assertEqual(
+            "http://example.com//foo/fred",
+            build_absolute_uri(request, "/fred"))

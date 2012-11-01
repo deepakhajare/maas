@@ -19,10 +19,7 @@ __all__ = [
     ]
 
 from urllib import urlencode
-from urlparse import (
-    urljoin,
-    urlparse,
-    )
+from urlparse import urljoin
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -102,6 +99,6 @@ def build_absolute_uri(request, path):
     assert request.path.endswith(request.path_info)
     trim = len(request.path_info)
     lead = request.path if trim == 0 else request.path[:-trim]
-    return urlparse(lead + path)._replace(
-        scheme=("https" if request.is_secure() else "http"),
-        netloc=request.get_host()).geturl()
+    return "%s://%s%s%s" % (
+        "https" if request.is_secure() else "http",
+        request.get_host(), lead, path)
