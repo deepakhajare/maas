@@ -9,7 +9,6 @@ from south.v2 import DataMigration
 class Migration(DataMigration):
 
     def forwards(self, orm):
-        "Write your forwards methods here."
         for node in orm['maasserver.node'].objects.all():
             other_nodes = (
                 orm['maasserver.node'].objects.filter(
@@ -27,7 +26,7 @@ class Migration(DataMigration):
 
 
     def backwards(self, orm):
-        "Write your backwards methods here."
+        pass
 
     models = {
         'auth.group': {
