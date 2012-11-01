@@ -31,6 +31,7 @@ __all__ = [
 
 import collections
 import json
+import re
 
 from django import forms
 from django.contrib import messages
@@ -62,6 +63,7 @@ from maasserver.enum import (
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
     NODE_STATUS,
+    NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
     )
@@ -81,6 +83,7 @@ from maasserver.models import (
 from maasserver.models.nodegroup import NODEGROUP_CLUSTER_NAME_TEMPLATE
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
+from maasserver.utils import strip_domain
 from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
@@ -333,6 +336,9 @@ def initialize_node_group(node, form_value=None):
         node.nodegroup = form_value
 
 
+IP_BASED_HOSTNAME_REGEXP = re.compile('\d{1,3}-\d{1,3}-\d{1,3}-\d{1,3}')
+
+
 class WithMACAddressesMixin:
     """A form mixin which dynamically adds a MultipleMACAddressField to the
     list of fields.  This mixin also overrides the 'save' method to persist
@@ -388,7 +394,15 @@ class WithMACAddressesMixin:
         node.save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
-        if self.cleaned_data['hostname'] == "":
+        hostname = self.cleaned_data['hostname']
+        stripped_hostname = strip_domain(hostname)
+        # Generate a hostname for this node if the provided hostname is
+        # IP-based (because this means that this name comes from a DNS
+        # reverse query to the MAAS DNS) or an empty string.
+        generate_hostname = (
+            hostname == "" or
+            IP_BASED_HOSTNAME_REGEXP.match(stripped_hostname) != None)
+        if generate_hostname:
             node.set_mac_based_hostname(self.cleaned_data['mac_addresses'][0])
         return node
 
@@ -806,6 +820,31 @@ class NodeGroupEdit(ModelForm):
             'status',
             'name',
             )
+
+    def clean_name(self):
+        old_name = self.instance.name
+        new_name = self.cleaned_data['name']
+        if new_name == old_name or not new_name:
+            # No change to the name.  Return old name.
+            return old_name
+
+        if self.instance.status != NODEGROUP_STATUS.ACCEPTED:
+            # This nodegroup is not in use.  Change it at will.
+            return new_name
+
+        interface = self.instance.get_managed_interface()
+        if interface.management != NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS:
+            # MAAS is not managing DNS on this network, so the user can
+            # rename the zone at will.
+            return new_name
+
+        nodes_in_use = Node.objects.filter(
+            nodegroup=self.instance, status=NODE_STATUS.ALLOCATED)
+        if nodes_in_use.exists():
+            raise ValidationError(
+                "Can't rename DNS zone to %s; nodes are in use." % new_name)
+
+        return new_name
 
 
 class TagForm(ModelForm):

@@ -25,6 +25,7 @@ from maasserver.utils import (
     build_absolute_uri,
     get_db_state,
     map_enum,
+    strip_domain,
     )
 from maastesting.testcase import TestCase
 
@@ -167,3 +168,17 @@ class TestBuildAbsoluteURI(TestCase):
         self.assertEqual(
             "http://example.com//foo/fred",
             build_absolute_uri(request, "/fred"))
+
+
+class TestStripDomain(TestCase):
+
+    def test_strip_domain(self):
+        input_and_results = [
+            ('name.domain',  'name'),
+            ('name', 'name'),
+            ('name.domain.what', 'name'),
+            ('name..domain', 'name'),
+            ]
+        inputs = [input for input, _ in input_and_results]
+        results = [result for _, result in input_and_results]
+        self.assertEqual(results, map(strip_domain, inputs))

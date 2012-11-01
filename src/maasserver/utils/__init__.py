@@ -16,6 +16,7 @@ __all__ = [
     'get_db_state',
     'ignore_unused',
     'map_enum',
+    'strip_domain',
     ]
 
 from urllib import urlencode
@@ -100,3 +101,8 @@ def build_absolute_uri(request, path):
     return "%s://%s%s%s" % (
         "https" if request.is_secure() else "http",
         request.get_host(), script_name, path)
+
+
+def strip_domain(hostname):
+    """Return `hostname` with the domain part removed."""
+    return hostname.split('.', 1)[0]

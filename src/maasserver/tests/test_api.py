@@ -390,6 +390,25 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         [diane] = Node.objects.filter(hostname='diane')
         self.assertEqual(architecture, diane.architecture)
 
+    def test_POST_new_generates_hostname_if_ip_based_hostname(self):
+        hostname = '192-168-5-19.domain'
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname,
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': [factory.getRandomMACAddress()],
+            })
+        parsed_result = json.loads(response.content)
+
+        self.assertEqual(httplib.OK, response.status_code)
+        system_id = parsed_result.get('system_id')
+        node = Node.objects.get(system_id=system_id)
+        self.assertNotEqual(hostname, node.hostname)
+
     def test_POST_new_creates_node_with_power_parameters(self):
         # We're setting power parameters so we disable start_commissioning to
         # prevent anything from attempting to issue power instructions.
@@ -627,6 +646,93 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
         self.assertItemsEqual(['architecture'], parsed_result)
 
 
+class NodeHostnameTest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
+
+    scenarios = [
+        ('user', dict(userfactory=factory.make_user)),
+        ('admin', dict(userfactory=factory.make_admin)),
+        ]
+
+    def test_GET_list_returns_fqdn_with_domain_name_from_cluster(self):
+        # If DNS management is enabled, the domain part of a hostname
+        # is replaced by the domain name defined on the cluster.
+        hostname_without_domain = factory.make_name('hostname')
+        hostname_with_domain = '%s.%s' % (
+            hostname_without_domain, factory.getRandomString())
+        domain = factory.make_name('domain')
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            name=domain,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        node = factory.make_node(
+            hostname=hostname_with_domain, nodegroup=nodegroup)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        response = self.client.get(self.get_uri('nodes/'), {'op': 'list'})
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        parsed_result = json.loads(response.content)
+        self.assertItemsEqual(
+            [expected_hostname],
+            [node.get('hostname') for node in parsed_result])
+
+
+class NodeHostnameEnlistmentTest(APIv10TestMixin, MultipleUsersScenarios,
+                                 TestCase):
+
+    scenarios = [
+        ('anon', dict(userfactory=lambda: AnonymousUser())),
+        ('user', dict(userfactory=factory.make_user)),
+        ('admin', dict(userfactory=factory.make_admin)),
+        ]
+
+    def test_created_node_has_domain_from_cluster(self):
+        hostname_without_domain = factory.make_name('hostname')
+        hostname_with_domain = '%s.%s' % (
+            hostname_without_domain, factory.getRandomString())
+        domain = factory.make_name('domain')
+        factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            name=domain,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname_with_domain,
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': [factory.getRandomMACAddress()],
+            })
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        parsed_result = json.loads(response.content)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        self.assertEqual(
+            expected_hostname, parsed_result.get('hostname'))
+
+    def test_created_node_gets_domain_from_cluster_appended(self):
+        hostname_without_domain = factory.make_name('hostname')
+        domain = factory.make_name('domain')
+        factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            name=domain,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        response = self.client.post(
+            self.get_uri('nodes/'),
+            {
+                'op': 'new',
+                'hostname': hostname_without_domain,
+                'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES),
+                'after_commissioning_action':
+                    NODE_AFTER_COMMISSIONING_ACTION.DEFAULT,
+                'mac_addresses': [factory.getRandomMACAddress()],
+            })
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        parsed_result = json.loads(response.content)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        self.assertEqual(
+            expected_hostname, parsed_result.get('hostname'))
+
+
 class NonAdminEnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios,
                                 TestCase):
     # Enlistment tests for non-admin users.
@@ -693,6 +799,7 @@ class AnonymousEnlistmentAPITest(APIv10TestMixin, TestCase):
                 'netboot',
                 'power_type',
                 'tag_names',
+                'resource_uri',
             ],
             list(parsed_result))
 
@@ -3211,11 +3318,16 @@ class TestAnonymousCommissioningTimeout(APIv10TestMixin, TestCase):
 
 class TestPXEConfigAPI(AnonAPITestCase):
 
-    def get_mac_params(self):
-        return {'mac': factory.make_mac_address().mac_address}
-
     def get_default_params(self):
-        return dict()
+        return {
+            "local": factory.getRandomIPAddress(),
+            "remote": factory.getRandomIPAddress(),
+            }
+
+    def get_mac_params(self):
+        params = self.get_default_params()
+        params['mac'] = factory.make_mac_address().mac_address
+        return params
 
     def get_pxeconfig(self, params=None):
         """Make a request to `pxeconfig`, and return its response dict."""
@@ -3249,7 +3361,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
             ContainsAll(KernelParameters._fields))
 
     def test_pxeconfig_returns_data_for_known_node(self):
-        response = self.client.get(reverse('pxeconfig'), self.get_mac_params())
+        params = self.get_mac_params()
+        response = self.client.get(reverse('pxeconfig'), params)
         self.assertEqual(httplib.OK, response.status_code)
 
     def test_pxeconfig_returns_no_content_for_unknown_node(self):
@@ -3261,6 +3374,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         architecture = factory.getRandomEnum(ARCHITECTURE)
         arch, subarch = architecture.split('/')
         params = dict(
+            self.get_default_params(),
             mac=factory.getRandomMACAddress(delimiter=b'-'),
             arch=arch,
             subarch=subarch)
@@ -3289,15 +3403,19 @@ class TestPXEConfigAPI(AnonAPITestCase):
         full_hostname = '.'.join([host, domain])
         node = factory.make_node(hostname=full_hostname)
         mac = factory.make_mac_address(node=node)
-        pxe_config = self.get_pxeconfig(params={'mac': mac.mac_address})
+        params = self.get_default_params()
+        params['mac'] = mac.mac_address
+        pxe_config = self.get_pxeconfig(params)
         self.assertEqual(host, pxe_config.get('hostname'))
         self.assertNotIn(domain, pxe_config.values())
 
     def test_pxeconfig_uses_nodegroup_domain_for_node(self):
         mac = factory.make_mac_address()
+        params = self.get_default_params()
+        params['mac'] = mac
         self.assertEqual(
             mac.node.nodegroup.name,
-            self.get_pxeconfig({'mac': mac.mac_address}).get('domain'))
+            self.get_pxeconfig(params).get('domain'))
 
     def get_without_param(self, param):
         """Request a `pxeconfig()` response, but omit `param` from request."""
@@ -3361,6 +3479,13 @@ class TestPXEConfigAPI(AnonAPITestCase):
         self.assertEqual(
             fake_boot_purpose,
             json.loads(response.content)["purpose"])
+
+    def test_pxeconfig_returns_fs_host_as_cluster_controller(self):
+        # The kernel parameter `fs_host` points to the cluster controller
+        # address, which is passed over within the `local` parameter.
+        params = self.get_default_params()
+        kernel_params = KernelParameters(**self.get_pxeconfig(params))
+        self.assertEqual(params["local"], kernel_params.fs_host)
 
 
 class TestNodeGroupsAPI(APIv10TestMixin, MultipleUsersScenarios, TestCase):
