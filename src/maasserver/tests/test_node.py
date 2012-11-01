@@ -622,8 +622,7 @@ class NodeManagerTest(TestCase):
             status = NODE_STATUS.READY
         else:
             status = NODE_STATUS.ALLOCATED
-        return factory.make_node(
-            set_hostname=True, status=status, owner=user, **kwargs)
+        return factory.make_node(status=status, owner=user, **kwargs)
 
     def make_node_with_mac(self, user=None, **kwargs):
         node = self.make_node(user, **kwargs)
