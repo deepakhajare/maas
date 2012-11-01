@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 import datetime
+
+from django.db import models
 from south.db import db
 from south.v2 import SchemaMigration
-from django.db import models
+
+# This migration only exists to fix the problem introduced by the
+# duplicated migration number 039.
 
 
 class Migration(SchemaMigration):
