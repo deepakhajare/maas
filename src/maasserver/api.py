@@ -1005,6 +1005,10 @@ class AnonFilesHandler(AnonymousOperationsHandler):
 
     get = operation(idempotent=True, exported_as='get')(get_file)
 
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
+
 
 class FilesHandler(OperationsHandler):
     """File management operations."""
