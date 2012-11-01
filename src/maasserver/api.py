@@ -164,6 +164,7 @@ from maasserver.preseed import (
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import (
     absolute_reverse,
+    build_absolute_uri,
     map_enum,
     )
 from maasserver.utils.orm import get_one
@@ -1922,7 +1923,7 @@ def describe(request):
     # Make all URIs absolute. Clients - maas-cli in particular - expect that
     # all handler URIs are absolute, not just paths. The handler URIs returned
     # by describe_resource() are relative paths.
-    absolute = request.build_absolute_uri
+    absolute = partial(build_absolute_uri, request)
     for resource in resources:
         for handler_type in "anon", "auth":
             handler = resource[handler_type]
