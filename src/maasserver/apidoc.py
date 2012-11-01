@@ -136,7 +136,7 @@ def describe_handler(handler):
         handler = type(handler)
 
     path = generate_doc(handler).resource_uri_template
-    path = "" if path is None else path.lstrip("/")
+    path = "" if path is None else path
 
     resource_uri = getattr(handler, "resource_uri", lambda: ())
     view_name, uri_params, uri_kw = merge(resource_uri(), (None, (), {}))

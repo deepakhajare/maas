@@ -231,10 +231,10 @@ class TestDescribingAPI(TestCase):
             }
         self.assertSetEqual(expected_actions, observed_actions)
         self.assertSetEqual({"system_id"}, set(description["params"]))
-        # The URI is a URI Template <http://tools.ietf.org/html/rfc6570>, the
+        # The path is a URI Template <http://tools.ietf.org/html/rfc6570>, the
         # components of which correspond to the parameters declared.
         self.assertEqual(
-            "api/1.0/nodes/{system_id}/",
+            "/api/1.0/nodes/{system_id}/",
             description["path"])
 
     def test_describe_resource_anonymous_resource(self):
