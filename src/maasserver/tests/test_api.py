@@ -27,6 +27,7 @@ from functools import partial
 import httplib
 from itertools import izip
 import json
+from operator import itemgetter
 import os
 import random
 import shutil
@@ -140,6 +141,7 @@ from testtools.matchers import (
     Contains,
     Equals,
     Is,
+    MatchesAll,
     MatchesAny,
     MatchesListwise,
     MatchesStructure,
@@ -4258,24 +4260,22 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
             "SERVER_NAME": server,
             "wsgi.url_scheme": self.scheme,
             }
-        request = RequestFactory().get("/foo/bar/describe", **extra)
+        request = RequestFactory().get(
+            "/%s/describe" % factory.make_name("path"), **extra)
         response = describe(request)
         self.assertEqual(httplib.OK, response.status_code, response.content)
         description = json.loads(response.content)
-        handlers = [
-            resource[handler_type]
-            for resource in description["resources"]
-            for handler_type in "anon", "auth"
-            ]
-        self.assertNotEqual([], handlers)
-        expected_uri = MatchesStructure(
-            scheme=Equals(self.scheme), hostname=Equals(server),
-            # The path is always be the script name followed by "api/" because
-            # all API calls are within the "api" tree.
-            path=StartsWith(self.script_name + "/api/"))
+        expected_uri = AfterPreprocessing(
+            urlparse, MatchesStructure(
+                scheme=Equals(self.scheme), hostname=Equals(server),
+                # The path is always be the script name followed by "api/"
+                # because all API calls are within the "api" tree.
+                path=StartsWith(self.script_name + "/api/")))
         expected_handler = MatchesAny(
-            Is(None),  # The anon or auth handler may be None.
-            AfterPreprocessing(
-                lambda handler: urlparse(handler["uri"]),
-                expected_uri))
-        self.assertThat(handlers, AllMatch(expected_handler))
+            Is(None), AfterPreprocessing(itemgetter("uri"), expected_uri))
+        expected_resource = MatchesAll(
+            AfterPreprocessing(itemgetter("anon"), expected_handler),
+            AfterPreprocessing(itemgetter("auth"), expected_handler))
+        resources = description["resources"]
+        self.assertNotEqual([], resources)
+        self.assertThat(resources, AllMatch(expected_resource))
