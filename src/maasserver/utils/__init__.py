@@ -96,9 +96,7 @@ def build_absolute_uri(request, path):
     URL. This means that the URI returned will use the same IP address or
     alias that the request came in on.
     """
-    assert request.path.endswith(request.path_info)
-    trim = len(request.path_info)
-    lead = request.path if trim == 0 else request.path[:-trim]
+    script_name = request.META["SCRIPT_NAME"]
     return "%s://%s%s%s" % (
         "https" if request.is_secure() else "http",
-        request.get_host(), lead, path)
+        request.get_host(), script_name, path)

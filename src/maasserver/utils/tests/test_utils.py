@@ -112,14 +112,12 @@ class TestBuildAbsoluteURI(TestCase):
     """Tests for `build_absolute_uri`."""
 
     def make_request(
-        self, host="example.com", port=80, path="",
-        path_info="", is_secure=False):
+        self, host="example.com", port=80, script_name="", is_secure=False):
         """Return a :class:`HttpRequest` with the given parameters."""
         request = HttpRequest()
         request.META["SERVER_NAME"] = host
         request.META["SERVER_PORT"] = port
-        request.path = path
-        request.path_info = path_info
+        request.META["SCRIPT_NAME"] = script_name
         request.is_secure = lambda: is_secure
         return request
 
@@ -135,23 +133,11 @@ class TestBuildAbsoluteURI(TestCase):
             "http://example.com:1234/fred",
             build_absolute_uri(request, "/fred"))
 
-    def test_named_page(self):
-        # When path and path_info are the same, it means that the app is
-        # rooted at the top of the URI path, so the path given to
-        # build_absolute_uri() replaces the request path.
-        request = self.make_request(path="/foo", path_info="/foo")
+    def test_script_name_is_prefixed(self):
+        # The script name is always prefixed to the given path.
+        request = self.make_request(script_name="/foo/bar")
         self.assertEqual(
-            "http://example.com/fred",
-            build_absolute_uri(request, "/fred"))
-
-    def test_nested_app(self):
-        # When the app is rooted below the root of the URI path, the path is
-        # longer than path_info, and ends with path_info. The path returned
-        # from build_absolute_uri() keeps the leading part of the path that is
-        # not referenced in path_info.
-        request = self.make_request(path="/foo/bar", path_info="/bar")
-        self.assertEqual(
-            "http://example.com/foo/fred",
+            "http://example.com/foo/bar/fred",
             build_absolute_uri(request, "/fred"))
 
     def test_secure(self):
@@ -169,7 +155,7 @@ class TestBuildAbsoluteURI(TestCase):
     def test_no_leading_forward_slash(self):
         # No attempt is made to ensure that the given path is separated from
         # the to-be-prefixed path.
-        request = self.make_request(path="/foo", path_info="")
+        request = self.make_request(script_name="/foo")
         self.assertEqual(
             "http://example.com/foobar",
             build_absolute_uri(request, "bar"))
@@ -177,7 +163,7 @@ class TestBuildAbsoluteURI(TestCase):
     def test_preserve_two_leading_slashes(self):
         # Whilst this shouldn't ordinarily happen, two leading slashes in the
         # path should be preserved, and not treated specially.
-        request = self.make_request(path="//foo/bar", path_info="/bar")
+        request = self.make_request(script_name="//foo")
         self.assertEqual(
             "http://example.com//foo/fred",
             build_absolute_uri(request, "/fred"))
