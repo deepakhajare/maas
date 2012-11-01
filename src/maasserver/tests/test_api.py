@@ -1157,7 +1157,7 @@ class TestNodeAPI(APITestCase):
 
     def test_GET_returns_node(self):
         # The api allows for fetching a single Node (using system_id).
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.get(self.get_node_uri(node))
 
         self.assertEqual(httplib.OK, response.status_code)
@@ -1166,7 +1166,7 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(node.system_id, parsed_result['system_id'])
 
     def test_GET_returns_associated_tag(self):
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         tag = factory.make_tag()
         node.tags.add(tag)
         response = self.client.get(self.get_node_uri(node))
@@ -1673,7 +1673,7 @@ class TestNodeAPI(APITestCase):
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
         self.become_admin()
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         system_id = node.system_id
         response = self.client.delete(self.get_node_uri(node))
 
@@ -1695,14 +1695,14 @@ class TestNodeAPI(APITestCase):
 
     def test_DELETE_deletes_node_fails_if_not_admin(self):
         # Only superusers can delete nodes.
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_forbidden_without_edit_permission(self):
         # A user without the edit permission cannot delete a Node.
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
@@ -1767,8 +1767,7 @@ class TestNodesAPI(APITestCase):
         # The api allows for fetching the list of Nodes.
         node1 = factory.make_node()
         node2 = factory.make_node(
-            set_hostname=True, status=NODE_STATUS.ALLOCATED,
-            owner=self.logged_in_user)
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
         response = self.client.get(self.get_uri('nodes/'), {'op': 'list'})
         parsed_result = json.loads(response.content)
 
