@@ -1,7 +1,11 @@
 # Copyright 2012 Canonical Ltd.  This software is licensed under the
 # GNU Affero General Public License version 3 (see the file LICENSE).
 
-"""Sanity checks for database migrations."""
+"""Sanity checks for database migrations.
+
+These tests need to be included in each of the MAAS applications that has
+South-managed database migrations.
+"""
 
 from __future__ import (
     absolute_import,
