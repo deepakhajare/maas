@@ -16,11 +16,13 @@ from urllib import urlencode
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.http import HttpRequest
 from maasserver.enum import NODE_STATUS_CHOICES
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase as DjangoTestCase
 from maasserver.utils import (
     absolute_reverse,
+    build_absolute_uri,
     get_db_state,
     map_enum,
     )
@@ -104,3 +106,70 @@ class GetDbStateTest(DjangoTestCase):
             NODE_STATUS_CHOICES, but_not=[status])
         node.status = another_status
         self.assertEqual(status, get_db_state(node, 'status'))
+
+
+class TestBuildAbsoluteURI(TestCase):
+    """Tests for `build_absolute_uri`."""
+
+    def make_request(
+        self, host="example.com", port=80, path="",
+        path_info="", is_secure=False):
+        """Return a :class:`HttpRequest` with the given parameters."""
+        request = HttpRequest()
+        request.META["SERVER_NAME"] = host
+        request.META["SERVER_PORT"] = port
+        request.path = path
+        request.path_info = path_info
+        request.is_secure = lambda: is_secure
+        return request
+
+    def test_simple(self):
+        request = self.make_request()
+        self.assertEqual(
+            "http://example.com/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_different_port(self):
+        request = self.make_request(port=1234)
+        self.assertEqual(
+            "http://example.com:1234/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_named_page(self):
+        # When path and path_info are the same, it means that the app is
+        # rooted at the top of the URI path, so the path given to
+        # build_absolute_uri() replaces the request path.
+        request = self.make_request(path="/foo", path_info="/foo")
+        self.assertEqual(
+            "http://example.com/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_nested_app(self):
+        # When the app is rooted below the root of the URI path, the path is
+        # longer than path_info, and ends with path_info. The path returned
+        # from build_absolute_uri() keeps the leading part of the path that is
+        # not referenced in path_info.
+        request = self.make_request(path="/foo/bar", path_info="/bar")
+        self.assertEqual(
+            "http://example.com/foo/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_secure(self):
+        request = self.make_request(port=443, is_secure=True)
+        self.assertEqual(
+            "https://example.com/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_different_port_and_secure(self):
+        request = self.make_request(port=9443, is_secure=True)
+        self.assertEqual(
+            "https://example.com:9443/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_no_leading_forward_slash(self):
+        # No attempt is made to ensure that the given path is separated from
+        # the to-be-prefixed path.
+        request = self.make_request(path="/foo", path_info="")
+        self.assertEqual(
+            "http://example.com/foobar",
+            build_absolute_uri(request, "bar"))
