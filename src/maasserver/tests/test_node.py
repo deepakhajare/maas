@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from datetime import timedelta
+import random
 
 from django.conf import settings
 from django.core.exceptions import (
@@ -36,7 +37,10 @@ from maasserver.models import (
     Node,
     node as node_module,
     )
-from maasserver.models.node import NODE_TRANSITIONS
+from maasserver.models.node import (
+    generate_hostname,
+    NODE_TRANSITIONS,
+    )
 from maasserver.models.user import create_auth_token
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
@@ -45,17 +49,41 @@ from maasserver.utils import (
     ignore_unused,
     map_enum,
     )
+from maastesting.testcase import TestCase as DjangoLessTestCase
 from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
+from mock import Mock
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
 from testtools.matchers import (
+    AllMatch,
+    Contains,
     Equals,
     FileContains,
+    MatchesAll,
     MatchesListwise,
+    Not,
     )
+
+
+class UtilitiesTest(DjangoLessTestCase):
+
+    def test_generate_hostname_does_not_contain_ambiguous_chars(self):
+        ambiguous_chars = 'ilouvz1250'
+        hostnames = [generate_hostname(5) for i in range(200)]
+        does_not_contain_chars_matcher = (
+            MatchesAll(*[Not(Contains(char)) for char in ambiguous_chars]))
+        self.assertThat(
+            hostnames, AllMatch(does_not_contain_chars_matcher))
+
+    def test_generate_hostname_uses_size(self):
+        sizes = [
+            random.randint(1, 10), random.randint(1, 10),
+            random.randint(1, 10)]
+        hostnames = [generate_hostname(size) for size in sizes]
+        self.assertEqual(sizes, [len(hostname) for hostname in hostnames])
 
 
 class NodeTest(TestCase):
@@ -181,6 +209,27 @@ class NodeTest(TestCase):
         mocked_apply_async = self.patch(mocked_task, "apply_async")
         node.delete()
         self.assertEqual(2, mocked_apply_async.call_count)
+
+    def test_set_random_hostname_set_hostname(self):
+        node = factory.make_node('test' * 10)
+        node.set_random_hostname()
+        self.assertEqual(5, len(node.hostname))
+
+    def test_set_random_hostname_checks_hostname_existence(self):
+        existing_node = factory.make_node(hostname='hostname')
+
+        def side_effect(*args):
+            def second_call(*args):
+                return 'hostname'
+            mock.side_effect = second_call
+            return existing_node.hostname
+
+        mock = self.patch(
+            node_module, 'generate_hostname', Mock(side_effect=side_effect))
+
+        node = factory.make_node()
+        node.set_random_hostname()
+        self.assertEqual('hostname', node.hostname)
 
     def test_set_mac_based_hostname_default_enlistment_domain(self):
         # The enlistment domain defaults to `local`.

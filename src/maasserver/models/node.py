@@ -18,8 +18,14 @@ __all__ = [
     "update_hardware_details",
     ]
 
+from itertools import (
+    imap,
+    islice,
+    repeat,
+    )
 import math
 import os
+import random
 from string import whitespace
 from uuid import uuid1
 
@@ -397,6 +403,18 @@ def update_hardware_details(node, xmlbytes, tag_manager):
     node.save()
 
 
+# Non-ambiguous characters (i.e. without 'ilouvz1250').
+non_ambiguous_characters = imap(
+    random.choice, repeat('abcdefghjkmnpqrtwxy346789'))
+
+
+def generate_hostname(size):
+    """Generate a hostname using only non-ambiguous characters.
+
+    """
+    return "".join(islice(non_ambiguous_characters, size))
+
+
 class Node(CleanSave, TimestampedModel):
     """A `Node` represents a physical machine used by the MAAS Server.
 
@@ -655,14 +673,28 @@ class Node(CleanSave, TimestampedModel):
 
         super(Node, self).delete()
 
+    def set_random_hostname(self):
+        """Set 5 character `hostname` using non-ambiguous characters.
+
+        Using 5 letters from the set 'abcdefghjkmnpqrtwxy346789' we get
+        9765625 combinations (pow(25, 5)).
+        """
+        domain = Config.objects.get_config("enlistment_domain")
+        domain = domain.strip("." + whitespace)
+        while True:
+            import pdb;pdb.set_trace()
+            hostname = generate_hostname(5)
+            # if not Node.objects.filter(hostname=hostname).exists():
+            self.hostname = hostname
+            self.save()
+            break
+
     def set_mac_based_hostname(self, mac_address):
         """Set default `hostname` based on `mac_address`
 
         The hostname will include the `enlistment_domain` if set.
         """
         mac_hostname = mac_address.replace(':', '').lower()
-        domain = Config.objects.get_config("enlistment_domain")
-        domain = domain.strip("." + whitespace)
         if len(domain) > 0:
             self.hostname = "node-%s.%s" % (mac_hostname, domain)
         else:
