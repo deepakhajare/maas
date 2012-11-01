@@ -1408,6 +1408,15 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(0, Node.objects.filter(hostname='diane').count())
         self.assertEqual(1, Node.objects.filter(hostname='francis').count())
 
+    def test_PUT_omitted_hostname(self):
+        hostname = factory.make_name('hostname')
+        node = factory.make_node(hostname=hostname, owner=self.logged_in_user)
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES)})
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        self.assertTrue(Node.objects.filter(hostname=hostname).exists())
+
     def test_PUT_ignores_unknown_fields(self):
         node = factory.make_node(
             owner=self.logged_in_user,
