@@ -16,15 +16,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.db_migrations import (
-    detect_sequence_clashes,
-    locate_migrations,
-    )
+from maasserver.testing.db_migrations import detect_sequence_clashes
 from maastesting.testcase import TestCase
 
 
 class TestMigrations(TestCase):
 
     def test_migrations_have_unique_numbers(self):
-        migrations_dir = locate_migrations(__file__)
-        self.assertEqual([], detect_sequence_clashes(migrations_dir))
+        self.assertEqual([], detect_sequence_clashes('metadataserver'))

@@ -16,15 +16,23 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-from maastesting.db_migrations import (
-    detect_sequence_clashes,
-    locate_migrations,
-    )
+from maasserver.testing.db_migrations import detect_sequence_clashes
 from maastesting.testcase import TestCase
+
+
+EXISTING_DUPES = [
+    (2, '0002_add_token_to_node'),
+    (2, '0002_macaddress_unique'),
+    (39, '0039_add_filestorage_content'),
+    (39, '0039_add_nodegroup_to_bootimage'),
+    ]
 
 
 class TestMigrations(TestCase):
 
-    def test_migrations_have_unique_numbers(self):
-        migrations_dir = locate_migrations(__file__)
-        self.assertEqual([], detect_sequence_clashes(migrations_dir))
+    def test_migrations_mostly_have_unique_numbers(self):
+        # Apart from some duplicates that predate this test and had to
+        # be grandfathered in, database migrations have unique numbers.
+        self.assertEqual(
+            EXISTING_DUPES,
+            detect_sequence_clashes('maasserver'))
