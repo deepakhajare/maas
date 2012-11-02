@@ -4393,7 +4393,7 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
         expected_uri = AfterPreprocessing(
             urlparse, MatchesStructure(
                 scheme=Equals(self.scheme), hostname=Equals(server),
-                # The path is always be the script name followed by "api/"
+                # The path is always the script name followed by "api/"
                 # because all API calls are within the "api" tree.
                 path=StartsWith(self.script_name + "/api/")))
         expected_handler = MatchesAny(

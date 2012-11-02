@@ -112,8 +112,8 @@ class GetDbStateTest(DjangoTestCase):
 class TestBuildAbsoluteURI(TestCase):
     """Tests for `build_absolute_uri`."""
 
-    def make_request(
-        self, host="example.com", port=80, script_name="", is_secure=False):
+    def make_request(self, host="example.com", port=80, script_name="",
+                     is_secure=False):
         """Return a :class:`HttpRequest` with the given parameters."""
         request = HttpRequest()
         request.META["SERVER_NAME"] = host
