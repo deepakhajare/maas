@@ -403,7 +403,7 @@ def update_hardware_details(node, xmlbytes, tag_manager):
     node.save()
 
 
-# Non-ambiguous characters (i.e. without 'ilouvz1250').
+# Non-ambiguous characters (i.e. without 'ilousvz1250').
 non_ambiguous_characters = imap(
     random.choice, repeat('abcdefghjkmnpqrtwxy346789'))
 
@@ -677,6 +677,10 @@ class Node(CleanSave, TimestampedModel):
 
         Using 5 letters from the set 'abcdefghjkmnpqrtwxy346789' we get
         9,765,625 combinations (pow(25, 5)).
+
+        Note that having a hostname starting with a number is perfectly
+        valid, see
+        http://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_host_names
         """
         domain = Config.objects.get_config("enlistment_domain")
         domain = domain.strip("." + whitespace)
@@ -688,9 +692,10 @@ class Node(CleanSave, TimestampedModel):
                 self.hostname = "%s" % new_hostname
             try:
                 self.save()
-                break
             except ValidationError:
                 pass
+            else:
+                break
 
     def get_effective_power_type(self):
         """Get power-type to use for this node.

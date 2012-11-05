@@ -54,7 +54,6 @@ from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
-from mock import Mock
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
 from testtools.matchers import (
@@ -71,7 +70,7 @@ from testtools.matchers import (
 class UtilitiesTest(DjangoLessTestCase):
 
     def test_generate_hostname_does_not_contain_ambiguous_chars(self):
-        ambiguous_chars = 'ilouvz1250'
+        ambiguous_chars = 'ilousvz1250'
         hostnames = [generate_hostname(5) for i in range(200)]
         does_not_contain_chars_matcher = (
             MatchesAll(*[Not(Contains(char)) for char in ambiguous_chars]))
@@ -221,14 +220,10 @@ class NodeTest(TestCase):
         Config.objects.set_config("enlistment_domain", '')
         existing_node = factory.make_node(hostname='hostname')
 
-        def side_effect(*args):
-            def second_call(*args):
-                return 'new_hostname'
-            mock.side_effect = second_call
-            return existing_node.hostname
-
-        mock = self.patch(
-            node_module, 'generate_hostname', Mock(side_effect=side_effect))
+        hostnames = [existing_node.hostname, "new_hostname"]
+        self.patch(
+            node_module, "generate_hostname",
+            lambda size: hostnames.pop(0))
 
         node = factory.make_node()
         node.set_random_hostname()
