@@ -355,3 +355,12 @@ class TestNodeGroup(TestCase):
         expected_env = dict(os.environ, http_proxy=proxy, https_proxy=proxy)
         recorder.assert_called_once_with(
             ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
+
+    def test_import_pxe_files_sent_to_nodegroup_queue(self):
+        recorder = self.patch(nodegroup_module, 'import_pxe_files', Mock())
+        nodegroup = factory.make_node_group()
+        proxy = factory.make_name('proxy')
+        Config.objects.set_config('http_proxy', proxy)
+        nodegroup.import_pxe_files()
+        recorder.apply_async.assert_called_once_with(
+            queue=nodegroup.uuid, kwargs={'http_proxy': proxy})
