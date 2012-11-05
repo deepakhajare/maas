@@ -85,6 +85,18 @@
           {% endif %}
       </span>
     </li>
+    <li class="block size10 first">
+      <h4>Kernel Parameters
+        {% if kernel_opts.source.is_global %}
+        - from: <a href="{% url 'settings' %}">Global Kernel Parameters</a>
+        {% elif kernel_opts.source.is_tag %}
+        - from tag: <span><a href="{% url 'tag-view' kernel_opts.source.name %}">{{ kernel_opts.source.name }}</a></span>
+        {% endif %}
+      </h4>
+      <span id="node_kernel_opts">
+        {{ kernel_opts.as_string }}
+      </span>
+    </li>
     {% if error_text %}
     <li class="block first">
       <h4>Error output</h4>

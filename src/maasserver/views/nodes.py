@@ -204,6 +204,8 @@ class NodeView(NodeViewMixin, UpdateView):
             node.error if node.status == NODE_STATUS.FAILED_TESTS else None)
         context['status_text'] = (
             node.error if node.status != NODE_STATUS.FAILED_TESTS else None)
+        # XXX: dimitern - stubbed out for UI testing only
+        context['kernel_opts'] = {'source': {'is_global': False, 'is_tag': True, 'name': 'big'}, 'as_string': '--arg1="value" -f --flag=yes'}
         return context
 
     def dispatch(self, *args, **kwargs):

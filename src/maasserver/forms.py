@@ -646,6 +646,13 @@ class UbuntuForm(ConfigForm):
         self._load_initials()
 
 
+class GlobalKernelOptsForm(ConfigForm):
+    """Settings page, Global Kernel Parameters section."""
+    global_kernel_opts = forms.CharField(
+        label="Boot parameters to pass to the kernel by default",
+        required=False, widget=forms.Textarea())
+
+
 hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
 
 
