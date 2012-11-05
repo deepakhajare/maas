@@ -4115,8 +4115,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_nodegroup_list_nodes_works_for_admin(self):
         nodegroup = factory.make_node_group()
-        user = factory.make_admin()
-        client = OAuthAuthenticatedClient(user)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
         node = factory.make_node(nodegroup=nodegroup)
         response = client.get(
             reverse('nodegroup_handler', args=[nodegroup.uuid]),
@@ -4132,8 +4132,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         proxy = factory.getRandomString()
         Config.objects.set_config('http_proxy', proxy)
         nodegroup = factory.make_node_group()
-        user = factory.make_admin()
-        client = OAuthAuthenticatedClient(user)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
         response = client.post(
             reverse('nodegroup_handler', args=[nodegroup.uuid]),
             {'op': 'import_pxe_files'})
