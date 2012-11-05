@@ -2,6 +2,7 @@
 import datetime
 
 from django.db import models
+from django.db.models import Count
 from south.db import db
 from south.v2 import DataMigration
 
@@ -9,7 +10,13 @@ from south.v2 import DataMigration
 class Migration(DataMigration):
 
     def forwards(self, orm):
-        for node in orm['maasserver.node'].objects.all():
+        duplicated_hostnames = orm['maasserver.node'].objects.values_list(
+            'hostname', flat=True).annotate(
+                hostname_count=Count('hostname')).exclude(hostname_count=1)
+        nodes_with_duplicated_hostnames = (
+            orm['maasserver.node'].objects.filter(
+                hostname__in=list(duplicated_hostnames)))
+        for node in nodes_with_duplicated_hostnames:
             other_nodes = (
                 orm['maasserver.node'].objects.filter(
                     hostname=node.hostname).exclude(id=node.id))
