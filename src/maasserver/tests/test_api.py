@@ -77,6 +77,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NodeGroup,
+    nodegroup as nodegroup_module,
     NodeGroupInterface,
     Tag,
     )
@@ -116,6 +117,7 @@ from metadataserver.models import (
 from metadataserver.nodeinituser import get_node_init_user
 from mock import (
     ANY,
+    call,
     Mock,
     )
 from provisioningserver import (
@@ -4033,6 +4035,38 @@ class TestNodeGroupAPI(APITestCase):
                 'uuid': factory.getRandomString(),
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
+
+    def test_import_pxe_files_calls_script_for_all_accepted_clusters(self):
+        recorder = self.patch(nodegroup_module, 'import_pxe_files', Mock())
+        proxy = factory.make_name('proxy')
+        Config.objects.set_config('http_proxy', proxy)
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_pxe_files'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        calls = [
+            call(queue=nodegroup.work_queue, kwargs={'http_proxy': proxy})
+            for nodegroup in accepted_nodegroups
+            ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
+    def test_import_pxe_files_denied_if_not_admin(self):
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_pxe_files'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
 
 
 def log_in_as_normal_user(client):
