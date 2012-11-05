@@ -10,12 +10,14 @@ from south.v2 import DataMigration
 class Migration(DataMigration):
 
     def forwards(self, orm):
+        # Find the nodes with duplicated hostnames.
         duplicated_hostnames = orm['maasserver.node'].objects.values_list(
             'hostname', flat=True).annotate(
                 hostname_count=Count('hostname')).exclude(hostname_count=1)
         nodes_with_duplicated_hostnames = (
             orm['maasserver.node'].objects.filter(
                 hostname__in=list(duplicated_hostnames)))
+        # Rename the nodes with duplicated hostnames.
         for node in nodes_with_duplicated_hostnames:
             other_nodes = (
                 orm['maasserver.node'].objects.filter(

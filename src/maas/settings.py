@@ -23,7 +23,7 @@ from metadataserver.address import guess_server_address
 
 django.template.add_to_builtins('django.templatetags.future')
 
-DEBUG = False
+DEBUG = True
 
 # Used to set a prefix in front of every URL.
 FORCE_SCRIPT_NAME = None
