@@ -14,15 +14,12 @@ class Migration(DataMigration):
         duplicated_hostnames = orm['maasserver.node'].objects.values_list(
             'hostname', flat=True).annotate(
                 hostname_count=Count('hostname')).exclude(hostname_count=1)
-        nodes_with_duplicated_hostnames = (
-            orm['maasserver.node'].objects.filter(
-                hostname__in=list(duplicated_hostnames)))
         # Rename the nodes with duplicated hostnames.
-        for node in nodes_with_duplicated_hostnames:
-            other_nodes = (
+        for duplicated_hostname in duplicated_hostnames:
+            nodes_with_duplicated_hostnames = (
                 orm['maasserver.node'].objects.filter(
-                    hostname=node.hostname).exclude(id=node.id))
-            if other_nodes.exists():
+                    hostname=duplicated_hostname))
+            for node in nodes_with_duplicated_hostnames[1:]:
                 number = 1
                 while True:
                     new_hostname = '%s-%d' % (node.hostname, number)
