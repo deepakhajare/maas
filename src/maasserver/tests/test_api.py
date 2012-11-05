@@ -4144,6 +4144,17 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
         recorder.assert_called_once_with(
             ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
 
+    def test_nodegroup_import_pxe_files_denied_if_not_admin(self):
+        nodegroup = factory.make_node_group()
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_pxe_files'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
     def make_node_hardware_details_request(self, client, nodegroup=None):
         if nodegroup is None:
             nodegroup = factory.make_node_group()
