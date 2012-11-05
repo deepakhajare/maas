@@ -4115,9 +4115,7 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_nodegroup_list_nodes_works_for_admin(self):
         nodegroup = factory.make_node_group()
-        user = factory.make_user()
-        user.is_superuser = True
-        user.save()
+        user = factory.make_admin()
         client = OAuthAuthenticatedClient(user)
         node = factory.make_node(nodegroup=nodegroup)
         response = client.get(
@@ -4128,6 +4126,23 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
             explain_unexpected_response(httplib.OK, response))
         parsed_result = json.loads(response.content)
         self.assertItemsEqual([node.system_id], parsed_result)
+
+    def test_nodegroup_import_pxe_files_calls_script(self):
+        recorder = self.patch(tasks, 'check_call', Mock())
+        proxy = factory.getRandomString()
+        Config.objects.set_config('http_proxy', proxy)
+        nodegroup = factory.make_node_group()
+        user = factory.make_admin()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_pxe_files'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        expected_env = dict(os.environ, http_proxy=proxy, https_proxy=proxy)
+        recorder.assert_called_once_with(
+            ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
 
     def make_node_hardware_details_request(self, client, nodegroup=None):
         if nodegroup is None:
