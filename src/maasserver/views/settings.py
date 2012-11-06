@@ -189,6 +189,16 @@ def settings(request):
         messages.info(request, "Rejected %d cluster(s)." % number)
         return HttpResponseRedirect(reverse('settings'))
 
+    # Import PXE files for all the accepted clusters.
+    if 'import_all_pxe_files' in request.POST:
+        NodeGroup.objects.import_pxe_files_accepted_clusters()
+        message = (
+            "Import of PXE files started on all cluster controllers.  "
+            "Importing the PXE files can be take a long time depending on "
+            "the available bandwidth.")
+        messages.info(request, message)
+        return HttpResponseRedirect(reverse('settings'))
+
     # Cluster listings:
     accepted_clusters = NodeGroup.objects.filter(
         status=NODEGROUP_STATUS.ACCEPTED).order_by('cluster_name')

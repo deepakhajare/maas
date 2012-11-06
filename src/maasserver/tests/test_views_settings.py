@@ -25,6 +25,7 @@ from maasserver.enum import (
     )
 from maasserver.models import (
     Config,
+    nodegroup as nodegroup_module,
     UserProfile,
     )
 from maasserver.testing import (
@@ -33,6 +34,7 @@ from maasserver.testing import (
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import AdminLoggedInTestCase
+from mock import call
 
 
 class SettingsTest(AdminLoggedInTestCase):
@@ -214,6 +216,21 @@ class SettingsTest(AdminLoggedInTestCase):
         self.assertEqual(
             [reload_object(nodegroup).status for nodegroup in nodegroups],
             [NODEGROUP_STATUS.REJECTED] * 2)
+
+    def test_settings_import_pxe_files_calls_tasks(self):
+        recorder = self.patch(nodegroup_module, 'import_pxe_files')
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        response = self.client.post('/settings/', {'import_all_pxe_files': 1})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        calls = [
+           call(queue=nodegroup.work_queue, kwargs={'http_proxy': None})
+           for nodegroup in accepted_nodegroups
+        ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
 
 # Settable attributes on User.
 user_attributes = [

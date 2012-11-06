@@ -133,6 +133,13 @@ class NodeGroupManager(Manager):
         return self._mass_change_status(
             NODEGROUP_STATUS.PENDING, NODEGROUP_STATUS.ACCEPTED)
 
+    def import_pxe_files_accepted_clusters(self):
+        """Import the PXE files on all the accepted cluster controllers."""
+        accepted_nodegroups = NodeGroup.objects.filter(
+            status=NODEGROUP_STATUS.ACCEPTED)
+        for nodegroup in accepted_nodegroups:
+            nodegroup.import_pxe_files()
+
 
 NODEGROUP_CLUSTER_NAME_TEMPLATE = "Cluster %(uuid)s"
 

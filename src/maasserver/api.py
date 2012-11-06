@@ -1199,13 +1199,10 @@ class NodeGroupsHandler(OperationsHandler):
 
     @operation(idempotent=False)
     def import_pxe_files(self, request):
-        """Import the pxe files on all the accepted cluster controllers."""
+        """Import the PXE files on all the accepted cluster controllers."""
         if not request.user.is_superuser:
             raise PermissionDenied("That method is reserved to admin users.")
-        accepted_nodegroups = NodeGroup.objects.filter(
-            status=NODEGROUP_STATUS.ACCEPTED)
-        for nodegroup in accepted_nodegroups:
-            nodegroup.import_pxe_files()
+        NodeGroup.objects.import_pxe_files_accepted_clusters()
         return HttpResponse(
             "Import of PXE files started on all cluster controllers",
             status=httplib.OK)

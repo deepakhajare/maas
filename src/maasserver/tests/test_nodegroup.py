@@ -247,6 +247,23 @@ class TestNodeGroupManager(TestCase):
             (unaffected_status, 0),
             (reload_object(nodegroup).status, changed_count))
 
+    def test_import_pxe_files_accepted_clusters_call_script(self):
+        recorder = self.patch(nodegroup_module, 'import_pxe_files', Mock())
+        proxy = factory.make_name('proxy')
+        Config.objects.set_config('http_proxy', proxy)
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        NodeGroup.objects.import_pxe_files_accepted_clusters()
+        calls = [
+            call(queue=nodegroup.work_queue, kwargs={'http_proxy': proxy})
+            for nodegroup in accepted_nodegroups
+            ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
 
 class TestNodeGroup(TestCase):
 
