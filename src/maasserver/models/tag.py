@@ -101,6 +101,7 @@ class Tag(CleanSave, TimestampedModel):
                      validators=[RegexValidator(_tag_name_regex)])
     definition = TextField()
     comment = TextField(blank=True)
+    kernel_params = TextField(blank=True, null=True)
 
     objects = TagManager()
 
