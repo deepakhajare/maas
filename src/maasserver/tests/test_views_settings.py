@@ -29,11 +29,15 @@ from maasserver.models import (
     UserProfile,
     )
 from maasserver.testing import (
+    extract_redirect,
     get_prefixed_form_data,
     reload_object,
     )
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import AdminLoggedInTestCase
+from maasserver.testing.testcase import (
+    AdminLoggedInTestCase,
+    LoggedInTestCase,
+    )
 from mock import call
 
 
@@ -232,7 +236,14 @@ class SettingsTest(AdminLoggedInTestCase):
         self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
 
 
-# Settable attributes on User.
+class SettingsTest(LoggedInTestCase):
+
+    def test_settings_import_pxe_reserved_to_admin(self):
+        response = self.client.post('/settings/', {'import_all_pxe_files': 1})
+        self.assertEqual(reverse('login'), extract_redirect(response))
+
+
+ # Settable attributes on User.
 user_attributes = [
     'email',
     'is_superuser',
