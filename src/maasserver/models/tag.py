@@ -89,6 +89,8 @@ class Tag(CleanSave, TimestampedModel):
         tag.
     :ivar comment: A long-form description for humans about what this tag is
         trying to accomplish.
+    :ivar kernel_params: Optional kernel command-line parameters string to be
+        used in the PXE config for nodes with this tags.
     :ivar objects: The :class:`TagManager`.
     """
 
