@@ -248,7 +248,7 @@ class TestNodeGroupManager(TestCase):
             (reload_object(nodegroup).status, changed_count))
 
     def test_import_pxe_files_accepted_clusters_calls_tasks(self):
-        recorder = self.patch(nodegroup_module, 'import_pxe_files', Mock())
+        recorder = self.patch(nodegroup_module, 'import_pxe_files')
         proxy = factory.make_name('proxy')
         Config.objects.set_config('http_proxy', proxy)
         accepted_nodegroups = [
