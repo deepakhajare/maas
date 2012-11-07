@@ -194,7 +194,7 @@ def settings(request):
         NodeGroup.objects.import_pxe_files_accepted_clusters()
         message = (
             "Import of PXE files started on all cluster controllers.  "
-            "Importing the PXE files can be take a long time depending on "
+            "Importing the PXE files can take a long time depending on "
             "the available bandwidth.")
         messages.info(request, message)
         return HttpResponseRedirect(reverse('settings'))
