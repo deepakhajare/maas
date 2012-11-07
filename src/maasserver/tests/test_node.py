@@ -344,16 +344,18 @@ class NodeTest(TestCase):
         self.assertEqual(
             (tag, tag.kernel_opts), node.get_effective_kernel_options())
 
-    def test_get_effective_kernel_options_uses_first_tag_value(self):
+    def test_get_effective_kernel_options_uses_first_real_tag_value(self):
         node = factory.make_node()
-        tag1 = factory.make_tag(factory.make_name('tag-01-'),
-                                kernel_opts=factory.getRandomString())
+        tag1 = factory.make_tag(factory.make_name('tag-01-'), kernel_opts=None)
         tag2 = factory.make_tag(factory.make_name('tag-02-'),
                                 kernel_opts=factory.getRandomString())
+        tag3 = factory.make_tag(factory.make_name('tag-03-'),
+                                kernel_opts=factory.getRandomString())
         self.assertTrue(tag1.name < tag2.name)
-        node.tags.add(tag1, tag2)
+        self.assertTrue(tag2.name < tag3.name)
+        node.tags.add(tag1, tag2, tag3)
         self.assertEqual(
-            (tag1, tag1.kernel_opts), node.get_effective_kernel_options())
+            (tag2, tag2.kernel_opts), node.get_effective_kernel_options())
 
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
