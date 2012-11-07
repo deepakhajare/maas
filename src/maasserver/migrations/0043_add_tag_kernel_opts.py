@@ -8,15 +8,15 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding field 'Tag.kernel_params'
-        db.add_column(u'maasserver_tag', 'kernel_params',
+        # Adding field 'Tag.kernel_opts'
+        db.add_column(u'maasserver_tag', 'kernel_opts',
                       self.gf('django.db.models.fields.TextField')(null=True, blank=True),
                       keep_default=False)
 
 
     def backwards(self, orm):
-        # Deleting field 'Tag.kernel_params'
-        db.delete_column(u'maasserver_tag', 'kernel_params')
+        # Deleting field 'Tag.kernel_opts'
+        db.delete_column(u'maasserver_tag', 'kernel_opts')
 
 
     models = {
@@ -165,7 +165,7 @@ class Migration(SchemaMigration):
             'created': ('django.db.models.fields.DateTimeField', [], {}),
             'definition': ('django.db.models.fields.TextField', [], {}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'kernel_params': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
+            'kernel_opts': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '256'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
         },

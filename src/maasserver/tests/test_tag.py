@@ -29,16 +29,16 @@ class TagTest(TestCase):
         self.assertEqual('tag-name', tag.name)
         self.assertEqual('//node[@id=display]', tag.definition)
         self.assertEqual('', tag.comment)
-        self.assertIs(None, tag.kernel_params)
+        self.assertIs(None, tag.kernel_opts)
         self.assertIsNot(None, tag.updated)
         self.assertIsNot(None, tag.created)
 
     def test_factory_make_tag_with_hardware_details(self):
-        tag = factory.make_tag('a-tag', 'true', kernel_params="console=ttyS0")
+        tag = factory.make_tag('a-tag', 'true', kernel_opts="console=ttyS0")
         self.assertEqual('a-tag', tag.name)
         self.assertEqual('true', tag.definition)
         self.assertEqual('', tag.comment)
-        self.assertEqual('console=ttyS0', tag.kernel_params)
+        self.assertEqual('console=ttyS0', tag.kernel_opts)
         self.assertIsNot(None, tag.updated)
         self.assertIsNot(None, tag.created)
 
