@@ -650,7 +650,7 @@ class GlobalKernelOptsForm(ConfigForm):
     """Settings page, Global Kernel Parameters section."""
     global_kernel_opts = forms.CharField(
         label="Boot parameters to pass to the kernel by default",
-        required=False, widget=forms.Textarea())
+        required=False)
 
 
 hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."

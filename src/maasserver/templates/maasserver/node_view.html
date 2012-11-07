@@ -87,14 +87,14 @@
     </li>
     <li class="block size10 first">
       <h4>Kernel Parameters
-        {% if kernel_opts.source.is_global %}
+        {% if kernel_opts.is_global %}
         - from: <a href="{% url 'settings' %}">Global Kernel Parameters</a>
-        {% elif kernel_opts.source.is_tag %}
-        - from tag: <span><a href="{% url 'tag-view' kernel_opts.source.name %}">{{ kernel_opts.source.name }}</a></span>
+        {% elif kernel_opts.is_tag %}
+        - from tag: <span><a href="{% url 'tag-view' kernel_opts.tag.name %}">{{ kernel_opts.tag.name }}</a></span>
         {% endif %}
       </h4>
       <span id="node_kernel_opts">
-        {{ kernel_opts.as_string }}
+        {{ kernel_opts.value }}
       </span>
     </li>
     {% if error_text %}

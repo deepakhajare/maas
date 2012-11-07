@@ -39,6 +39,4 @@ class TagView(UpdateView):
         nodes = Tag.objects.get_nodes(context['tag'], self.request.user,
             prefetch_mac=True)
         context['node_list'] = nodes
-        # XXX: dimitern - this is stubbed out for UI testing
-        context['kernel_opts'] = """--arg1="value" --flag=yes -f stuff"""
         return context
