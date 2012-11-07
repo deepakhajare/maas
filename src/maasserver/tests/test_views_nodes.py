@@ -320,7 +320,10 @@ class NodeViewsTest(LoggedInTestCase):
     def test_view_node_shows_global_kernel_params(self):
         Config.objects.create(name='kernel_opts', value='--test param')
         node = factory.make_node()
-        self.assertEqual(node.get_effective_kernel_options(), (None, "--test param", ))
+        self.assertEqual(
+            node.get_effective_kernel_options(),
+            (None, "--test param", )
+        )
 
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
@@ -336,7 +339,9 @@ class NodeViewsTest(LoggedInTestCase):
         tag.kernel_params = '--test params'
         node = factory.make_node()
         node.tags = [tag]
-        self.assertEqual((tag, '--test params',), node.get_effective_kernel_options())
+        self.assertEqual(
+            (tag, '--test params',),
+            node.get_effective_kernel_options())
 
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
@@ -345,7 +350,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual('--test params', kernel_params.text.strip())
 
         details_link = doc.cssselect('a.kernelopts-global-link')[0].get('href')
-        self.assertEqual(reverse('tag-view'), args=[tag.name])
+        self.assertEqual(reverse('tag-view', args=[tag.name]), details_link)
 
     def test_view_node_has_button_to_accept_enlistment_for_user(self):
         # A simple user can't see the button to enlist a declared node.

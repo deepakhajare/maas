@@ -19,10 +19,10 @@
       <h4>Definition</h4>
       <span>{{ tag.definition }}</span>
     </li>
-    {% if tag.kernel_params %}
+    {% if tag.kernel_opts %}
     <li class="kernel-opts-tag block size10">
       <h4>Kernel Parameters</h4>
-      <span>{{ tag.kernel_params }}</span>
+      <span>{{ tag.kernel_opts }}</span>
     </li>
     {% endif %}
     {% if error_text %}
