@@ -134,12 +134,13 @@ class TestBuildAbsoluteURI(TestCase):
             "http://example.com:1234/fred",
             build_absolute_uri(request, "/fred"))
 
-    def test_script_name_is_prefixed(self):
-        # The script name is always prefixed to the given path.
+    def test_script_name_is_ignored(self):
+        # The given path already includes the script_name, so the
+        # script_name passed in the request is not included again.
         request = self.make_request(script_name="/foo/bar")
         self.assertEqual(
             "http://example.com/foo/bar/fred",
-            build_absolute_uri(request, "/fred"))
+            build_absolute_uri(request, "/foo/bar/fred"))
 
     def test_secure(self):
         request = self.make_request(port=443, is_secure=True)
