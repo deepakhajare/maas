@@ -221,13 +221,14 @@ class SettingsTest(AdminLoggedInTestCase):
             [reload_object(nodegroup).status for nodegroup in nodegroups],
             [NODEGROUP_STATUS.REJECTED] * 2)
 
-    def test_settings_import_pxe_files_calls_tasks(self):
-        recorder = self.patch(nodegroup_module, 'import_pxe_files')
+    def test_settings_import_boot_images_calls_tasks(self):
+        recorder = self.patch(nodegroup_module, 'import_boot_images')
         accepted_nodegroups = [
             factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
             factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
         ]
-        response = self.client.post('/settings/', {'import_all_pxe_files': 1})
+        response = self.client.post(
+            '/settings/', {'import_all_boot_images': 1})
         self.assertEqual(httplib.FOUND, response.status_code)
         calls = [
            call(queue=nodegroup.work_queue, kwargs={'http_proxy': None})
@@ -238,8 +239,9 @@ class SettingsTest(AdminLoggedInTestCase):
 
 class SettingsTest(LoggedInTestCase):
 
-    def test_settings_import_pxe_reserved_to_admin(self):
-        response = self.client.post('/settings/', {'import_all_pxe_files': 1})
+    def test_settings_import_boot_images_reserved_to_admin(self):
+        response = self.client.post(
+            '/settings/', {'import_all_boot_images': 1})
         self.assertEqual(reverse('login'), extract_redirect(response))
 
 

@@ -190,11 +190,11 @@ def settings(request):
         return HttpResponseRedirect(reverse('settings'))
 
     # Import PXE files for all the accepted clusters.
-    if 'import_all_pxe_files' in request.POST:
-        NodeGroup.objects.import_pxe_files_accepted_clusters()
+    if 'import_all_boot_images' in request.POST:
+        NodeGroup.objects.import_boot_images_accepted_clusters()
         message = (
-            "Import of PXE files started on all cluster controllers.  "
-            "Importing the PXE files can take a long time depending on "
+            "Import of boot images started on all cluster controllers.  "
+            "Importing the boot images can take a long time depending on "
             "the available bandwidth.")
         messages.info(request, message)
         return HttpResponseRedirect(reverse('settings'))

@@ -11,8 +11,8 @@
   <form method="POST"
         action="{% url 'settings' %}">
     {% csrf_token %}
-    <input type="hidden" name="import_all_pxe_files" value="1" />
-    <input type="submit" class="button right" value="Import PXE files" />
+    <input type="hidden" name="import_all_boot_images" value="1" />
+    <input type="submit" class="button right" value="Import boot images" />
   </form>
 </div>
 <div class="clear"></div>

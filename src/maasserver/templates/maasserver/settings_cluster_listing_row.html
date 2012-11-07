@@ -3,7 +3,7 @@
   <td>
     {{ cluster.cluster_name }}
     {% if cluster.bootimage_set.count == 0 %}
-      <span class="warning">(Warning: this cluster has no PXE files.)</span>
+      <span class="warning">(Warning: this cluster has no boot images.)</span>
     {% endif %}
   </td>
   <td>
