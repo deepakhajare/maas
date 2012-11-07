@@ -314,6 +314,47 @@ class NodeTest(TestCase):
         self.assertEqual(
             (None, kernel_opts), node.get_effective_kernel_options())
 
+    def test_get_effective_kernel_options_not_confused_by_empty_tag(self):
+        node = factory.make_node()
+        tag = factory.make_tag()
+        node.tags.add(tag)
+        kernel_opts = factory.getRandomString()
+        Config.objects.set_config('kernel_opts', kernel_opts)
+        self.assertEqual(
+            (None, kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_ignores_unassociated_tag_value(self):
+        node = factory.make_node()
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        self.assertEqual((None, None), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_uses_tag_value(self):
+        node = factory.make_node()
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        node.tags.add(tag)
+        self.assertEqual(
+            (tag, tag.kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_tag_overrides_global(self):
+        node = factory.make_node()
+        global_opts = factory.getRandomString()
+        Config.objects.set_config('kernel_opts', global_opts)
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        node.tags.add(tag)
+        self.assertEqual(
+            (tag, tag.kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_uses_first_tag_value(self):
+        node = factory.make_node()
+        tag1 = factory.make_tag(factory.make_name('tag-01-'),
+                                kernel_opts=factory.getRandomString())
+        tag2 = factory.make_tag(factory.make_name('tag-02-'),
+                                kernel_opts=factory.getRandomString())
+        self.assertTrue(tag1.name < tag2.name)
+        node.tags.add(tag1, tag2)
+        self.assertEqual(
+            (tag1, tag1.kernel_opts), node.get_effective_kernel_options())
+
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
         user = factory.make_user()
