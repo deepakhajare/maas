@@ -3332,6 +3332,16 @@ class TestPXEConfigAPI(AnonAPITestCase):
         kernel_params = KernelParameters(**self.get_pxeconfig(params))
         self.assertEqual(params["local"], kernel_params.fs_host)
 
+    def test_pxeconfig_returns_extra_kernel_options(self):
+        node = factory.make_node()
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        node.tags.add(tag)
+        mac = factory.make_mac_address(node=node)
+        params = self.get_default_params()
+        params['mac'] = mac.mac_address
+        pxe_config = self.get_pxeconfig(params)
+        self.assertEqual(tag.kernel_opts, pxe_config['extra_opts'])
+
 
 class TestNodeGroupsAPI(APIv10TestMixin, MultipleUsersScenarios, TestCase):
     scenarios = [
