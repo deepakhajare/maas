@@ -49,7 +49,7 @@ class SettingsTest(AdminLoggedInTestCase):
         # logged-in user is not display.
         [factory.make_user() for i in range(3)]
         users = UserProfile.objects.all_users()
-        response = self.client.get('/settings/')
+        response = self.client.get(reverse('settings'))
         doc = fromstring(response.content)
         tab = doc.cssselect('#users')[0]
         all_links = [elem.get('href') for elem in tab.cssselect('a')]
@@ -113,7 +113,7 @@ class SettingsTest(AdminLoggedInTestCase):
         new_check_compatibility = factory.getRandomBoolean()
         new_commissioning_distro_series = factory.getRandomEnum(DISTRO_SERIES)
         response = self.client.post(
-            '/settings/',
+            reverse('settings'),
             get_prefixed_form_data(
                 prefix='commissioning',
                 data={
@@ -144,7 +144,7 @@ class SettingsTest(AdminLoggedInTestCase):
         new_update_from = factory.getRandomChoice(choices)
         new_default_distro_series = factory.getRandomEnum(DISTRO_SERIES)
         response = self.client.post(
-            '/settings/',
+            reverse('settings'),
             get_prefixed_form_data(
                 prefix='ubuntu',
                 data={
@@ -187,14 +187,14 @@ class SettingsTest(AdminLoggedInTestCase):
 
     def test_settings_contains_form_to_accept_all_nodegroups(self):
         factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
-        response = self.client.get('/settings/')
+        response = self.client.get(reverse('settings'))
         doc = fromstring(response.content)
         forms = doc.cssselect('form#accept_all_pending_nodegroups')
         self.assertEqual(1, len(forms))
 
     def test_settings_contains_form_to_reject_all_nodegroups(self):
         factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
-        response = self.client.get('/settings/')
+        response = self.client.get(reverse('settings'))
         doc = fromstring(response.content)
         forms = doc.cssselect('form#reject_all_pending_nodegroups')
         self.assertEqual(1, len(forms))
@@ -204,7 +204,8 @@ class SettingsTest(AdminLoggedInTestCase):
             factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
             factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
         }
-        response = self.client.post('/settings/', {'mass_accept_submit': 1})
+        response = self.client.post(
+            reverse('settings'), {'mass_accept_submit': 1})
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
             [reload_object(nodegroup).status for nodegroup in nodegroups],
@@ -215,7 +216,8 @@ class SettingsTest(AdminLoggedInTestCase):
             factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
             factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
         }
-        response = self.client.post('/settings/', {'mass_reject_submit': 1})
+        response = self.client.post(
+            reverse('settings'), {'mass_reject_submit': 1})
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
             [reload_object(nodegroup).status for nodegroup in nodegroups],
@@ -228,7 +230,7 @@ class SettingsTest(AdminLoggedInTestCase):
             factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
         ]
         response = self.client.post(
-            '/settings/', {'import_all_boot_images': 1})
+            reverse('settings'), {'import_all_boot_images': 1})
         self.assertEqual(httplib.FOUND, response.status_code)
         calls = [
            call(queue=nodegroup.work_queue, kwargs={'http_proxy': None})
@@ -236,12 +238,20 @@ class SettingsTest(AdminLoggedInTestCase):
         ]
         self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
 
+    def test_cluster_no_boot_images_message_displayed_if_no_boot_images(self):
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED)
+        response = self.client.get(reverse('settings'))
+        document = fromstring(response.content)
+        nodegroup_row = document.xpath("//tr[@id='%s']" % nodegroup.uuid)[0]
+        self.assertIn('no boot images', nodegroup_row.text_content())
 
-class SettingsTest(LoggedInTestCase):
+
+class NonAdminSettingsTest(LoggedInTestCase):
 
     def test_settings_import_boot_images_reserved_to_admin(self):
         response = self.client.post(
-            '/settings/', {'import_all_boot_images': 1})
+            reverse('settings'), {'import_all_boot_images': 1})
         self.assertEqual(reverse('login'), extract_redirect(response))
 
 
