@@ -703,8 +703,9 @@ class Node(CleanSave, TimestampedModel):
         :return: (tag, kernel_options)
             tag is a Tag object or None. If None, the kernel_options came from
             the global setting.
-            kernel_options, a string or None indicating extra kernel_options
-            that should be used when booting this node.
+            kernel_options, a string indicating extra kernel_options that
+            should be used when booting this node. May be None if no tags match
+            and no global setting has been configured.
         """
         # First, see if there are any tags associated with this node that has a
         # custom kernel parameter
