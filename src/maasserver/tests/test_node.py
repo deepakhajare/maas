@@ -346,11 +346,13 @@ class NodeTest(TestCase):
 
     def test_get_effective_kernel_options_uses_first_real_tag_value(self):
         node = factory.make_node()
-        tag1 = factory.make_tag(factory.make_name('tag-01-'), kernel_opts=None)
-        tag2 = factory.make_tag(factory.make_name('tag-02-'),
-                                kernel_opts=factory.getRandomString())
+        # Intentionally create them in reverse order, so the default 'db' order
+        # doesn't work, and we have asserted that we sort them.
         tag3 = factory.make_tag(factory.make_name('tag-03-'),
                                 kernel_opts=factory.getRandomString())
+        tag2 = factory.make_tag(factory.make_name('tag-02-'),
+                                kernel_opts=factory.getRandomString())
+        tag1 = factory.make_tag(factory.make_name('tag-01-'), kernel_opts=None)
         self.assertTrue(tag1.name < tag2.name)
         self.assertTrue(tag2.name < tag3.name)
         node.tags.add(tag1, tag2, tag3)

@@ -708,7 +708,9 @@ class Node(CleanSave, TimestampedModel):
         """
         # First, see if there are any tags associated with this node that has a
         # custom kernel parameter
-        tag = get_one(self.tags.filter(kernel_opts__isnull=False)[:1])
+        tags = self.tags.filter(kernel_opts__isnull=False)
+        tags = tags.order_by('name')[:1]
+        tag = get_one(tags)
         if tag is not None:
             return tag, tag.kernel_opts
         global_value = Config.objects.get_config('kernel_opts')
