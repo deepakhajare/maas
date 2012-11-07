@@ -38,9 +38,10 @@ from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+import django.core.urlresolvers
 from django.core.urlresolvers import (
     reverse,
-    set_script_prefix,
+    get_script_prefix,
     )
 from django.http import QueryDict
 from django.test.client import RequestFactory
@@ -4411,17 +4412,32 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
             % (response.status_code, response.content))
         return json.loads(response.content)
 
+    def patch_script_prefix(self):
+        """Patch up Django's and Piston's notion of the script_name prefix.
+
+        This manipulates how Piston gets Django's version of script_name
+        which it needs so that it can prefix script_name to URL paths.
+        """
+        # Patching up get_script_prefix doesn't seem to do the trick,
+        # and patching it in the right module requires unwarranted
+        # intimacy with Piston.  So just go through the proper call and
+        # set the prefix.  But clean this up after the test or it will
+        # break other tests!
+        original_prefix = get_script_prefix()
+        self.addCleanup(
+            django.core.urlresolvers.set_script_prefix, original_prefix)
+        django.core.urlresolvers.set_script_prefix(self.script_name)
+
     def test_handler_uris_are_absolute(self):
         params = self.make_params()
         server = params['SERVER_NAME']
 
-        # This is what Django does on WSGI startup.  It's what inserts
-        # the script_name into Piston's API URIs.  Without this call,
-        # the test wouldn't detect accidental duplication of the
-        # script_name portion of the URL path: /MAAS/MAAS/api/...
-        set_script_prefix(self.script_name)
+        # Without this, the test wouldn't be able to detect accidental
+        # duplication of the script_name portion of the URL path:
+        # /MAAS/MAAS/api/...
+        self.patch_script_prefix()
 
-        description = self.get_description(self, params)
+        description = self.get_description(params)
 
         expected_uri = AfterPreprocessing(
             urlparse, MatchesStructure(

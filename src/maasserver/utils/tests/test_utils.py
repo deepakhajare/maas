@@ -154,21 +154,13 @@ class TestBuildAbsoluteURI(TestCase):
             "https://example.com:9443/fred",
             build_absolute_uri(request, "/fred"))
 
-    def test_no_leading_forward_slash(self):
-        # No attempt is made to ensure that the given path is separated from
-        # the to-be-prefixed path.
-        request = self.make_request(script_name="/foo")
-        self.assertEqual(
-            "http://example.com/foobar",
-            build_absolute_uri(request, "bar"))
-
     def test_preserve_two_leading_slashes(self):
         # Whilst this shouldn't ordinarily happen, two leading slashes in the
         # path should be preserved, and not treated specially.
-        request = self.make_request(script_name="//foo")
+        request = self.make_request()
         self.assertEqual(
-            "http://example.com//foo/fred",
-            build_absolute_uri(request, "/fred"))
+            "http://example.com//foo",
+            build_absolute_uri(request, "//foo"))
 
 
 class TestStripDomain(TestCase):
