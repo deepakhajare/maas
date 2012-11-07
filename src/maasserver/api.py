@@ -1420,6 +1420,7 @@ class TagHandler(OperationsHandler):
         'name',
         'definition',
         'comment',
+        'kernel_opts',
         )
 
     def read(self, request, name):
