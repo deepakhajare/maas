@@ -866,6 +866,8 @@ class TagForm(ModelForm):
 
     def clean_definition(self):
         definition = self.cleaned_data['definition']
+        if not definition:
+            return ""
         try:
             etree.XPath(definition)
         except etree.XPathSyntaxError as e:
