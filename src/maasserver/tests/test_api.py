@@ -38,7 +38,10 @@ from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
-from django.core.urlresolvers import reverse
+from django.core.urlresolvers import (
+    reverse,
+    set_script_prefix,
+    )
 from django.http import QueryDict
 from django.test.client import RequestFactory
 from fixtures import Fixture
@@ -4388,19 +4391,38 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
     scenarios = multiply_scenarios(
         scenarios_schemes, scenarios_paths)
 
-    def test_handler_uris_are_absolute(self):
-        server = factory.make_name("server").lower()
-        extra = {
+    def make_params(self):
+        """Create parameters for http request, based on current scenario."""
+        return {
             "PATH_INFO": self.path_info,
             "SCRIPT_NAME": self.script_name,
-            "SERVER_NAME": server,
+            "SERVER_NAME": factory.make_name('server').lower(),
             "wsgi.url_scheme": self.scheme,
-            }
-        request = RequestFactory().get(
-            "/%s/describe" % factory.make_name("path"), **extra)
+        }
+
+    def get_description(self, params):
+        """GET the API description (at a random API path), as JSON."""
+        path = '/%s/describe' % factory.make_name('path')
+        request = RequestFactory().get(path, **params)
         response = describe(request)
-        self.assertEqual(httplib.OK, response.status_code, response.content)
-        description = json.loads(response.content)
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            "API description failed with code %s:\n%s"
+            % (response.status_code, response.content))
+        return json.loads(response.content)
+
+    def test_handler_uris_are_absolute(self):
+        params = self.make_params()
+        server = params['SERVER_NAME']
+
+        # This is what Django does on WSGI startup.  It's what inserts
+        # the script_name into Piston's API URIs.  Without this call,
+        # the test wouldn't detect accidental duplication of the
+        # script_name portion of the URL path: /MAAS/MAAS/api/...
+        set_script_prefix(self.script_name)
+
+        description = self.get_description(self, params)
+
         expected_uri = AfterPreprocessing(
             urlparse, MatchesStructure(
                 scheme=Equals(self.scheme), hostname=Equals(server),
