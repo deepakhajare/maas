@@ -649,7 +649,7 @@ hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
 def validate_hostname(value):
     try:
         validator = URLValidator(verify_exists=False)
-        validator('http://%s' % value)
+        validator(value)
     except ValidationError:
         raise ValidationError(hostname_error_msg)
 
