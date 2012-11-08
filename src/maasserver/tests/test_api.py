@@ -4412,7 +4412,7 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
             % (response.status_code, response.content))
         return json.loads(response.content)
 
-    def patch_script_prefix(self):
+    def patch_script_prefix(self, script_name):
         """Patch up Django's and Piston's notion of the script_name prefix.
 
         This manipulates how Piston gets Django's version of script_name
@@ -4426,7 +4426,7 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
         original_prefix = get_script_prefix()
         self.addCleanup(
             django.core.urlresolvers.set_script_prefix, original_prefix)
-        django.core.urlresolvers.set_script_prefix(self.script_name)
+        django.core.urlresolvers.set_script_prefix(script_name)
 
     def test_handler_uris_are_absolute(self):
         params = self.make_params()
@@ -4435,7 +4435,7 @@ class TestDescribeAbsoluteURIs(AnonAPITestCase):
         # Without this, the test wouldn't be able to detect accidental
         # duplication of the script_name portion of the URL path:
         # /MAAS/MAAS/api/...
-        self.patch_script_prefix()
+        self.patch_script_prefix(self.script_name)
 
         description = self.get_description(params)
 
