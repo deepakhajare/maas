@@ -21,12 +21,16 @@ from maasserver.enum import (
     NODE_STATUS,
     PRESEED_TYPE,
     )
-from maasserver.models import BootImage
+from maasserver.models import (
+    BootImage,
+    Config,
+    )
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     GENERIC_FILENAME,
     get_enlist_preseed,
+    get_hostname_and_path,
     get_preseed,
     get_preseed_context,
     get_preseed_filenames,
@@ -56,6 +60,20 @@ class TestSplitSubArch(TestCase):
 
     def test_split_subarch_splits_sub_architecture(self):
         self.assertEqual(['amd64', 'test'], split_subarch('amd64/test'))
+
+
+class TestGetHostnameAndPath(TestCase):
+    """Tests for `get_hostname_and_path`."""
+
+    def test_get_hostname_and_path(self):
+        input_and_results = [
+            ('http://name.domain/my/path',  ('name.domain', '/my/path')),
+            ('https://domain/path',  ('domain', '/path')),
+            ('http://domain/',  ('domain', '/')),
+            ]
+        inputs = [input for input, _ in input_and_results]
+        results = [result for _, result in input_and_results]
+        self.assertEqual(results, map(get_hostname_and_path, inputs))
 
 
 class TestGetPreseedFilenames(TestCase):
@@ -298,7 +316,9 @@ class TestPreseedContext(TestCase):
             ['node', 'release', 'metadata_enlist_url',
              'server_host', 'server_url', 'preseed_data',
              'node_disable_pxe_url', 'node_disable_pxe_data',
-             'use_squashfs'],
+             'use_squashfs', 'main_archive_hostname',
+             'main_archive_directory', 'ports_archive_hostname',
+             'ports_archive_directory'],
             context)
 
     def test_get_preseed_context_if_node_None(self):
@@ -308,8 +328,39 @@ class TestPreseedContext(TestCase):
         release = factory.getRandomString()
         context = get_preseed_context(None, release)
         self.assertItemsEqual(
-            ['release', 'metadata_enlist_url', 'server_host', 'server_url'],
+            ['release', 'metadata_enlist_url', 'server_host', 'server_url',
+            'main_archive_hostname', 'main_archive_directory',
+            'ports_archive_hostname', 'ports_archive_directory'],
             context)
+
+    def test_get_preseed_context_archive_refs(self):
+        # urlparse lowercases the hostnames. That should not have any
+        # impact but for testing, create lower-case hostnames.
+        main_archive_hostname = factory.make_name('hostname').lower()
+        main_archive_directory = factory.make_name('directory')
+        ports_archive_hostname = factory.make_name('hostname').lower()
+        ports_archive_directory = factory.make_name('directory')
+        main_archive = 'http://%s/%s' % (
+            main_archive_hostname, main_archive_directory)
+        ports_archive = 'http://%s/%s' % (
+            ports_archive_hostname, ports_archive_directory)
+        Config.objects.set_config('main_archive', main_archive)
+        Config.objects.set_config('ports_archive', ports_archive)
+        context = get_preseed_context(
+            factory.make_node(), factory.getRandomString())
+        self.assertEqual(
+            (
+                context['main_archive_hostname'],
+                context['main_archive_directory'],
+                context['ports_archive_hostname'],
+                context['ports_archive_directory'],
+            ),
+            (
+                main_archive_hostname,
+                '/%s' % main_archive_directory,
+                ports_archive_hostname,
+                '/%s' % ports_archive_directory,
+            ))
 
 
 class TestSquashFSAvailable(TestCase):
