@@ -471,7 +471,10 @@ def store_node_power_parameters(node, request):
 
 
 class NodeHandler(OperationsHandler):
-    """Manage individual Nodes."""
+    """Manage an individual Node.
+
+    The Node is identified by its system_id.
+    """
     create = None  # Disable create.
     model = Node
     fields = DISPLAYED_NODE_FIELDS
@@ -653,7 +656,7 @@ def create_node(request):
 
 
 class AnonNodesHandler(AnonymousOperationsHandler):
-    """Create Nodes."""
+    """Anonymous access to Nodes."""
     create = read = update = delete = None
     model = Node
     fields = DISPLAYED_NODE_FIELDS
@@ -732,7 +735,7 @@ def extract_constraints(request_params):
 
 
 class NodesHandler(OperationsHandler):
-    """Manage collection of Nodes."""
+    """Manage the collection of all Nodes in the MAAS."""
     create = read = update = delete = None
     anonymous = AnonNodesHandler
 
@@ -827,6 +830,51 @@ class NodesHandler(OperationsHandler):
         nodes = [node.accept_enlistment(request.user) for node in nodes]
         return filter(None, nodes)
 
+    @operation(idempotent=False)
+    def release(self, request):
+        """Release multiple nodes.
+
+        This places the nodes back into the pool, ready to be reallocated.
+
+        :param nodes: system_ids of the nodes which are to be released.
+           (An empty list is acceptable).
+        :return: The system_ids of any nodes that have their status
+            changed by this call. Thus, nodes that were already released
+            are excluded from the result.
+        """
+        system_ids = set(request.POST.getlist('nodes'))
+         # Check the existence of these nodes first.
+        self._check_system_ids_exist(system_ids)
+        # Make sure that the user has the required permission.
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.EDIT, ids=system_ids)
+        if len(nodes) < len(system_ids):
+            permitted_ids = set(node.system_id for node in nodes)
+            raise PermissionDenied(
+                "You don't have the required permission to release the "
+                "following node(s): %s." % (
+                    ', '.join(system_ids - permitted_ids)))
+
+        released_ids = []
+        failed = []
+        for node in nodes:
+            if node.status == NODE_STATUS.READY:
+                # Nothing to do.
+                pass
+            elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
+                node.release()
+                released_ids.append(node.system_id)
+            else:
+                failed.append(
+                    "%s ('%s')"
+                    % (node.system_id, node.display_status()))
+
+        if any(failed):
+            raise NodeStateViolation(
+                "Node(s) cannot be released in their current state: %s."
+                % ', '.join(failed))
+        return released_ids
+
     @operation(idempotent=True)
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by criteria.
@@ -884,10 +932,12 @@ class NodesHandler(OperationsHandler):
 
 
 class NodeMacsHandler(OperationsHandler):
-    """
-    Manage all the MAC addresses linked to a Node / Create a new MAC address
-    for a Node.
+    """Manage MAC addresses for a given Node.
 
+    This is where you manage the MAC addresses linked to a Node, including
+    associating a new MAC address with the Node.
+
+    The Node is identified by its system_id.
     """
     update = delete = None
 
@@ -911,7 +961,11 @@ class NodeMacsHandler(OperationsHandler):
 
 
 class NodeMacHandler(OperationsHandler):
-    """Manage a MAC address linked to a Node."""
+    """Manage a MAC address.
+
+    The MAC address object is identified by the system_id for the Node it
+    is attached to, plus the MAC address itself.
+    """
     create = update = None
     fields = ('mac_address',)
     model = MACAddress
@@ -1032,7 +1086,7 @@ DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
 
 
 class AnonNodeGroupsHandler(AnonymousOperationsHandler):
-    """Anon Node-groups API."""
+    """Anonymous access to NodeGroups."""
     create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
@@ -1125,7 +1179,7 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
 
 
 class NodeGroupsHandler(OperationsHandler):
-    """Node-groups API."""
+    """Manage NodeGroups."""
     anonymous = AnonNodeGroupsHandler
     create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
@@ -1152,6 +1206,16 @@ class NodeGroupsHandler(OperationsHandler):
             return HttpResponse("Nodegroup(s) accepted.", status=httplib.OK)
         else:
             raise PermissionDenied("That method is reserved to admin users.")
+
+    @operation(idempotent=False)
+    def import_boot_images(self, request):
+        """Import the boot images on all the accepted cluster controllers."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        NodeGroup.objects.import_boot_images_accepted_clusters()
+        return HttpResponse(
+            "Import of boot images started on all cluster controllers",
+            status=httplib.OK)
 
     @operation(idempotent=False)
     def reject(self, request):
@@ -1194,7 +1258,17 @@ def check_nodegroup_access(request, nodegroup):
 
 
 class NodeGroupHandler(OperationsHandler):
-    """Node-group API."""
+    """Manage a NodeGroup.
+
+    NodeGroup is the internal name for a cluster.
+
+    The NodeGroup is identified by its UUID, a random identifier that looks
+    something like:
+
+        5977f6ab-9160-4352-b4db-d71a99066c4f
+
+    Each NodeGroup has its own uuid.
+    """
 
     create = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
@@ -1213,6 +1287,11 @@ class NodeGroupHandler(OperationsHandler):
 
     @operation(idempotent=False)
     def update_leases(self, request, uuid):
+        """Submit latest state of DHCP leases within the cluster.
+
+        The cluster controller calls this periodically to tell the region
+        controller about the IP addresses it manages.
+        """
         leases = get_mandatory_param(request.data, 'leases')
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         check_nodegroup_access(request, nodegroup)
@@ -1222,6 +1301,17 @@ class NodeGroupHandler(OperationsHandler):
             nodegroup.add_dhcp_host_maps(
                 {ip: leases[ip] for ip in new_leases if ip in leases})
         return HttpResponse("Leases updated.", status=httplib.OK)
+
+    @operation(idempotent=False)
+    def import_boot_images(self, request, uuid):
+        """Import the pxe files on this cluster controller."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroup.import_boot_images()
+        return HttpResponse(
+            "Import of boot images started on cluster %r" % nodegroup.uuid,
+            status=httplib.OK)
 
     @operation(idempotent=True)
     def list_nodes(self, request, uuid):
@@ -1271,7 +1361,11 @@ DISPLAYED_NODEGROUP_FIELDS = (
 
 
 class NodeGroupInterfacesHandler(OperationsHandler):
-    """NodeGroupInterfaces API."""
+    """Manage NodeGroupInterfaces.
+
+    A NodeGroupInterface is a network interface attached to a cluster
+    controller, with its network properties.
+    """
     create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
@@ -1320,7 +1414,11 @@ class NodeGroupInterfacesHandler(OperationsHandler):
 
 
 class NodeGroupInterfaceHandler(OperationsHandler):
-    """NodeGroupInterface API."""
+    """Manage a NodeGroupInterface.
+
+    A NodeGroupInterface is identified by the uuid for its NodeGroup, and
+    the name of the network interface it represents: "eth0" for example.
+    """
     create = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
@@ -1423,7 +1521,13 @@ class AccountHandler(OperationsHandler):
 
 
 class TagHandler(OperationsHandler):
-    """Manage individual Tags."""
+    """Manage individual Tags.
+
+    Tags are properties that can be associated with a Node and serve as
+    criteria for selecting and allocating nodes.
+
+    A Tag is identified by its name.
+    """
     create = None
     model = Tag
     fields = (
@@ -1504,6 +1608,10 @@ class TagHandler(OperationsHandler):
 
         :param add: system_ids of nodes to add to this tag.
         :param remove: system_ids of nodes to remove from this tag.
+        :param definition: (optional) If supplied, the definition will be
+            validated against the current definition of the tag. If the value
+            does not match, then the update will be dropped (assuming this was
+            just a case of a worker being out-of-date)
         :param nodegroup: A uuid of a nodegroup being processed. This value is
             optional. If not supplied, the requester must be a superuser. If
             supplied, then the requester must be the worker associated with
@@ -1519,6 +1627,13 @@ class TagHandler(OperationsHandler):
                     'Must be a superuser or supply a nodegroup')
             nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
             check_nodegroup_access(request, nodegroup)
+        definition = request.data.get('definition', None)
+        if definition is not None and tag.definition != definition:
+            return HttpResponse(
+                "Definition supplied '%s' "
+                "doesn't match current definition '%s'"
+                % (definition, tag.definition),
+                status=httplib.CONFLICT)
         nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
         tag.node_set.add(*nodes_to_add)
         nodes_to_remove = self._get_nodes_for(request, 'remove', nodegroup)

@@ -13,15 +13,13 @@ __metaclass__ = type
 __all__ = []
 
 from django.core.urlresolvers import reverse
+from lxml.etree import XPath
 from lxml.html import fromstring
-from maastesting.matchers import ContainsAll
-from maasserver.testing import (
-    get_content_links,
-    )
+from maasserver.testing import get_content_links
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import (
-    LoggedInTestCase,
-    )
+from maasserver.testing.testcase import LoggedInTestCase
+from maasserver.views import tags as tags_views
+from maastesting.matchers import ContainsAll
 
 
 class TagViewsTest(LoggedInTestCase):
@@ -40,7 +38,7 @@ class TagViewsTest(LoggedInTestCase):
 
     def test_view_tag_includes_node_links(self):
         tag = factory.make_tag()
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         node.tags.add(tag)
         mac = factory.make_mac_address(node=node).mac_address
         tag_link = reverse('tag-view', args=[tag.name])
@@ -80,8 +78,8 @@ class TagViewsTest(LoggedInTestCase):
 
     def test_view_tag_hides_private_nodes(self):
         tag = factory.make_tag()
-        node = factory.make_node(set_hostname=True)
-        node2 = factory.make_node(owner=factory.make_user(), set_hostname=True)
+        node = factory.make_node()
+        node2 = factory.make_node(owner=factory.make_user())
         node.tags.add(tag)
         node2.tags.add(tag)
         tag_link = reverse('tag-view', args=[tag.name])
@@ -101,3 +99,47 @@ class TagViewsTest(LoggedInTestCase):
         kernel_opts = doc.cssselect('.kernel-opts-tag')[0].text_content()
         self.assertIn('Kernel Parameters', kernel_opts)
         self.assertIn(tag.kernel_opts, kernel_opts)
+
+    def test_view_tag_paginates_nodes(self):
+        """Listing of nodes with tag is split across multiple pages
+
+        Copy-coded from NodeViewsTest.test_node_list_paginates evilly.
+        """
+        # Set a very small page size to save creating lots of nodes
+        page_size = 2
+        self.patch(tags_views.TagView, 'paginate_by', page_size)
+        tag = factory.make_tag()
+        nodes = [factory.make_node(created="2012-10-12 12:00:%02d" % i)
+            for i in range(page_size * 2 + 1)]
+        for node in nodes:
+            node.tags = [tag]
+        # Order node links with newest first as the view is expected to
+        node_links = [reverse('node-view', args=[node.system_id])
+            for node in reversed(nodes)]
+        expr_node_links = XPath("//div[@id='nodes']/table//a/@href")
+        expr_page_anchors = XPath("//div[@class='pagination']//a")
+        # Fetch first page, should link newest two nodes and page 2
+        response = self.client.get(reverse('tag-view', args=[tag.name]))
+        page1 = fromstring(response.content)
+        self.assertEqual(node_links[:page_size], expr_node_links(page1))
+        self.assertEqual([("next", "?page=2"), ("last", "?page=3")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page1)])
+        # Fetch second page, should link next nodes and adjacent pages
+        response = self.client.get(reverse('tag-view', args=[tag.name]),
+            {"page": 2})
+        page2 = fromstring(response.content)
+        self.assertEqual(node_links[page_size:page_size * 2],
+            expr_node_links(page2))
+        self.assertEqual([("first", "."), ("previous", "."),
+                ("next", "?page=3"), ("last", "?page=3")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page2)])
+        # Fetch third page, should link oldest node and node list page
+        response = self.client.get(reverse('tag-view', args=[tag.name]),
+            {"page": 3})
+        page3 = fromstring(response.content)
+        self.assertEqual(node_links[page_size * 2:], expr_node_links(page3))
+        self.assertEqual([("first", "."), ("previous", "?page=2")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page3)])

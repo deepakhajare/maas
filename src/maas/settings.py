@@ -92,16 +92,16 @@ TEMPLATE_DEBUG = DEBUG
 # path relative to the 'static' directory.
 # Use an absolute path (like '/usr/share/javascript/raphael/') to serve the
 # files from a custom location.
-RAPHAELJS_LOCATION = os.path.join('jslibs', 'raphael')
+RAPHAELJS_LOCATION = '/usr/share/javascript/raphael/'
 
 YUI_DEBUG = DEBUG
 
 # Set this to where YUI3 files can be found.
 # Use a relative path (i.e. a path not starting with '/') to indicate a
 # path relative to the 'static' directory.
-# Use an absolute path (like '/usr/share/javascript/yui/') to serve the files
+# Use an absolute path (like '/usr/share/javascript/yui3/') to serve the files
 # from a custom location.
-YUI_LOCATION = os.path.join('jslibs', 'yui')
+YUI_LOCATION = '/usr/share/javascript/yui3/'
 
 STATIC_LOCAL_SERVE = DEBUG
 
@@ -174,7 +174,8 @@ STATIC_ROOT = ''
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
-STATIC_URL = '/static/'
+STATIC_URL_PATTERN = '/static/'
+STATIC_URL = STATIC_URL_PATTERN
 if FORCE_SCRIPT_NAME is not None:
     STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL
 
@@ -246,6 +247,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'maasserver.middleware.AccessMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
 )
 
 ROOT_URLCONF = 'maas.urls'

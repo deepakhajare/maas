@@ -77,6 +77,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NodeGroup,
+    nodegroup as nodegroup_module,
     NodeGroupInterface,
     Tag,
     )
@@ -102,7 +103,10 @@ from maasserver.testing.testcase import (
     TestCase,
     )
 from maasserver.tests.test_forms import make_interface_settings
-from maasserver.utils import map_enum
+from maasserver.utils import (
+    map_enum,
+    strip_domain,
+    )
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
 from maastesting.celery import CeleryFixture
@@ -116,6 +120,7 @@ from metadataserver.models import (
 from metadataserver.nodeinituser import get_node_init_user
 from mock import (
     ANY,
+    call,
     Mock,
     )
 from provisioningserver import (
@@ -551,11 +556,11 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
             {
                 'op': 'new',
                 'architecture': architecture,
-                'mac_addresses': ['aa:BB:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+                'mac_addresses': [factory.getRandomMACAddress()],
             })
         node = Node.objects.get(
             system_id=json.loads(response.content)['system_id'])
-        self.assertEqual('node-aabbccddeeff.local', node.hostname)
+        self.assertEqual(5, len(strip_domain(node.hostname)))
 
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
@@ -1163,7 +1168,7 @@ class TestNodeAPI(APITestCase):
 
     def test_GET_returns_node(self):
         # The api allows for fetching a single Node (using system_id).
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.get(self.get_node_uri(node))
 
         self.assertEqual(httplib.OK, response.status_code)
@@ -1172,7 +1177,7 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(node.system_id, parsed_result['system_id'])
 
     def test_GET_returns_associated_tag(self):
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         tag = factory.make_tag()
         node.tags.add(tag)
         response = self.client.get(self.get_node_uri(node))
@@ -1416,6 +1421,15 @@ class TestNodeAPI(APITestCase):
         self.assertEqual('francis', parsed_result['hostname'])
         self.assertEqual(0, Node.objects.filter(hostname='diane').count())
         self.assertEqual(1, Node.objects.filter(hostname='francis').count())
+
+    def test_PUT_omitted_hostname(self):
+        hostname = factory.make_name('hostname')
+        node = factory.make_node(hostname=hostname, owner=self.logged_in_user)
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES)})
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        self.assertTrue(Node.objects.filter(hostname=hostname).exists())
 
     def test_PUT_ignores_unknown_fields(self):
         node = factory.make_node(
@@ -1670,7 +1684,7 @@ class TestNodeAPI(APITestCase):
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
         self.become_admin()
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         system_id = node.system_id
         response = self.client.delete(self.get_node_uri(node))
 
@@ -1692,14 +1706,14 @@ class TestNodeAPI(APITestCase):
 
     def test_DELETE_deletes_node_fails_if_not_admin(self):
         # Only superusers can delete nodes.
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_forbidden_without_edit_permission(self):
         # A user without the edit permission cannot delete a Node.
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
@@ -1764,8 +1778,7 @@ class TestNodesAPI(APITestCase):
         # The api allows for fetching the list of Nodes.
         node1 = factory.make_node()
         node2 = factory.make_node(
-            set_hostname=True, status=NODE_STATUS.ALLOCATED,
-            owner=self.logged_in_user)
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
         response = self.client.get(self.get_uri('nodes/'), {'op': 'list'})
         parsed_result = json.loads(response.content)
 
@@ -2266,6 +2279,113 @@ class TestNodesAPI(APITestCase):
         self.assertItemsEqual(
             [node.system_id for node in acceptable_nodes], accepted_ids)
         self.assertNotIn(accepted_node.system_id, accepted_ids)
+
+    def test_POST_quietly_releases_empty_set(self):
+        response = self.client.post(self.get_uri('nodes/'), {'op': 'release'})
+        self.assertEqual(
+            (httplib.OK, "[]"), (response.status_code, response.content))
+
+    def test_POST_release_rejects_request_from_unauthorized_user(self):
+        node = factory.make_node(
+            status=NODE_STATUS.ALLOCATED, owner=factory.make_user())
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'release',
+                'nodes': [node.system_id],
+                })
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
+        self.assertEqual(NODE_STATUS.ALLOCATED, reload_object(node).status)
+
+    def test_POST_release_fails_if_nodes_do_not_exist(self):
+         # Make sure there is a node, it just isn't among the ones to release
+        factory.make_node()
+        node_ids = {factory.getRandomString() for i in xrange(5)}
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'release',
+                'nodes': node_ids
+                })
+        # Awkward parsing, but the order may vary and it's not JSON
+        s = response.content
+        returned_ids = s[s.find(':') + 2:s.rfind('.')].split(', ')
+        self.assertEqual(httplib.BAD_REQUEST, response.status_code)
+        self.assertIn("Unknown node(s): ", response.content)
+        self.assertItemsEqual(node_ids, returned_ids)
+
+    def test_POST_release_forbidden_if_user_cannot_edit_node(self):
+        # Create a bunch of nodes, owned by the logged in user
+        node_ids = {
+            factory.make_node(
+                status=NODE_STATUS.ALLOCATED,
+                owner=self.logged_in_user).system_id
+            for i in xrange(3)
+            }
+        # And one with no owner
+        another_node = factory.make_node(status=NODE_STATUS.RESERVED)
+        node_ids.add(another_node.system_id)
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'release',
+                'nodes': node_ids
+                })
+        self.assertEqual(
+            (httplib.FORBIDDEN,
+                "You don't have the required permission to release the "
+                "following node(s): %s." % another_node.system_id),
+            (response.status_code, response.content))
+
+    def test_POST_release_rejects_impossible_state_changes(self):
+        acceptable_states = {
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.RESERVED,
+            NODE_STATUS.READY,
+            }
+        unacceptable_states = (
+            set(map_enum(NODE_STATUS).values()) - acceptable_states)
+        owner = self.logged_in_user
+        nodes = [
+            factory.make_node(status=status, owner=owner)
+            for status in unacceptable_states]
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'release',
+                'nodes': [node.system_id for node in nodes],
+                })
+        # Awkward parsing again, because a string is returned, not JSON
+        expected = [
+            "%s ('%s')" % (node.system_id, node.display_status())
+            for node in nodes
+            if node.status not in acceptable_states]
+        s = response.content
+        returned = s[s.rfind(':') + 2:s.rfind('.')].split(', ')
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+        self.assertIn(
+            "Node(s) cannot be released in their current state:",
+            response.content)
+        self.assertItemsEqual(expected, returned)
+
+    def test_POST_release_returns_modified_nodes(self):
+        owner = self.logged_in_user
+        acceptable_states = {
+            NODE_STATUS.READY,
+            NODE_STATUS.ALLOCATED,
+            NODE_STATUS.RESERVED,
+            }
+        nodes = [
+            factory.make_node(status=status, owner=owner)
+            for status in acceptable_states
+            ]
+        response = self.client.post(
+            self.get_uri('nodes/'), {
+                'op': 'release',
+                'nodes': [node.system_id for node in nodes],
+                })
+        parsed_result = json.loads(response.content)
+        self.assertEqual(httplib.OK, response.status_code)
+        # The first node is READY, so shouldn't be touched
+        self.assertItemsEqual(
+            [nodes[1].system_id, nodes[2].system_id],
+            parsed_result)
 
 
 class MACAddressAPITest(APITestCase):
@@ -2877,6 +2997,24 @@ class TestTagAPI(APITestCase):
         parsed_result = json.loads(response.content)
         self.assertEqual({'added': 0, 'removed': 0}, parsed_result)
         self.assertItemsEqual([], tag.node_set.all())
+
+    def test_POST_update_nodes_ignores_incorrect_definition(self):
+        tag = factory.make_tag()
+        orig_def = tag.definition
+        nodegroup = factory.make_node_group()
+        node = factory.make_node(nodegroup=nodegroup)
+        client = make_worker_client(nodegroup)
+        tag.definition = '//new/node/definition'
+        tag.save()
+        response = client.post(self.get_tag_uri(tag),
+            {'op': 'update_nodes',
+             'add': [node.system_id],
+             'nodegroup': nodegroup.uuid,
+             'definition': orig_def,
+            })
+        self.assertEqual(httplib.CONFLICT, response.status_code)
+        self.assertItemsEqual([], tag.node_set.all())
+        self.assertItemsEqual([], node.tags.all())
 
     def test_POST_rebuild_rebuilds_node_mapping(self):
         tag = factory.make_tag(definition='/foo/bar')
@@ -3508,7 +3646,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             (parsed_result, NodeGroup.objects.ensure_master().uuid))
 
     def test_register_nodegroup_configures_master_if_unconfigured(self):
-        name = factory.make_name('name')
+        name = factory.make_name('nodegroup')
         uuid = factory.getRandomUUID()
         interface = make_interface_settings()
         self.client.post(
@@ -3521,7 +3659,8 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             })
         master = NodeGroup.objects.ensure_master()
         self.assertThat(
-            master.nodegroupinterface_set.all()[0],
+            master.nodegroupinterface_set.get(
+                interface=interface['interface']),
             MatchesStructure.byEquality(**interface))
         self.assertEqual(NODEGROUP_STATUS.ACCEPTED, master.status)
 
@@ -3949,6 +4088,38 @@ class TestNodeGroupAPI(APITestCase):
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def test_import_boot_images_calls_script_for_all_accepted_clusters(self):
+        recorder = self.patch(nodegroup_module, 'import_boot_images')
+        proxy = factory.make_name('proxy')
+        Config.objects.set_config('http_proxy', proxy)
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        calls = [
+            call(queue=nodegroup.work_queue, kwargs={'http_proxy': proxy})
+            for nodegroup in accepted_nodegroups
+            ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
+    def test_import_boot_images_denied_if_not_admin(self):
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
 
 def log_in_as_normal_user(client):
     """Log `client` in as a normal user."""
@@ -4030,10 +4201,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_nodegroup_list_nodes_works_for_admin(self):
         nodegroup = factory.make_node_group()
-        user = factory.make_user()
-        user.is_superuser = True
-        user.save()
-        client = OAuthAuthenticatedClient(user)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
         node = factory.make_node(nodegroup=nodegroup)
         response = client.get(
             reverse('nodegroup_handler', args=[nodegroup.uuid]),
@@ -4043,6 +4212,34 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
             explain_unexpected_response(httplib.OK, response))
         parsed_result = json.loads(response.content)
         self.assertItemsEqual([node.system_id], parsed_result)
+
+    def test_nodegroup_import_boot_images_calls_script(self):
+        recorder = self.patch(tasks, 'check_call')
+        proxy = factory.getRandomString()
+        Config.objects.set_config('http_proxy', proxy)
+        nodegroup = factory.make_node_group()
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        expected_env = dict(os.environ, http_proxy=proxy, https_proxy=proxy)
+        recorder.assert_called_once_with(
+            ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
+
+    def test_nodegroup_import_boot_images_denied_if_not_admin(self):
+        nodegroup = factory.make_node_group()
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
 
     def make_node_hardware_details_request(self, client, nodegroup=None):
         if nodegroup is None:

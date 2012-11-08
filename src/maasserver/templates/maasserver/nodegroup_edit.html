@@ -39,6 +39,7 @@
           <td>{{ interface.display_management }}</td>
           <td>
             <a href="{% url 'cluster-interface-edit' uuid=cluster.uuid interface=interface.interface %}"
+               class="icon"
                title="Edit interface {{ interface.interface }}">
               <img src="{{ STATIC_URL }}img/edit.png"
                    alt="edit"
@@ -53,6 +54,8 @@
         {% endfor %}
         </tbody>
       </table>
+      <a class="button right"
+         href="{% url 'cluster-interface-create' cluster.uuid %}">Add interface</a>
     </form>
   </div>
   <div class="clear"></div>
