@@ -632,13 +632,24 @@ class UbuntuForm(ConfigForm):
         # 'choices' must be evaluated each time the form is instantiated.
         self.fields['main_archive'] = forms.ChoiceField(
             label="Main archive",
-            choices=Config.objects.get_config('archive_choices'))
+            choices=Config.objects.get_config('archive_choices'),
+            help_text=(
+                "Archive used by nodes to retrieve packages (Intel "
+                "architectures)."
+                ))
         self.fields['ports_archive'] = forms.ChoiceField(
             label="Ports archive",
-            choices=Config.objects.get_config('archive_choices'))
+            choices=Config.objects.get_config('archive_choices'),
+            help_text=(
+                "Archive used by the nodes to retrieve packages (ARM "
+                "architectures)."
+                ))
         self.fields['cloud_images_archive'] = forms.ChoiceField(
             label="Cloud images archive",
-            choices=Config.objects.get_config('archive_choices'))
+            choices=Config.objects.get_config('archive_choices'),
+            help_text=(
+                "Archive used by the nodes to retrieve cloud images."
+                ))
         # The list of fields has changed: load initial values.
         self._load_initials()
 

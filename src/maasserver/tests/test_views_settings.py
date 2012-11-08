@@ -172,13 +172,13 @@ class SettingsTest(AdminLoggedInTestCase):
         choices = Config.objects.get_config('archive_choices')
         response = self.client.post(
             '/settings/archives/add/',
-            data={'archive_name': 'my.hostname.com'}
+            data={'archive_name': 'http://my.hostname.com'}
         )
         new_choices = Config.objects.get_config('archive_choices')
 
-        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(httplib.FOUND, response.status_code, response.content)
         self.assertItemsEqual(
-            choices + [['my.hostname.com', 'my.hostname.com']],
+            choices + [['http://my.hostname.com', 'http://my.hostname.com']],
             new_choices)
 
     def test_settings_contains_form_to_accept_all_nodegroups(self):
