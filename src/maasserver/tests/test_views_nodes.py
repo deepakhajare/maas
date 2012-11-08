@@ -335,8 +335,7 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertEqual(reverse('settings'), details_link)
 
     def test_view_node_shows_tag_kernel_params(self):
-        tag = factory.make_tag(name='shiny')
-        tag.kernel_params = '--test params'
+        tag = factory.make_tag(name='shiny', kernel_opts="--test params")
         node = factory.make_node()
         node.tags = [tag]
         self.assertEqual(
@@ -349,7 +348,7 @@ class NodeViewsTest(LoggedInTestCase):
         kernel_params = doc.cssselect('#node_kernel_opts')[0]
         self.assertEqual('--test params', kernel_params.text.strip())
 
-        details_link = doc.cssselect('a.kernelopts-global-link')[0].get('href')
+        details_link = doc.cssselect('a.kernelopts-tag-link')[0].get('href')
         self.assertEqual(reverse('tag-view', args=[tag.name]), details_link)
 
     def test_view_node_has_button_to_accept_enlistment_for_user(self):
