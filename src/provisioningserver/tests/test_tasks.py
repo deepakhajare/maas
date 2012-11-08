@@ -16,7 +16,6 @@ from datetime import datetime
 import json
 import os
 import random
-import re
 from subprocess import (
     CalledProcessError,
     PIPE,
@@ -582,5 +581,5 @@ class TestImportPxeFiles(PservTestCase):
         archive_settings = {
             variable: value
             for variable, value in env.iteritems()
-                if re.match('MAAS_.*_ARCHIVE', variable)}
+                if variable.endswith('_ARCHIVE')}
         self.assertEqual(expected_settings, archive_settings)
