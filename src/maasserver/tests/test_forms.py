@@ -515,9 +515,9 @@ class TestNodeActionForm(TestCase):
 class TestHostnameFormField(TestCase):
 
     def test_validate_hostname_validates_valid_hostnames(self):
-        self.assertIsNone(validate_hostname('host.example.com'))
-        self.assertIsNone(validate_hostname('host.my-example.com'))
-        self.assertIsNone(validate_hostname('my-example.com'))
+        self.assertIsNone(validate_hostname('http://host.example.com'))
+        self.assertIsNone(validate_hostname('http://host.my-example.com'))
+        self.assertIsNone(validate_hostname('http://my-example.com'))
         #  No ValidationError.
 
     def test_validate_hostname_does_not_validate_invalid_hostnames(self):
@@ -527,10 +527,11 @@ class TestHostnameFormField(TestCase):
         self.assertRaises(ValidationError, validate_hostname, 'toolong' * 100)
 
     def test_hostname_field_validation_cleaned_data_if_hostname_valid(self):
-        form = FormWithHostname({'hostname': 'host.example.com'})
+        form = FormWithHostname({'hostname': 'http://host.example.com'})
 
         self.assertTrue(form.is_valid())
-        self.assertEqual('host.example.com', form.cleaned_data['hostname'])
+        self.assertEqual(
+            'http://host.example.com', form.cleaned_data['hostname'])
 
     def test_hostname_field_validation_error_if_invalid_hostname(self):
         form = FormWithHostname({'hostname': 'invalid-host'})
