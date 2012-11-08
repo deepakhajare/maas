@@ -141,6 +141,11 @@ class TestKernelOpts(TestCase):
         # verbatim.
         self.assertThat(cmdline, Contains(' ' + extra_opts))
 
+    def test_commissioning_compose_kernel_command_line_handles_extra_opts_None(self):
+        params = make_kernel_parameters(extra_opts=None)
+        cmdline = compose_kernel_command_line(params)
+        self.assertNotIn(cmdline, "None")
+
     def test_compose_kernel_command_line_inc_common_opts(self):
         # Test that some kernel arguments appear on both commissioning
         # and install command lines.

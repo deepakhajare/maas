@@ -178,5 +178,6 @@ def compose_kernel_command_line(params):
     #       as it would be nice to have.
     options += compose_logging_opts(params.log_host)
     options += compose_arch_opts(params)
-    options.append(params.extra_opts)
+    if params.extra_opts:
+        options.append(params.extra_opts)
     return ' '.join(options)
