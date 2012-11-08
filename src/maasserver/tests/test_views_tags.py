@@ -38,7 +38,7 @@ class TagViewsTest(LoggedInTestCase):
 
     def test_view_tag_includes_node_links(self):
         tag = factory.make_tag()
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         node.tags.add(tag)
         mac = factory.make_mac_address(node=node).mac_address
         tag_link = reverse('tag-view', args=[tag.name])
@@ -78,8 +78,8 @@ class TagViewsTest(LoggedInTestCase):
 
     def test_view_tag_hides_private_nodes(self):
         tag = factory.make_tag()
-        node = factory.make_node(set_hostname=True)
-        node2 = factory.make_node(owner=factory.make_user(), set_hostname=True)
+        node = factory.make_node()
+        node2 = factory.make_node(owner=factory.make_user())
         node.tags.add(tag)
         node2.tags.add(tag)
         tag_link = reverse('tag-view', args=[tag.name])

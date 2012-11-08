@@ -164,6 +164,7 @@ from maasserver.preseed import (
 from maasserver.server_address import get_maas_facing_server_address
 from maasserver.utils import (
     absolute_reverse,
+    build_absolute_uri,
     map_enum,
     strip_domain,
     )
@@ -744,6 +745,9 @@ class NodesHandler(OperationsHandler):
 
         When a node has been added to MAAS by an admin MAAS user, it is
         ready for allocation to services running on the MAAS.
+        The minimum data required is:
+        architecture=<arch string> (e.g "i386/generic")
+        mac_address=<value>
         """
         node = create_node(request)
         if request.user.is_superuser:
@@ -1021,6 +1025,10 @@ class AnonFilesHandler(AnonymousOperationsHandler):
 
     get = operation(idempotent=True, exported_as='get')(get_file)
 
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
+
 
 class FilesHandler(OperationsHandler):
     """File management operations."""
@@ -1193,6 +1201,16 @@ class NodeGroupsHandler(OperationsHandler):
             raise PermissionDenied("That method is reserved to admin users.")
 
     @operation(idempotent=False)
+    def import_boot_images(self, request):
+        """Import the boot images on all the accepted cluster controllers."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        NodeGroup.objects.import_boot_images_accepted_clusters()
+        return HttpResponse(
+            "Import of boot images started on all cluster controllers",
+            status=httplib.OK)
+
+    @operation(idempotent=False)
     def reject(self, request):
         """Reject nodegroup enlistment(s).
 
@@ -1276,6 +1294,17 @@ class NodeGroupHandler(OperationsHandler):
             nodegroup.add_dhcp_host_maps(
                 {ip: leases[ip] for ip in new_leases if ip in leases})
         return HttpResponse("Leases updated.", status=httplib.OK)
+
+    @operation(idempotent=False)
+    def import_boot_images(self, request, uuid):
+        """Import the pxe files on this cluster controller."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroup.import_boot_images()
+        return HttpResponse(
+            "Import of boot images started on cluster %r" % nodegroup.uuid,
+            status=httplib.OK)
 
     @operation(idempotent=True)
     def list_nodes(self, request, uuid):
@@ -1935,12 +1964,23 @@ def describe(request):
     Returns a JSON object describing the whole MAAS API.
     """
     from maasserver import urls_api as urlconf
+    resources = [
+        describe_resource(resource)
+        for resource in find_api_resources(urlconf)
+        ]
+    # Make all URIs absolute. Clients - maas-cli in particular - expect that
+    # all handler URIs are absolute, not just paths. The handler URIs returned
+    # by describe_resource() are relative paths.
+    absolute = partial(build_absolute_uri, request)
+    for resource in resources:
+        for handler_type in "anon", "auth":
+            handler = resource[handler_type]
+            if handler is not None:
+                handler["uri"] = absolute(handler["path"])
+    # Package it all up.
     description = {
         "doc": "MAAS API",
-        "resources": [
-            describe_resource(resource)
-            for resource in find_api_resources(urlconf)
-            ],
+        "resources": resources,
         }
     # For backward compatibility, add "handlers" as an alias for all not-None
     # anon and auth handlers in "resources".

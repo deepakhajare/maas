@@ -27,10 +27,12 @@ from functools import partial
 import httplib
 from itertools import izip
 import json
+from operator import itemgetter
 import os
 import random
 import shutil
 import sys
+from urlparse import urlparse
 
 from apiclient.maas_client import MAASClient
 from celery.app import app_or_default
@@ -38,9 +40,11 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.http import QueryDict
+from django.test.client import RequestFactory
 from fixtures import Fixture
 from maasserver import api
 from maasserver.api import (
+    describe,
     DISPLAYED_NODEGROUP_FIELDS,
     extract_constraints,
     extract_oauth_key,
@@ -73,6 +77,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NodeGroup,
+    nodegroup as nodegroup_module,
     NodeGroupInterface,
     Tag,
     )
@@ -98,7 +103,10 @@ from maasserver.testing.testcase import (
     TestCase,
     )
 from maasserver.tests.test_forms import make_interface_settings
-from maasserver.utils import map_enum
+from maasserver.utils import (
+    map_enum,
+    strip_domain,
+    )
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
 from maastesting.celery import CeleryFixture
@@ -112,6 +120,7 @@ from metadataserver.models import (
 from metadataserver.nodeinituser import get_node_init_user
 from mock import (
     ANY,
+    call,
     Mock,
     )
 from provisioningserver import (
@@ -130,10 +139,15 @@ from provisioningserver.omshell import Omshell
 from provisioningserver.pxe import tftppath
 from provisioningserver.testing.boot_images import make_boot_image_params
 from testresources import FixtureResource
+from testscenarios import multiply_scenarios
 from testtools.matchers import (
+    AfterPreprocessing,
     AllMatch,
     Contains,
     Equals,
+    Is,
+    MatchesAll,
+    MatchesAny,
     MatchesListwise,
     MatchesStructure,
     StartsWith,
@@ -542,11 +556,11 @@ class EnlistmentAPITest(APIv10TestMixin, MultipleUsersScenarios, TestCase):
             {
                 'op': 'new',
                 'architecture': architecture,
-                'mac_addresses': ['aa:BB:cc:dd:ee:ff', '22:bb:cc:dd:ee:ff'],
+                'mac_addresses': [factory.getRandomMACAddress()],
             })
         node = Node.objects.get(
             system_id=json.loads(response.content)['system_id'])
-        self.assertEqual('node-aabbccddeeff.local', node.hostname)
+        self.assertEqual(5, len(strip_domain(node.hostname)))
 
     def test_POST_fails_without_operation(self):
         # If there is no operation ('op=operation_name') specified in the
@@ -1154,7 +1168,7 @@ class TestNodeAPI(APITestCase):
 
     def test_GET_returns_node(self):
         # The api allows for fetching a single Node (using system_id).
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.get(self.get_node_uri(node))
 
         self.assertEqual(httplib.OK, response.status_code)
@@ -1163,7 +1177,7 @@ class TestNodeAPI(APITestCase):
         self.assertEqual(node.system_id, parsed_result['system_id'])
 
     def test_GET_returns_associated_tag(self):
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         tag = factory.make_tag()
         node.tags.add(tag)
         response = self.client.get(self.get_node_uri(node))
@@ -1407,6 +1421,15 @@ class TestNodeAPI(APITestCase):
         self.assertEqual('francis', parsed_result['hostname'])
         self.assertEqual(0, Node.objects.filter(hostname='diane').count())
         self.assertEqual(1, Node.objects.filter(hostname='francis').count())
+
+    def test_PUT_omitted_hostname(self):
+        hostname = factory.make_name('hostname')
+        node = factory.make_node(hostname=hostname, owner=self.logged_in_user)
+        response = self.client.put(
+            self.get_node_uri(node),
+            {'architecture': factory.getRandomChoice(ARCHITECTURE_CHOICES)})
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        self.assertTrue(Node.objects.filter(hostname=hostname).exists())
 
     def test_PUT_ignores_unknown_fields(self):
         node = factory.make_node(
@@ -1661,7 +1684,7 @@ class TestNodeAPI(APITestCase):
     def test_DELETE_deletes_node(self):
         # The api allows to delete a Node.
         self.become_admin()
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         system_id = node.system_id
         response = self.client.delete(self.get_node_uri(node))
 
@@ -1683,14 +1706,14 @@ class TestNodeAPI(APITestCase):
 
     def test_DELETE_deletes_node_fails_if_not_admin(self):
         # Only superusers can delete nodes.
-        node = factory.make_node(set_hostname=True, owner=self.logged_in_user)
+        node = factory.make_node(owner=self.logged_in_user)
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_forbidden_without_edit_permission(self):
         # A user without the edit permission cannot delete a Node.
-        node = factory.make_node(set_hostname=True)
+        node = factory.make_node()
         response = self.client.delete(self.get_node_uri(node))
 
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
@@ -1755,8 +1778,7 @@ class TestNodesAPI(APITestCase):
         # The api allows for fetching the list of Nodes.
         node1 = factory.make_node()
         node2 = factory.make_node(
-            set_hostname=True, status=NODE_STATUS.ALLOCATED,
-            owner=self.logged_in_user)
+            status=NODE_STATUS.ALLOCATED, owner=self.logged_in_user)
         response = self.client.get(self.get_uri('nodes/'), {'op': 'list'})
         parsed_result = json.loads(response.content)
 
@@ -4025,6 +4047,38 @@ class TestNodeGroupAPI(APITestCase):
             })
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
+    def test_import_boot_images_calls_script_for_all_accepted_clusters(self):
+        recorder = self.patch(nodegroup_module, 'import_boot_images')
+        proxy = factory.make_name('proxy')
+        Config.objects.set_config('http_proxy', proxy)
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        factory.make_node_group(status=NODEGROUP_STATUS.REJECTED)
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        calls = [
+            call(queue=nodegroup.work_queue, kwargs={'http_proxy': proxy})
+            for nodegroup in accepted_nodegroups
+            ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
+    def test_import_boot_images_denied_if_not_admin(self):
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroups_handler'), {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
+
 
 def log_in_as_normal_user(client):
     """Log `client` in as a normal user."""
@@ -4106,10 +4160,8 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
 
     def test_nodegroup_list_nodes_works_for_admin(self):
         nodegroup = factory.make_node_group()
-        user = factory.make_user()
-        user.is_superuser = True
-        user.save()
-        client = OAuthAuthenticatedClient(user)
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
         node = factory.make_node(nodegroup=nodegroup)
         response = client.get(
             reverse('nodegroup_handler', args=[nodegroup.uuid]),
@@ -4119,6 +4171,34 @@ class TestNodeGroupAPIAuth(APIv10TestMixin, TestCase):
             explain_unexpected_response(httplib.OK, response))
         parsed_result = json.loads(response.content)
         self.assertItemsEqual([node.system_id], parsed_result)
+
+    def test_nodegroup_import_boot_images_calls_script(self):
+        recorder = self.patch(tasks, 'check_call')
+        proxy = factory.getRandomString()
+        Config.objects.set_config('http_proxy', proxy)
+        nodegroup = factory.make_node_group()
+        admin = factory.make_admin()
+        client = OAuthAuthenticatedClient(admin)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            explain_unexpected_response(httplib.OK, response))
+        expected_env = dict(os.environ, http_proxy=proxy, https_proxy=proxy)
+        recorder.assert_called_once_with(
+            ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
+
+    def test_nodegroup_import_boot_images_denied_if_not_admin(self):
+        nodegroup = factory.make_node_group()
+        user = factory.make_user()
+        client = OAuthAuthenticatedClient(user)
+        response = client.post(
+            reverse('nodegroup_handler', args=[nodegroup.uuid]),
+            {'op': 'import_boot_images'})
+        self.assertEqual(
+            httplib.FORBIDDEN, response.status_code,
+            explain_unexpected_response(httplib.FORBIDDEN, response))
 
     def make_node_hardware_details_request(self, client, nodegroup=None):
         if nodegroup is None:
@@ -4349,3 +4429,49 @@ class TestDescribe(AnonAPITestCase):
         self.assertSetEqual(
             {"doc", "handlers", "resources"}, set(description))
         self.assertIsInstance(description["handlers"], list)
+
+
+class TestDescribeAbsoluteURIs(AnonAPITestCase):
+    """Tests for the `describe` view's URI manipulation."""
+
+    scenarios_schemes = (
+        ("http", dict(scheme="http")),
+        ("https", dict(scheme="https")),
+        )
+
+    scenarios_paths = (
+        ("script-at-root", dict(script_name="", path_info="")),
+        ("script-below-root-1", dict(script_name="/foo/bar", path_info="")),
+        ("script-below-root-2", dict(script_name="/foo", path_info="/bar")),
+        )
+
+    scenarios = multiply_scenarios(
+        scenarios_schemes, scenarios_paths)
+
+    def test_handler_uris_are_absolute(self):
+        server = factory.make_name("server").lower()
+        extra = {
+            "PATH_INFO": self.path_info,
+            "SCRIPT_NAME": self.script_name,
+            "SERVER_NAME": server,
+            "wsgi.url_scheme": self.scheme,
+            }
+        request = RequestFactory().get(
+            "/%s/describe" % factory.make_name("path"), **extra)
+        response = describe(request)
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        description = json.loads(response.content)
+        expected_uri = AfterPreprocessing(
+            urlparse, MatchesStructure(
+                scheme=Equals(self.scheme), hostname=Equals(server),
+                # The path is always the script name followed by "api/"
+                # because all API calls are within the "api" tree.
+                path=StartsWith(self.script_name + "/api/")))
+        expected_handler = MatchesAny(
+            Is(None), AfterPreprocessing(itemgetter("uri"), expected_uri))
+        expected_resource = MatchesAll(
+            AfterPreprocessing(itemgetter("anon"), expected_handler),
+            AfterPreprocessing(itemgetter("auth"), expected_handler))
+        resources = description["resources"]
+        self.assertNotEqual([], resources)
+        self.assertThat(resources, AllMatch(expected_resource))
