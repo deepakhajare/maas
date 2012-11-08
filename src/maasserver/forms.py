@@ -153,12 +153,12 @@ class NodeForm(ModelForm):
         error_messages={'invalid_choice': INVALID_ARCHITECTURE_MESSAGE})
 
     hostname = forms.CharField(
-        label="Hostname", help_text=(
+        label="Host name", help_text=(
             "The FQDN (Fully Qualified Domain Name) is derived from the "
-            "hostname: If the cluster controller for this node is managing "
-            "DNS then the domain part in the hostname (if any) is replaced "
+            "host name: If the cluster controller for this node is managing "
+            "DNS then the domain part in the host name (if any) is replaced "
             "by the domain defined on the cluster; if the cluster controller "
-            "does not manage DNS, then the hostname is the FQDN."))
+            "does not manage DNS, then the host name is the FQDN."))
 
     class Meta:
         model = Node
