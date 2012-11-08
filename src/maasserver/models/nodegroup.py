@@ -245,13 +245,10 @@ class NodeGroup(TimestampedModel):
             'ports_archive',
             'cloud_images_archive',
         }
-        config = {
-            name: Config.objects.get_config(name)
-            for name in config_parameters}
         task_kwargs = {
-            name: value
-            for name, value in config.items()
-                if value is not None}
+            name: Config.objects.get_config(name)
+            for name in config_parameters
+                if Config.objects.get_config(name) is not None}
         import_boot_images.apply_async(queue=self.uuid, kwargs=task_kwargs)
 
     def add_dhcp_host_maps(self, new_leases):

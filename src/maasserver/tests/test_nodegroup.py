@@ -396,10 +396,7 @@ class TestNodeGroup(TestCase):
         nodegroup.import_boot_images()
 
         kwargs = recorder.apply_async.call_args[1]['kwargs']
-        archive_options = {
-            arg: value
-            for arg, value in kwargs.items()
-                if arg.endswith('_archive')}
+        archive_options = {arg: kwargs.get(arg) for arg in archives}
         self.assertEqual(archives, archive_options)
 
     def test_import_boot_images_sent_to_nodegroup_queue(self):
