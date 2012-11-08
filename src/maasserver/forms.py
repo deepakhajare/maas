@@ -641,7 +641,7 @@ class UbuntuForm(ConfigForm):
             label="Ports archive",
             choices=Config.objects.get_config('archive_choices'),
             help_text=(
-                "Archive used by the nodes to retrieve packages (ARM "
+                "Archive used by the nodes to retrieve packages (non-Intel "
                 "architectures)."
                 ))
         self.fields['cloud_images_archive'] = forms.ChoiceField(
