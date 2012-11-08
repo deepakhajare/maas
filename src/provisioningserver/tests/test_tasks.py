@@ -578,7 +578,7 @@ class TestImportPxeFiles(PservTestCase):
             parameter.upper(): value
             for parameter, value in archives.items()}
         import_boot_images(**archives)
-        env = tasks.check_call.call_args[-1][1]['env']
+        env = tasks.check_call.call_args[1]['env']
         archive_settings = {
             variable: value
             for variable, value in env.iteritems()
