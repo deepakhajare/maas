@@ -239,7 +239,19 @@ class NodeGroup(TimestampedModel):
         """
         # Avoid circular imports.
         from maasserver.models import Config
-        task_kwargs = dict(http_proxy=Config.objects.get_config('http_proxy'))
+        config_parameters = {
+            'http_proxy',
+            'main_archive',
+            'ports_archive',
+            'cloud_images_archive',
+        }
+        config = {
+            name: Config.objects.get_config(name)
+            for name in config_parameters}
+        task_kwargs = {
+            name: value
+            for name, value in config.items()
+                if value is not None}
         import_boot_images.apply_async(queue=self.uuid, kwargs=task_kwargs)
 
     def add_dhcp_host_maps(self, new_leases):

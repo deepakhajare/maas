@@ -381,8 +381,10 @@ class TestNodeGroup(TestCase):
         recorder.assert_called_once_with(
             ['sudo', '-n', 'maas-import-pxe-files'], env=expected_env)
 
-    def test_import_boot_images_selects_archive_locations(self):
-        self.patch(nodegroup_module, 'import_boot_images')
+    def test_import_boot_images_selects_archive_locations_from_config(self):
+        recorder = self.patch(nodegroup_module, 'import_boot_images')
+        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+
         archives = {
             'main_archive': make_archive_url('main'),
             'ports_archive': make_archive_url('ports'),
@@ -390,9 +392,10 @@ class TestNodeGroup(TestCase):
         }
         for key, value in archives.items():
             Config.objects.set_config(key, value)
-        nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED)
+
         nodegroup.import_boot_images()
-        kwargs = nodegroup_module.import_boot_images.apply_async.call_args[1]
+
+        kwargs = recorder.apply_async.call_args[1]['kwargs']
         archive_options = {
             arg: value
             for arg, value in kwargs.items()
