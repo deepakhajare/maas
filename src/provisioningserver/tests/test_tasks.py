@@ -543,7 +543,7 @@ class TestImportPxeFiles(PservTestCase):
     def make_archive_url(self, name=None):
         if name is None:
             name = factory.make_name('archive')
-        return '%s.example.com/%s' % (name, factory.make_name('path'))
+        return 'http://%s.example.com/%s' % (name, factory.make_name('path'))
 
     def test_import_boot_images(self):
         recorder = self.patch(tasks, 'check_call', Mock())
