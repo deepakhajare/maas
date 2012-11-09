@@ -539,7 +539,7 @@ class TestHostnameFormField(TestCase):
         self.assertFalse(form.is_valid())
         self.assertItemsEqual(['hostname'], list(form.errors))
         self.assertEqual(
-            ["Enter a valid hostname (e.g. host.example.com)."],
+            ["Enter a valid url (e.g. http://host.example.com)."],
             form.errors['hostname'])
 
 
