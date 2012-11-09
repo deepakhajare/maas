@@ -15,6 +15,7 @@ __all__ = []
 import httplib
 import os
 from pipes import quote
+from urlparse import urlparse
 
 from django.conf import settings
 from maasserver.enum import (
@@ -307,6 +308,14 @@ class TestLoadPreseedTemplate(TestCase):
             TemplateNotFoundError, template.substitute)
 
 
+def make_url(name):
+    """Create a fake archive URL."""
+    return "http://%s.example.com/%s/" % (
+        factory.make_name(name),
+        factory.make_name('path'),
+        )
+
+
 class TestPreseedContext(TestCase):
     """Tests for `get_preseed_context`."""
 
@@ -338,24 +347,20 @@ class TestPreseedContext(TestCase):
     def test_get_preseed_context_archive_refs(self):
         # urlparse lowercases the hostnames. That should not have any
         # impact but for testing, create lower-case hostnames.
-        main_archive_hostname = factory.make_name('hostname').lower()
-        main_archive_directory = factory.make_name('directory')
-        ports_archive_hostname = factory.make_name('hostname').lower()
-        ports_archive_directory = factory.make_name('directory')
-        main_archive = 'http://%s/%s' % (
-            main_archive_hostname, main_archive_directory)
-        ports_archive = 'http://%s/%s' % (
-            ports_archive_hostname, ports_archive_directory)
+        main_archive = make_url('main_archive')
+        ports_archive = make_url('ports_archive')
         Config.objects.set_config('main_archive', main_archive)
         Config.objects.set_config('ports_archive', ports_archive)
         context = get_preseed_context(
             factory.make_node(), factory.getRandomString())
+        parsed_main_archive = urlparse(main_archive)
+        parsed_ports_archive = urlparse(ports_archive)
         self.assertEqual(
             (
-                main_archive_hostname,
-                '/%s' % main_archive_directory,
-                ports_archive_hostname,
-                '/%s' % ports_archive_directory,
+                parsed_main_archive.hostname,
+                parsed_main_archive.path,
+                parsed_ports_archive.hostname,
+                parsed_ports_archive.path,
             ),
             (
                 context['main_archive_hostname'],
