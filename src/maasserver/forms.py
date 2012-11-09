@@ -634,21 +634,21 @@ class UbuntuForm(ConfigForm):
             label="Main archive",
             choices=Config.objects.get_config('archive_choices'),
             help_text=(
-                "Archive used by nodes to retrieve packages (Intel "
-                "architectures)."
+                "Archive used by nodes to retrieve packages and by cluster "
+                "controllers to retrieve boot images (Intel architectures)."
                 ))
         self.fields['ports_archive'] = forms.ChoiceField(
             label="Ports archive",
             choices=Config.objects.get_config('archive_choices'),
             help_text=(
-                "Archive used by the nodes to retrieve packages (non-Intel "
-                "architectures)."
+                "Archive used by cluster controllers to retrieve boot images "
+                "(non-Intel architectures)."
                 ))
         self.fields['cloud_images_archive'] = forms.ChoiceField(
             label="Cloud images archive",
             choices=Config.objects.get_config('archive_choices'),
             help_text=(
-                "Archive used by the nodes to retrieve cloud images."
+                "Archive used by the nodes to retrieve ephemeral images."
                 ))
         # The list of fields has changed: load initial values.
         self._load_initials()
