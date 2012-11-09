@@ -352,16 +352,16 @@ class TestPreseedContext(TestCase):
             factory.make_node(), factory.getRandomString())
         self.assertEqual(
             (
-                context['main_archive_hostname'],
-                context['main_archive_directory'],
-                context['ports_archive_hostname'],
-                context['ports_archive_directory'],
-            ),
-            (
                 main_archive_hostname,
                 '/%s' % main_archive_directory,
                 ports_archive_hostname,
                 '/%s' % ports_archive_directory,
+            ),
+            (
+                context['main_archive_hostname'],
+                context['main_archive_directory'],
+                context['ports_archive_hostname'],
+                context['ports_archive_directory'],
             ))
 
 
