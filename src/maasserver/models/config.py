@@ -48,15 +48,15 @@ def get_default_config():
         'archive_choices': (
             [
                 [
-                    'http://archive.ubuntu.com/ubuntu',
+                    'http://archive.ubuntu.com/ubuntu (default main archive)',
                     'http://archive.ubuntu.com/ubuntu'
                 ],
                 [
-                    'http://ports.ubuntu.com/ubuntu-ports',
+                    'http://ports.ubuntu.com/ubuntu-ports (default ports archive)',
                     'http://ports.ubuntu.com/ubuntu-ports'
                 ],
                 [
-                    'https://maas.ubuntu.com/images',
+                    'https://maas.ubuntu.com/images (default cloud images archive)',
                     'https://maas.ubuntu.com/images'
                 ],
             ]
