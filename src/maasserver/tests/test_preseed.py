@@ -73,6 +73,7 @@ class TestGetHostnameAndPath(TestCase):
             ('http://name.domain/my/path',  ('name.domain', '/my/path')),
             ('https://domain/path',  ('domain', '/path')),
             ('http://domain/',  ('domain', '/')),
+            ('http://domain',  ('domain', '')),
             ]
         inputs = [input for input, _ in input_and_results]
         results = [result for _, result in input_and_results]
