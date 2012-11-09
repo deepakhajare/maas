@@ -654,7 +654,7 @@ class UbuntuForm(ConfigForm):
         self._load_initials()
 
 
-hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
+hostname_error_msg = "Enter a valid url (e.g. http://host.example.com)."
 
 
 def validate_url(value):
