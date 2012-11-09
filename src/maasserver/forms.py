@@ -657,7 +657,7 @@ class UbuntuForm(ConfigForm):
 hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
 
 
-def validate_hostname(value):
+def validate_url(value):
     try:
         validator = URLValidator(verify_exists=False)
         validator(value)
@@ -669,7 +669,7 @@ class HostnameFormField(CharField):
 
     def __init__(self, *args, **kwargs):
         super(HostnameFormField, self).__init__(
-            validators=[validate_hostname], *args, **kwargs)
+            validators=[validate_url], *args, **kwargs)
 
 
 class AddArchiveForm(ConfigForm):
