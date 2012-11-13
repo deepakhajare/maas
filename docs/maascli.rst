@@ -71,12 +71,12 @@ The main maas-cli commands are:
   lists the details [name url auth-key] of all the currently logged-in
   profiles.
 
-:samp:`login  <profile>  <url>  <key>`
+:samp:`login <profile> <url> <key>`
 
   Logs in to the MAAS controller API at the given URL, using the key
   provided and associates this connection with the given profile name.
 
-:samp:`logout  <profile>` 
+:samp:`logout <profile>` 
 
   Logs out from the given profile, flushing the stored credentials.
 
@@ -86,7 +86,7 @@ The main maas-cli commands are:
   profiles. This may become necessary for example when upgrading the
   maas packages to ensure the command-line options match with the API.
 
-:samp:`<profile> [command] [options] ...`  
+:samp:`<profile> [command] [options] ...`
 
   Using the given profile name instructs ``maas-cli`` to direct the
   subsequent commands and options to the relevant MAAS, which for the
@@ -128,11 +128,11 @@ create-authorisation-token | delete-authorisation-token [token_key=\
 
 
 
-.. boot-images  - not useful in user context
+.. boot-images - not useful in user context
 .. ^^^^^^^^^^^
 
 
-.. files   - not useful in user context
+.. files - not useful in user context
 .. ^^^^^
 
 
@@ -155,7 +155,7 @@ read | update <system_id>
 
 :samp:`release <system_id>`
 
-   Releases the node given by  *<system_id>*
+   Releases the node given by *<system_id>*
 
 :samp:`start <system_id>`
  
@@ -174,7 +174,7 @@ read | update <system_id>
 :samp:`read <system_id>`
  
    Returns all the current known information about the node specified
-   by **<system_id>**
+   by *<system_id>*
 
 :samp:`update <system_id> [parameters...]`
  
@@ -242,7 +242,7 @@ acquire | list | accept | accept-all | new | check-commissioning
    Allocates a node to the profile used to issue the command. Any
    ready node may be allocated.
 
-:samp:`is-registered mac_address='<address>'`
+:samp:`is-registered mac_address=<address>`
 
    Checks to see whether the specified MAC address is registered to a
    node.
@@ -257,7 +257,7 @@ acquire | list | accept | accept-all | new | check-commissioning
    Returns a JSON formatted object listing all the currently allocated
    nodes, their system_id, status and other details.
 
-:samp:`new  architecture=<value> mac_addresses=<value> [parameters]`
+:samp:`new architecture=<value> mac_addresses=<value> [parameters]`
 
    Creates a new node entry given the provided key=value information
    for the node. A minimum of the MAC address and architecture must be
@@ -266,9 +266,9 @@ acquire | list | accept | accept-all | new | check-commissioning
      architecture="<value>" - The architecture of the node, must be
      one of the recognised architecture strings (e.g. "i386/generic")
      hostname="<value>" - a name for this node. If not supplied a name
-     will be generated.  
+     will be generated.
      mac_addresses="<value>" - The mac address(es)
-     allocated to this node.  
+     allocated to this node.
      powertype="<value>" - the power type of
      the node (e.g. virsh, ipmi)
 
@@ -351,7 +351,7 @@ Usage: maas-cli <profile> node-groups [-d --debug] [-h --help] [-k
 
 node-group-interface
 ^^^^^^^^^^^^^^^^^^^^
-For managing the applied interfaces. See also :ref:<node_group_interfaces>.
+For managing the interfaces. See also :ref:`node_group_interfaces`
 
 Usage: maas-cli *<profile>* node-group-interfaces [-d --debug] [-h
 --help] [-k --insecure] read | update | delete [parameters...]
@@ -378,14 +378,14 @@ Usage: maas-cli *<profile>* node-group-interfaces [-d --debug] [-h
            Apply the given dotted decimal value as the broadcast IP address for 
            this subnet.
 
-      router_ip=<value>      
+      router_ip=<value>
            Apply the given dotted decimal value as the default router address 
            for this subnet.
 
-      ip_range_low=<value>  
+      ip_range_low=<value>
            The lowest value of IP address to allocate via DHCP
 
-      ip_range_high=<value>  
+      ip_range_high=<value>
            The highest value of IP address to allocate via DHCP 
 
 :samp:`delete <uuid> <interface>`
@@ -469,10 +469,10 @@ Usage: maas-cli *<profile>* node-group-interfaces [-d --debug] [-h
            Apply the given dotted decimal value as the
            default router address for this subnet.
 
-      ip_range_low=<value>  
+      ip_range_low=<value>
            The lowest value of IP address to allocate via DHCP
 
-      ip_range_high=<value>  
+      ip_range_high=<value>
            The highest value of IP address to allocate via DHCP
 
 
@@ -490,7 +490,7 @@ Usage: maas-cli <profile> tag read | update-nodes | rebuild | update |
    
    Returns information on the tag specified by <name>
 
-:samp:`update-nodes <tag_name> [add="<system_id>"] [remove="<system_id>"] [nodegroup="<system_id>"]`
+:samp:`update-nodes <tag_name> [add=<system_id>] [remove=<system_id>] [nodegroup=<system_id>]`
 
    Applies or removes the given tag from a list of nodes specified by
    either or both of add="<system_id>" and remove="<system_id>". The
