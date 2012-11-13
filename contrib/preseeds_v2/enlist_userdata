@@ -143,7 +143,7 @@ misc_bucket:
        # '--dhcp-if-static' has been passed,  Set it to IPMI to DHCP.
        if not is_ipmi_dhcp() and args.dhcp:
            set_ipmi_network_source("Use_DHCP")
-           # allow IPMI 60 seconds to obtain an IP address
+           # allow IPMI 120 seconds to obtain an IP address
            time.sleep(120)
 
        # create user/pass
