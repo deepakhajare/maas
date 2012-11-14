@@ -14,7 +14,7 @@ __all__ = []
 
 from random import randint
 
-from maastesting import db_migrations
+from maasserver.testing import db_migrations
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 
