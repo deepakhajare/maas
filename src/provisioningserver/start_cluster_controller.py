@@ -18,6 +18,7 @@ __all__ = [
 from grp import getgrnam
 import httplib
 import json
+from logging import getLogger
 import os
 from pwd import getpwnam
 from time import sleep
@@ -32,14 +33,10 @@ from apiclient.maas_client import (
     NoAuth,
     )
 from celery.app import app_or_default
-from celery.log import (
-    get_task_logger,
-    setup_logging_subsystem,
-    )
 from provisioningserver.network import discover_networks
 
 
-task_logger = get_task_logger(name=__name__)
+logger = getLogger(__name__)
 
 
 class ClusterControllerRejected(Exception):
@@ -59,7 +56,7 @@ def add_arguments(parser):
 
 
 def log_error(exception):
-    task_logger.info(
+    logger.info(
         "Could not register with region controller: %s."
         % exception.reason)
 
@@ -145,7 +142,7 @@ def request_refresh(server_url):
     try:
         client.post('api/1.0/nodegroups/', 'refresh_workers')
     except URLError as e:
-        task_logger.warn(
+        logger.warn(
             "Could not request secrets from region controller: %s"
             % e.reason)
 
@@ -164,13 +161,23 @@ def start_up(server_url, connection_details, user, group):
     start_celery(connection_details, user=user, group=group)
 
 
+def set_up_logging():
+    """Set up logging."""
+    # This import has side effects (it imports celeryconfig) and may
+    # produce warnings (if there is no celeryconfig).
+    # Postpone the import so that we don't go through that every time
+    # anything imports this module.
+    from celery.log import setup_logging_subsystem
+    setup_logging_subsystem()
+
+
 def run(args):
     """Start the cluster controller.
 
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
-    setup_logging_subsystem()
+    set_up_logging()
     connection_details = register(args.server_url)
     while connection_details is None:
         sleep(60)
