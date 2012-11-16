@@ -87,7 +87,10 @@ class TestStartClusterController(PservTestCase):
 
     def setUp(self):
         super(TestStartClusterController, self).setUp()
+
         self.useFixture(FakeLogger())
+        self.patch(start_cluster_controller, 'set_up_logging')
+
         # Patch out anything that could be remotely harmful if we did it
         # accidentally in the test.  Make the really outrageous ones
         # raise exceptions.
