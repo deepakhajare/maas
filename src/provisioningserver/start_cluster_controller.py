@@ -32,7 +32,6 @@ from apiclient.maas_client import (
     MAASDispatcher,
     NoAuth,
     )
-from celery.app import app_or_default
 from provisioningserver.network import discover_networks
 
 
@@ -68,6 +67,9 @@ def make_anonymous_api_client(server_url):
 
 def get_cluster_uuid():
     """Read this cluster's UUID from the config."""
+    # Import this lazily.  It reads config as a side effect, which can
+    # produce warnings.
+    from celery.app import app_or_default
     return app_or_default().conf.CLUSTER_UUID
 
 
