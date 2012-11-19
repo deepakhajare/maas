@@ -45,7 +45,8 @@ class CommissioningScriptManager(Manager):
             given `name` already existed, it will be updated with the given
             `content`.  Otherwise, it will be newly created.
         """
-        script, created = self.get_or_create(name, {'content': content})
+        script, created = self.get_or_create(
+            name=name, defaults={'content': content})
         if not created:
             script.content = content
             content.save()
