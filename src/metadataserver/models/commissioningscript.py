@@ -17,10 +17,12 @@ __all__ = [
 
 
 from django.db.models import (
+    CharField,
     Manager,
     Model,
     )
 from metadataserver import DefaultMeta
+from metadataserver.fields import BinaryField
 
 
 class CommissioningScriptManager(Manager):
@@ -30,6 +32,19 @@ class CommissioningScriptManager(Manager):
     `CommissioningScript.objects`.
     """
 
+    def store_script(self, name, content):
+        return # TODO: Watch tests fail first.
+        script, created = self.get_or_create(name, {'content': content})
+        if not created:
+            script.content = content
+            content.save()
+
+    def get_scripts(self):
+        return [] # TODO: Watch tests fail first.
+
+    def drop_script(self, name):
+        return # TODO: Watch tests fail first.
+
 
 class CommissioningScript(Model):
 
@@ -37,3 +52,6 @@ class CommissioningScript(Model):
         """Needed for South to recognize this model."""
 
     objects = CommissioningScriptManager()
+
+    name = CharField(max_length=255, null=False, editable=False, unique=True)
+    content = BinaryField(null=False)
