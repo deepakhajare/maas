@@ -83,9 +83,7 @@ class TestCommissioningScript(TestCase):
         self.assertEqual(new_content, reload_object(stored_script).content)
 
     def test_get_scripts_orders_by_name(self):
-        names = [
-            factory.make_script_name(number=number)
-            for number in [99, 1, 25, 8]]
+        names = [make_script_name(number=number) for number in [99, 1, 25, 8]]
         for name in names:
             CommissioningScript.objects.store_script(
                 name, make_script_content(name))
