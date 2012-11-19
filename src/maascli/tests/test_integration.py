@@ -19,7 +19,6 @@ from subprocess import (
     )
 
 from maastesting.testcase import TestCase
-from testtools.matchers import FileContains
 
 
 def locate_dev_root():
@@ -51,10 +50,11 @@ class TestMAASCli(TestCase):
             self.run_command()
         except CalledProcessError:
             pass
-        self.assertThat(
-            self.output_file,
-            FileContains(
-                "Run %s --help for usage details." % locate_maascli()))
+        with open(self.output_file, 'rb') as captured_output:
+            output = captured_output.read()
+        self.assertIn(
+            "Run %s --help for usage details." % locate_maascli(),
+            output)
 
     def test_help_option_succeeds(self):
         self.run_command('-h')
