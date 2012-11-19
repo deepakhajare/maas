@@ -15,7 +15,8 @@ __all__ = []
 import os.path
 from subprocess import (
     CalledProcessError,
-    check_call,
+    check_output,
+    STDOUT,
     )
 
 from maastesting.testcase import TestCase
@@ -33,13 +34,8 @@ def locate_maascli():
 
 class TestMAASCli(TestCase):
 
-    output_file = '/dev/null'
-
     def run_command(self, *args):
-        with open(self.output_file, 'ab') as output:
-            check_call(
-                [locate_maascli()] + list(args),
-                stdout=output, stderr=output)
+        check_output([locate_maascli()] + list(args), stderr=STDOUT)
 
     def test_run_without_args_fails(self):
         self.assertRaises(CalledProcessError, self.run_command)
