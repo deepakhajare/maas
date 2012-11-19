@@ -33,7 +33,18 @@ class CommissioningScriptManager(Manager):
     """
 
     def store_script(self, name, content):
-        return # TODO: Watch tests fail first.
+        """Store a commissioning script.
+
+        :param name: Name for this commissioning script.  By convention, the
+            name should start with a two-digit number.  The prefix "00-maas-"
+            is reserved for MAAS-internal scripts.
+        :type name: :class:`unicode`
+        :param content: Binary script content.
+        :type content: :class:`metadataserver.fields.Bin`
+        :return: :class:`CommissioningScript` object.  If a script of the
+            given `name` already existed, it will be updated with the given
+            `content`.  Otherwise, it will be newly created.
+        """
         script, created = self.get_or_create(name, {'content': content})
         if not created:
             script.content = content
@@ -41,11 +52,14 @@ class CommissioningScriptManager(Manager):
         return script
 
     def get_scripts(self):
-        return [] # TODO: Watch tests fail first.
+        """Return all :class:`CommissioningScript` objects, sorted by name.
+
+        The ordering is used to ensure a predictable execution order.
+        """
         return self.order_by('name')
 
     def drop_script(self, name):
-        return # TODO: Watch tests fail first.
+        """Delete the named :class:`CommissioningScript`, if it existed."""
         self.filter(name=name).delete()
 
 
