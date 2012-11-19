@@ -30,7 +30,7 @@ def main(argv=None):
 
     if len(argv) == 1:
         # No arguments passed.  Be helpful and point out the --help option.
-        sys.stderr.write("Run %s --help for usage details." % argv[0])
+        sys.stderr.write("Run %s --help for usage details.\n" % argv[0])
         raise SystemExit(2)
 
     parser = prepare_parser(argv)
