@@ -38,12 +38,15 @@ class CommissioningScriptManager(Manager):
         if not created:
             script.content = content
             content.save()
+        return script
 
     def get_scripts(self):
         return [] # TODO: Watch tests fail first.
+        return self.order_by('name')
 
     def drop_script(self, name):
         return # TODO: Watch tests fail first.
+        self.filter(name=name).delete()
 
 
 class CommissioningScript(Model):
