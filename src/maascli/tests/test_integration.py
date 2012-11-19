@@ -19,6 +19,7 @@ from subprocess import (
     )
 
 from maastesting.testcase import TestCase
+from testtools.matchers import FileContains
 
 
 def locate_dev_root():
@@ -33,14 +34,27 @@ def locate_maascli():
 
 class TestMAASCli(TestCase):
 
+    output_file = '/dev/null'
+
     def run_command(self, *args):
-        with open('/dev/null', 'ab') as dev_null:
+        with open(self.output_file, 'ab') as output:
             check_call(
                 [locate_maascli()] + list(args),
-                stdout=dev_null, stderr=dev_null)
+                stdout=output, stderr=output)
 
     def test_run_without_args_fails(self):
         self.assertRaises(CalledProcessError, self.run_command)
+
+    def test_run_without_args_shows_help_reminder(self):
+        self.output_file = self.make_file('output')
+        try:
+            self.run_command()
+        except CalledProcessError:
+            pass
+        self.assertThat(
+            self.output_file,
+            FileContains(
+                "Run %s --help for usage details." % locate_maascli()))
 
     def test_help_option_succeeds(self):
         self.run_command('-h')
