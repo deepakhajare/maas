@@ -21,11 +21,14 @@ from maasserver.testing.testcase import TestCase
 from metadataserver.models import CommissioningScript
 
 
-def make_script_name(number=None):
+def make_script_name(base_name=None, number=None):
     """Make up a name for a commissioning script."""
+    if base_name is None:
+        base_name = 'script'
     if number is None:
         number = randint(0, 99)
-    return factory.make_name('%0.2d-script' % number)
+    return factory.make_name(
+        '%0.2d-%s' % (number, factory.make_name(base_name)))
 
 
 def make_script_content(recognizable_text='script'):
@@ -80,7 +83,9 @@ class TestCommissioningScript(TestCase):
         self.assertEqual(new_content, reload_object(stored_script).content)
 
     def test_get_scripts_orders_by_name(self):
-        names = [factory.make_script_name(number) for number in [99, 1, 25, 8]]
+        names = [
+            factory.make_script_name(number=number)
+            for number in [99, 1, 25, 8]]
         for name in names:
             CommissioningScript.objects.store_script(
                 name, make_script_content(name))
