@@ -44,13 +44,11 @@ class TestMAASCli(TestCase):
         self.output_file = self.make_file('output')
         try:
             self.run_command()
-        except CalledProcessError:
+        except CalledProcessError as e:
             pass
-        with open(self.output_file, 'rb') as captured_output:
-            output = captured_output.read()
         self.assertIn(
             "Run %s --help for usage details." % locate_maascli(),
-            output)
+            e.output)
 
     def test_help_option_succeeds(self):
         self.run_command('-h')
