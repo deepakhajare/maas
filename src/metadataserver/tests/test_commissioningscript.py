@@ -47,7 +47,7 @@ class TestCommissioningScript(TestCase):
 
     def test_store_script_creates_script(self):
         name = make_script_name()
-        content = factory.getRandomString()
+        content = make_script_content()
         CommissioningScript.objects.store_script(name, content)
         stored_script = CommissioningScript.objects.get(name=name)
         self.assertEqual(content, stored_script.content)
