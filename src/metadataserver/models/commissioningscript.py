@@ -65,6 +65,11 @@ class CommissioningScriptManager(Manager):
 
 
 class CommissioningScript(Model):
+    """User-provided commissioning script.
+
+    Actually a commissioning "script" could be a binary, e.g. because a
+    hardware vendor supplied an update in the form of a binary executable.
+    """
 
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
