@@ -49,7 +49,7 @@ class CommissioningScriptManager(Manager):
             name=name, defaults={'content': content})
         if not created:
             script.content = content
-            content.save()
+            script.save()
         return script
 
     def get_scripts(self):
