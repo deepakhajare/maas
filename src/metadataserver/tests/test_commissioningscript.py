@@ -120,7 +120,7 @@ class TestCommissioningScript(TestCase):
         name = make_script_name()
         # Some binary data that would break just about any kind of text
         # interpretation.
-        binary = codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00'
+        binary = Bin(codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00')
         CommissioningScript.objects.store_script(name, binary)
         [stored_script] = CommissioningScript.objects.get_scripts()
         self.assertEqual(binary, stored_script.content)
