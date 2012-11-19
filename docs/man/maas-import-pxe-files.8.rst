@@ -35,7 +35,7 @@ copies the Intel-architecture pre-boot loader `pxelinux.0` (plus some
 of its modules such as `chain.c32`) from its installed location in
 /usr/lib/syslinux/.
 
-These images are the minimum that's required to start installng a node.
+These images are the minimum that's required to start installing a node.
 During installation, a node may download its packages over the network.
 
 
