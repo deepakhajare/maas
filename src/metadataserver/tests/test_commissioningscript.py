@@ -18,6 +18,7 @@ from random import randint
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from metadataserver.fields import Bin
 from metadataserver.models import CommissioningScript
 
 
@@ -34,7 +35,7 @@ def make_script_name(base_name=None, number=None):
 def make_script_content(recognizable_text='script'):
     """Make up content for a commissioning script."""
     text = "%s-%s" % (recognizable_text, factory.getRandomString())
-    return text.encode('ascii')
+    return Bin(text.encode('ascii'))
 
 
 def list_names(scripts):
