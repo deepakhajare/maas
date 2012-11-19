@@ -97,7 +97,7 @@ class TestCommissioningScript(TestCase):
         name = make_script_name()
         CommissioningScript.objects.store_script(name, make_script_content())
         CommissioningScript.objects.drop_script(name)
-        self.assertItemsEqual([], CommissioningScript.get_scripts())
+        self.assertItemsEqual([], CommissioningScript.objects.get_scripts())
 
     def test_drop_script_leaves_other_scripts_alone(self):
         doomed_script = make_script_name('doomed')
