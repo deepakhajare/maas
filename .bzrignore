@@ -10,7 +10,6 @@
 ./acceptance/source
 ./bin
 ./build
-./celerybeat-schedule
 ./db
 ./develop-eggs
 ./dist

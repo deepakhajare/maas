@@ -157,7 +157,6 @@ clean:
 	$(RM) -r media/demo/* media/development
 	$(RM) $(js_enums)
 	$(RM) *.log
-	$(RM) celerybeat-schedule
 	$(RM) docs/api.rst
 	$(RM) -r docs/_autosummary docs/_build
 	$(RM) -r man
