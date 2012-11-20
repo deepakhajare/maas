@@ -210,8 +210,8 @@ Import the boot images
 MAAS will check for and download new Ubuntu images once a week.
 However, you'll need to download them manually the first time. To do
 this you will need to connect to the MAAS API using the maas-cli
-tool. (see :ref:`api_key` for details of logging in).  Then you need
-to run the command::
+tool. (see :ref:`Logging in <api-key>` for details). Then you need to
+run the command::
 
   $ maas-cli maas node-groups import-boot-images
 
