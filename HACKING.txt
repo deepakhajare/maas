@@ -239,8 +239,12 @@ Start downloading PXE boot resources::
 
     $  bin/maascli dev node-groups import-boot-images
 
-This may download dozens or hundreds of megabytes, so depending on your
-network connection it may take a while.
+This sends jobs to each cluster controller, asking each to download
+the boot resources they require. This may download dozens or hundreds
+of megabytes, so it may take a while. To save bandwidth, set an HTTP
+proxy beforehand::
+
+    $ bin/maascli dev maas set-config name=http_proxy value=http://...
 
 
 Running the built-in TFTP server
