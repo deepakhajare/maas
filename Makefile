@@ -159,7 +159,7 @@ clean:
 	$(RM) celerybeat-schedule
 	$(RM) docs/api.rst
 	$(RM) -r docs/_autosummary
-	$(RM) man/*
+	$(RM) -r man/
 
 distclean: clean stop
 	$(RM) -r bin include lib local
