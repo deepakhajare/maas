@@ -170,6 +170,7 @@ from maasserver.utils import (
     strip_domain,
     )
 from maasserver.utils.orm import get_one
+from metadataserver.fields import Bin
 from metadataserver.models import CommissioningScript
 from piston.handler import (
     AnonymousBaseHandler,
@@ -1988,9 +1989,16 @@ class CommissioningScriptsHandler(OperationsHandler):
 
     def read(self, request):
         """List commissioning scripts."""
+        return [
+            script.name
+            for script in CommissioningScript.objects.all().order_by('name')]
 
     def create(self, request):
         """Create a new commissioning script."""
+        name = get_mandatory_param(request.data, 'name')
+        content_file = get_mandatory_param(request.files, 'content')
+        content = Bin(content_file.read())
+        return CommissioningScript.objects.create(name=name, content=content)
 
 
 class CommissioningScriptHandler(OperationsHandler):
