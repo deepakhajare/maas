@@ -13,7 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from django.http import QueryDict
-from maasserver.api_utils import get_overrided_query_dict
+from maasserver.api_support import get_overrided_query_dict
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
