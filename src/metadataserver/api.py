@@ -27,10 +27,12 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from maasserver.api import (
     extract_oauth_key,
+    store_node_power_parameters,
+    )
+from maasserver.api_support import (
     get_mandatory_param,
     operation,
     OperationsHandler,
-    store_node_power_parameters,
     )
 from maasserver.enum import (
     NODE_STATUS,
