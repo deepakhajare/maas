@@ -21,18 +21,20 @@ from lockfile import (
     FileLock,
     LockTimeout,
     )
-from maasserver import (
-    components,
-    start_up,
+from maasserver import start_up
+from maasserver.components import (
+    discard_persistent_error,
+    register_persistent_error,
     )
+from maasserver.enum import COMPONENT
 from maasserver.models import (
     BootImage,
     NodeGroup,
     )
 from maasserver.testing.factory import factory
+from maasserver.testing.testcase import TestCase
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
-from maastesting.testcase import TestCase
 from mock import Mock
 from provisioningserver import tasks
 from testresources import FixtureResource
@@ -111,12 +113,13 @@ class TestStartUp(TestCase):
         # the master worker is having trouble reporting its images.  And
         # so start_up registers a persistent warning about this.
         BootImage.objects.all().delete()
+        discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
         recorder = self.patch(start_up, 'register_persistent_error')
 
         start_up.start_up()
 
         self.assertIn(
-            components.COMPONENT.IMPORT_PXE_FILES,
+            COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])
 
     def test_start_up_does_not_warn_if_boot_images_are_known(self):
@@ -128,5 +131,21 @@ class TestStartUp(TestCase):
         start_up.start_up()
 
         self.assertNotIn(
-            components.COMPONENT.IMPORT_PXE_FILES,
+            COMPONENT.IMPORT_PXE_FILES,
+            [args[0][0] for args in recorder.call_args_list])
+
+    def test_start_up_does_not_warn_if_already_warning(self):
+        # If there already is a warning about missing boot images, it is
+        # based on more precise knowledge of whether we ever heard from
+        # the region worker at all.  It will not be replaced by a less
+        # knowledgeable warning.
+        BootImage.objects.all().delete()
+        register_persistent_error(
+            COMPONENT.IMPORT_PXE_FILES, factory.getRandomString())
+        recorder = self.patch(start_up, 'register_persistent_error')
+
+        start_up.start_up()
+
+        self.assertNotIn(
+            COMPONENT.IMPORT_PXE_FILES,
             [args[0][0] for args in recorder.call_args_list])

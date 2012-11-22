@@ -15,17 +15,21 @@ __all__ = []
 import httplib
 import os
 from pipes import quote
+from urlparse import urlparse
 
 from django.conf import settings
 from maasserver.enum import (
+    ARCHITECTURE,
     NODE_STATUS,
     PRESEED_TYPE,
     )
+from maasserver.models import Config
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     GENERIC_FILENAME,
     get_enlist_preseed,
+    get_hostname_and_path,
     get_preseed,
     get_preseed_context,
     get_preseed_filenames,
@@ -39,6 +43,7 @@ from maasserver.preseed import (
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maasserver.utils import map_enum
+from maastesting.matchers import ContainsAll
 from testtools.matchers import (
     AllMatch,
     IsInstance,
@@ -56,6 +61,21 @@ class TestSplitSubArch(TestCase):
         self.assertEqual(['amd64', 'test'], split_subarch('amd64/test'))
 
 
+class TestGetHostnameAndPath(TestCase):
+    """Tests for `get_hostname_and_path`."""
+
+    def test_get_hostname_and_path(self):
+        input_and_results = [
+            ('http://name.domain/my/path',  ('name.domain', '/my/path')),
+            ('https://domain/path',  ('domain', '/path')),
+            ('http://domain/',  ('domain', '/')),
+            ('http://domain',  ('domain', '')),
+            ]
+        inputs = [input for input, _ in input_and_results]
+        results = [result for _, result in input_and_results]
+        self.assertEqual(results, map(get_hostname_and_path, inputs))
+
+
 class TestGetPreseedFilenames(TestCase):
     """Tests for `get_preseed_filenames`."""
 
@@ -64,27 +84,7 @@ class TestGetPreseedFilenames(TestCase):
         prefix = factory.getRandomString()
         release = factory.getRandomString()
         node = factory.make_node(hostname=hostname)
-        self.assertSequenceEqual(
-            [
-                '%s_%s_%s_%s' % (prefix, node.architecture, release, hostname),
-                '%s_%s_%s' % (prefix, node.architecture, release),
-                '%s_%s' % (prefix, node.architecture),
-                '%s' % prefix,
-                'generic',
-            ],
-            list(get_preseed_filenames(node, prefix, release, default=True)))
-
-    def test_get_preseed_filenames_returns_filenames_with_subarch(self):
-        arch = factory.getRandomString()
-        subarch = factory.getRandomString()
-        fake_arch = '%s/%s' % (arch, subarch)
-        hostname = factory.getRandomString()
-        prefix = factory.getRandomString()
-        release = factory.getRandomString()
-        node = factory.make_node(hostname=hostname)
-        # Set an architecture of the form '%s/%s' i.e. with a
-        # sub-architecture.
-        node.architecture = fake_arch
+        arch, subarch = node.architecture.split('/')
         self.assertSequenceEqual(
             [
                 '%s_%s_%s_%s_%s' % (prefix, arch, subarch, release, hostname),
@@ -110,11 +110,13 @@ class TestGetPreseedFilenames(TestCase):
         hostname = factory.getRandomString()
         release = factory.getRandomString()
         node = factory.make_node(hostname=hostname)
+        arch, subarch = node.architecture.split('/')
         self.assertSequenceEqual(
             [
-                '%s_%s_%s' % (node.architecture, release, hostname),
-                '%s_%s' % (node.architecture, release),
-                '%s' % node.architecture,
+                '%s_%s_%s_%s' % (arch, subarch, release, hostname),
+                '%s_%s_%s' % (arch, subarch, release),
+                '%s_%s' % (arch, subarch),
+                '%s' % arch,
             ],
             list(get_preseed_filenames(node, '', release)))
 
@@ -266,7 +268,8 @@ class TestLoadPreseedTemplate(TestCase):
         self.create_template(self.location, prefix)
         node = factory.make_node(hostname=factory.getRandomString())
         node_template_name = "%s_%s_%s_%s" % (
-            prefix, node.architecture, release, node.hostname)
+            prefix, node.architecture.replace('/', '_'),
+            release, node.hostname)
         # Create the node-specific template.
         content = self.create_template(self.location, node_template_name)
         template = load_preseed_template(node, prefix, release)
@@ -302,6 +305,14 @@ class TestLoadPreseedTemplate(TestCase):
             TemplateNotFoundError, template.substitute)
 
 
+def make_url(name):
+    """Create a fake archive URL."""
+    return "http://%s.example.com/%s/" % (
+        factory.make_name(name),
+        factory.make_name('path'),
+        )
+
+
 class TestPreseedContext(TestCase):
     """Tests for `get_preseed_context`."""
 
@@ -312,7 +323,11 @@ class TestPreseedContext(TestCase):
         self.assertItemsEqual(
             ['node', 'release', 'metadata_enlist_url',
              'server_host', 'server_url', 'preseed_data',
-             'node_disable_pxe_url', 'node_disable_pxe_data'],
+             'node_disable_pxe_url', 'node_disable_pxe_data',
+             'main_archive_hostname', 'main_archive_directory',
+             'ports_archive_hostname', 'ports_archive_directory',
+             'http_proxy',
+             ],
             context)
 
     def test_get_preseed_context_if_node_None(self):
@@ -322,8 +337,37 @@ class TestPreseedContext(TestCase):
         release = factory.getRandomString()
         context = get_preseed_context(None, release)
         self.assertItemsEqual(
-            ['release', 'metadata_enlist_url', 'server_host', 'server_url'],
+            ['release', 'metadata_enlist_url', 'server_host', 'server_url',
+            'main_archive_hostname', 'main_archive_directory',
+            'ports_archive_hostname', 'ports_archive_directory',
+            'http_proxy',
+            ],
             context)
+
+    def test_get_preseed_context_archive_refs(self):
+        # urlparse lowercases the hostnames. That should not have any
+        # impact but for testing, create lower-case hostnames.
+        main_archive = make_url('main_archive')
+        ports_archive = make_url('ports_archive')
+        Config.objects.set_config('main_archive', main_archive)
+        Config.objects.set_config('ports_archive', ports_archive)
+        context = get_preseed_context(
+            factory.make_node(), factory.getRandomString())
+        parsed_main_archive = urlparse(main_archive)
+        parsed_ports_archive = urlparse(ports_archive)
+        self.assertEqual(
+            (
+                parsed_main_archive.hostname,
+                parsed_main_archive.path,
+                parsed_ports_archive.hostname,
+                parsed_ports_archive.path,
+            ),
+            (
+                context['main_archive_hostname'],
+                context['main_archive_directory'],
+                context['ports_archive_hostname'],
+                context['ports_archive_directory'],
+            ))
 
 
 class TestPreseedTemplate(TestCase):
@@ -356,6 +400,57 @@ class TestRenderPreseed(TestCase):
         self.assertIsInstance(preseed, str)
 
 
+class TestRenderPreseedArchives(TestCase):
+    """Test that the default preseed contains the default mirrors."""
+
+    def test_render_preseed_uses_default_archives_intel(self):
+        nodes = [
+            factory.make_node(architecture=ARCHITECTURE.i386),
+            factory.make_node(architecture=ARCHITECTURE.amd64),
+            ]
+        default_snippets = [
+            "d-i     mirror/http/hostname string archive.ubuntu.com",
+            "d-i     mirror/http/directory string /ubuntu",
+            ]
+        for node in nodes:
+            preseed = render_preseed(node, PRESEED_TYPE.DEFAULT, "precise")
+            self.assertThat(preseed, ContainsAll(default_snippets))
+
+    def test_render_preseed_uses_default_archives_arm(self):
+        node = factory.make_node(architecture=ARCHITECTURE.armhf_highbank)
+        default_snippets = [
+            "d-i     mirror/http/hostname string ports.ubuntu.com",
+            "d-i     mirror/http/directory string /ubuntu-ports",
+            ]
+        preseed = render_preseed(node, PRESEED_TYPE.DEFAULT, "precise")
+        self.assertThat(preseed, ContainsAll(default_snippets))
+
+
+class TestPreseedProxy(TestCase):
+
+    def test_preseed_uses_default_proxy(self):
+        server_host = factory.getRandomString().lower()
+        url = 'http://%s:%d/%s' % (
+            server_host, factory.getRandomPort(), factory.getRandomString())
+        self.patch(settings, 'DEFAULT_MAAS_URL', url)
+        expected_proxy_statement = (
+                "mirror/http/proxy string http://%s:8000" % server_host)
+        preseed = render_preseed(
+            factory.make_node(), PRESEED_TYPE.DEFAULT, "precise")
+        self.assertIn(expected_proxy_statement, preseed)
+
+    def test_preseed_uses_configured_proxy(self):
+        http_proxy = 'http://%s:%d/%s' % (
+            factory.getRandomString(), factory.getRandomPort(),
+            factory.getRandomString())
+        Config.objects.set_config('http_proxy', http_proxy)
+        expected_proxy_statement = (
+            "mirror/http/proxy string %s" % http_proxy)
+        preseed = render_preseed(
+            factory.make_node(), PRESEED_TYPE.DEFAULT, "precise")
+        self.assertIn(expected_proxy_statement, preseed)
+
+
 class TestPreseedMethods(TestCase):
     """Tests for `get_enlist_preseed` and `get_preseed`.
 
@@ -374,7 +469,7 @@ class TestPreseedMethods(TestCase):
     def test_get_preseed_returns_commissioning_preseed(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         preseed = get_preseed(node)
-        self.assertIn('cloud-init', preseed)
+        self.assertIn('#cloud-config', preseed)
 
 
 class TestPreseedURLs(TestCase):

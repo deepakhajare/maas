@@ -3,10 +3,12 @@ build-essential
 curl
 firefox
 ipython
+libjs-yui3-full
 make
 python-lxml
 python-pip
 python-pocket-lint
+python-selenium
 python-sphinx
 python-virtualenv
 xvfb

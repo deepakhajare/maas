@@ -2,7 +2,7 @@
 
 {% block nav-active-node-list %}active{% endblock %}
 {% block title %}Nodes{% endblock %}
-{% block page-title %}{{ node_list|length }} node{{ node_list|length|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
+{% block page-title %}{{ paginator.count }}{% if input_query %} matching{% endif %} node{{ paginator.count|pluralize }} in {% include "maasserver/site_title.html" %}{% endblock %}
 {% block site-switcher %}{% endblock %}
 {% block header-search %}{% endblock %}
 
@@ -31,35 +31,15 @@
 
 {% block content %}
   <div id="nodes">
-    {% comment %}
-      <!-- To be enabled when we have search functionality -->
-      <form action="" method="get" class="block full-width inline-form">
-        <input type="text" name="query" class="search-box" value="Search nodes" />
-      </form>
-    {% endcomment %}
-    {% if node_list|length %}
-      <table class="list">
-        <thead>
-          <tr>
-            <th>MAC</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        {% for node in node_list %}
-          <tr class="node {% cycle 'even' 'odd' %}">
-            <td>
-              <a href="{% url 'node-view' node.system_id %}">
-                {% for macaddress in node.macaddress_set.reverse %}
-                  {{ macaddress }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
-              </a>
-              ({{ node.hostname }})
-            </td>
-            <td>{{ node.display_status }}</td>
-          </tr>
-        {% endfor %}
-      </table>
-    {% endif%}
+    <form action="{% url 'node-list' %}" method="get" class="block full-width search">
+      <input type="search" name="query" placeholder="Search nodes" class="search-input" value="{{input_query|default_if_none:''}}" />
+      <input type="submit" value="Search" class="search-submit" />
+    </form>
+    {% if input_query_error %}
+    <p class="form-errors">{{input_query_error}}</p>
+    {% endif %}
+    {% include "maasserver/nodes_listing.html" with sorting="true" %}
+    {% include "maasserver/pagination.html" %}
     <a id="addnode" href="#" class="button right space-top">+ Add node</a>
     <div class="clear"></div>
     <a class="right space-top" href="{% url "enlist-preseed-view" %}">View enlistment preseed</a>

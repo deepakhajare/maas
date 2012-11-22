@@ -16,11 +16,11 @@ __all__ = [
     "get_action_form",
     "get_node_edit_form",
     "get_node_create_form",
-    "HostnameFormField",
     "MACAddressForm",
     "MAASAndNetworkForm",
     "NodeGroupInterfaceForm",
     "NodeGroupWithInterfacesForm",
+    "NodeGroupEdit",
     "NodeWithMACAddressesForm",
     "SSHKeyForm",
     "UbuntuForm",
@@ -30,6 +30,7 @@ __all__ = [
 
 import collections
 import json
+import re
 
 from django import forms
 from django.contrib import messages
@@ -45,12 +46,11 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.core.validators import URLValidator
 from django.forms import (
-    CharField,
     Form,
     ModelForm,
     )
+from lxml import etree
 from maasserver.config_forms import SKIP_CHECK_NAME
 from maasserver.enum import (
     ARCHITECTURE,
@@ -59,6 +59,7 @@ from maasserver.enum import (
     DISTRO_SERIES_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
+    NODE_STATUS,
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     NODEGROUPINTERFACE_MANAGEMENT_CHOICES,
@@ -76,8 +77,10 @@ from maasserver.models import (
     SSHKey,
     Tag,
     )
+from maasserver.models.nodegroup import NODEGROUP_CLUSTER_NAME_TEMPLATE
 from maasserver.node_action import compile_node_actions
 from maasserver.power_parameters import POWER_TYPE_PARAMETERS
+from maasserver.utils import strip_domain
 from provisioningserver.enum import (
     POWER_TYPE,
     POWER_TYPE_CHOICES,
@@ -117,6 +120,19 @@ class NodeForm(ModelForm):
             self.fields['nodegroup'] = NodeGroupFormField(
                 required=False, empty_label="Default (master)")
 
+    def clean_hostname(self):
+        # Don't allow the hostname to be changed if the node is
+        # currently allocated.  Juju knows the node by its old name, so
+        # changing the name would confuse things.
+        hostname = self.instance.hostname
+        status = self.instance.status
+        new_hostname = self.cleaned_data.get('hostname', hostname)
+        if new_hostname != hostname and status == NODE_STATUS.ALLOCATED:
+            raise ValidationError(
+                "Can't change hostname to %s: node is in use." % new_hostname)
+
+        return new_hostname
+
     after_commissioning_action = forms.TypedChoiceField(
         label="After commissioning",
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES, required=False,
@@ -132,6 +148,15 @@ class NodeForm(ModelForm):
         choices=ARCHITECTURE_CHOICES, required=True,
         initial=ARCHITECTURE.i386,
         error_messages={'invalid_choice': INVALID_ARCHITECTURE_MESSAGE})
+
+    hostname = forms.CharField(
+        label="Host name", required=False, help_text=(
+            "The FQDN (Fully Qualified Domain Name) is derived from the "
+            "host name: If the cluster controller for this node is managing "
+            "DNS then the domain part in the host name (if any) is replaced "
+            "by the domain defined on the cluster; if the cluster controller "
+            "does not manage DNS, then the host name as entered will be the "
+            "FQDN."))
 
     class Meta:
         model = Node
@@ -282,7 +307,7 @@ class SSHKeyForm(ModelForm):
         exclude.remove('user')
         try:
             self.instance.validate_unique(exclude=exclude)
-        except ValidationError, e:
+        except ValidationError as e:
             # Publish this error as a 'key' error rather than a 'general'
             # error because only the 'key' errors are displayed on the
             # 'add key' form.
@@ -315,6 +340,9 @@ def initialize_node_group(node, form_value=None):
         node.nodegroup = NodeGroup.objects.ensure_master()
     else:
         node.nodegroup = form_value
+
+
+IP_BASED_HOSTNAME_REGEXP = re.compile('\d{1,3}-\d{1,3}-\d{1,3}-\d{1,3}')
 
 
 class WithMACAddressesMixin:
@@ -372,8 +400,16 @@ class WithMACAddressesMixin:
         node.save()
         for mac in self.cleaned_data['mac_addresses']:
             node.add_mac_address(mac)
-        if self.cleaned_data['hostname'] == "":
-            node.set_mac_based_hostname(self.cleaned_data['mac_addresses'][0])
+        hostname = self.cleaned_data['hostname']
+        stripped_hostname = strip_domain(hostname)
+        # Generate a hostname for this node if the provided hostname is
+        # IP-based (because this means that this name comes from a DNS
+        # reverse query to the MAAS DNS) or an empty string.
+        generate_hostname = (
+            hostname == "" or
+            IP_BASED_HOSTNAME_REGEXP.match(stripped_hostname) != None)
+        if generate_hostname:
+            node.set_random_hostname()
         return node
 
 
@@ -567,6 +603,14 @@ class MAASAndNetworkForm(ConfigForm):
         label="Default domain for new nodes", required=False, help_text=(
             "If 'local' is chosen, nodes must be using mDNS. Leave empty to "
             "use hostnames without a domain for newly enlisted nodes."))
+    http_proxy = forms.URLField(
+        label="Proxy for HTTP and HTTPS traffic", required=False,
+        help_text=(
+            "This is used by the cluster and region controllers for "
+            "downloading PXE boot images and other provisioning-related "
+            "resources. This will also be passed onto provisioned "
+            "nodes instead of the default proxy (the region controller "
+            "proxy)."))
 
 
 class CommissioningForm(ConfigForm):
@@ -577,107 +621,83 @@ class CommissioningForm(ConfigForm):
     after_commissioning = forms.ChoiceField(
         choices=NODE_AFTER_COMMISSIONING_ACTION_CHOICES,
         label="After commissioning")
+    commissioning_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for commissioning",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
+
+
+url_error_msg = "Enter a valid url (e.g. http://host.example.com)."
 
 
 class UbuntuForm(ConfigForm):
     """Settings page, Ubuntu section."""
-    fallback_master_archive = forms.BooleanField(
-        label="Fallback to Ubuntu master archive",
+    default_distro_series = forms.ChoiceField(
+        choices=DISTRO_SERIES_CHOICES, required=False,
+        label="Default distro series used for deployment",
+        error_messages={'invalid_choice': INVALID_DISTRO_SERIES_MESSAGE})
+    main_archive = forms.URLField(
+        label="Main archive",
+        error_messages={'invalid': url_error_msg},
+        help_text=(
+            "Archive used by nodes to retrieve packages and by cluster "
+            "controllers to retrieve boot images (Intel architectures). "
+            "E.g. http://archive.ubuntu.com/ubuntu."
+            ))
+    ports_archive = forms.URLField(
+        label="Ports archive",
+        error_messages={'invalid': url_error_msg},
+        help_text=(
+            "Archive used by cluster controllers to retrieve boot images "
+            "(non-Intel architectures). "
+            "E.g. http://ports.ubuntu.com/ubuntu-ports."
+            ))
+    cloud_images_archive = forms.URLField(
+        label="Cloud images archive",
+        error_messages={'invalid': url_error_msg},
+        help_text=(
+            "Archive used by the nodes to retrieve ephemeral images. "
+            "E.g. https://maas.ubuntu.com/images."
+            ))
+
+
+class GlobalKernelOptsForm(ConfigForm):
+    """Settings page, Global Kernel Parameters section."""
+    kernel_opts = forms.CharField(
+        label="Boot parameters to pass to the kernel by default",
         required=False)
-    keep_mirror_list_uptodate = forms.BooleanField(
-        label="Keep mirror list up to date",
-        required=False)
-    fetch_new_releases = forms.BooleanField(
-        label="Fetch new releases automatically",
-        required=False)
-
-    def __init__(self, *args, **kwargs):
-        super(UbuntuForm, self).__init__(*args, **kwargs)
-        # The field 'update_from' must be added dynamically because its
-        # 'choices' must be evaluated each time the form is instantiated.
-        self.fields['update_from'] = forms.ChoiceField(
-            label="Update from",
-            choices=Config.objects.get_config('update_from_choice'))
-        # The list of fields has changed: load initial values.
-        self._load_initials()
-
-
-hostname_error_msg = "Enter a valid hostname (e.g. host.example.com)."
-
-
-def validate_hostname(value):
-    try:
-        validator = URLValidator(verify_exists=False)
-        validator('http://%s' % value)
-    except ValidationError:
-        raise ValidationError(hostname_error_msg)
-
-
-class HostnameFormField(CharField):
-
-    def __init__(self, *args, **kwargs):
-        super(HostnameFormField, self).__init__(
-            validators=[validate_hostname], *args, **kwargs)
-
-
-class AddArchiveForm(ConfigForm):
-    archive_name = HostnameFormField(label="Archive name")
-
-    def save(self):
-        """Save the archive name in the Config table.
-
-        This implementation of `save` does not support the `commit` argument.
-        """
-        archive_name = self.cleaned_data.get('archive_name')
-        archives = Config.objects.get_config('update_from_choice')
-        archives.append([archive_name, archive_name])
-        Config.objects.set_config('update_from_choice', archives)
 
 
 class NodeGroupInterfaceForm(ModelForm):
 
     management = forms.TypedChoiceField(
         choices=NODEGROUPINTERFACE_MANAGEMENT_CHOICES, required=False,
-        coerce=int, empty_value=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT)
+        coerce=int, empty_value=NODEGROUPINTERFACE_MANAGEMENT.DEFAULT,
+        help_text=(
+            "If you enable DHCP management, you will need to install the "
+            "'maas-dhcp' package on this cluster controller.  Similarly, you "
+            "will need to install the 'maas-dns' package on this region "
+            "controller to be able to enable DNS management."
+            ))
 
     class Meta:
         model = NodeGroupInterface
         fields = (
-            'ip',
             'interface',
+            'management',
+            'ip',
             'subnet_mask',
             'broadcast_ip',
             'router_ip',
             'ip_range_low',
             'ip_range_high',
-            'management',
             )
 
-    def clean_management(self):
-        # XXX: rvb 2012-09-18 bug=1052339: Only one "managed" interface
-        # is supported per NodeGroup.
-        management = self.cleaned_data['management']
-        if management != NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED:
-            other_interfaces = NodeGroupInterface.objects.all()
-            # Exclude context if it's already in the database.
-            if self.instance and self.instance.id is not None:
-                other_interfaces = (
-                    other_interfaces.exclude(id=self.instance.id))
-            # Narrow down to the those that are managed.
-            other_managed_interfaces = other_interfaces.exclude(
-                management=NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED)
-            if other_managed_interfaces.exists():
-                raise ValidationError(
-                    {'management': [
-                        "Another managed interface already exists for this "
-                        "nodegroup."]})
-        return management
-
-    def save(self, nodegroup=None, *args, **kwargs):
+    def save(self, nodegroup=None, commit=True, *args, **kwargs):
         interface = super(NodeGroupInterfaceForm, self).save(commit=False)
         if nodegroup is not None:
             interface.nodegroup = nodegroup
-        if kwargs.get('commit', True):
+        if commit:
             interface.save(*args, **kwargs)
         return interface
 
@@ -687,17 +707,43 @@ INTERFACES_VALIDATION_ERROR_MESSAGE = (
     "the information needed to initialize an interface.")
 
 
+# The zone name used for nodegroups when none is explicitly provided.
+DEFAULT_ZONE_NAME = 'master'
+
+
 class NodeGroupWithInterfacesForm(ModelForm):
-    """Create a pending NodeGroup with unmanaged interfaces."""
+    """Create a NodeGroup with unmanaged interfaces."""
 
     interfaces = forms.CharField(required=False)
+    cluster_name = forms.CharField(required=False)
 
     class Meta:
         model = NodeGroup
         fields = (
+            'cluster_name',
             'name',
             'uuid',
             )
+
+    def __init__(self, status=None, *args, **kwargs):
+        super(NodeGroupWithInterfacesForm, self).__init__(*args, **kwargs)
+        self.status = status
+
+    def clean_name(self):
+        data = self.cleaned_data['name']
+        if data == '':
+            return DEFAULT_ZONE_NAME
+        else:
+            return data
+
+    def clean(self):
+        cleaned_data = super(NodeGroupWithInterfacesForm, self).clean()
+        cluster_name = cleaned_data.get("cluster_name")
+        uuid = cleaned_data.get("uuid")
+        if uuid and not cluster_name:
+            cleaned_data["cluster_name"] = (
+                NODEGROUP_CLUSTER_NAME_TEMPLATE % {'uuid': uuid})
+        return cleaned_data
 
     def clean_interfaces(self):
         data = self.cleaned_data['interfaces']
@@ -733,7 +779,7 @@ class NodeGroupWithInterfacesForm(ModelForm):
             if len(managed) > 1:
                 raise ValidationError(
                     "Only one managed interface can be configured for this "
-                    "nodegroup")
+                    "cluster")
         return interfaces
 
     def save(self):
@@ -741,10 +787,59 @@ class NodeGroupWithInterfacesForm(ModelForm):
         for interface in self.cleaned_data['interfaces']:
             form = NodeGroupInterfaceForm(data=interface)
             form.save(nodegroup=nodegroup)
-        # Set the nodegroup to be 'PENDING'.
-        nodegroup.status = NODEGROUP_STATUS.PENDING
-        nodegroup.save()
+        if self.status is not None:
+            nodegroup.status = self.status
+            nodegroup.save()
         return nodegroup
+
+
+class NodeGroupEdit(ModelForm):
+
+    name = forms.CharField(
+        label="DNS zone name",
+        help_text=(
+            "Name of the related DNS zone.  Note that this will only "
+            "be used if MAAS is managing a DNS zone for one of the interfaces "
+            "of this cluster.  See the 'status' of the interfaces below."),
+        required=False)
+
+    class Meta:
+        model = NodeGroup
+        fields = (
+            'cluster_name',
+            'status',
+            'name',
+            )
+
+    def clean_name(self):
+        old_name = self.instance.name
+        new_name = self.cleaned_data['name']
+        if new_name == old_name or not new_name:
+            # No change to the name.  Return old name.
+            return old_name
+
+        if self.instance.status != NODEGROUP_STATUS.ACCEPTED:
+            # This nodegroup is not in use.  Change it at will.
+            return new_name
+
+        interface = self.instance.get_managed_interface()
+        if interface is None:
+            # No network interfaces.  It's weird, but there certainly
+            # won't be a problem with the name change.
+            return new_name
+
+        if interface.management != NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS:
+            # MAAS is not managing DNS on this network, so the user can
+            # rename the zone at will.
+            return new_name
+
+        nodes_in_use = Node.objects.filter(
+            nodegroup=self.instance, status=NODE_STATUS.ALLOCATED)
+        if nodes_in_use.exists():
+            raise ValidationError(
+                "Can't rename DNS zone to %s; nodes are in use." % new_name)
+
+        return new_name
 
 
 class TagForm(ModelForm):
@@ -755,8 +850,16 @@ class TagForm(ModelForm):
             'name',
             'comment',
             'definition',
+            'kernel_opts',
             )
 
-    def clean(self):
-        cleaned_data = super(TagForm, self).clean()
-        return cleaned_data
+    def clean_definition(self):
+        definition = self.cleaned_data['definition']
+        if not definition:
+            return ""
+        try:
+            etree.XPath(definition)
+        except etree.XPathSyntaxError as e:
+            msg = 'Invalid xpath expression: %s' % (e,)
+            raise ValidationError({'definition': [msg]})
+        return definition

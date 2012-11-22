@@ -1,8 +1,8 @@
 {% extends "maasserver/base.html" %}
 
 {% block nav-active-settings %}active{% endblock %}
-{% block title %}Node: {{ node.hostname }}{% endblock %}
-{% block page-title %}Node: {{ node.hostname }}{% endblock %}
+{% block title %}Node: {{ node.fqdn }}{% endblock %}
+{% block page-title %}Node: {{ node.fqdn }}{% endblock %}
 {% block layout-modifiers %}sidebar{% endblock %}
 
 {% block sidebar %}
@@ -38,9 +38,9 @@
 
 {% block content %}
   <ul class="data-list">
-    <li class="block size2 first">
-      <h4>Hostname</h4>
-      <span>{{ node.hostname }}</span>
+    <li class="block size3 first">
+      <h4><acronym title="Fully Qualified Domain Name">FQDN</acronym></h4>
+        <span>{{ node.fqdn }}</span>
     </li>
     <li class="block size3">
       <h4>MAC addresses</h4>
@@ -56,6 +56,49 @@
           {{ node.display_status }}
       </span>
     </li>
+    <li class="block first size3">
+      <h4>Architecture</h4>
+      <span>
+          {{ node.architecture }}
+      </span>
+    </li>
+    <li class="block size3">
+      <h4>CPU Count</h4>
+      <span>
+          {{ node.cpu_count }}
+      </span>
+    </li>
+    <li class="block size3">
+      <h4>Memory</h4>
+      <span>
+          {{ node.memory }} MB
+      </span>
+    </li>
+    <li class="block size3 first">
+      <h4>Tags</h4>
+      <span id="node_tags">
+          {% for tag in node.tags.all %}
+            <a href="{% url 'tag-view' tag.name %}">{{ tag }}</a>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+          {% if not node.tags.all %}
+            None
+          {% endif %}
+      </span>
+    </li>
+    {% if kernel_opts.value %}
+    <li class="block size10 first">
+      <h4>Kernel Parameters
+        {% if kernel_opts.is_global %}
+        - from: <a class="kernelopts-global-link" href="{% url 'settings' %}">Global Kernel Parameters</a>
+        {% elif kernel_opts.is_tag %}
+        - from tag: <span><a class="kernelopts-tag-link" href="{% url 'tag-view' kernel_opts.tag.name %}">{{ kernel_opts.tag.name }}</a></span>
+        {% endif %}
+      </h4>
+      <span id="node_kernel_opts">
+        {{ kernel_opts.value }}
+      </span>
+    </li>
+    {% endif %}
     {% if error_text %}
     <li class="block first">
       <h4>Error output</h4>
@@ -69,7 +112,7 @@
     </li>
     {% endif %}
     {% if node.owner %}
-    <li class="block size2 first">
+    <li class="block size2">
       <h4>Owner</h4>
       <span>{{ node.owner }}</span>
     </li>

@@ -20,9 +20,10 @@ settings="/etc/maas/import_pxe_files"
 local_settings="$(pwd)/$settings"
 [ -r $local_settings ] && . $local_settings
 
-# Download locations for Ubuntu releases.
-MAIN_ARCHIVE=${ARCHIVE:-http://archive.ubuntu.com/ubuntu/}
-PORTS_ARCHIVE=${ARCHIVE:-http://ports.ubuntu.com/ubuntu-ports/}
+# Download locations for Ubuntu releases.  When the cluster controller runs
+# the import scripts, it provides settings from the server side.
+MAIN_ARCHIVE=${MAIN_ARCHIVE:-http://archive.ubuntu.com/ubuntu/}
+PORTS_ARCHIVE=${PORTS_ARCHIVE:-http://ports.ubuntu.com/ubuntu-ports/}
 
 # Ubuntu releases that are to be downloaded.
 SUPPORTED_RELEASES=$(distro-info --supported)
@@ -35,7 +36,7 @@ STABLE_RELEASE=$(distro-info --stable)
 # armhf/highbank is also supported by this script, but cannot be enabled here
 # until maas-import-ephemerals also supports it or IMPORT_EPHEMERALS is set to
 # 0.
-ARCHES=${ARCHES:-amd64/generic i386/generic}
+ARCHES=${ARCHES:-amd64/generic i386/generic armhf/highbank}
 
 # Command line to download a resource at a given URL into the current
 # directory.  A wget command line will work here, but curl will do as well.
@@ -45,7 +46,8 @@ DOWNLOAD=${DOWNLOAD:-wget --no-verbose}
 # Default is yes.
 IMPORT_EPHEMERALS=${IMPORT_EPHEMERALS:-1}
 
-# show script usage/summary.
+
+# Show script usage/summary.
 show_usage() {
     echo "Usage: ${0##*/}"
     echo
@@ -60,6 +62,7 @@ show_usage() {
     echo
 }
 
+
 # Put together a full URL for where the installer files for architecture $1
 # and release $2 can be downloaded.
 compose_installer_download_url() {
@@ -73,7 +76,12 @@ compose_installer_download_url() {
         armhf/*)
             # No ARM server installers were available in precise, so always go for -updates for now
             # A better general fix is LP: #1052397
-            local installer_url="$PORTS_ARCHIVE/dists/$release-updates/main/installer-${arch%%/*}"
+            if [ "$release" = "precise" ]; then
+                updates=-updates
+            else
+                updates=
+            fi
+            local installer_url="$PORTS_ARCHIVE/dists/${release}${updates}/main/installer-${arch%%/*}"
             echo "$installer_url/current/images/${arch#*/}/netboot/"
             ;;
         *)
@@ -82,6 +90,7 @@ compose_installer_download_url() {
             ;;
     esac
 }
+
 
 # Return a list of files for architecture $1 and release $2 that need to be
 # downloaded
@@ -102,6 +111,7 @@ compose_installer_download_files() {
     esac
 }
 
+
 # Rename downloaded files for architecture $1 and release $2 into the form that
 # MAAS expects them
 rename_installer_download_files() {
@@ -121,6 +131,7 @@ rename_installer_download_files() {
     esac
 }
 
+
 # Copy the pre-boot loader pxelinux.0, and modules we need, from the
 # installed syslinux version.  Install it into the TFTP tree for
 # netbooting.
@@ -137,9 +148,10 @@ update_pre_boot_loader() {
 # architecture $1 and install it into the TFTP directory hierarchy.
 update_install_files() {
     local arch=$1 release=$2
-    local files=$(compose_installer_download_files $arch $release)
-    local url=$(compose_installer_download_url $arch $release)
-    local file
+    local files file url
+
+    files=$(compose_installer_download_files $arch $release)
+    url=$(compose_installer_download_url $arch $release)
 
     mkdir "install"
     pushd "install" >/dev/null

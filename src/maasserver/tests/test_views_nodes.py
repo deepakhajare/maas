@@ -13,10 +13,16 @@ __metaclass__ = type
 __all__ = []
 
 import httplib
+from operator import attrgetter
 from unittest import skip
+from urlparse import (
+    parse_qsl,
+    urlparse,
+    )
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from lxml.etree import XPath
 from lxml.html import fromstring
 from maasserver import messages
 import maasserver.api
@@ -24,10 +30,16 @@ from maasserver.enum import (
     ARCHITECTURE_CHOICES,
     NODE_AFTER_COMMISSIONING_ACTION,
     NODE_STATUS,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.exceptions import NoRabbit
+from maasserver.exceptions import (
+    InvalidConstraint,
+    NoRabbit,
+    )
 from maasserver.forms import NodeActionForm
 from maasserver.models import (
+    Config,
     MACAddress,
     Node,
     )
@@ -75,6 +87,123 @@ class NodeViewsTest(LoggedInTestCase):
         enlist_preseed_link = reverse('enlist-preseed-view')
         self.assertIn(enlist_preseed_link, get_content_links(response))
 
+    def test_node_list_contains_column_sort_links(self):
+        # Just create a node to have something in the list
+        factory.make_node()
+        response = self.client.get(reverse('node-list'))
+        sort_hostname = '?sort=hostname&dir=asc'
+        sort_status = '?sort=status&dir=asc'
+        self.assertIn(sort_hostname, get_content_links(response))
+        self.assertIn(sort_status, get_content_links(response))
+
+    def test_node_list_sorts_by_hostname(self):
+        names = ['zero', 'one', 'five']
+        nodes = [factory.make_node(hostname=n) for n in names]
+
+        # First check the ascending sort order
+        sorted_nodes = sorted(nodes, key=attrgetter('hostname'))
+        response = self.client.get(
+            reverse('node-list'), {
+                'sort': 'hostname',
+                'dir': 'asc'})
+        node_links = [
+             reverse('node-view', args=[node.system_id])
+             for node in sorted_nodes]
+        self.assertEqual(
+            node_links,
+            [link for link in get_content_links(response)
+                if link.startswith('/nodes/node')])
+
+        # Now check the reverse order
+        node_links = list(reversed(node_links))
+        response = self.client.get(
+            reverse('node-list'), {
+                'sort': 'hostname',
+                'dir': 'desc'})
+        self.assertEqual(
+            node_links,
+            [link for link in get_content_links(response)
+                if link.startswith('/nodes/node')])
+
+    def test_node_list_sorts_by_status(self):
+        statuses = {
+            NODE_STATUS.READY,
+            NODE_STATUS.DECLARED,
+            NODE_STATUS.FAILED_TESTS,
+            }
+        nodes = [factory.make_node(status=s) for s in statuses]
+
+        # First check the ascending sort order
+        sorted_nodes = sorted(nodes, key=attrgetter('status'))
+        response = self.client.get(
+            reverse('node-list'), {
+                'sort': 'status',
+                'dir': 'asc'})
+        node_links = [
+             reverse('node-view', args=[node.system_id])
+             for node in sorted_nodes]
+        self.assertEqual(
+            node_links,
+            [link for link in get_content_links(response)
+                if link.startswith('/nodes/node')])
+
+        # Now check the reverse order
+        node_links = list(reversed(node_links))
+        response = self.client.get(
+            reverse('node-list'), {
+                'sort': 'status',
+                'dir': 'desc'})
+        self.assertEqual(
+            node_links,
+            [link for link in get_content_links(response)
+                if link.startswith('/nodes/node')])
+
+    def test_node_list_sort_preserves_other_params(self):
+        # Set a very small page size to save creating lots of nodes
+        page_size = 2
+        self.patch(nodes_views.NodeListView, 'paginate_by', page_size)
+
+        nodes = []
+        tag = factory.make_tag('shiny')
+        for name in ('bbb', 'ccc', 'ddd', 'aaa'):
+            node = factory.make_node(hostname=name)
+            node.tags = [tag]
+            nodes.append(node)
+
+        params = {
+                'sort': 'hostname',
+                'dir': 'asc',
+                'page': '1',
+                'query': 'maas-tags=shiny'}
+        response = self.client.get(reverse('node-list'), params)
+        document = fromstring(response.content)
+        header_links = document.xpath("//div[@id='nodes']/table//th/a/@href")
+        fields = iter(('hostname', 'status'))
+        field_dirs = iter(('desc', 'asc'))
+        for link in header_links:
+            self.assertThat(
+                parse_qsl(urlparse(link).query),
+                ContainsAll([
+                    ('page', '1'),
+                    ('query', 'maas-tags=shiny'),
+                    ('sort', next(fields)),
+                    ('dir', next(field_dirs))]))
+
+    def test_node_list_displays_fqdn_dns_not_managed(self):
+        nodes = [factory.make_node() for i in range(3)]
+        response = self.client.get(reverse('node-list'))
+        node_fqdns = [node.fqdn for node in nodes]
+        self.assertThat(response.content, ContainsAll(node_fqdns))
+
+    def test_node_list_displays_fqdn_dns_managed(self):
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        nodes = [factory.make_node(nodegroup=nodegroup) for i in range(3)]
+        response = self.client.get(reverse('node-list'))
+        node_fqdns = [node.fqdn for node in nodes]
+        self.assertThat(response.content, ContainsAll(node_fqdns))
+
     def test_node_list_displays_sorted_list_of_nodes(self):
         # Nodes are sorted on the node list page, newest first.
         nodes = [factory.make_node() for i in range(3)]
@@ -96,16 +225,61 @@ class NodeViewsTest(LoggedInTestCase):
             [link for link in get_content_links(response)
                 if link.startswith('/nodes/node')])
 
+    def test_node_list_num_queries_is_independent_of_num_nodes(self):
+        nodegroup = factory.make_node_group()
+        for i in range(10):
+            factory.make_node(nodegroup=nodegroup, mac=True)
+        url = reverse('node-list')
+        num_queries, response = self.getNumQueries(self.client.get, url)
+        # Make sure we counted at least the queries to get the nodes, the
+        # nodegroup and the mac addresses.
+        self.assertTrue(num_queries > 3)
+        self.assertEqual(
+            10,
+            len([link for link in get_content_links(response)
+                if link.startswith('/nodes/node')]))
+        # Add 10 nodes should still have the same number of queries
+        for i in range(10):
+            factory.make_node(nodegroup=nodegroup, mac=True)
+        num_bonus_queries, response = self.getNumQueries(self.client.get, url)
+        self.assertEqual(num_queries, num_bonus_queries)
+        self.assertEqual(
+            20,
+            len([link for link in get_content_links(response)
+                if link.startswith('/nodes/node')]))
+
     def test_view_node_displays_node_info(self):
         # The node page features the basic information about the node.
         node = factory.make_node(owner=self.logged_in_user)
+        node.cpu_count = 123
+        node.memory = 512
+        node.save()
         node_link = reverse('node-view', args=[node.system_id])
         response = self.client.get(node_link)
         doc = fromstring(response.content)
         content_text = doc.cssselect('#content')[0].text_content()
         self.assertIn(node.hostname, content_text)
         self.assertIn(node.display_status(), content_text)
+        self.assertIn(node.architecture, content_text)
+        self.assertIn('%d MB' % (node.memory,), content_text)
+        self.assertIn('%d' % (node.cpu_count,), content_text)
         self.assertIn(self.logged_in_user.username, content_text)
+
+    def test_view_node_contains_tag_names(self):
+        node = factory.make_node(owner=self.logged_in_user)
+        tag_a = factory.make_tag()
+        tag_b = factory.make_tag()
+        node.tags.add(tag_a)
+        node.tags.add(tag_b)
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        tag_text = doc.cssselect('#node_tags')[0].text_content()
+        self.assertThat(tag_text, ContainsAll([tag_a.name, tag_b.name]))
+        self.assertItemsEqual(
+            [reverse('tag-view', args=[t.name]) for t in (tag_a, tag_b)],
+            [link for link in get_content_links(response)
+                if link.startswith('/tags/')])
 
     def test_view_node_displays_node_info_no_owner(self):
         # If the node has no owner, the Owner 'slot' does not exist.
@@ -267,6 +441,40 @@ class NodeViewsTest(LoggedInTestCase):
         self.assertIn(
             reverse('mac-add', args=[node.system_id]), response.content)
 
+    def test_view_node_shows_global_kernel_params(self):
+        Config.objects.create(name='kernel_opts', value='--test param')
+        node = factory.make_node()
+        self.assertEqual(
+            node.get_effective_kernel_options(),
+            (None, "--test param", )
+        )
+
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        kernel_params = doc.cssselect('#node_kernel_opts')[0]
+        self.assertEqual('--test param', kernel_params.text.strip())
+
+        details_link = doc.cssselect('a.kernelopts-global-link')[0].get('href')
+        self.assertEqual(reverse('settings'), details_link)
+
+    def test_view_node_shows_tag_kernel_params(self):
+        tag = factory.make_tag(name='shiny', kernel_opts="--test params")
+        node = factory.make_node()
+        node.tags = [tag]
+        self.assertEqual(
+            (tag, '--test params',),
+            node.get_effective_kernel_options())
+
+        node_link = reverse('node-view', args=[node.system_id])
+        response = self.client.get(node_link)
+        doc = fromstring(response.content)
+        kernel_params = doc.cssselect('#node_kernel_opts')[0]
+        self.assertEqual('--test params', kernel_params.text.strip())
+
+        details_link = doc.cssselect('a.kernelopts-tag-link')[0].get('href')
+        self.assertEqual(reverse('tag-view', args=[tag.name]), details_link)
+
     def test_view_node_has_button_to_accept_enlistment_for_user(self):
         # A simple user can't see the button to enlist a declared node.
         node = factory.make_node(status=NODE_STATUS.DECLARED)
@@ -339,6 +547,102 @@ class NodeViewsTest(LoggedInTestCase):
             "This node is now allocated to you.",
             '\n'.join(msg.message for msg in response.context['messages']))
 
+    def test_node_list_query_includes_current(self):
+        qs = factory.getRandomString()
+        response = self.client.get(reverse('node-list'), {"query": qs})
+        query_value = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//input[@name='query']/@value)")
+        self.assertIn(qs, query_value)
+
+    def test_node_list_query_error_on_missing_tag(self):
+        response = self.client.get(reverse('node-list'),
+            {"query": "maas-tags=missing"})
+        error_string = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//p[@class='form-errors'])")
+        self.assertRegexpMatches(error_string, "Invalid .* No such tag")
+
+    def test_node_list_query_error_on_unknown_constraint(self):
+        response = self.client.get(reverse('node-list'),
+            {"query": "color=red"})
+        error_string = fromstring(response.content).xpath(
+            "string(//div[@id='nodes']//p[@class='form-errors'])")
+        self.assertEqual(error_string, "No such 'color' constraint")
+
+    def test_node_list_query_selects_subset(self):
+        tag = factory.make_tag("shiny")
+        node1 = factory.make_node(cpu_count=1)
+        node2 = factory.make_node(cpu_count=2)
+        node3 = factory.make_node(cpu_count=2)
+        node1.tags = [tag]
+        node2.tags = [tag]
+        node3.tags = []
+        response = self.client.get(reverse('node-list'),
+            {"query": "maas-tags=shiny cpu=2"})
+        node2_link = reverse('node-view', args=[node2.system_id])
+        document = fromstring(response.content)
+        node_links = document.xpath(
+            "//div[@id='nodes']/table//td/a/@href")
+        self.assertEqual([node2_link], node_links)
+
+    def test_node_list_paginates(self):
+        """Node listing is split across multiple pages with links"""
+        # Set a very small page size to save creating lots of nodes
+        page_size = 2
+        self.patch(nodes_views.NodeListView, 'paginate_by', page_size)
+        nodes = [factory.make_node(created="2012-10-12 12:00:%02d" % i)
+            for i in range(page_size * 2 + 1)]
+        # Order node links with newest first as the view is expected to
+        node_links = [reverse('node-view', args=[node.system_id])
+            for node in reversed(nodes)]
+        expr_node_links = XPath("//div[@id='nodes']/table//td/a/@href")
+        expr_page_anchors = XPath("//div[@class='pagination']//a")
+        # Fetch first page, should link newest two nodes and page 2
+        response = self.client.get(reverse('node-list'))
+        page1 = fromstring(response.content)
+        self.assertEqual(node_links[:page_size], expr_node_links(page1))
+        self.assertEqual([("next", "?page=2"), ("last", "?page=3")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page1)])
+        # Fetch second page, should link next nodes and adjacent pages
+        response = self.client.get(reverse('node-list'), {"page": 2})
+        page2 = fromstring(response.content)
+        self.assertEqual(
+            node_links[page_size:page_size * 2],
+            expr_node_links(page2))
+        self.assertEqual([("first", "."), ("previous", "."),
+                ("next", "?page=3"), ("last", "?page=3")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page2)])
+        # Fetch third page, should link oldest node and node list page
+        response = self.client.get(reverse('node-list'), {"page": 3})
+        page3 = fromstring(response.content)
+        self.assertEqual(node_links[page_size * 2:], expr_node_links(page3))
+        self.assertEqual([("first", "."), ("previous", "?page=2")],
+            [(a.text.lower(), a.get("href"))
+                for a in expr_page_anchors(page3)])
+
+    def test_node_list_query_paginates(self):
+        """Node list query subset is split across multiple pages with links"""
+        # Set a very small page size to save creating lots of nodes
+        self.patch(nodes_views.NodeListView, 'paginate_by', 2)
+        nodes = [factory.make_node(created="2012-10-12 12:00:%02d" % i)
+            for i in range(10)]
+        tag = factory.make_tag("odd")
+        for node in nodes[::2]:
+            node.tags = [tag]
+        last_node_link = reverse('node-view', args=[nodes[0].system_id])
+        response = self.client.get(reverse('node-list'),
+            {"query": "maas-tags=odd", "page": 3})
+        document = fromstring(response.content)
+        self.assertIn("5 matching nodes", document.xpath("string(//h1)"))
+        self.assertEqual(
+            [last_node_link],
+            document.xpath("//div[@id='nodes']/table//td/a/@href"))
+        self.assertEqual([("first", "?query=maas-tags%3Dodd"),
+                ("previous", "?query=maas-tags%3Dodd&page=2")],
+            [(a.text.lower(), a.get("href"))
+                for a in document.xpath("//div[@class='pagination']//a")])
+
 
 class NodePreseedViewTest(LoggedInTestCase):
 
@@ -351,12 +655,12 @@ class NodePreseedViewTest(LoggedInTestCase):
     def test_preseedview_node_displays_message_if_commissioning(self):
         node = factory.make_node(
             owner=self.logged_in_user, status=NODE_STATUS.COMMISSIONING,
-            set_hostname=True)
+            )
         node_preseed_link = reverse('node-preseed-view', args=[node.system_id])
         response = self.client.get(node_preseed_link)
         self.assertThat(
             response.content,
-            ContainsAll([get_preseed(node), "This node is comissioning."]))
+            ContainsAll([get_preseed(node), "This node is commissioning."]))
 
     def test_preseedview_node_displays_link_to_view_node(self):
         node = factory.make_node(owner=self.logged_in_user)
@@ -519,3 +823,84 @@ class TestGetLongpollContext(TestCase):
         self.assertItemsEqual(
             ['LONGPOLL_PATH', 'longpoll_queue'], context)
         self.assertEqual(longpoll, context['LONGPOLL_PATH'])
+
+
+class ParseConstraintsTests(TestCase):
+    """Tests for helper that parses user search text into constraints
+
+    Constraints are checked when evaulated, so the function just needs to
+    create some sort of sane output on any input string, rather than raise
+    clear errors itself.
+    """
+
+    def test_empty(self):
+        constraints = nodes_views._parse_constraints("")
+        self.assertEqual({}, constraints)
+
+    def test_whitespace_only(self):
+        constraints = nodes_views._parse_constraints("  ")
+        self.assertEqual({}, constraints)
+
+    def test_tag_leading_whitespace(self):
+        constraints = nodes_views._parse_constraints("\tmaas-tags=tag")
+        self.assertEqual({"tags": "tag"}, constraints)
+
+    def test_tag_trailing_whitespace(self):
+        constraints = nodes_views._parse_constraints("maas-tags=tag\r\n")
+        self.assertEqual({"tags": "tag"}, constraints)
+
+    def test_tag_unicode(self):
+        constraints = nodes_views._parse_constraints("maas-tags=\xa7")
+        self.assertEqual({"tags": "\xa7"}, constraints)
+
+    def test_tag_no_value(self):
+        self.assertRaises(InvalidConstraint,
+            nodes_views._parse_constraints, "maas-tags")
+
+    def test_cpu(self):
+        constraints = nodes_views._parse_constraints("cpu=1.0")
+        self.assertEqual({"cpu_count": "1.0"}, constraints)
+
+    def test_cpu_count(self):
+        self.assertRaises(InvalidConstraint,
+            nodes_views._parse_constraints, "cpu_count=1.0")
+
+    def test_mem(self):
+        constraints = nodes_views._parse_constraints("mem=4096.0")
+        self.assertEqual({"memory": "4096.0"}, constraints)
+
+    def test_memory(self):
+        self.assertRaises(InvalidConstraint,
+            nodes_views._parse_constraints, "memory=4096.0")
+
+    def test_arch(self):
+        constraints = nodes_views._parse_constraints("arch=armhf/highbank")
+        self.assertEqual({"architecture": "armhf/highbank"}, constraints)
+
+    def test_arch_empty(self):
+        constraints = nodes_views._parse_constraints("arch=")
+        self.assertEqual({}, constraints)
+
+    def test_name(self):
+        constraints = nodes_views._parse_constraints("maas-name=node")
+        self.assertEqual({"hostname": "node"}, constraints)
+
+    def test_name_any(self):
+        constraints = nodes_views._parse_constraints("maas-name=any")
+        self.assertEqual({}, constraints)
+
+    def test_name_unicode(self):
+        constraints = nodes_views._parse_constraints("maas-name=\xa7")
+        self.assertEqual({"hostname": "\xa7"}, constraints)
+
+    def test_unknown_constraint(self):
+        self.assertRaises(InvalidConstraint,
+            nodes_views._parse_constraints, "custom=fancy")
+
+    def test_unknown_unicode_constraint(self):
+        self.assertRaises(InvalidConstraint,
+            nodes_views._parse_constraints, "custom=\xa7")
+
+    def test_multiple_tags_and_cpu(self):
+        constraints = nodes_views._parse_constraints("maas-tags=a,b cpu=2")
+        self.assertEqual({"cpu_count": "2", "tags": "a,b"}, constraints)

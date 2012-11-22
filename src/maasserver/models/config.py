@@ -45,15 +45,16 @@ def get_default_config():
         'fallback_master_archive': False,
         'keep_mirror_list_uptodate': False,
         'fetch_new_releases': False,
-        'update_from': 'archive.ubuntu.com',
-        'update_from_choice': (
-            [['archive.ubuntu.com', 'archive.ubuntu.com']]),
+        'main_archive': 'http://archive.ubuntu.com/ubuntu',
+        'ports_archive': 'http://ports.ubuntu.com/ubuntu-ports',
+        'cloud_images_archive': 'https://maas.ubuntu.com/images',
         # Network section configuration.
         'maas_name': gethostname(),
         'enlistment_domain': b'local',
-        ## /settings
         'default_distro_series': DISTRO_SERIES.precise,
         'commissioning_distro_series': DISTRO_SERIES.precise,
+        'http_proxy': None,
+        ## /settings
         }
 
 

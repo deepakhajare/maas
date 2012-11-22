@@ -18,17 +18,30 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from lxml.html import fromstring
-from maasserver.enum import NODE_AFTER_COMMISSIONING_ACTION
+from maasserver.enum import (
+    DISTRO_SERIES,
+    NODE_AFTER_COMMISSIONING_ACTION,
+    NODEGROUP_STATUS,
+    )
 from maasserver.models import (
     Config,
+    nodegroup as nodegroup_module,
     UserProfile,
     )
 from maasserver.testing import (
+    extract_redirect,
     get_prefixed_form_data,
     reload_object,
     )
 from maasserver.testing.factory import factory
-from maasserver.testing.testcase import AdminLoggedInTestCase
+from maasserver.testing.testcase import (
+    AdminLoggedInTestCase,
+    LoggedInTestCase,
+    )
+from mock import (
+    ANY,
+    call,
+    )
 
 
 class SettingsTest(AdminLoggedInTestCase):
@@ -39,7 +52,7 @@ class SettingsTest(AdminLoggedInTestCase):
         # logged-in user is not display.
         [factory.make_user() for i in range(3)]
         users = UserProfile.objects.all_users()
-        response = self.client.get('/settings/')
+        response = self.client.get(reverse('settings'))
         doc = fromstring(response.content)
         tab = doc.cssselect('#users')[0]
         all_links = [elem.get('href') for elem in tab.cssselect('a')]
@@ -78,6 +91,7 @@ class SettingsTest(AdminLoggedInTestCase):
         self.patch(settings, "DNS_CONNECT", False)
         new_name = factory.getRandomString()
         new_domain = factory.getRandomString()
+        new_proxy = "http://%s.example.com:1234/" % factory.getRandomString()
         response = self.client.post(
             reverse('settings'),
             get_prefixed_form_data(
@@ -85,79 +99,163 @@ class SettingsTest(AdminLoggedInTestCase):
                 data={
                     'maas_name': new_name,
                     'enlistment_domain': new_domain,
+                    'http_proxy': new_proxy,
                 }))
-
-        self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertEqual(new_name, Config.objects.get_config('maas_name'))
+        self.assertEqual(httplib.FOUND, response.status_code, response.content)
         self.assertEqual(
-            new_domain, Config.objects.get_config('enlistment_domain'))
+            (new_name,
+             new_domain,
+             new_proxy),
+            (Config.objects.get_config('maas_name'),
+             Config.objects.get_config('enlistment_domain'),
+             Config.objects.get_config('http_proxy')))
 
     def test_settings_commissioning_POST(self):
         new_after_commissioning = factory.getRandomEnum(
             NODE_AFTER_COMMISSIONING_ACTION)
         new_check_compatibility = factory.getRandomBoolean()
+        new_commissioning_distro_series = factory.getRandomEnum(DISTRO_SERIES)
         response = self.client.post(
-            '/settings/',
+            reverse('settings'),
             get_prefixed_form_data(
                 prefix='commissioning',
                 data={
                     'after_commissioning': new_after_commissioning,
                     'check_compatibility': new_check_compatibility,
+                    'commissioning_distro_series':
+                        new_commissioning_distro_series,
                 }))
 
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
-            new_after_commissioning,
-            Config.objects.get_config('after_commissioning'))
-        self.assertEqual(
-            new_check_compatibility,
-            Config.objects.get_config('check_compatibility'))
+            (
+                new_after_commissioning,
+                new_check_compatibility,
+                new_commissioning_distro_series,
+            ),
+            (
+                Config.objects.get_config('after_commissioning'),
+                Config.objects.get_config('check_compatibility'),
+                Config.objects.get_config('commissioning_distro_series'),
+            ))
 
     def test_settings_ubuntu_POST(self):
-        new_fallback_master_archive = factory.getRandomBoolean()
-        new_keep_mirror_list_uptodate = factory.getRandomBoolean()
-        new_fetch_new_releases = factory.getRandomBoolean()
-        choices = Config.objects.get_config('update_from_choice')
-        new_update_from = factory.getRandomChoice(choices)
+        new_main_archive = 'http://test.example.com/archive'
+        new_ports_archive = 'http://test2.example.com/archive'
+        new_cloud_images_archive = 'http://test3.example.com/archive'
+        new_default_distro_series = factory.getRandomEnum(DISTRO_SERIES)
         response = self.client.post(
-            '/settings/',
+            reverse('settings'),
             get_prefixed_form_data(
                 prefix='ubuntu',
                 data={
-                    'fallback_master_archive': new_fallback_master_archive,
-                    'keep_mirror_list_uptodate': new_keep_mirror_list_uptodate,
-                    'fetch_new_releases': new_fetch_new_releases,
-                    'update_from': new_update_from,
+                    'main_archive': new_main_archive,
+                    'ports_archive': new_ports_archive,
+                    'cloud_images_archive': new_cloud_images_archive,
+                    'default_distro_series': new_default_distro_series,
+                }))
+
+        self.assertEqual(httplib.FOUND, response.status_code, response.content)
+        self.assertEqual(
+            (
+                new_main_archive,
+                new_ports_archive,
+                new_cloud_images_archive,
+                new_default_distro_series,
+            ),
+            (
+                Config.objects.get_config('main_archive'),
+                Config.objects.get_config('ports_archive'),
+                Config.objects.get_config('cloud_images_archive'),
+                Config.objects.get_config('default_distro_series'),
+            ))
+
+    def test_settings_kernelopts_POST(self):
+        new_kernel_opts = "--new='arg' --flag=1 other"
+        response = self.client.post(
+            reverse('settings'),
+            get_prefixed_form_data(
+                prefix='kernelopts',
+                data={
+                    'kernel_opts': new_kernel_opts,
                 }))
 
         self.assertEqual(httplib.FOUND, response.status_code)
         self.assertEqual(
-            new_fallback_master_archive,
-            Config.objects.get_config('fallback_master_archive'))
-        self.assertEqual(
-            new_keep_mirror_list_uptodate,
-            Config.objects.get_config('keep_mirror_list_uptodate'))
-        self.assertEqual(
-            new_fetch_new_releases,
-            Config.objects.get_config('fetch_new_releases'))
-        self.assertEqual(
-            new_update_from, Config.objects.get_config('update_from'))
+            new_kernel_opts,
+            Config.objects.get_config('kernel_opts'))
 
-    def test_settings_add_archive_POST(self):
-        choices = Config.objects.get_config('update_from_choice')
+    def test_settings_contains_form_to_accept_all_nodegroups(self):
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+        response = self.client.get(reverse('settings'))
+        doc = fromstring(response.content)
+        forms = doc.cssselect('form#accept_all_pending_nodegroups')
+        self.assertEqual(1, len(forms))
+
+    def test_settings_contains_form_to_reject_all_nodegroups(self):
+        factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+        response = self.client.get(reverse('settings'))
+        doc = fromstring(response.content)
+        forms = doc.cssselect('form#reject_all_pending_nodegroups')
+        self.assertEqual(1, len(forms))
+
+    def test_settings_accepts_all_pending_nodegroups_POST(self):
+        nodegroups = {
+            factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+            factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+        }
         response = self.client.post(
-            '/settings/archives/add/',
-            data={'archive_name': 'my.hostname.com'}
-        )
-        new_choices = Config.objects.get_config('update_from_choice')
-
+            reverse('settings'), {'mass_accept_submit': 1})
         self.assertEqual(httplib.FOUND, response.status_code)
-        self.assertItemsEqual(
-            choices + [['my.hostname.com', 'my.hostname.com']],
-            new_choices)
+        self.assertEqual(
+            [reload_object(nodegroup).status for nodegroup in nodegroups],
+            [NODEGROUP_STATUS.ACCEPTED] * 2)
+
+    def test_settings_rejects_all_pending_nodegroups_POST(self):
+        nodegroups = {
+            factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+            factory.make_node_group(status=NODEGROUP_STATUS.PENDING),
+        }
+        response = self.client.post(
+            reverse('settings'), {'mass_reject_submit': 1})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        self.assertEqual(
+            [reload_object(nodegroup).status for nodegroup in nodegroups],
+            [NODEGROUP_STATUS.REJECTED] * 2)
+
+    def test_settings_import_boot_images_calls_tasks(self):
+        recorder = self.patch(nodegroup_module, 'import_boot_images')
+        accepted_nodegroups = [
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+            factory.make_node_group(status=NODEGROUP_STATUS.ACCEPTED),
+        ]
+        response = self.client.post(
+            reverse('settings'), {'import_all_boot_images': 1})
+        self.assertEqual(httplib.FOUND, response.status_code)
+        calls = [
+           call(queue=nodegroup.work_queue, kwargs=ANY)
+           for nodegroup in accepted_nodegroups
+        ]
+        self.assertItemsEqual(calls, recorder.apply_async.call_args_list)
+
+    def test_cluster_no_boot_images_message_displayed_if_no_boot_images(self):
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED)
+        response = self.client.get(reverse('settings'))
+        document = fromstring(response.content)
+        nodegroup_row = document.xpath("//tr[@id='%s']" % nodegroup.uuid)[0]
+        self.assertIn('no boot images', nodegroup_row.text_content())
 
 
-# Settable attributes on User.
+class NonAdminSettingsTest(LoggedInTestCase):
+
+    def test_settings_import_boot_images_reserved_to_admin(self):
+        response = self.client.post(
+            reverse('settings'), {'import_all_boot_images': 1})
+        self.assertEqual(reverse('login'), extract_redirect(response))
+
+
+ # Settable attributes on User.
 user_attributes = [
     'email',
     'is_superuser',

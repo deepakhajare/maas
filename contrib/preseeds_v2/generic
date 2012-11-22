@@ -1,14 +1,19 @@
 {{inherit "preseed_master"}}
+
 {{def proxy}}
 d-i     mirror/country string manual
-{{if node.architecture in {'i386', 'amd64'} }}
-d-i     mirror/http/hostname string archive.ubuntu.com
-d-i     mirror/http/directory string /ubuntu
+{{if node.architecture in {'i386/generic', 'amd64/generic'} }}
+d-i     mirror/http/hostname string {{main_archive_hostname}}
+d-i     mirror/http/directory string {{main_archive_directory}}
 {{else}}
-d-i     mirror/http/hostname string ports.ubuntu.com
-d-i     mirror/http/directory string /ubuntu-ports
+d-i     mirror/http/hostname string {{ports_archive_hostname}}
+d-i     mirror/http/directory string {{ports_archive_directory}}
 {{endif}}
+{{if http_proxy }}
+d-i     mirror/http/proxy string {{http_proxy}}
+{{else}}
 d-i     mirror/http/proxy string http://{{server_host}}:8000/
+{{endif}}
 {{enddef}}
 
 {{def client_packages}}
@@ -17,7 +22,6 @@ d-i     pkgsel/include string cloud-init openssh-server python-software-properti
 
 {{def preseed}}
 {{preseed_data}}
-cloud-init   cloud-init/local-cloud-config string manage_etc_hosts: localhost
 {{enddef}}
 
 {{def post_scripts}}

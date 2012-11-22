@@ -23,19 +23,18 @@ __all__ = [
     'write_full_dns_config',
     ]
 
+import os
 from subprocess import (
     CalledProcessError,
     check_call,
     )
 
+from celery.app import app_or_default
 from celery.task import task
-from celeryconfig import (
-    DHCP_CONFIG_FILE,
-    DHCP_INTERFACES_FILE,
-    WORKER_QUEUE_BOOT_IMAGES,
-    WORKER_QUEUE_DNS,
+from provisioningserver import (
+    boot_images,
+    tags,
     )
-from provisioningserver import boot_images
 from provisioningserver.auth import (
     record_api_credentials,
     record_maas_url,
@@ -61,6 +60,9 @@ refresh_functions = {
     'maas_url': record_maas_url,
     'nodegroup_uuid': record_nodegroup_uuid,
 }
+
+
+celery_config = app_or_default().conf
 
 
 @task
@@ -157,7 +159,7 @@ RNDC_COMMAND_MAX_RETRY = 10
 RNDC_COMMAND_RETRY_DELAY = 2
 
 
-@task(max_retries=RNDC_COMMAND_MAX_RETRY, queue=WORKER_QUEUE_DNS)
+@task(max_retries=RNDC_COMMAND_MAX_RETRY, queue=celery_config.WORKER_QUEUE_DNS)
 def rndc_command(arguments, retry=False, callback=None):
     """Use rndc to execute a command.
     :param arguments: Argument list passed down to the rndc command.
@@ -179,7 +181,7 @@ def rndc_command(arguments, retry=False, callback=None):
         callback.delay()
 
 
-@task(queue=WORKER_QUEUE_DNS)
+@task(queue=celery_config.WORKER_QUEUE_DNS)
 def write_full_dns_config(zones=None, callback=None, **kwargs):
     """Write out the DNS configuration files: the main configuration
     file and the zone files.
@@ -192,7 +194,6 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
     if zones is not None:
         for zone in zones:
             zone.write_config()
-            zone.write_reverse_config()
     # Write main config file.
     dns_config = DNSConfig(zones=zones)
     dns_config.write_config(**kwargs)
@@ -200,7 +201,7 @@ def write_full_dns_config(zones=None, callback=None, **kwargs):
         callback.delay()
 
 
-@task(queue=WORKER_QUEUE_DNS)
+@task(queue=celery_config.WORKER_QUEUE_DNS)
 def write_dns_config(zones=(), callback=None, **kwargs):
     """Write out the DNS configuration file.
 
@@ -217,9 +218,9 @@ def write_dns_config(zones=(), callback=None, **kwargs):
         callback.delay()
 
 
-@task(queue=WORKER_QUEUE_DNS)
-def write_dns_zone_config(zone, callback=None, **kwargs):
-    """Write out a DNS zone configuration file.
+@task(queue=celery_config.WORKER_QUEUE_DNS)
+def write_dns_zone_config(zones, callback=None, **kwargs):
+    """Write out DNS zones.
 
     :param zone: The zone data to write the configuration for.
     :type zone: :class:`DNSZoneData`
@@ -227,13 +228,13 @@ def write_dns_zone_config(zone, callback=None, **kwargs):
     :type callback: callable
     :param **kwargs: Keyword args passed to DNSZoneConfig.write_config()
     """
-    zone.write_config()
-    zone.write_reverse_config()
+    for zone in zones:
+        zone.write_config()
     if callback is not None:
         callback.delay()
 
 
-@task(queue=WORKER_QUEUE_DNS)
+@task(queue=celery_config.WORKER_QUEUE_DNS)
 def setup_rndc_configuration(callback=None):
     """Write out the two rndc configuration files (rndc.conf and
     named.conf.rndc).
@@ -315,8 +316,10 @@ def write_dhcp_config(callback=None, **kwargs):
         DHCP server should listen on.
     :param **kwargs: Keyword args passed to dhcp.config.get_config()
     """
-    sudo_write_file(DHCP_CONFIG_FILE, config.get_config(**kwargs))
-    sudo_write_file(DHCP_INTERFACES_FILE, kwargs.get('dhcp_interfaces', ''))
+    sudo_write_file(
+        celery_config.DHCP_CONFIG_FILE, config.get_config(**kwargs))
+    sudo_write_file(
+        celery_config.DHCP_INTERFACES_FILE, kwargs.get('dhcp_interfaces', ''))
     if callback is not None:
         callback.delay()
 
@@ -332,7 +335,57 @@ def restart_dhcp_server():
 # =====================================================================
 
 
-@task(queue=WORKER_QUEUE_BOOT_IMAGES)
+@task
 def report_boot_images():
     """For master worker only: report available netboot images."""
     boot_images.report_to_server()
+
+
+# How many times should a update node tags task be retried?
+UPDATE_NODE_TAGS_MAX_RETRY = 10
+
+# How long to wait between update node tags task retries (in seconds)?
+UPDATE_NODE_TAGS_RETRY_DELAY = 2
+
+
+# =====================================================================
+# Tags-related tasks
+# =====================================================================
+
+
+@task(max_retries=UPDATE_NODE_TAGS_MAX_RETRY)
+def update_node_tags(tag_name, tag_definition, retry=True):
+    """Update the nodes for a new/changed tag definition.
+
+    :param tag_name: Name of the tag to update nodes for
+    :param tag_definition: Tag definition
+    :param retry: Whether to retry on failure
+    """
+    try:
+        tags.process_node_tags(tag_name, tag_definition)
+    except tags.MissingCredentials, exc:
+        if retry:
+            return update_node_tags.retry(
+                exc=exc, countdown=UPDATE_NODE_TAGS_RETRY_DELAY)
+        else:
+            raise
+
+
+# =====================================================================
+# Image importing-related tasks
+# =====================================================================
+
+@task
+def import_boot_images(http_proxy=None, main_archive=None, ports_archive=None,
+                       cloud_images_archive=None):
+    env = dict(os.environ)
+    if http_proxy is not None:
+        env['http_proxy'] = http_proxy
+        env['https_proxy'] = http_proxy
+    if main_archive is not None:
+        env['MAIN_ARCHIVE'] = main_archive
+    if ports_archive is not None:
+        env['PORTS_ARCHIVE'] = ports_archive
+    if cloud_images_archive is not None:
+        env['CLOUD_IMAGES_ARCHIVE'] = cloud_images_archive
+    check_call(['sudo', '-n', '-E', 'maas-import-pxe-files'], env=env)

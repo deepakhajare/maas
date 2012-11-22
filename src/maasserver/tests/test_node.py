@@ -13,6 +13,7 @@ __metaclass__ = type
 __all__ = []
 
 from datetime import timedelta
+import random
 
 from django.conf import settings
 from django.core.exceptions import (
@@ -26,6 +27,8 @@ from maasserver.enum import (
     NODE_STATUS,
     NODE_STATUS_CHOICES,
     NODE_STATUS_CHOICES_DICT,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
     )
 from maasserver.exceptions import NodeStateViolation
 from maasserver.models import (
@@ -34,7 +37,10 @@ from maasserver.models import (
     Node,
     node as node_module,
     )
-from maasserver.models.node import NODE_TRANSITIONS
+from maasserver.models.node import (
+    generate_hostname,
+    NODE_TRANSITIONS,
+    )
 from maasserver.models.user import create_auth_token
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
@@ -43,13 +49,40 @@ from maasserver.utils import (
     ignore_unused,
     map_enum,
     )
+from maastesting.testcase import TestCase as DjangoLessTestCase
 from metadataserver.models import (
     NodeCommissionResult,
     NodeUserData,
     )
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerAction
-from testtools.matchers import FileContains
+from testtools.matchers import (
+    AllMatch,
+    Contains,
+    Equals,
+    FileContains,
+    MatchesAll,
+    MatchesListwise,
+    Not,
+    )
+
+
+class UtilitiesTest(DjangoLessTestCase):
+
+    def test_generate_hostname_does_not_contain_ambiguous_chars(self):
+        ambiguous_chars = 'ilousvz1250'
+        hostnames = [generate_hostname(5) for i in range(200)]
+        does_not_contain_chars_matcher = (
+            MatchesAll(*[Not(Contains(char)) for char in ambiguous_chars]))
+        self.assertThat(
+            hostnames, AllMatch(does_not_contain_chars_matcher))
+
+    def test_generate_hostname_uses_size(self):
+        sizes = [
+            random.randint(1, 10), random.randint(1, 10),
+            random.randint(1, 10)]
+        hostnames = [generate_hostname(size) for size in sizes]
+        self.assertEqual(sizes, [len(hostname) for hostname in hostnames])
 
 
 class NodeTest(TestCase):
@@ -147,38 +180,54 @@ class NodeTest(TestCase):
         node = factory.make_node(status=NODE_STATUS.ALLOCATED)
         self.assertRaises(NodeStateViolation, node.delete)
 
-    def test_set_mac_based_hostname_default_enlistment_domain(self):
-        # The enlistment domain defaults to `local`.
-        node = factory.make_node()
-        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
-        hostname = 'node-aabbccddeeff.local'
-        self.assertEqual(hostname, node.hostname)
+    def test_delete_node_also_deletes_dhcp_host_map(self):
+        lease = factory.make_dhcp_lease()
+        node = factory.make_node(nodegroup=lease.nodegroup)
+        node.add_mac_address(lease.mac)
+        mocked_task = self.patch(node_module, "remove_dhcp_host_map")
+        mocked_apply_async = self.patch(mocked_task, "apply_async")
+        node.delete()
+        args, kwargs = mocked_apply_async.call_args
+        expected = (
+            Equals(kwargs['queue']),
+            Equals({
+                'ip_address': lease.ip,
+                'server_address': "127.0.0.1",
+                'omapi_key': lease.nodegroup.dhcp_key,
+                }))
+        observed = node.work_queue, kwargs['kwargs']
+        self.assertThat(observed, MatchesListwise(expected))
 
-    def test_set_mac_based_hostname_alt_enlistment_domain(self):
-        # A non-default enlistment domain can be specified.
-        Config.objects.set_config("enlistment_domain", "example.com")
-        node = factory.make_node()
-        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
-        hostname = 'node-aabbccddeeff.example.com'
-        self.assertEqual(hostname, node.hostname)
+    def test_delete_node_removes_multiple_host_maps(self):
+        lease1 = factory.make_dhcp_lease()
+        lease2 = factory.make_dhcp_lease(nodegroup=lease1.nodegroup)
+        node = factory.make_node(nodegroup=lease1.nodegroup)
+        node.add_mac_address(lease1.mac)
+        node.add_mac_address(lease2.mac)
+        mocked_task = self.patch(node_module, "remove_dhcp_host_map")
+        mocked_apply_async = self.patch(mocked_task, "apply_async")
+        node.delete()
+        self.assertEqual(2, mocked_apply_async.call_count)
 
-    def test_set_mac_based_hostname_cleaning_enlistment_domain(self):
-        # Leading and trailing dots and whitespace are cleaned from the
-        # configured enlistment domain before it's joined to the hostname.
-        Config.objects.set_config("enlistment_domain", " .example.com. ")
-        node = factory.make_node()
-        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
-        hostname = 'node-aabbccddeeff.example.com'
-        self.assertEqual(hostname, node.hostname)
+    def test_set_random_hostname_set_hostname(self):
+        # Blank out enlistment_domain.
+        Config.objects.set_config("enlistment_domain", '')
+        node = factory.make_node('test' * 10)
+        node.set_random_hostname()
+        self.assertEqual(5, len(node.hostname))
 
-    def test_set_mac_based_hostname_no_enlistment_domain(self):
-        # The enlistment domain can be set to the empty string and
-        # set_mac_based_hostname sets a hostname with no domain.
-        Config.objects.set_config("enlistment_domain", "")
+    def test_set_random_hostname_checks_hostname_existence(self):
+        Config.objects.set_config("enlistment_domain", '')
+        existing_node = factory.make_node(hostname='hostname')
+
+        hostnames = [existing_node.hostname, "new_hostname"]
+        self.patch(
+            node_module, "generate_hostname",
+            lambda size: hostnames.pop(0))
+
         node = factory.make_node()
-        node.set_mac_based_hostname('AA:BB:CC:DD:EE:FF')
-        hostname = 'node-aabbccddeeff'
-        self.assertEqual(hostname, node.hostname)
+        node.set_random_hostname()
+        self.assertEqual('new_hostname', node.hostname)
 
     def test_get_effective_power_type_defaults_to_config(self):
         power_types = list(map_enum(POWER_TYPE).values())
@@ -264,9 +313,65 @@ class NodeTest(TestCase):
             node: node.get_effective_power_type()
             for node in nodes}
         started_nodes = Node.objects.start_nodes(
-            list(node_power_types.keys()), user)
+            [node.system_id for node in list(node_power_types.keys())], user)
         successful_types = [node_power_types[node] for node in started_nodes]
         self.assertItemsEqual(configless_power_types, successful_types)
+
+    def test_get_effective_kernel_options_with_nothing_set(self):
+        node = factory.make_node()
+        self.assertEqual((None, None), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_sees_global_config(self):
+        node = factory.make_node()
+        kernel_opts = factory.getRandomString()
+        Config.objects.set_config('kernel_opts', kernel_opts)
+        self.assertEqual(
+            (None, kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_not_confused_by_empty_tag(self):
+        node = factory.make_node()
+        tag = factory.make_tag()
+        node.tags.add(tag)
+        kernel_opts = factory.getRandomString()
+        Config.objects.set_config('kernel_opts', kernel_opts)
+        self.assertEqual(
+            (None, kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_ignores_unassociated_tag_value(self):
+        node = factory.make_node()
+        factory.make_tag(kernel_opts=factory.getRandomString())
+        self.assertEqual((None, None), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_uses_tag_value(self):
+        node = factory.make_node()
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        node.tags.add(tag)
+        self.assertEqual(
+            (tag, tag.kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_tag_overrides_global(self):
+        node = factory.make_node()
+        global_opts = factory.getRandomString()
+        Config.objects.set_config('kernel_opts', global_opts)
+        tag = factory.make_tag(kernel_opts=factory.getRandomString())
+        node.tags.add(tag)
+        self.assertEqual(
+            (tag, tag.kernel_opts), node.get_effective_kernel_options())
+
+    def test_get_effective_kernel_options_uses_first_real_tag_value(self):
+        node = factory.make_node()
+        # Intentionally create them in reverse order, so the default 'db' order
+        # doesn't work, and we have asserted that we sort them.
+        tag3 = factory.make_tag(factory.make_name('tag-03-'),
+                                kernel_opts=factory.getRandomString())
+        tag2 = factory.make_tag(factory.make_name('tag-02-'),
+                                kernel_opts=factory.getRandomString())
+        tag1 = factory.make_tag(factory.make_name('tag-01-'), kernel_opts=None)
+        self.assertTrue(tag1.name < tag2.name)
+        self.assertTrue(tag2.name < tag3.name)
+        node.tags.add(tag1, tag2, tag3)
+        self.assertEqual(
+            (tag2, tag2.kernel_opts), node.get_effective_kernel_options())
 
     def test_acquire(self):
         node = factory.make_node(status=NODE_STATUS.READY)
@@ -463,6 +568,12 @@ class NodeTest(TestCase):
         node.set_hardware_details(xmlbytes)
         self.assertEqual(xmlbytes, node.hardware_details)
 
+    def test_set_invalid_hardware_details(self):
+        node = factory.make_node(owner=factory.make_user())
+        node.set_hardware_details('<test />')
+        self.assertRaises(ValidationError, node.set_hardware_details, '')
+        self.assertEqual('<test />', node.hardware_details)
+
     def test_hardware_updates_cpu_count(self):
         node = factory.make_node()
         xmlbytes = (
@@ -484,6 +595,32 @@ class NodeTest(TestCase):
         node = reload_object(node)
         self.assertEqual(4096, node.memory)
 
+    def test_hardware_updates_memory_lenovo(self):
+        node = factory.make_node()
+        xmlbytes = (
+          '<node>'
+            '<node id="memory:0" class="memory">'
+              '<node id="bank:0" class="memory" handle="DMI:002D">'
+                '<size units="bytes">4294967296</size>'
+              '</node>'
+              '<node id="bank:1" class="memory" handle="DMI:002E">'
+                '<size units="bytes">3221225472</size>'
+              '</node>'
+            '</node>'
+            '<node id="memory:1" class="memory">'
+              '<node id="bank:0" class="memory" handle="DMI:002F">'
+                '<size units="bytes">536870912</size>'
+              '</node>'
+            '</node>'
+            '<node id="memory:2" class="memory"></node>'
+          '</node>'
+          )
+        node.set_hardware_details(xmlbytes)
+        node = reload_object(node)
+        mega = 2 ** 20
+        expected = (4294967296 + 3221225472 + 536879812) / mega
+        self.assertEqual(expected, node.memory)
+
     def test_hardware_updates_tags_match(self):
         tag1 = factory.make_tag(factory.getRandomString(10), "/node")
         tag2 = factory.make_tag(factory.getRandomString(10), "//node")
@@ -504,6 +641,30 @@ class NodeTest(TestCase):
         node.set_hardware_details(xmlbytes)
         node = reload_object(node)
         self.assertEqual([], list(node.tags.all()))
+
+    def test_fqdn_returns_hostname_if_dns_not_managed(self):
+        nodegroup = factory.make_node_group(
+            name=factory.getRandomString(),
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+        hostname_with_domain = '%s.%s' % (
+            factory.getRandomString(), factory.getRandomString())
+        node = factory.make_node(
+            nodegroup=nodegroup, hostname=hostname_with_domain)
+        self.assertEqual(hostname_with_domain, node.fqdn)
+
+    def test_fqdn_replaces_hostname_if_dns_is_managed(self):
+        hostname_without_domain = factory.make_name('hostname')
+        hostname_with_domain = '%s.%s' % (
+            hostname_without_domain, factory.getRandomString())
+        domain = factory.make_name('domain')
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            name=domain,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        node = factory.make_node(
+            hostname=hostname_with_domain, nodegroup=nodegroup)
+        expected_hostname = '%s.%s' % (hostname_without_domain, domain)
+        self.assertEqual(expected_hostname, node.fqdn)
 
 
 class NodeTransitionsTests(TestCase):
@@ -531,8 +692,7 @@ class NodeManagerTest(TestCase):
             status = NODE_STATUS.READY
         else:
             status = NODE_STATUS.ALLOCATED
-        return factory.make_node(
-            set_hostname=True, status=status, owner=user, **kwargs)
+        return factory.make_node(status=status, owner=user, **kwargs)
 
     def make_node_with_mac(self, user=None, **kwargs):
         node = self.make_node(user, **kwargs)
@@ -595,6 +755,20 @@ class NodeManagerTest(TestCase):
             nodes[wanted_slice],
             Node.objects.get_nodes(
                 user, NODE_PERMISSION.VIEW, ids=ids[wanted_slice]))
+
+    def test_get_nodes_with_mac_does_one_query(self):
+        user = factory.make_user()
+        nodes = [factory.make_node(mac=True) for counter in range(5)]
+        # 1 query to get the node list, 1 query to get the mac addresses for
+        # all of them
+        mac_count = 0
+        with self.assertNumQueries(2):
+            nodes = Node.objects.get_nodes(user, NODE_PERMISSION.VIEW,
+                                           prefetch_mac=True)
+            for node in nodes:
+                for mac in node.macaddress_set.all():
+                    mac_count += 1
+        self.assertEqual(5, mac_count)
 
     def test_get_nodes_with_edit_perm_for_user_lists_owned_nodes(self):
         user = factory.make_user()
@@ -685,7 +859,7 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             None,
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': node.system_id}))
+                user, {'hostname': node.system_id}))
 
     def test_get_available_node_with_name(self):
         """A single available node can be selected using its hostname"""
@@ -694,33 +868,27 @@ class NodeManagerTest(TestCase):
         self.assertEqual(
             nodes[1],
             Node.objects.get_available_node_for_acquisition(
-                user, {'name': nodes[1].hostname}))
-
-    def test_get_available_node_with_unknown_name(self):
-        """None is returned if there is no node with a given name"""
-        user = factory.make_user()
-        self.assertEqual(
-            None,
-            Node.objects.get_available_node_for_acquisition(
-                user, {'name': factory.getRandomString()}))
+                user, {'hostname': nodes[1].hostname}))
 
     def test_get_available_node_with_arch(self):
-        """An available node can be selected of a given architecture"""
+        """An available node can be selected off a given architecture"""
         user = factory.make_user()
         nodes = [self.make_node(architecture=s)
             for s in (ARCHITECTURE.amd64, ARCHITECTURE.i386)]
         available_node = Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "i386"})
+                user, {'architecture': "i386/generic"})
         self.assertEqual(ARCHITECTURE.i386, available_node.architecture)
         self.assertEqual(nodes[1], available_node)
 
-    def test_get_available_node_with_unknown_arch(self):
-        """None is returned if an arch not used by MaaS is given"""
+    def test_get_available_node_with_tag(self):
+        """An available node can be selected off a given tag"""
+        nodes = [self.make_node() for i in range(2)]
+        tag = factory.make_tag('strong')
         user = factory.make_user()
-        self.assertEqual(
-            None,
-            Node.objects.get_available_node_for_acquisition(
-                user, {'arch': "sparc"}))
+        nodes[1].tags.add(tag)
+        available_node = Node.objects.get_available_node_for_acquisition(
+                user, {'tags': "strong"})
+        self.assertEqual(nodes[1], available_node)
 
     def test_stop_nodes_stops_nodes(self):
         # We don't actually want to fire off power events, but we'll go

@@ -14,6 +14,7 @@ __all__ = [
     "ActionScript",
     "atomic_write",
     "deferred",
+    "import_settings",
     "incremental_write",
     "MainScript",
     "parse_key_value_file",
@@ -25,6 +26,7 @@ __all__ = [
 from argparse import ArgumentParser
 import errno
 from functools import wraps
+import netifaces
 import os
 from os import fdopen
 from pipes import quote
@@ -42,6 +44,26 @@ from lockfile import FileLock
 from provisioningserver.config import Config
 import tempita
 from twisted.internet.defer import maybeDeferred
+
+
+def find_settings(whence):
+    """Return settings from `whence`, which is assumed to be a module."""
+    # XXX 2012-10-11 JeroenVermeulen, bug=1065456: Put this in a shared
+    # location.  It's currently duplicated from elsewhere.
+    return {
+        name: value
+        for name, value in vars(whence).items()
+        if not name.startswith("_")
+        }
+
+
+def import_settings(whence):
+    """Import settings from `whence` into the caller's global scope."""
+    # XXX 2012-10-11 JeroenVermeulen, bug=1065456: Put this in a shared
+    # location.  It's currently duplicated from elsewhere.
+    source = find_settings(whence)
+    target = sys._getframe(1).f_globals
+    target.update(source)
 
 
 def deferred(func):
@@ -376,7 +398,7 @@ class ActionScript:
         try:
             self.setup()
             self.execute(argv)
-        except CalledProcessError, error:
+        except CalledProcessError as error:
             # Print error.cmd and error.output too?
             raise SystemExit(error.returncode)
         except KeyboardInterrupt:
@@ -439,3 +461,13 @@ class AtomicWriteScript:
         atomic_write(
             content, args.filename, overwrite=not args.no_overwrite,
             mode=mode)
+
+
+def get_all_interface_addresses():
+    """For each network interface, yield its IPv4 address."""
+    for interface in netifaces.interfaces():
+        addresses = netifaces.ifaddresses(interface)
+        if netifaces.AF_INET in addresses:
+            for inet_address in addresses[netifaces.AF_INET]:
+                if "addr" in inet_address:
+                    yield inet_address["addr"]

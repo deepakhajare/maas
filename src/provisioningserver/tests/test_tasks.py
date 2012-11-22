@@ -24,12 +24,8 @@ from subprocess import (
 from apiclient.creds import convert_tuple_to_string
 from apiclient.maas_client import MAASClient
 from apiclient.testing.credentials import make_api_credentials
-from celeryconfig import (
-    DHCP_CONFIG_FILE,
-    DHCP_INTERFACES_FILE,
-    WORKER_QUEUE_BOOT_IMAGES,
-    WORKER_QUEUE_DNS,
-    )
+from celery.app import app_or_default
+from celery.task import Task
 from maastesting.celery import CeleryFixture
 from maastesting.factory import factory
 from maastesting.fakemethod import (
@@ -37,11 +33,16 @@ from maastesting.fakemethod import (
     MultiFakeMethod,
     )
 from maastesting.matchers import ContainsAll
-from mock import Mock
+from mock import (
+    ANY,
+    Mock,
+    )
 from netaddr import IPNetwork
 from provisioningserver import (
     auth,
+    boot_images,
     cache,
+    tags,
     tasks,
     utils,
     )
@@ -51,7 +52,8 @@ from provisioningserver.dhcp import (
     )
 from provisioningserver.dns.config import (
     conf,
-    DNSZoneConfig,
+    DNSForwardZoneConfig,
+    DNSReverseZoneConfig,
     MAAS_NAMED_CONF_NAME,
     MAAS_NAMED_RNDC_CONF_NAME,
     MAAS_RNDC_CONF_NAME,
@@ -59,8 +61,10 @@ from provisioningserver.dns.config import (
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.power.poweraction import PowerActionFail
 from provisioningserver.pxe import tftppath
+from provisioningserver.tags import MissingCredentials
 from provisioningserver.tasks import (
     add_new_dhcp_host_map,
+    import_boot_images,
     Omshell,
     power_off,
     power_on,
@@ -71,12 +75,13 @@ from provisioningserver.tasks import (
     rndc_command,
     RNDC_COMMAND_MAX_RETRY,
     setup_rndc_configuration,
+    update_node_tags,
+    UPDATE_NODE_TAGS_MAX_RETRY,
     write_dhcp_config,
     write_dns_config,
     write_dns_zone_config,
     write_full_dns_config,
     )
-from provisioningserver.testing import network_infos
 from provisioningserver.testing.boot_images import make_boot_image_params
 from provisioningserver.testing.config import ConfigFixture
 from provisioningserver.testing.testcase import PservTestCase
@@ -90,6 +95,9 @@ from testtools.matchers import (
 # An arbitrary MAC address.  Not using a properly random one here since
 # we might accidentally affect real machines on the network.
 arbitrary_mac = "AA:BB:CC:DD:EE:FF"
+
+
+celery_config = app_or_default().conf
 
 
 class TestRefreshSecrets(PservTestCase):
@@ -253,7 +261,7 @@ class TestDHCPTasks(PservTestCase):
         # It should construct Popen with the right parameters.
         mocked_popen.assert_any_call(
             ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
-            DHCP_CONFIG_FILE, "--mode", "0644"], stdin=PIPE)
+            celery_config.DHCP_CONFIG_FILE, "--mode", "0644"], stdin=PIPE)
 
         # It should then pass the content to communicate().
         content = config.get_config(**config_params).encode("ascii")
@@ -263,7 +271,7 @@ class TestDHCPTasks(PservTestCase):
         # /var/lib/maas/dhcpd-interfaces.
         mocked_popen.assert_any_call(
             ["sudo", "-n", "maas-provision", "atomic-write", "--filename",
-            DHCP_INTERFACES_FILE, "--mode", "0644"], stdin=PIPE)
+            celery_config.DHCP_INTERFACES_FILE, "--mode", "0644"], stdin=PIPE)
 
     def test_restart_dhcp_server_sends_command(self):
         recorder = FakeMethod()
@@ -313,24 +321,31 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_write_dns_config_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_dns_config.queue, WORKER_QUEUE_DNS)
+        self.assertEqual(
+            write_dns_config.queue,
+            celery_config.WORKER_QUEUE_DNS)
 
     def test_write_dns_zone_config_writes_file(self):
         command = factory.getRandomString()
-        zone_name = factory.getRandomString()
+        domain = factory.getRandomString()
         network = IPNetwork('192.168.0.3/24')
         ip = factory.getRandomIPInNetwork(network)
-        zone = DNSZoneConfig(
-            zone_name, serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): ip}, **network_infos(network))
+        forward_zone = DNSForwardZoneConfig(
+            domain, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip}, networks=[network])
+        reverse_zone = DNSReverseZoneConfig(
+            domain, serial=random.randint(1, 100),
+            mapping={factory.getRandomString(): ip}, network=network)
         result = write_dns_zone_config.delay(
-            zone=zone, callback=rndc_command.subtask(args=[command]))
+            zones=[forward_zone, reverse_zone],
+            callback=rndc_command.subtask(args=[command]))
 
-        reverse_file_name = 'zone.rev.0.168.192.in-addr.arpa'
+        forward_file_name = 'zone.%s' % domain
+        reverse_file_name = 'zone.0.168.192.in-addr.arpa'
         self.assertThat(
             (
                 result.successful(),
-                os.path.join(self.dns_conf_dir, 'zone.%s' % zone_name),
+                os.path.join(self.dns_conf_dir, forward_file_name),
                 os.path.join(self.dns_conf_dir, reverse_file_name),
                 self.rndc_recorder.calls,
             ),
@@ -344,7 +359,9 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_write_dns_zone_config_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_dns_zone_config.queue, WORKER_QUEUE_DNS)
+        self.assertEqual(
+            write_dns_zone_config.queue,
+            celery_config.WORKER_QUEUE_DNS)
 
     def test_setup_rndc_configuration_writes_files(self):
         command = factory.getRandomString()
@@ -369,7 +386,9 @@ class TestDNSTasks(PservTestCase):
             result)
 
     def test_setup_rndc_configuration_attached_to_dns_worker_queue(self):
-        self.assertEqual(setup_rndc_configuration.queue, WORKER_QUEUE_DNS)
+        self.assertEqual(
+            setup_rndc_configuration.queue,
+            celery_config.WORKER_QUEUE_DNS)
 
     def test_rndc_command_execute_command(self):
         command = factory.getRandomString()
@@ -412,28 +431,36 @@ class TestDNSTasks(PservTestCase):
             CalledProcessError, rndc_command.delay, command, retry=True)
 
     def test_rndc_command_attached_to_dns_worker_queue(self):
-        self.assertEqual(rndc_command.queue, WORKER_QUEUE_DNS)
+        self.assertEqual(rndc_command.queue, celery_config.WORKER_QUEUE_DNS)
 
     def test_write_full_dns_config_sets_up_config(self):
         # write_full_dns_config writes the config file, writes
         # the zone files, and reloads the dns service.
-        zone_name = factory.getRandomString()
+        domain = factory.getRandomString()
         network = IPNetwork('192.168.0.3/24')
         ip = factory.getRandomIPInNetwork(network)
-        zones = [DNSZoneConfig(
-            zone_name, serial=random.randint(1, 100),
-            mapping={factory.getRandomString(): ip}, **network_infos(network))]
+        zones = [
+            DNSForwardZoneConfig(
+                domain, serial=random.randint(1, 100),
+                mapping={factory.getRandomString(): ip},
+                networks=[network]),
+            DNSReverseZoneConfig(
+                domain, serial=random.randint(1, 100),
+                mapping={factory.getRandomString(): ip},
+                network=network),
+            ]
         command = factory.getRandomString()
         result = write_full_dns_config.delay(
             zones=zones,
             callback=rndc_command.subtask(args=[command]))
 
-        reverse_file_name = 'zone.rev.0.168.192.in-addr.arpa'
+        forward_file_name = 'zone.%s' % domain
+        reverse_file_name = 'zone.0.168.192.in-addr.arpa'
         self.assertThat(
             (
                 result.successful(),
                 self.rndc_recorder.calls,
-                os.path.join(self.dns_conf_dir, 'zone.%s' % zone_name),
+                os.path.join(self.dns_conf_dir, forward_file_name),
                 os.path.join(self.dns_conf_dir, reverse_file_name),
                 os.path.join(self.dns_conf_dir, MAAS_NAMED_CONF_NAME),
             ),
@@ -447,7 +474,9 @@ class TestDNSTasks(PservTestCase):
                 )))
 
     def test_write_full_dns_attached_to_dns_worker_queue(self):
-        self.assertEqual(write_full_dns_config.queue, WORKER_QUEUE_DNS)
+        self.assertEqual(
+            write_full_dns_config.queue,
+            celery_config.WORKER_QUEUE_DNS)
 
 
 class TestBootImagesTasks(PservTestCase):
@@ -462,6 +491,7 @@ class TestBootImagesTasks(PservTestCase):
         auth.record_api_credentials(':'.join(make_api_credentials()))
         image = make_boot_image_params()
         self.patch(tftppath, 'list_boot_images', Mock(return_value=[image]))
+        self.patch(boot_images, "get_cluster_uuid")
         self.patch(MAASClient, 'post')
 
         report_boot_images.delay()
@@ -469,5 +499,87 @@ class TestBootImagesTasks(PservTestCase):
         args, kwargs = MAASClient.post.call_args
         self.assertItemsEqual([image], json.loads(kwargs['images']))
 
-    def test_report_boot_images_attached_to_boot_images_worker_queue(self):
-        self.assertEqual(write_dns_config.queue, WORKER_QUEUE_BOOT_IMAGES)
+
+class TestTagTasks(PservTestCase):
+
+    resources = (
+        ("celery", FixtureResource(CeleryFixture())),
+        )
+
+    def test_update_node_tags_can_be_retried(self):
+        self.set_secrets()
+        # The update_node_tags task can be retried.
+        # Simulate a temporary failure.
+        number_of_failures = UPDATE_NODE_TAGS_MAX_RETRY
+        raised_exception = MissingCredentials(
+            factory.make_name('exception'), random.randint(100, 200))
+        simulate_failures = MultiFakeMethod(
+            [FakeMethod(failure=raised_exception)] * number_of_failures +
+            [FakeMethod()])
+        self.patch(tags, 'process_node_tags', simulate_failures)
+        tag = factory.getRandomString()
+        result = update_node_tags.delay(tag, '//node', retry=True)
+        self.assertTrue(result.successful())
+
+    def test_update_node_tags_is_retried_a_limited_number_of_times(self):
+        self.set_secrets()
+        # If we simulate UPDATE_NODE_TAGS_MAX_RETRY + 1 failures, the
+        # task fails.
+        number_of_failures = UPDATE_NODE_TAGS_MAX_RETRY + 1
+        raised_exception = MissingCredentials(
+            factory.make_name('exception'), random.randint(100, 200))
+        simulate_failures = MultiFakeMethod(
+            [FakeMethod(failure=raised_exception)] * number_of_failures +
+            [FakeMethod()])
+        self.patch(tags, 'process_node_tags', simulate_failures)
+        tag = factory.getRandomString()
+        self.assertRaises(
+            MissingCredentials, update_node_tags.delay, tag,
+            '//node', retry=True)
+
+
+class TestImportPxeFiles(PservTestCase):
+
+    def make_archive_url(self, name=None):
+        if name is None:
+            name = factory.make_name('archive')
+        return 'http://%s.example.com/%s' % (name, factory.make_name('path'))
+
+    def test_import_boot_images(self):
+        recorder = self.patch(tasks, 'check_call', Mock())
+        import_boot_images()
+        recorder.assert_called_once_with(
+            ['sudo', '-n', '-E', 'maas-import-pxe-files'], env=ANY)
+        self.assertIsInstance(import_boot_images, Task)
+
+    def test_import_boot_images_preserves_environment(self):
+        recorder = self.patch(tasks, 'check_call', Mock())
+        import_boot_images()
+        recorder.assert_called_once_with(
+            ['sudo', '-n', '-E', 'maas-import-pxe-files'], env=os.environ)
+
+    def test_import_boot_images_sets_proxy(self):
+        recorder = self.patch(tasks, 'check_call', Mock())
+        proxy = factory.getRandomString()
+        import_boot_images(http_proxy=proxy)
+        expected_env = dict(os.environ, http_proxy=proxy, https_proxy=proxy)
+        recorder.assert_called_once_with(
+            ['sudo', '-n', '-E', 'maas-import-pxe-files'], env=expected_env)
+
+    def test_import_boot_images_sets_archive_locations(self):
+        self.patch(tasks, 'check_call')
+        archives = {
+            'main_archive': self.make_archive_url('main'),
+            'ports_archive': self.make_archive_url('ports'),
+            'cloud_images_archive': self.make_archive_url('cloud-images'),
+        }
+        expected_settings = {
+            parameter.upper(): value
+            for parameter, value in archives.items()}
+        import_boot_images(**archives)
+        env = tasks.check_call.call_args[1]['env']
+        archive_settings = {
+            variable: value
+            for variable, value in env.iteritems()
+                if variable.endswith('_ARCHIVE')}
+        self.assertEqual(expected_settings, archive_settings)

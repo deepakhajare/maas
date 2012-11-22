@@ -80,6 +80,12 @@ class TestKernelOpts(TestCase):
                 "domain=%s" % params.domain,
                 ]))
 
+    def test_install_compose_kernel_command_line_omits_domain_if_omitted(self):
+        params = make_kernel_parameters(purpose="install", domain=None)
+        kernel_command_line = compose_kernel_command_line(params)
+        self.assertIn("hostname=%s" % params.hostname, kernel_command_line)
+        self.assertNotIn('domain=', kernel_command_line)
+
     def test_install_compose_kernel_command_line_includes_locale(self):
         params = make_kernel_parameters(purpose="install")
         locale = "en_US"
@@ -125,16 +131,27 @@ class TestKernelOpts(TestCase):
                 "root=LABEL=cloudimg-rootfs",
                 "iscsi_initiator=",
                 "overlayroot=tmpfs",
-                "ip=dhcp"]))
-        # TODO(smoser) after newer ephemeral image is released, replace
-        # "ip=dhcp" with: "ip=::::%s:BOOTIF" % params.hostname
+                "ip=::::%s:BOOTIF" % params.hostname]))
+
+    def test_commissioning_compose_kernel_command_line_inc_extra_opts(self):
+        extra_opts = "special console=ABCD -- options to pass"
+        params = make_kernel_parameters(extra_opts=extra_opts)
+        cmdline = compose_kernel_command_line(params)
+        # There should be a blank space before the options, but otherwise added
+        # verbatim.
+        self.assertThat(cmdline, Contains(' ' + extra_opts))
+
+    def test_commissioning_compose_kernel_handles_extra_opts_None(self):
+        params = make_kernel_parameters(extra_opts=None)
+        cmdline = compose_kernel_command_line(params)
+        self.assertNotIn(cmdline, "None")
 
     def test_compose_kernel_command_line_inc_common_opts(self):
         # Test that some kernel arguments appear on both commissioning
         # and install command lines.
         get_ephemeral_name = self.patch(kernel_opts, "get_ephemeral_name")
         get_ephemeral_name.return_value = "RELEASE-ARCH"
-        expected = ["console=tty1", "console=ttyS0", "nomodeset"]
+        expected = ["nomodeset"]
 
         params = make_kernel_parameters(
             purpose="commissioning", arch="i386")

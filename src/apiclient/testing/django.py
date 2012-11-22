@@ -14,8 +14,10 @@ __all__ = []
 
 from io import BytesIO
 
+from django.core.handlers.wsgi import WSGIRequest
 from django.core.files.uploadhandler import MemoryFileUploadHandler
 from django.http.multipartparser import MultiPartParser
+from maasserver.utils import ignore_unused
 
 
 def parse_headers_and_body_with_django(headers, body):
@@ -46,3 +48,29 @@ def parse_headers_and_body_with_django(headers, body):
         META=meta, input_data=BytesIO(body),
         upload_handlers=[handler])
     return parser.parse()
+
+
+def parse_headers_and_body_with_mimer(headers, body):
+    """Use piston's Mimer functionality to handle the content.
+
+    :return: The value of 'request.data' after using Piston's translate_mime on
+        the input.
+    """
+    # JAM 2012-10-09 Importing emitters has a side effect of registering mime
+    #   type handlers with utils.translate_mime. So we must import it, even
+    #   though we don't use it.  However, piston loads Django's QuerySet code
+    #   which fails if you don't have a settings.py available. Which we don't
+    #   during 'test.pserv'. So we import this late.
+    from piston import emitters
+    ignore_unused(emitters)
+    from piston.utils import translate_mime
+
+    environ = {'wsgi.input': BytesIO(body)}
+    for name, value in headers.items():
+        environ[name.upper().replace('-', '_')] = value
+    environ['REQUEST_METHOD'] = 'POST'
+    environ['SCRIPT_NAME'] = ''
+    environ['PATH_INFO'] = ''
+    request = WSGIRequest(environ)
+    translate_mime(request)
+    return request.data

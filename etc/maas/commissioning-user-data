@@ -1,22 +1,38 @@
 #!/bin/sh
 #
 # This script carries inside it multiple files.  When executed, it creates
-# the files into a temporary directory, and then calls the 'main' function
+# the files into a temporary directory, and then calls the 'main' function.
 #
 # main does a run-parts of all "scripts" and then calls home to maas with
-# maas-signal, posting output of each of the files added with add_script()
+# maas-signal, posting output of each of the files added with add_script().
 #
+####  IPMI setup  ######
+# If IPMI network settings have been configured statically, you can
+# make them DHCP. If 'true', the IPMI network source will be changed
+# to DHCP.
+IPMI_CHANGE_STATIC_TO_DHCP="false"
+
+# In certain hardware, the parameters for the ipmi_si kernel module
+# might need to be specified. If you wish to send parameters, uncomment
+# the following line.
+#IPMI_SI_PARAMS="type=kcs ports=0xca2"
+
 #### script setup ######
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX")
 SCRIPTS_D="${TEMP_D}/scripts"
+IPMI_CONFIG_D="${TEMP_D}/ipmi.d"
 BIN_D="${TEMP_D}/bin"
 OUT_D="${TEMP_D}/out"
 PATH="$BIN_D:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 trap cleanup EXIT
 
-mkdir -p "$BIN_D" "$OUT_D" "$SCRIPTS_D"
+mkdir -p "$BIN_D" "$OUT_D" "$SCRIPTS_D" "$IPMI_CONFIG_D"
 
 ### some utility functions ####
+aptget() {
+   DEBIAN_FRONTEND=noninteractive apt-get --assume-yes -q "$@" </dev/null
+}
+
 writefile() {
    cat > "$1"
    chmod "$2" "$1"
@@ -29,6 +45,10 @@ add_script() {
    cat > "${SCRIPTS_D}/$1"
    chmod "${2:-755}" "${SCRIPTS_D}/$1"
 }
+add_ipmi_config() {
+   cat > "${IPMI_CONFIG_D}/$1"
+   chmod "${2:-644}" "${IPMI_CONFIG_D}/$1"
+}
 cleanup() {
    [ -n "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
 }
@@ -36,18 +56,18 @@ cleanup() {
 find_creds_cfg() {
    local config="" file="" found=""
 
-   # if the config location is set in environment variable, trust it
+   # If the config location is set in environment variable, trust it.
    [ -n "${COMMISSIONING_CREDENTIALS_URL}" ] &&
       _RET="${COMMISSIONING_CREDENTIALS_URL}" && return
 
-   # go looking for local files written by cloud-init
+   # Go looking for local files written by cloud-init.
    for file in /etc/cloud/cloud.cfg.d/*cmdline*.cfg; do
       [ -f "$file" ] && _RET="$file" && return
    done
 
    local opt="" cmdline=""
    if [ -f /proc/cmdline ] && read cmdline < /proc/cmdline; then
-      # search through /proc/cmdline arguments
+      # Search through /proc/cmdline arguments:
       # cloud-config-url trumps url=
       for opt in $cmdline; do
          case "$opt" in
@@ -73,21 +93,37 @@ fail() {
    exit 1
 }
 
-shutdown() {
-    echo "Finished, powering off."
-    /sbin/shutdown -P now
+write_poweroff_job() {
+   cat >/etc/init/maas-poweroff.conf <<EOF
+   description "poweroff when maas task is done"
+   start on stopped cloud-final
+   console output
+   task
+   script
+     [ ! -e /tmp/block-poweroff ] || exit 0
+     poweroff
+   end script
+EOF
+   # reload required due to lack of inotify in overlayfs (LP: #882147)
+   initctl reload-configuration
 }
 
 main() {
-   trap shutdown EXIT
-   # the main function, actually execute stuff that is written below
+   write_poweroff_job
+
+   # Install tools and load modules.
+   aptget update
+   aptget install freeipmi-tools
+   load_modules
+
+   # The main function, actually execute stuff that is written below.
    local script total=0 creds=""
 
    find_creds_cfg ||
       fail "failed to find credential config"
    creds="$_RET"
 
-   # get remote credentials into a local file
+   # Get remote credentials into a local file.
    case "$creds" in
       http://*|https://*)
          wget "$creds" -O "${TEMP_D}/my.creds" ||
@@ -96,10 +132,20 @@ main() {
          ;;
    esac
 
-   # use global name read by signal() and fail
+   # Use global name read by signal() and fail.
    CRED_CFG="$creds"
 
-   # just get a count of how many scripts there are for progress reporting
+   # Power settings.
+   local pargs=""
+   if $IPMI_CHANGE_STATIC_TO_DHCP; then
+      pargs="--dhcp-if-static"
+   fi
+   power_settings=$(maas-ipmi-autodetect --configdir "$IPMI_CONFIG_D" ${pargs})
+   if [ ! -z "power_settings" ]; then
+      signal "--power-type=ipmi" "--power-parameters=${power_settings}" WORKING "finished [maas-ipmi-autodetect]"
+   fi
+
+   # Just get a count of how many scripts there are for progress reporting.
    for script in "${SCRIPTS_D}/"*; do
       [ -x "$script" -a -f "$script" ] || continue
       total=$(($total+1))
@@ -120,7 +166,7 @@ main() {
       cur=$(($cur+1))
    done
 
-   # get a list of all files created, ignoring empty ones
+   # Get a list of all files created, ignoring empty ones.
    local fargs=""
    for file in "${OUT_D}/"*; do
       [ -f "$file" -a -s "$file" ] || continue
@@ -139,15 +185,152 @@ main() {
 
 }
 
+load_modules() {
+   modprobe ipmi_msghandler
+   modprobe ipmi_devintf
+   modprobe ipmi_si ${IPMI_SI_PARAMS}
+   udevadm settle
+}
+
 ### begin writing files ###
 add_script "01-lshw" <<"END_LSHW"
 #!/bin/sh
 lshw -xml
 END_LSHW
 
+add_ipmi_config "01-user-privileges.ipmi" <<"END_IPMI_USER_PRIVILEGES"
+Section User3
+	Enable_User				Yes
+	Lan_Enable_IPMI_Msgs			Yes
+	Lan_Privilege_Limit			Administrator
+EndSection
+END_IPMI_USER_PRIVILEGES
+
+add_ipmi_config "02-global-config.ipmi" <<"END_IPMI_CONFIG"
+Section Lan_Channel
+	Volatile_Access_Mode			Always_Available
+	Volatile_Enable_User_Level_Auth		Yes
+	Volatile_Channel_Privilege_Limit	Administrator
+	Non_Volatile_Access_Mode		Always_Available
+	Non_Volatile_Enable_User_Level_Auth	Yes
+	Non_Volatile_Channel_Privilege_Limit	Administrator
+EndSection
+END_IPMI_CONFIG
+
+add_bin "maas-ipmi-autodetect" <<"END_MAAS_IPMI_AUTODETECT"
+#!/usr/bin/python
+import os
+import commands
+import glob
+import re
+import string
+import random
+import time
+
+def detect_ipmi():
+    # TODO: Detection could be improved.
+    (status, output) = commands.getstatusoutput('ipmi-locate')
+    show_re = re.compile('(IPMI\ Version:) (\d\.\d)')
+    res = show_re.search(output)
+    if res == None:
+        found = glob.glob("/dev/ipmi[0-9]")
+        if len(found):
+            return (True, "UNKNOWN: %s" % " ".join(found))
+        return (False, "")
+    return (True, res.group(2))
+
+def is_ipmi_dhcp():
+    (status, output) = commands.getstatusoutput('bmc-config --checkout --key-pair="Lan_Conf:IP_Address_Source"')
+    show_re = re.compile('IP_Address_Source\s+Use_DHCP')
+    res = show_re.search(output)
+    if res == None:
+        return False
+    return True
+
+def set_ipmi_network_source(source):
+    (status, output) = commands.getstatusoutput('bmc-config --commit --key-pair="Lan_Conf:IP_Address_Source=%s"' % source)
+
+def get_ipmi_ip_address():
+    (status, output) = commands.getstatusoutput('bmc-config --checkout --key-pair="Lan_Conf:IP_Address"')
+    show_re = re.compile('([0-9]{1,3}[.]?){4}')
+    res = show_re.search(output)
+    return res.group()
+
+def commit_ipmi_user_settings(user, password):
+    (status, output) = commands.getstatusoutput('bmc-config --commit --key-pair="User3:Username=%s"' % user)
+    (status, output) = commands.getstatusoutput('bmc-config --commit --key-pair="User3:Password=%s"' % password)
+
+def commit_ipmi_settings(config):
+    (status, output) = commands.getstatusoutput('bmc-config --commit --filename %s' % config)
+
+def get_maas_power_settings(user, password, ipaddress):
+    return "%s,%s,%s" % (user, password, ipaddress)
+
+def generate_random_password(min=8,max=15):
+    length=random.randint(min,max)
+    letters=string.ascii_letters+string.digits
+    return ''.join([random.choice(letters) for _ in range(length)])
+
+def main():
+
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='send config file to modify IPMI settings with')
+    parser.add_argument("--configdir", metavar="folder",
+        help="specify config file", default=None)
+    parser.add_argument("--dhcp-if-static", action="store_true",
+        dest="dhcp", help="specify config file", default=False)
+
+    args = parser.parse_args()
+
+    # Check whether IPMI exists or not.
+    (status, ipmi_version) = detect_ipmi()
+    if status != True:
+        # if False, then failed to detect ipmi
+        exit(1)
+
+    # Check whether IPMI is being set to DHCP. If it is not, and
+    # '--dhcp-if-static' has been passed,  Set it to IPMI to DHCP.
+    if not is_ipmi_dhcp() and args.dhcp:
+        set_ipmi_network_source("Use_DHCP")
+        # allow IPMI 120 seconds to obtain an IP address
+        time.sleep(120)
+
+    # create user/pass
+    IPMI_MAAS_USER="maas"
+    IPMI_MAAS_PASSWORD=generate_random_password()
+
+    # Configure IPMI user/password
+    commit_ipmi_user_settings(IPMI_MAAS_USER, IPMI_MAAS_PASSWORD)
+
+    # Commit other IPMI settings
+    if args.configdir:
+        for file in os.listdir(args.configdir):
+            commit_ipmi_settings(os.path.join(args.configdir, file))
+
+    # get the IP address
+    IPMI_IP_ADDRESS = get_ipmi_ip_address()
+    if IPMI_IP_ADDRESS == "0.0.0.0":
+        # if IPMI_IP_ADDRESS is 0.0.0.0, wait 60 seconds and retry.
+        time.sleep(60)
+        IPMI_IP_ADDRESS = get_ipmi_ip_address()
+
+    if IPMI_IP_ADDRESS is None or IPMI_IP_ADDRESS == "0.0.0.0":
+        # Exit (to not set power params in MAAS) if no IPMI_IP_ADDRESS
+        # has been detected
+        exit(1)
+
+    print get_maas_power_settings(IPMI_MAAS_USER, IPMI_MAAS_PASSWORD, IPMI_IP_ADDRESS)
+
+if __name__ == '__main__':
+    main()
+END_MAAS_IPMI_AUTODETECT
+
 add_bin "maas-signal" <<"END_MAAS_SIGNAL"
 #!/usr/bin/python
 
+from email.utils import parsedate
 import mimetypes
 import oauth.oauth as oauth
 import os.path
@@ -157,9 +340,11 @@ import sys
 import time
 import urllib2
 import yaml
+import json
 
 MD_VERSION = "2012-03-01"
 VALID_STATUS = ("OK", "FAILED", "WORKING")
+POWER_TYPES = ("ipmi", "virsh", "ether_wake")
 
 
 def _encode_field(field_name, data, boundary):
@@ -210,13 +395,17 @@ def encode_multipart_data(data, files):
     return body, headers
 
 
-def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret):
+def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret,
+                  clockskew=0):
     consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
     token = oauth.OAuthToken(token_key, token_secret)
+
+    timestamp = int(time.time()) + clockskew
+
     params = {
         'oauth_version': "1.0",
         'oauth_nonce': oauth.generate_nonce(),
-        'oauth_timestamp': int(time.time()),
+        'oauth_timestamp': timestamp,
         'oauth_token': token.key,
         'oauth_consumer_key': consumer.key,
     }
@@ -227,20 +416,50 @@ def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret):
 
 
 def geturl(url, creds, headers=None, data=None):
-    # takes a dict of creds to be passed through to oauth_headers
+    # Takes a dict of creds to be passed through to oauth_headers,
     #   so it should have consumer_key, token_key, ...
     if headers is None:
         headers = {}
     else:
         headers = dict(headers)
 
-    if creds.get('consumer_key', None) != None:
-        headers.update(oauth_headers(url,
-            consumer_key=creds['consumer_key'], token_key=creds['token_key'],
-            token_secret=creds['token_secret'],
-            consumer_secret=creds['consumer_secret']))
-    req = urllib2.Request(url=url, data=data, headers=headers)
-    return(urllib2.urlopen(req).read())
+    clockskew = 0
+
+    def warn(msg):
+        sys.stderr.write(msg + "\n")
+
+    exc = Exception("Unexpected Error")
+    for naptime in (1, 1, 2, 4, 8, 16, 32):
+        if creds.get('consumer_key', None) != None:
+            headers.update(oauth_headers(url,
+                consumer_key=creds['consumer_key'],
+                token_key=creds['token_key'],
+                token_secret=creds['token_secret'],
+                consumer_secret=creds['consumer_secret'],
+                clockskew=clockskew))
+        try:
+            req = urllib2.Request(url=url, data=data, headers=headers)
+            return(urllib2.urlopen(req).read())
+        except urllib2.HTTPError as exc:
+            if 'date' not in exc.headers:
+                warn("date field not in %d headers" % exc.code)
+                pass
+            elif (exc.code == 401 or exc.code == 403):
+                date = exc.headers['date']
+                try:
+                    ret_time = time.mktime(parsedate(date))
+                    clockskew = int(ret_time - time.time())
+                    warn("updated clock skew to %d" % clockskew)
+                except:
+                    warn("failed to convert date '%s'" % date)
+        except Exception as exc:
+            pass
+
+        warn("request to %s failed. sleeping %d.: %s" % (url, naptime, exc))
+        time.sleep(naptime)
+
+    raise exc
+
 
 def read_config(url, creds):
     if url.startswith("http://") or url.startswith("https://"):
@@ -252,7 +471,7 @@ def read_config(url, creds):
 
     cfg = yaml.safe_load(cfg_str)
 
-    # support reading cloud-init config for MAAS datasource
+    # Support reading cloud-init config for MAAS datasource.
     if 'datasource' in cfg:
         cfg = cfg['datasource']['MAAS']
 
@@ -269,33 +488,39 @@ def main():
     """
     Call with single argument of directory or http or https url.
     If url is given additional arguments are allowed, which will be
-    interpreted as consumer_key, token_key, token_secret, consumer_secret
+    interpreted as consumer_key, token_key, token_secret, consumer_secret.
     """
     import argparse
     import pprint
 
     parser = argparse.ArgumentParser(
-        description='send signal operation and optionally post files to MAAS')
+        description='Send signal operation and optionally post files to MAAS')
     parser.add_argument("--config", metavar="file",
-        help="specify config file", default=None)
+        help="Specify config file", default=None)
     parser.add_argument("--ckey", metavar="key",
-        help="the consumer key to auth with", default=None)
+        help="The consumer key to auth with", default=None)
     parser.add_argument("--tkey", metavar="key",
-        help="the token key to auth with", default=None)
+        help="The token key to auth with", default=None)
     parser.add_argument("--csec", metavar="secret",
-        help="the consumer secret (likely '')", default="")
+        help="The consumer secret (likely '')", default="")
     parser.add_argument("--tsec", metavar="secret",
-        help="the token secret to auth with", default=None)
+        help="The token secret to auth with", default=None)
     parser.add_argument("--apiver", metavar="version",
-        help="the apiver to use ("" can be used)", default=MD_VERSION)
+        help="The apiver to use ("" can be used)", default=MD_VERSION)
     parser.add_argument("--url", metavar="url",
-        help="the data source to query", default=None)
+        help="The data source to query", default=None)
     parser.add_argument("--file", dest='files',
-        help="file to post", action='append', default=[])
+        help="File to post", action='append', default=[])
+    parser.add_argument("--post", dest='posts',
+        help="name=value pairs to post", action='append', default=[])
+    parser.add_argument("--power-type", dest='power_type',
+        help="Power type.", choices=POWER_TYPES, default=None)
+    parser.add_argument("--power-parameters", dest='power_parms',
+        help="Power parameters.", default=None)
 
     parser.add_argument("status",
-        help="status", choices=VALID_STATUS, action='store')
-    parser.add_argument("message", help="optional message",
+        help="Status", choices=VALID_STATUS, action='store')
+    parser.add_argument("message", help="Optional message",
         default="", nargs='?')
 
     args = parser.parse_args()
@@ -309,13 +534,30 @@ def main():
 
     url = creds.get('metadata_url', None)
     if not url:
-        fail("Url must be provided either in --url or in config\n")
+        fail("URL must be provided either in --url or in config\n")
     url = "%s/%s/" % (url, args.apiver)
 
     params = {
         "op": "signal",
         "status": args.status,
         "error": args.message}
+
+    for ent in args.posts:
+        try:
+           (key, val) = ent.split("=", 2)
+        except ValueError:
+           sys.stderr.write("'%s' had no '='" % ent)
+           sys.exit(1)
+        params[key] = val
+
+    if args.power_parms is not None:
+        params["power_type"] = args.power_type
+        power_parms = dict(
+            power_user=args.power_parms.split(",")[0],
+            power_pass=args.power_parms.split(",")[1],
+            power_address=args.power_parms.split(",")[2]
+            )
+        params["power_parameters"] = json.dumps(power_parms)
 
     files = {}
     for fpath in args.files:

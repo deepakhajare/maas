@@ -13,8 +13,9 @@ __metaclass__ = type
 __all__ = []
 
 
+from functools import partial
 from itertools import islice
-import random
+import logging
 import socket
 
 from celery.task import task
@@ -28,13 +29,17 @@ from maasserver.enum import (
     NODEGROUP_STATUS,
     NODEGROUPINTERFACE_MANAGEMENT,
     )
-from maasserver.models.dhcplease import DHCPLease
+from maasserver.models import node as node_module
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.bindfixture import BINDServer
 from maastesting.celery import CeleryFixture
 from maastesting.fakemethod import FakeMethod
 from maastesting.tests.test_bindfixture import dig_call
+from mock import (
+    call,
+    Mock,
+    )
 from netaddr import (
     IPNetwork,
     IPRange,
@@ -42,12 +47,19 @@ from netaddr import (
 from provisioningserver import tasks
 from provisioningserver.dns.config import (
     conf,
-    DNSZoneConfig,
+    DNSForwardZoneConfig,
+    DNSReverseZoneConfig,
+    DNSZoneConfigBase,
     )
 from provisioningserver.dns.utils import generated_hostname
 from rabbitfixture.server import allocate_ports
 from testresources import FixtureResource
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    IsInstance,
+    MatchesAll,
+    MatchesListwise,
+    MatchesStructure,
+    )
 
 
 class TestDNSUtilities(TestCase):
@@ -92,24 +104,15 @@ class TestDNSUtilities(TestCase):
         self.patch_DEFAULT_MAAS_URL_with_random_values()
         self.assertRaises(dns.DNSException, dns.get_dns_server_address)
 
-    def test_get_zone_creates_DNSZoneConfig(self):
-        nodegroup = factory.make_node_group(
-            status=NODEGROUP_STATUS.ACCEPTED,
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
-        interface = nodegroup.get_managed_interface()
-        serial = random.randint(1, 100)
-        zone = dns.get_zone(nodegroup, serial)
-        self.assertAttributes(
-            zone,
-            dict(
-                zone_name=nodegroup.name,
-                serial=serial,
-                subnet_mask=interface.subnet_mask,
-                broadcast_ip=interface.broadcast_ip,
-                ip_range_low=interface.ip_range_low,
-                ip_range_high=interface.ip_range_high,
-                mapping=DHCPLease.objects.get_hostname_ip_mapping(nodegroup),
-                ))
+    def test_get_dns_server_address_logs_warning_if_ip_is_localhost(self):
+        logger = self.patch(logging, 'getLogger')
+        self.patch(
+            dns, 'get_maas_facing_server_address',
+            Mock(return_value='127.0.0.1'))
+        dns.get_dns_server_address()
+        self.assertEqual(
+            call(dns.WARNING_MESSAGE % '127.0.0.1'),
+            logger.return_value.warn.call_args)
 
     def test_is_dns_managed(self):
         nodegroups_with_expected_results = {
@@ -161,15 +164,18 @@ class TestDNSConfigModifications(TestCase):
         # Reload BIND.
         self.bind.runner.rndc('reload')
 
+    def create_managed_nodegroup(self):
+        return factory.make_node_group(
+            network=IPNetwork('192.168.0.1/24'),
+            status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+
     def create_nodegroup_with_lease(self, lease_number=1, nodegroup=None):
         if nodegroup is None:
-            nodegroup = factory.make_node_group(
-                network=IPNetwork('192.168.0.1/24'),
-                status=NODEGROUP_STATUS.ACCEPTED,
-                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+            nodegroup = self.create_managed_nodegroup()
         interface = nodegroup.get_managed_interface()
         node = factory.make_node(
-            nodegroup=nodegroup, set_hostname=True)
+            nodegroup=nodegroup)
         mac = factory.make_mac_address(node=node)
         ips = IPRange(interface.ip_range_low, interface.ip_range_high)
         lease_ip = str(islice(ips, lease_number, lease_number + 1).next())
@@ -237,9 +243,16 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, 'DNS_CONNECT', False)
         self.assertFalse(dns.is_dns_enabled())
 
-    def test_is_dns_enabled_return_True(self):
+    def test_is_dns_enabled_return_True_if_DNS_CONNECT_True(self):
         self.patch(settings, 'DNS_CONNECT', True)
         self.assertTrue(dns.is_dns_enabled())
+
+    def test_is_dns_in_use_return_False_no_configured_interface(self):
+        self.assertFalse(dns.is_dns_in_use())
+
+    def test_is_dns_in_use_return_True_if_configured_interface(self):
+        self.create_managed_nodegroup()
+        self.assertTrue(dns.is_dns_in_use())
 
     def test_write_full_dns_loads_full_dns_config(self):
         nodegroup, node, lease = self.create_nodegroup_with_lease()
@@ -247,15 +260,10 @@ class TestDNSConfigModifications(TestCase):
         dns.write_full_dns_config()
         self.assertDNSMatches(node.hostname, nodegroup.name, lease.ip)
 
-    def test_write_full_dns_can_write_inactive_config(self):
-        nodegroup, node, lease = self.create_nodegroup_with_lease()
-        self.patch(settings, 'DNS_CONNECT', True)
-        dns.write_full_dns_config(active=False)
-        self.assertEqual([''], self.dig_resolve(generated_hostname(lease.ip)))
-
     def test_write_full_dns_passes_reload_retry_parameter(self):
         self.patch(settings, 'DNS_CONNECT', True)
         recorder = FakeMethod()
+        self.create_managed_nodegroup()
 
         @task
         def recorder_task(*args, **kwargs):
@@ -264,6 +272,12 @@ class TestDNSConfigModifications(TestCase):
         dns.write_full_dns_config(reload_retry=True)
         self.assertEqual(
             ([(['reload'], True)]), recorder.extract_args())
+
+    def test_write_full_dns_doesnt_call_task_it_no_interface_configured(self):
+        self.patch(settings, 'DNS_CONNECT', True)
+        patched_task = self.patch(tasks, 'write_full_dns_config')
+        dns.write_full_dns_config()
+        self.assertEqual(0, patched_task.call_count)
 
     def test_dns_config_has_NS_record(self):
         ip = factory.getRandomIPAddress()
@@ -279,11 +293,6 @@ class TestDNSConfigModifications(TestCase):
         ip_of_ns_record = dig_call(
             port=self.bind.config.port, commands=[ns_record, '+short'])
         self.assertEqual(ip, ip_of_ns_record)
-
-    def test_is_dns_enabled_follows_DNS_CONNECT(self):
-        rand_bool = factory.getRandomBoolean()
-        self.patch(settings, "DNS_CONNECT", rand_bool)
-        self.assertEqual(rand_bool, dns.is_dns_enabled())
 
     def test_add_nodegroup_creates_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
@@ -303,6 +312,8 @@ class TestDNSConfigModifications(TestCase):
                 management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         interface = nodegroup.get_managed_interface()
         # Edit nodegroup's network information to '192.168.44.1/24'
+        interface.ip = '192.168.44.7'
+        interface.router_ip = '192.168.44.14'
         interface.broadcast_ip = '192.168.44.255'
         interface.netmask = '255.255.255.0'
         interface.ip_range_low = '192.168.44.0'
@@ -314,6 +325,19 @@ class TestDNSConfigModifications(TestCase):
         self.assertEqual([''], self.dig_reverse_resolve(old_ip))
         # The ip from the new network resolves.
         self.assertDNSMatches(generated_hostname(ip), nodegroup.name, ip)
+
+    def test_changing_interface_management_updates_DNS_zone(self):
+        self.patch(settings, "DNS_CONNECT", True)
+        network = IPNetwork('192.168.7.1/24')
+        ip = factory.getRandomIPInNetwork(network)
+        nodegroup = factory.make_node_group(
+                network=network, status=NODEGROUP_STATUS.ACCEPTED,
+                management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+        interface = nodegroup.get_managed_interface()
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
+        interface.save()
+        self.assertEqual([''], self.dig_resolve(generated_hostname(ip)))
+        self.assertEqual([''], self.dig_reverse_resolve(ip))
 
     def test_delete_nodegroup_disables_DNS_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
@@ -334,6 +358,8 @@ class TestDNSConfigModifications(TestCase):
     def test_delete_node_updates_zone(self):
         self.patch(settings, "DNS_CONNECT", True)
         nodegroup, node, lease = self.create_nodegroup_with_lease()
+        # Prevent omshell task dispatch.
+        self.patch(node_module, "remove_dhcp_host_map")
         node.delete()
         fqdn = "%s.%s" % (node.hostname, nodegroup.name)
         self.assertEqual([''], self.dig_resolve(fqdn))
@@ -349,7 +375,81 @@ class TestDNSConfigModifications(TestCase):
         self.patch(settings, "DNS_CONNECT", True)
         nodegroup, node, lease = self.create_nodegroup_with_lease()
         recorder = FakeMethod()
-        self.patch(DNSZoneConfig, 'write_config', recorder)
+        self.patch(DNSZoneConfigBase, 'write_config', recorder)
         node.error = factory.getRandomString()
         node.save()
         self.assertEqual(0, recorder.call_count)
+
+
+def forward_zone(domain, *networks):
+    """
+    Returns a matcher for a :class:`DNSForwardZoneConfig` with the given
+    domain and networks.
+    """
+    networks = {IPNetwork(network) for network in networks}
+    return MatchesAll(
+        IsInstance(DNSForwardZoneConfig),
+        MatchesStructure.byEquality(
+            domain=domain, networks=networks))
+
+
+def reverse_zone(domain, network):
+    """
+    Returns a matcher for a :class:`DNSReverseZoneConfig` with the given
+    domain and network.
+    """
+    network = network if network is None else IPNetwork(network)
+    return MatchesAll(
+        IsInstance(DNSReverseZoneConfig),
+        MatchesStructure.byEquality(
+            domain=domain, network=network))
+
+
+class TestZoneGenerator(TestCase):
+    """Tests for :class:x`dns.ZoneGenerator`."""
+
+    # Factory to return an accepted nodegroup with a managed interface.
+    make_node_group = partial(
+        factory.make_node_group, status=NODEGROUP_STATUS.ACCEPTED,
+        management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
+
+    def test_with_no_nodegroups_yields_nothing(self):
+        self.assertEqual([], dns.ZoneGenerator(()).as_list())
+
+    def test_with_one_nodegroup_yields_forward_and_reverse_zone(self):
+        nodegroup = self.make_node_group(
+            name="henry", network=IPNetwork("10/32"))
+        zones = dns.ZoneGenerator(nodegroup).as_list()
+        self.assertThat(
+            zones, MatchesListwise(
+                (forward_zone("henry", "10/32"),
+                 reverse_zone("henry", "10/32"))))
+
+    def test_with_many_nodegroups_yields_many_zones(self):
+        # This demonstrates ZoneGenerator in all-singing all-dancing mode.
+        nodegroups = [
+            self.make_node_group(name="one", network=IPNetwork("10/32")),
+            self.make_node_group(name="one", network=IPNetwork("11/32")),
+            self.make_node_group(name="two", network=IPNetwork("20/32")),
+            self.make_node_group(name="two", network=IPNetwork("21/32")),
+            ]
+        [  # Other nodegroups.
+            self.make_node_group(name="one", network=IPNetwork("12/32")),
+            self.make_node_group(name="two", network=IPNetwork("22/32")),
+            ]
+        expected_zones = (
+            # For the forward zones, all nodegroups sharing a domain name,
+            # even those not passed into ZoneGenerator, are consolidated into
+            # a single forward zone description.
+            forward_zone("one", "10/32", "11/32", "12/32"),
+            forward_zone("two", "20/32", "21/32", "22/32"),
+            # For the reverse zones, a single reverse zone description is
+            # generated for each nodegroup passed in, in network order.
+            reverse_zone("one", "10/32"),
+            reverse_zone("one", "11/32"),
+            reverse_zone("two", "20/32"),
+            reverse_zone("two", "21/32"),
+            )
+        self.assertThat(
+            dns.ZoneGenerator(nodegroups).as_list(),
+            MatchesListwise(expected_zones))

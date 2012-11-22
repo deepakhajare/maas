@@ -13,10 +13,12 @@ __metaclass__ = type
 __all__ = [
     "DisplayFixture",
     "LoggerSilencerFixture",
+    "ProxiesDisabledFixture",
     "SSTFixture",
     ]
 
 import logging
+import os
 from subprocess import (
     CalledProcessError,
     PIPE,
@@ -26,6 +28,7 @@ from subprocess import (
 from fixtures import (
     EnvironmentVariableFixture,
     Fixture,
+    TempDir,
     )
 from sst.actions import (
     start,
@@ -121,3 +124,25 @@ class SSTFixture(Fixture):
         start(self.browser_name)
         self.useFixture(LoggerSilencerFixture(self.logger_names))
         self.addCleanup(stop)
+
+
+class ProxiesDisabledFixture(Fixture):
+    """Disables all HTTP/HTTPS proxies set in the environment."""
+
+    def setUp(self):
+        super(ProxiesDisabledFixture, self).setUp()
+        self.useFixture(EnvironmentVariableFixture("http_proxy"))
+        self.useFixture(EnvironmentVariableFixture("https_proxy"))
+
+
+class TempWDFixture(TempDir):
+    """Change the current working directory into a temp dir.
+
+    This will restore the original WD and delete the temp directory on cleanup.
+    """
+
+    def setUp(self):
+        cwd = os.getcwd()
+        super(TempWDFixture, self).setUp()
+        self.addCleanup(os.chdir, cwd)
+        os.chdir(self.path)

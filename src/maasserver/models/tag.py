@@ -16,7 +16,9 @@ __all__ = [
 
 from django.core.exceptions import (
     PermissionDenied,
+    ValidationError,
     )
+from django.core.validators import RegexValidator
 from django.db.models import (
     CharField,
     Manager,
@@ -24,6 +26,7 @@ from django.db.models import (
     Q,
     )
 from django.shortcuts import get_object_or_404
+from lxml import etree
 from maasserver import DefaultMeta
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.timestampedmodel import TimestampedModel
@@ -56,22 +59,26 @@ class TagManager(Manager):
         tag = get_object_or_404(Tag, name=name)
         return tag
 
-    def get_nodes(self, tag_name, user):
+    def get_nodes(self, tag, user, prefetch_mac=False):
         """Get the list of nodes that have this tag.
 
         This list is restricted to only nodes that the user has VIEW permission
         for.
         """
-        tag = self.get_tag_or_404(name=tag_name, user=user)
+        if isinstance(tag, basestring):
+            tag = self.get_tag_or_404(name=tag, user=user)
         # The privacy logic is taken from Node. Note that we could filter in
         # python by iterating over all nodes and checking
         #   user.has_perm(VIEW, node)
         # It seems better to do this in the DB, though.
         if user.is_superuser:
-            return tag.node_set.all()
+            nodes = tag.node_set.all()
         else:
-            return tag.node_set.filter(
+            nodes = tag.node_set.filter(
                 Q(owner__isnull=True) | Q(owner=user))
+        if prefetch_mac:
+            nodes = nodes.prefetch_related('macaddress_set')
+        return nodes
 
 
 class Tag(CleanSave, TimestampedModel):
@@ -82,32 +89,55 @@ class Tag(CleanSave, TimestampedModel):
         tag.
     :ivar comment: A long-form description for humans about what this tag is
         trying to accomplish.
+    :ivar kernel_opts: Optional kernel command-line parameters string to be
+        used in the PXE config for nodes with this tags.
     :ivar objects: The :class:`TagManager`.
     """
+
+    _tag_name_regex = '^[\w-]+$'
 
     class Meta(DefaultMeta):
         """Needed for South to recognize this model."""
 
-    name = CharField(max_length=256, unique=True, editable=True)
-    definition = TextField()
+    name = CharField(max_length=256, unique=True, editable=True,
+                     validators=[RegexValidator(_tag_name_regex)])
+    definition = TextField(blank=True)
     comment = TextField(blank=True)
+    kernel_opts = TextField(blank=True, null=True)
 
     objects = TagManager()
+
+    def __init__(self, *args, **kwargs):
+        super(Tag, self).__init__(*args, **kwargs)
+        # Track what the original definition is, so we can detect when it
+        # changes and we need to repopulate the node<=>tag mapping.
+        # We have to check for self.id, otherwise we don't see the creation of
+        # a new definition.
+        if self.id is None:
+            self._original_definition = None
+        else:
+            self._original_definition = self.definition
 
     def __unicode__(self):
         return self.name
 
     def populate_nodes(self):
         """Find all nodes that match this tag, and update them."""
-        # Local import to avoid circular reference
-        from maasserver.models import Node
-        # First destroy the existing tags
+        from maasserver.populate_tags import populate_tags
+        if not self.definition:
+            return
+        # before we pass off any work, ensure the definition is valid XPATH
+        try:
+            etree.XPath(self.definition)
+        except etree.XPathSyntaxError as e:
+            msg = 'Invalid xpath expression: %s' % (e,)
+            raise ValidationError({'definition': [msg]})
+        # Now delete the existing tags
         self.node_set.clear()
-        # Now figure out what matches the new definition
-        for node in Node.objects.raw(
-                'SELECT id FROM maasserver_node'
-                ' WHERE xpath_exists(%s, hardware_details)',
-                [self.definition]):
-            # Is there an efficiency difference between doing
-            # 'node.tags.add(self)' and 'self.node_set.add(node)' ?
-            node.tags.add(self)
+        populate_tags(self)
+
+    def save(self, *args, **kwargs):
+        super(Tag, self).save(*args, **kwargs)
+        if self.definition != self._original_definition:
+            self.populate_nodes()
+        self._original_definition = self.definition

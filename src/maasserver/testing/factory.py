@@ -32,6 +32,7 @@ from maasserver.models import (
     MACAddress,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     SSHKey,
     Tag,
     )
@@ -95,11 +96,11 @@ class Factory(maastesting.factory.Factory):
         finally:
             NODE_TRANSITIONS[None] = valid_initial_states
 
-    def make_node(self, mac=False, hostname='', set_hostname=False,
-                  status=None, architecture=ARCHITECTURE.i386, updated=None,
+    def make_node(self, mac=False, hostname=None, status=None,
+                  architecture=ARCHITECTURE.i386, updated=None,
                   created=None, nodegroup=None, **kwargs):
         # hostname=None is a valid value, hence the set_hostname trick.
-        if hostname is '' and set_hostname:
+        if hostname is None:
             hostname = self.getRandomString(20)
         if status is None:
             status = NODE_STATUS.DEFAULT_STATUS
@@ -120,6 +121,38 @@ class Factory(maastesting.factory.Factory):
             Node.objects.filter(id=node.id).update(created=created)
         return reload_object(node)
 
+    def get_interface_fields(self, ip=None, router_ip=None, network=None,
+                             subnet_mask=None, broadcast_ip=None,
+                             ip_range_low=None, ip_range_high=None,
+                             interface=None, management=None, **kwargs):
+        if network is None:
+            network = factory.getRandomNetwork()
+        if subnet_mask is None:
+            subnet_mask = str(network.netmask)
+        if broadcast_ip is None:
+            broadcast_ip = str(network.broadcast)
+        if ip_range_low is None:
+            ip_range_low = str(IPAddress(network.first))
+        if ip_range_high is None:
+            ip_range_high = str(IPAddress(network.last))
+        if router_ip is None:
+            router_ip = factory.getRandomIPInNetwork(network)
+        if ip is None:
+            ip = factory.getRandomIPInNetwork(network)
+        if management is None:
+            management = factory.getRandomEnum(NODEGROUPINTERFACE_MANAGEMENT)
+        if interface is None:
+            interface = self.make_name('interface')
+        return dict(
+            subnet_mask=subnet_mask,
+            broadcast_ip=broadcast_ip,
+            ip_range_low=ip_range_low,
+            ip_range_high=ip_range_high,
+            router_ip=router_ip,
+            ip=ip,
+            management=management,
+            interface=interface)
+
     def make_node_group(self, name=None, uuid=None, ip=None,
                         router_ip=None, network=None, subnet_mask=None,
                         broadcast_ip=None, ip_range_low=None,
@@ -131,9 +164,6 @@ class Factory(maastesting.factory.Factory):
         subnet_mask, broadcast_ip, ip_range_low, ip_range_high, router_ip and
         worker_ip. This is a convenience to setup a coherent network all in
         one go.
-
-        Otherwise, use the provided values for these values or use random IP
-        addresses if they are not provided.
         """
         if status is None:
             status = factory.getRandomEnum(NODEGROUP_STATUS)
@@ -143,37 +173,33 @@ class Factory(maastesting.factory.Factory):
             name = self.make_name('nodegroup')
         if uuid is None:
             uuid = factory.getRandomUUID()
-        if network is not None:
-            subnet_mask = str(network.netmask)
-            broadcast_ip = str(network.broadcast)
-            ip_range_low = str(IPAddress(network.first))
-            ip_range_high = str(IPAddress(network.last))
-            router_ip = factory.getRandomIPInNetwork(network)
-            ip = factory.getRandomIPInNetwork(network)
-        else:
-            if subnet_mask is None:
-                subnet_mask = self.getRandomIPAddress()
-            if broadcast_ip is None:
-                broadcast_ip = self.getRandomIPAddress()
-            if ip_range_low is None:
-                ip_range_low = self.getRandomIPAddress()
-            if ip_range_high is None:
-                ip_range_high = self.getRandomIPAddress()
-            if router_ip is None:
-                router_ip = self.getRandomIPAddress()
-            if ip is None:
-                ip = self.getRandomIPAddress()
-        if interface is None:
-            interface = self.make_name('interface')
-        ng = NodeGroup.objects.new(
-            name=name, uuid=uuid, ip=ip,
+        interface_settings = self.get_interface_fields(
+            ip=ip, router_ip=router_ip, network=network,
             subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
-            router_ip=router_ip, ip_range_low=ip_range_low,
-            ip_range_high=ip_range_high, interface=interface,
-            management=management, **kwargs)
+            ip_range_low=ip_range_low, ip_range_high=ip_range_high,
+            interface=interface, management=management)
+        interface_settings.update(kwargs)
+        ng = NodeGroup.objects.new(
+            name=name, uuid=uuid, **interface_settings)
         ng.status = status
         ng.save()
         return ng
+
+    def make_node_group_interface(self, nodegroup, ip=None,
+                                  router_ip=None, network=None,
+                                  subnet_mask=None, broadcast_ip=None,
+                                  ip_range_low=None, ip_range_high=None,
+                                  interface=None, management=None, **kwargs):
+        interface_settings = self.get_interface_fields(
+            ip=ip, router_ip=router_ip, network=network,
+            subnet_mask=subnet_mask, broadcast_ip=broadcast_ip,
+            ip_range_low=ip_range_low, ip_range_high=ip_range_high,
+            interface=interface, management=management)
+        interface_settings.update(**kwargs)
+        interface = NodeGroupInterface(
+            nodegroup=nodegroup, **interface_settings)
+        interface.save()
+        return interface
 
     def make_node_commission_result(self, node=None, name=None, data=None):
         if node is None:
@@ -225,14 +251,15 @@ class Factory(maastesting.factory.Factory):
         key.save()
         return key
 
-    def make_tag(self, name=None, definition=None, comment='', created=None,
-                 updated=None):
+    def make_tag(self, name=None, definition=None, comment='',
+                 kernel_opts=None, created=None, updated=None):
         if name is None:
             name = self.make_name('tag')
         if definition is None:
             # Is there a 'node' in this xml?
             definition = '//node'
-        tag = Tag(name=name, definition=definition, comment=comment)
+        tag = Tag(name=name, definition=definition, comment=comment,
+            kernel_opts=kernel_opts)
         self._save_node_unchecked(tag)
         # Update the 'updated'/'created' fields with a call to 'update'
         # preventing a call to save() from overriding the values.
@@ -270,13 +297,13 @@ class Factory(maastesting.factory.Factory):
         admin.save()
         return admin
 
-    def make_file_storage(self, filename=None, data=None):
+    def make_file_storage(self, filename=None, content=None):
         if filename is None:
             filename = self.getRandomString(100)
-        if data is None:
-            data = self.getRandomString(1024).encode('ascii')
+        if content is None:
+            content = self.getRandomString(1024).encode('ascii')
 
-        return FileStorage.objects.save_file(filename, BytesIO(data))
+        return FileStorage.objects.save_file(filename, BytesIO(content))
 
     def make_oauth_header(self, **kwargs):
         """Fake an OAuth authorization header.
@@ -299,7 +326,7 @@ class Factory(maastesting.factory.Factory):
             '%s="%s"' % (key, value) for key, value in items.items()])
 
     def make_boot_image(self, architecture=None, subarchitecture=None,
-                        release=None, purpose=None):
+                        release=None, purpose=None, nodegroup=None):
         if architecture is None:
             architecture = self.make_name('architecture')
         if subarchitecture is None:
@@ -308,7 +335,10 @@ class Factory(maastesting.factory.Factory):
             release = self.make_name('release')
         if purpose is None:
             purpose = self.make_name('purpose')
+        if nodegroup is None:
+            nodegroup = self.make_node_group()
         return BootImage.objects.create(
+            nodegroup=nodegroup,
             architecture=architecture,
             subarchitecture=subarchitecture,
             release=release,

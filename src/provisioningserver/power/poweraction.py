@@ -20,7 +20,7 @@ __all__ = [
 import os
 import subprocess
 
-from celeryconfig import POWER_TEMPLATES_DIR
+from celery.app import app_or_default
 from provisioningserver.utils import ShellTemplate
 
 
@@ -30,6 +30,16 @@ class UnknownPowerType(Exception):
 
 class PowerActionFail(Exception):
     """Raised when there's a problem executing a power script."""
+
+
+def get_power_templates_dir():
+    """Get the power-templates directory from the config."""
+    return app_or_default().conf.POWER_TEMPLATES_DIR
+
+
+def get_power_config_dir():
+    """Get the power-config directory from the config."""
+    return app_or_default().conf.POWER_CONFIG_DIR
 
 
 class PowerAction:
@@ -53,20 +63,40 @@ class PowerAction:
     @property
     def template_basedir(self):
         """Directory where power templates are stored."""
-        if POWER_TEMPLATES_DIR is None:
+        power_templates_dir = get_power_templates_dir()
+        if power_templates_dir is None:
             # The power templates are installed into the same location
             # as this file, and also live in the same directory as this
             # file in the source tree.
             return os.path.join(os.path.dirname(__file__), 'templates')
         else:
-            return POWER_TEMPLATES_DIR
+            return power_templates_dir
+
+    @property
+    def config_basedir(self):
+        """Directory where power config are stored."""
+        power_config_dir = get_power_config_dir()
+        if power_config_dir is None:
+            # The power config files are installed into the same location
+            # as this file, and also live in the same directory as this
+            # file in the source tree.
+            return os.path.join(os.path.dirname(__file__), 'config')
+        else:
+            return power_config_dir
 
     def get_template(self):
         with open(self.path, "rb") as f:
             return ShellTemplate(f.read(), name=self.path)
 
+    def get_extra_context(self):
+        """Extra context used when rending the power templates."""
+        return {
+            'config_dir': self.config_basedir,
+        }
+
     def render_template(self, template, **kwargs):
         try:
+            kwargs.update(self.get_extra_context())
             return template.substitute(kwargs)
         except NameError as error:
             raise PowerActionFail(*error.args)

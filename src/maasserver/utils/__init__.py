@@ -12,9 +12,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'absolute_reverse',
+    'build_absolute_uri',
     'get_db_state',
     'ignore_unused',
     'map_enum',
+    'strip_domain',
     ]
 
 from urllib import urlencode
@@ -82,3 +84,22 @@ def absolute_reverse(view_name, query=None, *args, **kwargs):
     if query is not None:
         url += '?%s' % urlencode(query, doseq=True)
     return url
+
+
+def build_absolute_uri(request, path):
+    """Return absolute URI corresponding to given absolute path.
+
+    :param request: An http request to the API.  This is needed in order to
+        figure out how the client is used to addressing
+        the API on the network.
+    :param path: The absolute http path to a given resource.
+    :return: Full, absolute URI to the resource, taking its networking
+        portion from `request` but the rest from `path`.
+    """
+    scheme = "https" if request.is_secure() else "http"
+    return "%s://%s%s" % (scheme, request.get_host(), path)
+
+
+def strip_domain(hostname):
+    """Return `hostname` with the domain part removed."""
+    return hostname.split('.', 1)[0]

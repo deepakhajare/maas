@@ -3,6 +3,7 @@
   <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
     <meta http-equiv="Content-Language" content="en-us" />
+    <link rel="shortcut icon" href="{{ STATIC_URL }}img/favicon.ico"/> 
     <link rel="stylesheet" href="{% url "combo-maas" %}?{{ CSS_LIST|join:"&" }}" />
     <title>{% block title %}{% endblock %} | {% include "maasserver/site_title.html" %}</title>
     {% block js-conf %}{% include "maasserver/js-conf.html" %}{% endblock %}
@@ -45,21 +46,15 @@
           </div>
           <div id="header" class="center-page-content">
               <ul id="right-nav" class="nav">
-                {% comment %}
-                  <!-- To be enabled when we have search functionality -->
                   <li class="search">
                     {% block header-search %}
-                      <form action="{% url 'node-list' %}" method="get" id="header-search">
-                        <input type="text" name="query" value="Search nodes" class="search-box" />
+                      <form action="{% url 'node-list' %}" method="get" class="search">
+                        <input type="search" name="query" placeholder="Search nodes" class="search-input" />
+                        <input type="submit" value="Search" class="search-submit" />
                       </form>
                     {% endblock %}
                   </li>
-                {% endcomment %}
                 {% if user.is_superuser %}
-                  {% comment %}
-                    <!-- To be enabled when we have search functionality -->
-                    <li class="divider"></li>
-                  {% endcomment %}
                   <li class="icon {% block nav-active-settings %}{% endblock %}">
                     <a href="{% url 'settings' %}">
                       <img src="{{ STATIC_URL }}img/settings.png" alt="Settings" />
@@ -107,7 +102,7 @@
         {% block footer-copyright %}
           <p>&copy; 2012 Canonical Ltd. Ubuntu and Canonical are registered
           trademarks of Canonical Ltd.
-          <a class="space-left-small" href="https://wiki.ubuntu.com/ServerTeam/MAAS/" target="_blank">View Documentation</a></p>
+          <a class="space-left-small" href="https://maas.ubuntu.com/" target="_blank">View Documentation</a></p>
         {% endblock %}
         <div class="clear"></div>
       </div>

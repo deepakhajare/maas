@@ -15,11 +15,16 @@ __all__ = []
 from collections import namedtuple
 import httplib
 from io import BytesIO
+import json
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from maasserver.enum import NODE_STATUS
+from maasserver.enum import (
+    NODE_STATUS,
+    NODEGROUP_STATUS,
+    NODEGROUPINTERFACE_MANAGEMENT,
+    )
 from maasserver.exceptions import (
     MAASAPINotFound,
     Unauthorized,
@@ -46,6 +51,7 @@ from metadataserver.models import (
     NodeUserData,
     )
 from metadataserver.nodeinituser import get_node_init_user
+from provisioningserver.enum import POWER_TYPE
 
 
 class TestHelpers(DjangoTestCase):
@@ -218,13 +224,19 @@ class TestViews(DjangoTestCase):
         producers = map(handler.get_attribute_producer, handler.fields)
         self.assertNotIn(None, producers)
 
-    def test_meta_data_local_hostname_returns_hostname(self):
+    def test_meta_data_local_hostname_returns_fqdn(self):
+        nodegroup = factory.make_node_group(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS)
         hostname = factory.getRandomString()
-        client = self.make_node_client(factory.make_node(hostname=hostname))
+        domain = factory.getRandomString()
+        node = factory.make_node(
+            hostname='%s.%s' % (hostname, domain), nodegroup=nodegroup)
+        client = self.make_node_client(node)
         url = reverse('metadata-meta-data', args=['latest', 'local-hostname'])
         response = client.get(url)
         self.assertEqual(
-            (httplib.OK, hostname),
+            (httplib.OK, node.fqdn),
             (response.status_code, response.content.decode('ascii')))
         self.assertIn('text/plain', response['Content-Type'])
 
@@ -270,11 +282,13 @@ class TestViews(DjangoTestCase):
         self.assertIn(
             'public-keys', response.content.decode('ascii').split('\n'))
 
-    def test_public_keys_for_node_without_public_keys_returns_not_found(self):
+    def test_public_keys_for_node_without_public_keys_returns_empty(self):
         url = reverse('metadata-meta-data', args=['latest', 'public-keys'])
         client = self.make_node_client()
         response = client.get(url)
-        self.assertEqual(httplib.NOT_FOUND, response.status_code)
+        self.assertEqual(
+            (httplib.OK, ''),
+            (response.status_code, response.content))
 
     def test_public_keys_for_node_returns_list_of_keys(self):
         user, _ = factory.make_user_with_keys(n_keys=2, username='my-user')
@@ -504,6 +518,53 @@ class TestViews(DjangoTestCase):
         self.assertEqual(xmlbytes, node.hardware_details)
         self.assertEqual(0, node.memory)
 
+    def test_signal_refuses_bad_power_type(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(client, power_type="foo")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Bad power_type 'foo'"),
+            (response.status_code, response.content))
+
+    def test_signal_power_type_stores_params(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        node = reload_object(node)
+        self.assertEqual(
+            POWER_TYPE.IPMI, node.power_type)
+        self.assertEqual(
+            params, node.power_parameters)
+
+    def test_signal_power_type_lower_case_works(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        params = dict(
+            power_address=factory.getRandomString(),
+            power_user=factory.getRandomString(),
+            power_pass=factory.getRandomString())
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters=json.dumps(params))
+        self.assertEqual(httplib.OK, response.status_code, response.content)
+        node = reload_object(node)
+        self.assertEqual(
+            params, node.power_parameters)
+
+    def test_signal_invalid_power_parameters(self):
+        node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
+        client = self.make_node_client(node=node)
+        response = self.call_signal(
+            client, power_type="ipmi", power_parameters="badjson")
+        self.assertEqual(
+            (httplib.BAD_REQUEST, "Failed to parse JSON power_parameters"),
+            (response.status_code, response.content))
+
     def test_api_retrieves_node_metadata_by_mac(self):
         mac = factory.make_mac_address()
         url = reverse(
@@ -617,14 +678,24 @@ class TestEnlistViews(DjangoTestCase):
 
     def test_get_hostname(self):
         # instance-id must be available
-        md_url = reverse('enlist-metadata-meta-data',
-            args=['latest', 'local-hostname'])
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'local-hostname'])
         response = self.client.get(md_url)
         self.assertEqual(
             (httplib.OK, "text/plain"),
             (response.status_code, response["Content-Type"]))
         # just insist content is non-empty. It doesn't matter what it is.
         self.assertTrue(response.content)
+
+    def test_public_keys_returns_empty(self):
+        # An enlisting node has no SSH keys, but it does request them.
+        # If the node insists, we give it the empty list.
+        md_url = reverse(
+            'enlist-metadata-meta-data', args=['latest', 'public-keys'])
+        response = self.client.get(md_url)
+        self.assertEqual(
+            (httplib.OK, ""),
+            (response.status_code, response.content))
 
     def test_metadata_bogus_is_404(self):
         md_url = reverse('enlist-metadata-meta-data',

@@ -16,13 +16,16 @@ from urllib import urlencode
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.http import HttpRequest
 from maasserver.enum import NODE_STATUS_CHOICES
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase as DjangoTestCase
 from maasserver.utils import (
     absolute_reverse,
+    build_absolute_uri,
     get_db_state,
     map_enum,
+    strip_domain,
     )
 from maastesting.testcase import TestCase
 
@@ -104,3 +107,71 @@ class GetDbStateTest(DjangoTestCase):
             NODE_STATUS_CHOICES, but_not=[status])
         node.status = another_status
         self.assertEqual(status, get_db_state(node, 'status'))
+
+
+class TestBuildAbsoluteURI(TestCase):
+    """Tests for `build_absolute_uri`."""
+
+    def make_request(self, host="example.com", port=80, script_name="",
+                     is_secure=False):
+        """Return a :class:`HttpRequest` with the given parameters."""
+        request = HttpRequest()
+        request.META["SERVER_NAME"] = host
+        request.META["SERVER_PORT"] = port
+        request.META["SCRIPT_NAME"] = script_name
+        request.is_secure = lambda: is_secure
+        return request
+
+    def test_simple(self):
+        request = self.make_request()
+        self.assertEqual(
+            "http://example.com/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_different_port(self):
+        request = self.make_request(port=1234)
+        self.assertEqual(
+            "http://example.com:1234/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_script_name_is_ignored(self):
+        # The given path already includes the script_name, so the
+        # script_name passed in the request is not included again.
+        request = self.make_request(script_name="/foo/bar")
+        self.assertEqual(
+            "http://example.com/foo/bar/fred",
+            build_absolute_uri(request, "/foo/bar/fred"))
+
+    def test_secure(self):
+        request = self.make_request(port=443, is_secure=True)
+        self.assertEqual(
+            "https://example.com/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_different_port_and_secure(self):
+        request = self.make_request(port=9443, is_secure=True)
+        self.assertEqual(
+            "https://example.com:9443/fred",
+            build_absolute_uri(request, "/fred"))
+
+    def test_preserve_two_leading_slashes(self):
+        # Whilst this shouldn't ordinarily happen, two leading slashes in the
+        # path should be preserved, and not treated specially.
+        request = self.make_request()
+        self.assertEqual(
+            "http://example.com//foo",
+            build_absolute_uri(request, "//foo"))
+
+
+class TestStripDomain(TestCase):
+
+    def test_strip_domain(self):
+        input_and_results = [
+            ('name.domain',  'name'),
+            ('name', 'name'),
+            ('name.domain.what', 'name'),
+            ('name..domain', 'name'),
+            ]
+        inputs = [input for input, _ in input_and_results]
+        results = [result for _, result in input_and_results]
+        self.assertEqual(results, map(strip_domain, inputs))

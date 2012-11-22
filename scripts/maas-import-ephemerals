@@ -20,7 +20,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 VERBOSITY=0
-REMOTE_IMAGES_MIRROR="https://maas.ubuntu.com/images"
+
+# Mirror to load cloud images from.  When the cluster controller runs the
+# import scripts, it provides a setting from the server side.
+CLOUD_IMAGES_ARCHIVE=${CLOUD_IMAGES_ARCHIVE:-https://maas.ubuntu.com/images}
 
 # iSCSI targets configuration file.
 SYS_TGT_CONF="/etc/tgt/targets.conf"
@@ -41,7 +44,7 @@ DATA_DIR="/var/lib/maas/ephemeral"
 CONFIG="/etc/maas/import_ephemerals"
 
 RELEASES="precise"
-ARCHES="amd64 i386"
+ARCHES="amd64/generic i386/generic armhf/highbank"
 BUILD_NAME="ephemeral"
 STREAM="released"
 
@@ -89,10 +92,10 @@ debug() {
 
 
 query_remote() {
-    # query /query data at REMOTE_IMAGES_MIRROR
+    # query /query data at CLOUD_IMAGES_ARCHIVE
     # returns 7 values prefixed with 'r_'
     local iarch=$1 irelease=$2 istream=$3 out=""
-    local burl="${REMOTE_IMAGES_MIRROR}/query"
+    local burl="${CLOUD_IMAGES_ARCHIVE}/query"
     local url="$burl/$irelease/$istream/${STREAM}-dl.current.txt"
     local target="$TEMP_D/query/$release.$stream"
     mkdir -p -- "$TEMP_D/query"
@@ -168,7 +171,7 @@ prep_dir() {
     local wd="$1" exdir="" tarball=""
     shift
     local release=$1 stream=$2 label=$3 serial=$4 arch=$5 url=$6 name=$7
-    local furl="$REMOTE_IMAGES_MIRROR/$url"
+    local furl="$CLOUD_IMAGES_ARCHIVE/$url"
 
     mkdir -p "$wd"
     cat > "$wd/info" <<EOF
@@ -269,6 +272,27 @@ EOF
 }
 
 
+copy_first_available() {
+    # Copy file $1 or $2 (the first that is available) to destination $3.
+    local preferred_file="$1" alternate_file="$2" destination="$3"
+    local actual=""
+
+    if [ -f "${preferred_file}" ]; then
+        actual="${preferred_file}"
+    elif [ -f "${alternate_file}" ]; then
+        actual="${alternate_file}"
+    else
+        error "Could not copy to ${destination}."
+        error "Neither ${preferred_file} nor ${alternate_file} exists."
+        return 1
+    fi
+
+    cp -- "${actual}" "${destination}" ||
+        { error "Could not copy ${actual} to ${destination}."; return 1; }
+    return 0
+}
+
+
 install_tftp_image() {
     # Make image in directory $1, for architecture $2 and subarchitecture $3,
     # and OS release $4, available over TFTP for netbooting nodes.  Only the
@@ -280,11 +304,10 @@ install_tftp_image() {
     # deletes it.
     tmpdir="$(mktemp -d)"
 
-    for filename in linux initrd.gz
-    do
-        cp -- "$src/$filename" "$tmpdir/" ||
-            { error "cp of $filename from $src failed"; return 1; }
-    done
+    copy_first_available "$src/linux" "$src/kernel" "$tmpdir/linux" ||
+        return 1
+    copy_first_available "$src/initrd.gz" "$src/initrd" "$tmpdir/initrd.gz" ||
+        return 1
 
     local cmd out=""
     cmd=( maas-provision install-pxe-image
@@ -338,12 +361,14 @@ fi
 
 updates=0
 for release in $RELEASES; do
-    for arch in $ARCHES; do
+    for arch_tuple in $ARCHES; do
+        arch="${arch_tuple%%/*}"
+        subarch="${arch_tuple#*/}"
 
         query_local "$arch" "$release" "$BUILD_NAME" ||
             fail "failed to query local for $release/$arch"
         query_remote "$arch" "$release" "$BUILD_NAME" ||
-            fail "remote query of $REMOTE_IMAGES_MIRROR failed"
+            fail "remote query of $CLOUD_IMAGES_ARCHIVE failed"
 
         info="rel: $r_release, arch: $arch: name: $r_name"
         debug 2 "$info"
@@ -382,8 +407,8 @@ for release in $RELEASES; do
 
         # Even if there was no need to update the image, we make sure it
         # gets installed.
-        debug 1 "adding images for $release/$arch/generic to maas"
-        install_tftp_image "$fpfinal_d" "$arch" "generic" "$release" ||
+        debug 1 "adding images for $release/$arch/$subarch to maas"
+        install_tftp_image "$fpfinal_d" "$arch" "$subarch" "$release" ||
             fail "failed to install ftp image [$info]"
 
         target_name="${TARGET_NAME_PREFIX}${name}"

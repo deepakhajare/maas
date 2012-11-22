@@ -10,6 +10,13 @@ buildout := bin/buildout buildout:offline=true
 virtualenv := virtualenv --never-download
 endif
 
+# If offline has been selected, attempt to further block HTTP/HTTPS
+# activity by setting bogus proxies in the environment.
+ifneq ($(offline),)
+export http_proxy := broken
+export https_proxy := broken
+endif
+
 # Python enum modules.
 py_enums := $(wildcard src/*/enum.py)
 # JavaScript enum module (not modules).
@@ -42,7 +49,7 @@ all: build doc
 install-dependencies:
 	sudo DEBIAN_FRONTEND=noninteractive apt-get -y \
 		--no-install-recommends install \
-		$(shell sort -u required-packages/*)
+		$(shell sort -u required-packages/base required-packages/dev)
 
 bin/python bin/pip:
 	$(virtualenv) --python=$(python) --system-site-packages $(CURDIR)
@@ -94,7 +101,7 @@ bin/flake8: bin/buildout buildout.cfg versions.cfg setup.py
 	$(buildout) install flake8
 	@touch --no-create $@
 
-bin/sphinx: bin/buildout buildout.cfg versions.cfg setup.py
+bin/sphinx bin/sphinx-build: bin/buildout buildout.cfg versions.cfg setup.py
 	$(buildout) install sphinx
 	@touch --no-create $@
 
@@ -132,6 +139,11 @@ sampledata: bin/maas bin/database syncdb
 doc: bin/sphinx docs/api.rst
 	bin/sphinx
 
+man: $(patsubst docs/man/%.rst,man/%,$(wildcard docs/man/*.rst))
+
+man/%: docs/man/%.rst | bin/sphinx-build
+	bin/sphinx-build -b man docs man $^
+
 enums: $(js_enums)
 
 $(js_enums): bin/py src/maasserver/utils/jsenums.py $(py_enums)
@@ -141,12 +153,13 @@ clean:
 	$(MAKE) -C acceptance $@
 	find . -type f -name '*.py[co]' -print0 | xargs -r0 $(RM)
 	find . -type f -name '*~' -print0 | xargs -r0 $(RM)
+	find . -type f -name dropin.cache -print0 | xargs -r0 $(RM)
 	$(RM) -r media/demo/* media/development
 	$(RM) $(js_enums)
 	$(RM) *.log
-	$(RM) celerybeat-schedule
 	$(RM) docs/api.rst
-	$(RM) -r docs/_autosummary
+	$(RM) -r docs/_autosummary docs/_build
+	$(RM) -r man
 
 distclean: clean stop
 	$(RM) -r bin include lib local
@@ -154,9 +167,7 @@ distclean: clean stop
 	$(RM) -r build dist logs/* parts
 	$(RM) tags TAGS .installed.cfg
 	$(RM) -r *.egg *.egg-info src/*.egg-info
-	$(RM) -r docs/_build
 	$(RM) -r run/* services/*/supervise
-	$(RM) twisted/plugins/dropin.cache
 
 harness: bin/maas bin/database
 	$(dbrun) bin/maas shell --settings=maas.demo
@@ -168,7 +179,6 @@ syncdb: bin/maas bin/database
 	$(dbrun) bin/maas syncdb --noinput
 	$(dbrun) bin/maas migrate maasserver --noinput
 	$(dbrun) bin/maas migrate metadataserver --noinput
-	$(dbrun) bin/maas config_master_dhcp --ensure
 
 define phony_targets
   build
@@ -183,6 +193,7 @@ define phony_targets
   lint
   lint-css
   lint-js
+  man
   sampledata
   syncdb
   test
@@ -192,8 +203,8 @@ endef
 # Development services.
 #
 
-service_names_region := database dns reloader txlongpoll web webapp
-service_names_cluster := celeryd pserv reloader
+service_names_region := database dns region-worker reloader txlongpoll web webapp
+service_names_cluster := cluster-worker pserv reloader
 service_names_all := $(service_names_region) $(service_names_cluster)
 
 # The following template is intended to be used with `call`, and it
@@ -277,7 +288,9 @@ services/%/@supervise: services/%/@deps
 
 services/dns/@deps: bin/py
 
-services/celeryd/@deps: bin/celeryd
+services/cluster-worker/@deps: bin/celeryd
+
+services/region-worker/@deps: bin/celeryd
 
 services/database/@deps: bin/database
 

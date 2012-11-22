@@ -57,6 +57,7 @@ __all__ = [
     "AccountHandler",
     "AnonNodeGroupsHandler",
     "AnonNodesHandler",
+    "AnonymousOperationsHandler",
     "api_doc",
     "api_doc_title",
     "BootImagesHandler",
@@ -69,22 +70,26 @@ __all__ = [
     "NodeMacHandler",
     "NodeMacsHandler",
     "NodesHandler",
+    "OperationsHandler",
     "TagHandler",
     "TagsHandler",
     "pxeconfig",
     "render_api_docs",
+    "store_node_power_parameters",
     ]
 
 from base64 import b64decode
+from cStringIO import StringIO
 from datetime import (
     datetime,
     timedelta,
     )
+from functools import partial
 import httplib
-import json
+from inspect import getdoc
 import sys
 from textwrap import dedent
-import types
+from xml.sax.saxutils import quoteattr
 
 from celery.app import app_or_default
 from django.conf import settings
@@ -108,17 +113,17 @@ from docutils import core
 from formencode import validators
 from formencode.validators import Invalid
 from maasserver.apidoc import (
-    describe_handler,
-    find_api_handlers,
+    describe_resource,
+    find_api_resources,
     generate_api_docs,
     )
 from maasserver.components import (
-    COMPONENT,
     discard_persistent_error,
     register_persistent_error,
     )
 from maasserver.enum import (
     ARCHITECTURE,
+    COMPONENT,
     NODE_PERMISSION,
     NODE_STATUS,
     NODEGROUP_STATUS,
@@ -130,7 +135,10 @@ from maasserver.exceptions import (
     NodeStateViolation,
     Unauthorized,
     )
-from maasserver.fields import validate_mac
+from maasserver.fields import (
+    mac_re,
+    validate_mac,
+    )
 from maasserver.forms import (
     get_node_create_form,
     get_node_edit_form,
@@ -149,31 +157,44 @@ from maasserver.models import (
     NodeGroupInterface,
     Tag,
     )
+from maasserver.models.node import CONSTRAINTS_MAAS_MAP
 from maasserver.preseed import (
     compose_enlistment_preseed_url,
     compose_preseed_url,
     )
 from maasserver.server_address import get_maas_facing_server_address
+from maasserver.utils import (
+    absolute_reverse,
+    build_absolute_uri,
+    map_enum,
+    strip_domain,
+    )
 from maasserver.utils.orm import get_one
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
+    HandlerMetaClass,
     )
 from piston.models import Token
 from piston.resource import Resource
 from piston.utils import rc
+from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
+import simplejson as json
 
 
-dispatch_methods = {
-    'GET': 'read',
-    'POST': 'create',
-    'PUT': 'update',
-    'DELETE': 'delete',
-    }
+class OperationsResource(Resource):
+    """A resource supporting operation dispatch.
+
+    All requests are passed onto the handler's `dispatch` method. See
+    :class:`OperationsHandler`.
+    """
+
+    crudmap = Resource.callmap
+    callmap = dict.fromkeys(crudmap, "dispatch")
 
 
-class RestrictedResource(Resource):
+class RestrictedResource(OperationsResource):
 
     def authenticate(self, request, rm):
         actor, anonymous = super(
@@ -195,130 +216,102 @@ class AdminRestrictedResource(RestrictedResource):
             return actor, anonymous
 
 
-def api_exported(method='POST', exported_as=None):
+def operation(idempotent, exported_as=None):
     """Decorator to make a method available on the API.
 
-    :param method: The HTTP method over which to export the operation.
+    :param idempotent: If this operation is idempotent. Idempotent operations
+        are made available via HTTP GET, non-idempotent operations via HTTP
+        POST.
     :param exported_as: Optional operation name; defaults to the name of the
         exported method.
-
-    See also _`api_operations`.
     """
+    method = "GET" if idempotent else "POST"
+
     def _decorator(func):
-        if method not in dispatch_methods:
-            raise ValueError("Invalid method: '%s'" % method)
         if exported_as is None:
-            func._api_exported = {method: func.__name__}
+            func.export = method, func.__name__
         else:
-            func._api_exported = {method: exported_as}
-        if func._api_exported.get(method) == dispatch_methods.get(method):
-            raise ValueError(
-                "Cannot define a '%s' operation." % dispatch_methods.get(
-                    method))
+            func.export = method, exported_as
         return func
+
     return _decorator
 
 
-# The parameter used to specify the requested operation for POST API calls.
-OP_PARAM = 'op'
+class OperationsHandlerType(HandlerMetaClass):
+    """Type for handlers that dispatch operations.
 
+    Collects all the exported operations, CRUD and custom, into the class's
+    `exports` attribute. This is a signature:function mapping, where signature
+    is an (http-method, operation-name) tuple. If operation-name is None, it's
+    a CRUD method.
 
-def is_api_exported(thing, method='POST'):
-    # Check for functions and methods; the latter may be from base classes.
-    op_types = types.FunctionType, types.MethodType
-    return (
-        isinstance(thing, op_types) and
-        getattr(thing, "_api_exported", None) is not None and
-        getattr(thing, "_api_exported", None).get(method, None) is not None)
-
-
-# Define a method that will route requests to the methods registered in
-# handler._available_api_methods.
-def perform_api_operation(handler, request, method='POST', *args, **kwargs):
-    if method == 'POST':
-        data = request.POST
-    else:
-        data = request.GET
-    op = data.get(OP_PARAM, None)
-    if not isinstance(op, unicode):
-        return HttpResponseBadRequest("Unknown operation.")
-    elif method not in handler._available_api_methods:
-        return HttpResponseBadRequest("Unknown operation: '%s'." % op)
-    elif op not in handler._available_api_methods[method]:
-        return HttpResponseBadRequest("Unknown operation: '%s'." % op)
-    else:
-        method = handler._available_api_methods[method][op]
-        return method(handler, request, *args, **kwargs)
-
-
-def api_operations(cls):
-    """Class decorator (PEP 3129) to be used on piston-based handler classes
-    (i.e. classes inheriting from piston.handler.BaseHandler).  It will add
-    the required methods {'create','read','update','delete} to the class.
-    These methods (called by piston to handle POST/GET/PUT/DELETE requests),
-    will route requests to methods decorated with
-    @api_exported(method={'POST','GET','PUT','DELETE'} depending on the
-    operation requested using the 'op' parameter.
-
-    E.g.:
-
-    >>> @api_operations
-    >>> class MyHandler(BaseHandler):
-    >>>
-    >>>    @api_exported(method='POST', exported_as='exported_post_name')
-    >>>    def do_x(self, request):
-    >>>        # process request...
-    >>>
-    >>>    @api_exported(method='GET')
-    >>>    def do_y(self, request):
-    >>>        # process request...
-
-    MyHandler's method 'do_x' will service POST requests with
-    'op=exported_post_name' in its request parameters.
-
-    POST /api/path/to/MyHandler/
-    op=exported_post_name&param1=1
-
-    MyHandler's method 'do_y' will service GET requests with
-    'op=do_y' in its request parameters.
-
-    GET /api/path/to/MyHandler/?op=do_y&param1=1
-
+    The `allowed_methods` attribute is calculated as the union of all HTTP
+    methods required for the exported CRUD and custom operations.
     """
-    # Compute the list of methods ('GET', 'POST', etc.) that need to be
-    # overriden.
-    overriden_methods = set()
-    for name, value in vars(cls).items():
-        overriden_methods.update(getattr(value, '_api_exported', {}))
-    # Override the appropriate methods with a 'dispatcher' method.
-    for method in overriden_methods:
+
+    def __new__(metaclass, name, bases, namespace):
+        cls = super(OperationsHandlerType, metaclass).__new__(
+            metaclass, name, bases, namespace)
+
+        # Create a signature:function mapping for CRUD operations.
+        crud = {
+            (http_method, None): getattr(cls, method)
+            for http_method, method in OperationsResource.crudmap.items()
+            if getattr(cls, method, None) is not None
+            }
+
+        # Create a signature:function mapping for non-CRUD operations.
         operations = {
-            name: value
-            for name, value in vars(cls).items()
-            if is_api_exported(value, method)}
-        cls._available_api_methods = getattr(
-            cls, "_available_api_methods", {}).copy()
-        cls._available_api_methods[method] = {
-            op._api_exported[method]: op
-                for name, op in operations.items()
-                if method in op._api_exported}
+            attribute.export: attribute
+            for attribute in vars(cls).values()
+            if getattr(attribute, "export", None) is not None
+            }
 
-        def dispatcher(self, request, *args, **kwargs):
-            return perform_api_operation(
-                self, request, request.method, *args, **kwargs)
+        # Create the exports mapping.
+        exports = {}
+        exports.update(crud)
+        exports.update(operations)
 
-        method_name = str(dispatch_methods[method])
-        dispatcher.__name__ = method_name
-        dispatcher.__doc__ = (
-            "The actual operation to execute depends on the value of the '%s' "
-            "parameter:\n\n" % OP_PARAM)
-        dispatcher.__doc__ += "\n".join(
-            "- Operation '%s' (op=%s):\n\t%s" % (name, name, op.__doc__)
-            for name, op in cls._available_api_methods[method].items())
+        # Update the class.
+        cls.exports = exports
+        cls.allowed_methods = frozenset(
+            http_method for http_method, name in exports)
 
-        # Add {'create','read','update','delete'} method.
-        setattr(cls, method_name, dispatcher)
-    return cls
+        return cls
+
+
+class OperationsHandlerMixin:
+    """Handler mixin for operations dispatch.
+
+    This enabled dispatch to custom functions that piggyback on HTTP methods
+    that ordinarily, in Piston, are used for CRUD operations.
+
+    This must be used in cooperation with :class:`OperationsResource` and
+    :class:`OperationsHandlerType`.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        signature = request.method.upper(), request.REQUEST.get("op")
+        function = self.exports.get(signature)
+        if function is None:
+            return HttpResponseBadRequest(
+                "Unrecognised signature: %s %s" % signature)
+        else:
+            return function(self, request, *args, **kwargs)
+
+
+class OperationsHandler(
+    OperationsHandlerMixin, BaseHandler):
+    """Base handler that supports operation dispatch."""
+
+    __metaclass__ = OperationsHandlerType
+
+
+class AnonymousOperationsHandler(
+    OperationsHandlerMixin, AnonymousBaseHandler):
+    """Anonymous base handler that supports operation dispatch."""
+
+    __metaclass__ = OperationsHandlerType
 
 
 def get_mandatory_param(data, key, validator=None):
@@ -356,6 +349,22 @@ def get_optional_list(data, key, default=None):
         return default
     else:
         return value
+
+
+def get_list_from_dict_or_multidict(data, key, default=None):
+    """Get a list from 'data'.
+
+    If data is a MultiDict, then we use 'getlist' if the data is a plain dict,
+    then we just use __getitem__.
+
+    The rationale is that data POSTed as multipart/form-data gets parsed into a
+    MultiDict, but data POSTed as application/json gets parsed into a plain
+    dict(key:list).
+    """
+    getlist = getattr(data, 'getlist', None)
+    if getlist is not None:
+        return getlist(key, default)
+    return data.get(key, default)
 
 
 def extract_oauth_key_from_auth_header(auth_data):
@@ -433,17 +442,49 @@ DISPLAYED_NODE_FIELDS = (
     'status',
     'netboot',
     'power_type',
-    'power_parameters',
     'tag_names',
     )
 
 
-@api_operations
-class NodeHandler(BaseHandler):
-    """Manage individual Nodes."""
-    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+def store_node_power_parameters(node, request):
+    """Store power parameters in request.
+
+    The parameters should be JSON, passed with key `power_parameters`.
+    """
+    power_type = request.POST.get("power_type", None)
+    if power_type is None:
+        return
+
+    power_types = map_enum(POWER_TYPE).values()
+    if power_type in power_types:
+        node.power_type = power_type
+    else:
+        raise MAASAPIBadRequest("Bad power_type '%s'" % power_type)
+
+    power_parameters = request.POST.get("power_parameters", None)
+    if power_parameters and not power_parameters.isspace():
+        try:
+            node.power_parameters = json.loads(power_parameters)
+        except ValueError:
+            raise MAASAPIBadRequest("Failed to parse JSON power_parameters")
+
+    node.save()
+
+
+class NodeHandler(OperationsHandler):
+    """Manage an individual Node.
+
+    The Node is identified by its system_id.
+    """
+    create = None  # Disable create.
     model = Node
     fields = DISPLAYED_NODE_FIELDS
+
+    # Override the 'hostname' field so that it returns the FQDN instead as
+    # this is used by Juju to reach that node.
+    @classmethod
+    def hostname(handler, node):
+        return node.fqdn
 
     def read(self, request, system_id):
         """Read a specific Node."""
@@ -477,10 +518,10 @@ class NodeHandler(BaseHandler):
             The default is 'false'.
         :type power_parameters_skip_validation: basestring
         """
-
         node = Node.objects.get_node_or_404(
             system_id=system_id, user=request.user, perm=NODE_PERMISSION.EDIT)
         data = get_overrided_query_dict(model_to_dict(node), request.data)
+
         Form = get_node_edit_form(request.user)
         form = Form(data, instance=node)
         if form.is_valid():
@@ -508,7 +549,7 @@ class NodeHandler(BaseHandler):
             node_system_id = node.system_id
         return ('node_handler', (node_system_id, ))
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def stop(self, request, system_id):
         """Shut down a node."""
         nodes = Node.objects.stop_nodes([system_id], request.user)
@@ -517,7 +558,7 @@ class NodeHandler(BaseHandler):
                 "You are not allowed to shut down this node.")
         return nodes[0]
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def start(self, request, system_id):
         """Power up a node.
 
@@ -549,7 +590,7 @@ class NodeHandler(BaseHandler):
                 "You are not allowed to start up this node.")
         return nodes[0]
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def release(self, request, system_id):
         """Release a node.  Opposite of `NodesHandler.acquire`."""
         node = Node.objects.get_node_or_404(
@@ -578,21 +619,56 @@ def create_node(request):
     :rtype: :class:`maasserver.models.Node`.
     :raises: ValidationError
     """
+
+    # For backwards compatibilty reasons, requests may be sent with:
+    #     architecture with a '/' in it: use normally
+    #     architecture without a '/' and no subarchitecture: assume 'generic'
+    #     architecture without a '/' and a subarchitecture: use as specified
+    #     architecture with a '/' and a subarchitecture: error
+    given_arch = request.data.get('architecture', None)
+    given_subarch = request.data.get('subarchitecture', None)
+    altered_query_data = request.data.copy()
+    if given_arch and '/' in given_arch:
+        if given_subarch:
+            # Architecture with a '/' and a subarchitecture: error.
+            raise ValidationError('Subarchitecture cannot be specified twice.')
+        # Architecture with a '/' in it: use normally.
+    elif given_arch:
+        if given_subarch:
+            # Architecture without a '/' and a subarchitecture:
+            # use as specified.
+            altered_query_data['architecture'] = '/'.join(
+                [given_arch, given_subarch])
+            del altered_query_data['subarchitecture']
+        else:
+            # Architecture without a '/' and no subarchitecture:
+            # assume 'generic'.
+            altered_query_data['architecture'] += '/generic'
+
     Form = get_node_create_form(request.user)
-    form = Form(request.data)
+    form = Form(altered_query_data)
     if form.is_valid():
-        return form.save()
+        node = form.save()
+        # Hack in the power parameters here.
+        store_node_power_parameters(node, request)
+        return node
     else:
         raise ValidationError(form.errors)
 
 
-@api_operations
-class AnonNodesHandler(AnonymousBaseHandler):
-    """Create Nodes."""
-    allowed_methods = ('GET', 'POST',)
+class AnonNodesHandler(AnonymousOperationsHandler):
+    """Anonymous access to Nodes."""
+    create = read = update = delete = None
+    model = Node
     fields = DISPLAYED_NODE_FIELDS
 
-    @api_exported('POST')
+    # Override the 'hostname' field so that it returns the FQDN instead as
+    # this is used by Juju to reach that node.
+    @classmethod
+    def hostname(handler, node):
+        return node.fqdn
+
+    @operation(idempotent=False)
     def new(self, request):
         """Create a new Node.
 
@@ -603,7 +679,7 @@ class AnonNodesHandler(AnonymousBaseHandler):
         """
         return create_node(request)
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def is_registered(self, request):
         """Returns whether or not the given MAC address is registered within
         this MAAS (and attached to a non-retired node).
@@ -618,12 +694,12 @@ class AnonNodesHandler(AnonymousBaseHandler):
             mac_address=mac_address).exclude(
                 node__status=NODE_STATUS.RETIRED).exists()
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def accept(self, request):
         """Accept a node's enlistment: not allowed to anonymous users."""
         raise Unauthorized("You must be logged in to accept nodes.")
 
-    @api_exported("POST")
+    @operation(idempotent=False)
     def check_commissioning(self, request):
         """Check all commissioning nodes to see if they are taking too long.
 
@@ -651,31 +727,58 @@ def extract_constraints(request_params):
     :return: A mapping of applicable constraint names to their values.
     :rtype: :class:`dict`
     """
-    supported_constraints = ('name', 'arch')
-    return {constraint: request_params[constraint]
-        for constraint in supported_constraints
-            if constraint in request_params}
+    constraints = {}
+    for request_name in CONSTRAINTS_MAAS_MAP:
+        if request_name in request_params:
+            db_name = CONSTRAINTS_MAAS_MAP[request_name]
+            constraints[db_name] = request_params[request_name]
+    return constraints
 
 
-@api_operations
-class NodesHandler(BaseHandler):
-    """Manage collection of Nodes."""
-    allowed_methods = ('GET', 'POST',)
+class NodesHandler(OperationsHandler):
+    """Manage the collection of all Nodes in the MAAS."""
+    create = read = update = delete = None
     anonymous = AnonNodesHandler
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def new(self, request):
         """Create a new Node.
 
         When a node has been added to MAAS by an admin MAAS user, it is
         ready for allocation to services running on the MAAS.
+        The minimum data required is:
+        architecture=<arch string> (e.g "i386/generic")
+        mac_address=<value>
+
+        :param architecture: A string containing the architecture type of
+            the node.
+        :param mac_address: The MAC address of the node.
+        :param hostname: A hostname. If not given, one will be generated.
+        :param powertype: A power management type, if applicable (e.g.
+            "virsh", "ipmi").
         """
         node = create_node(request)
         if request.user.is_superuser:
             node.accept_enlistment(request.user)
         return node
 
-    @api_exported('POST')
+    def _check_system_ids_exist(self, system_ids):
+        """Check that the requested system_ids actually exist in the DB.
+
+        We don't check if the current user has rights to do anything with them
+        yet, just that the strings are valid. If not valid raise a BadRequest
+        error.
+        """
+        if not system_ids:
+            return
+        existing_nodes = Node.objects.filter(system_id__in=system_ids)
+        existing_ids = set(existing_nodes.values_list('system_id', flat=True))
+        unknown_ids = system_ids - existing_ids
+        if len(unknown_ids) > 0:
+            raise MAASAPIBadRequest(
+                "Unknown node(s): %s." % ', '.join(unknown_ids))
+
+    @operation(idempotent=False)
     def accept(self, request):
         """Accept declared nodes into the MAAS.
 
@@ -696,24 +799,20 @@ class NodesHandler(BaseHandler):
         """
         system_ids = set(request.POST.getlist('nodes'))
         # Check the existence of these nodes first.
-        existing_ids = set(Node.objects.filter().values_list(
-            'system_id', flat=True))
-        if len(existing_ids) < len(system_ids):
-            raise MAASAPIBadRequest(
-                "Unknown node(s): %s." % ', '.join(system_ids - existing_ids))
+        self._check_system_ids_exist(system_ids)
         # Make sure that the user has the required permission.
         nodes = Node.objects.get_nodes(
             request.user, perm=NODE_PERMISSION.ADMIN, ids=system_ids)
-        ids = set(node.system_id for node in nodes)
         if len(nodes) < len(system_ids):
+            permitted_ids = set(node.system_id for node in nodes)
             raise PermissionDenied(
                 "You don't have the required permission to accept the "
                 "following node(s): %s." % (
-                    ', '.join(system_ids - ids)))
+                    ', '.join(system_ids - permitted_ids)))
         return filter(
             None, [node.accept_enlistment(request.user) for node in nodes])
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def accept_all(self, request):
         """Accept all declared nodes into the MAAS.
 
@@ -732,7 +831,52 @@ class NodesHandler(BaseHandler):
         nodes = [node.accept_enlistment(request.user) for node in nodes]
         return filter(None, nodes)
 
-    @api_exported('GET')
+    @operation(idempotent=False)
+    def release(self, request):
+        """Release multiple nodes.
+
+        This places the nodes back into the pool, ready to be reallocated.
+
+        :param nodes: system_ids of the nodes which are to be released.
+           (An empty list is acceptable).
+        :return: The system_ids of any nodes that have their status
+            changed by this call. Thus, nodes that were already released
+            are excluded from the result.
+        """
+        system_ids = set(request.POST.getlist('nodes'))
+         # Check the existence of these nodes first.
+        self._check_system_ids_exist(system_ids)
+        # Make sure that the user has the required permission.
+        nodes = Node.objects.get_nodes(
+            request.user, perm=NODE_PERMISSION.EDIT, ids=system_ids)
+        if len(nodes) < len(system_ids):
+            permitted_ids = set(node.system_id for node in nodes)
+            raise PermissionDenied(
+                "You don't have the required permission to release the "
+                "following node(s): %s." % (
+                    ', '.join(system_ids - permitted_ids)))
+
+        released_ids = []
+        failed = []
+        for node in nodes:
+            if node.status == NODE_STATUS.READY:
+                # Nothing to do.
+                pass
+            elif node.status in [NODE_STATUS.ALLOCATED, NODE_STATUS.RESERVED]:
+                node.release()
+                released_ids.append(node.system_id)
+            else:
+                failed.append(
+                    "%s ('%s')"
+                    % (node.system_id, node.display_status()))
+
+        if any(failed):
+            raise NodeStateViolation(
+                "Node(s) cannot be released in their current state: %s."
+                % ', '.join(failed))
+        return released_ids
+
+    @operation(idempotent=True)
     def list(self, request):
         """List Nodes visible to the user, optionally filtered by criteria.
 
@@ -746,14 +890,26 @@ class NodesHandler(BaseHandler):
         # Get filters from request.
         match_ids = get_optional_list(request.GET, 'id')
         match_macs = get_optional_list(request.GET, 'mac_address')
+        if match_macs is not None:
+            invalid_macs = [
+                mac for mac in match_macs if mac_re.match(mac) is None]
+            if len(invalid_macs) != 0:
+                raise ValidationError(
+                    "Invalid MAC address(es): %s" % ", ".join(invalid_macs))
         # Fetch nodes and apply filters.
         nodes = Node.objects.get_nodes(
             request.user, NODE_PERMISSION.VIEW, ids=match_ids)
         if match_macs is not None:
             nodes = nodes.filter(macaddress__mac_address__in=match_macs)
+        # Prefetch related macaddresses, tags and nodegroups (plus
+        # related interfaces).
+        nodes = nodes.prefetch_related('macaddress_set__node')
+        nodes = nodes.prefetch_related('tags')
+        nodes = nodes.prefetch_related('nodegroup')
+        nodes = nodes.prefetch_related('nodegroup__nodegroupinterface_set')
         return nodes.order_by('id')
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def list_allocated(self, request):
         """Fetch Nodes that were allocated to the User/oauth token."""
         token = get_oauth_token(request)
@@ -761,7 +917,7 @@ class NodesHandler(BaseHandler):
         nodes = Node.objects.get_allocated_visible_nodes(token, match_ids)
         return nodes.order_by('id')
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def acquire(self, request):
         """Acquire an available node for deployment."""
         node = Node.objects.get_available_node_for_acquisition(
@@ -776,13 +932,15 @@ class NodesHandler(BaseHandler):
         return ('nodes_handler', [])
 
 
-class NodeMacsHandler(BaseHandler):
-    """
-    Manage all the MAC addresses linked to a Node / Create a new MAC address
-    for a Node.
+class NodeMacsHandler(OperationsHandler):
+    """Manage MAC addresses for a given Node.
 
+    This is where you manage the MAC addresses linked to a Node, including
+    associating a new MAC address with the Node.
+
+    The Node is identified by its system_id.
     """
-    allowed_methods = ('GET', 'POST',)
+    update = delete = None
 
     def read(self, request, system_id):
         """Read all MAC addresses related to a Node."""
@@ -803,9 +961,13 @@ class NodeMacsHandler(BaseHandler):
         return ('node_macs_handler', ['system_id'])
 
 
-class NodeMacHandler(BaseHandler):
-    """Manage a MAC address linked to a Node."""
-    allowed_methods = ('GET', 'DELETE')
+class NodeMacHandler(OperationsHandler):
+    """Manage a MAC address.
+
+    The MAC address object is identified by the system_id for the Node it
+    is attached to, plus the MAC address itself.
+    """
+    create = update = None
     fields = ('mac_address',)
     model = MACAddress
 
@@ -852,11 +1014,10 @@ def get_file(handler, request):
         db_file = FileStorage.objects.get(filename=filename)
     except FileStorage.DoesNotExist:
         raise MAASAPINotFound("File not found")
-    return HttpResponse(db_file.data.read(), status=httplib.OK)
+    return HttpResponse(db_file.content, status=httplib.OK)
 
 
-@api_operations
-class AnonFilesHandler(AnonymousBaseHandler):
+class AnonFilesHandler(AnonymousOperationsHandler):
     """Anonymous file operations.
 
     This is needed for Juju. The story goes something like this:
@@ -868,20 +1029,23 @@ class AnonFilesHandler(AnonymousBaseHandler):
       without credentials.
 
     """
-    allowed_methods = ('GET',)
+    create = read = update = delete = None
 
-    get = api_exported('GET', exported_as='get')(get_file)
+    get = operation(idempotent=True, exported_as='get')(get_file)
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('files_handler', [])
 
 
-@api_operations
-class FilesHandler(BaseHandler):
+class FilesHandler(OperationsHandler):
     """File management operations."""
-    allowed_methods = ('GET', 'POST',)
+    create = read = update = delete = None
     anonymous = AnonFilesHandler
 
-    get = api_exported('GET', exported_as='get')(get_file)
+    get = operation(idempotent=True, exported_as='get')(get_file)
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def add(self, request):
         """Add a new file to the file storage.
 
@@ -911,16 +1075,23 @@ class FilesHandler(BaseHandler):
         return ('files_handler', [])
 
 
+def get_celery_credentials():
+    """Return the credentials needed to connect to the broker."""
+    celery_conf = app_or_default().conf
+    return {
+        'BROKER_URL': celery_conf.BROKER_URL,
+    }
+
+
 DISPLAYED_NODEGROUP_FIELDS = ('uuid', 'status', 'name')
 
 
-@api_operations
-class AnonNodeGroupsHandler(AnonymousBaseHandler):
-    """Anon Node-groups API."""
-    allowed_methods = ('GET', 'POST')
+class AnonNodeGroupsHandler(AnonymousOperationsHandler):
+    """Anonymous access to NodeGroups."""
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def list(self, request):
         """List of node groups."""
         return NodeGroup.objects.all()
@@ -929,7 +1100,7 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
     def resource_uri(cls):
         return ('nodegroups_handler', [])
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def refresh_workers(self, request):
         """Request an update of all node groups' configurations.
 
@@ -943,7 +1114,7 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
         NodeGroup.objects.refresh_workers()
         return HttpResponse("Sending worker refresh.", status=httplib.OK)
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def register(self, request):
         """Register a new `NodeGroup`.
 
@@ -974,24 +1145,33 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
         uuid = get_mandatory_param(request.data, 'uuid')
         existing_nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
         if existing_nodegroup is None:
-            # This nodegroup (identified by its uuid), does not exist yet,
-            # create it if the data validates.
-            form = NodeGroupWithInterfacesForm(request.data)
-            if form.is_valid():
-                form.save()
-                return HttpResponse(
-                    "Cluster registered.  Awaiting admin approval.",
-                    status=httplib.ACCEPTED)
+            master = NodeGroup.objects.ensure_master()
+            # Does master.uuid look like it's a proper uuid?
+            if master.uuid in ('master', ''):
+                # Master nodegroup not yet configured, configure it.
+                form = NodeGroupWithInterfacesForm(
+                    data=request.data, instance=master)
+                if form.is_valid():
+                    form.save()
+                    return get_celery_credentials()
+                else:
+                    raise ValidationError(form.errors)
             else:
-                raise ValidationError(form.errors)
+                # This nodegroup (identified by its uuid), does not exist yet,
+                # create it if the data validates.
+                form = NodeGroupWithInterfacesForm(
+                    data=request.data, status=NODEGROUP_STATUS.PENDING)
+                if form.is_valid():
+                    form.save()
+                    return HttpResponse(
+                        "Cluster registered.  Awaiting admin approval.",
+                        status=httplib.ACCEPTED)
+                else:
+                    raise ValidationError(form.errors)
         else:
             if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
                 # The nodegroup exists and is validated, return the RabbitMQ
-                # credentials as JSON.
-                celery_conf = app_or_default().conf
-                return {
-                    'BROKER_URL': celery_conf.BROKER_URL,
-                }
+                return get_celery_credentials()
             elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
                 raise PermissionDenied('Rejected cluster.')
             elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
@@ -999,19 +1179,18 @@ class AnonNodeGroupsHandler(AnonymousBaseHandler):
                     "Awaiting admin approval.", status=httplib.ACCEPTED)
 
 
-@api_operations
-class NodeGroupsHandler(BaseHandler):
-    """Node-groups API."""
+class NodeGroupsHandler(OperationsHandler):
+    """Manage NodeGroups."""
     anonymous = AnonNodeGroupsHandler
-    allowed_methods = ('GET', 'POST')
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def list(self, request):
         """List of node groups."""
         return NodeGroup.objects.all()
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def accept(self, request):
         """Accept nodegroup enlistment(s).
 
@@ -1029,7 +1208,17 @@ class NodeGroupsHandler(BaseHandler):
         else:
             raise PermissionDenied("That method is reserved to admin users.")
 
-    @api_exported('POST')
+    @operation(idempotent=False)
+    def import_boot_images(self, request):
+        """Import the boot images on all the accepted cluster controllers."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        NodeGroup.objects.import_boot_images_accepted_clusters()
+        return HttpResponse(
+            "Import of boot images started on all cluster controllers",
+            status=httplib.OK)
+
+    @operation(idempotent=False)
     def reject(self, request):
         """Reject nodegroup enlistment(s).
 
@@ -1069,11 +1258,20 @@ def check_nodegroup_access(request, nodegroup):
             "Only allowed for the %r worker." % nodegroup.name)
 
 
-@api_operations
-class NodeGroupHandler(BaseHandler):
-    """Node-group API."""
+class NodeGroupHandler(OperationsHandler):
+    """Manage a NodeGroup.
 
-    allowed_methods = ('GET', 'POST')
+    NodeGroup is the internal name for a cluster.
+
+    The NodeGroup is identified by its UUID, a random identifier that looks
+    something like:
+
+        5977f6ab-9160-4352-b4db-d71a99066c4f
+
+    Each NodeGroup has its own uuid.
+    """
+
+    create = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid):
@@ -1088,8 +1286,13 @@ class NodeGroupHandler(BaseHandler):
             uuid = nodegroup.uuid
         return ('nodegroup_handler', [uuid])
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def update_leases(self, request, uuid):
+        """Submit latest state of DHCP leases within the cluster.
+
+        The cluster controller calls this periodically to tell the region
+        controller about the IP addresses it manages.
+        """
         leases = get_mandatory_param(request.data, 'leases')
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         check_nodegroup_access(request, nodegroup)
@@ -1100,25 +1303,80 @@ class NodeGroupHandler(BaseHandler):
                 {ip: leases[ip] for ip in new_leases if ip in leases})
         return HttpResponse("Leases updated.", status=httplib.OK)
 
+    @operation(idempotent=False)
+    def import_boot_images(self, request, uuid):
+        """Import the pxe files on this cluster controller."""
+        if not request.user.is_superuser:
+            raise PermissionDenied("That method is reserved to admin users.")
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroup.import_boot_images()
+        return HttpResponse(
+            "Import of boot images started on cluster %r" % nodegroup.uuid,
+            status=httplib.OK)
+
+    @operation(idempotent=True)
+    def list_nodes(self, request, uuid):
+        """Get the list of node ids that are part of this group."""
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        if not request.user.is_superuser:
+            check_nodegroup_access(request, nodegroup)
+        nodes = Node.objects.filter(nodegroup=nodegroup).only('system_id')
+        return [node.system_id for node in nodes]
+
+    # node_hardware_details is actually idempotent, however:
+    # a) We expect to get a list of system_ids which is quite long (~100 ids,
+    #    each 40 bytes, is 4000 bytes), which is a bit too long for a URL.
+    # b) MAASClient.get() just uses urlencode(params) but urlencode ends up
+    #    just calling str(lst) and encoding that, which transforms te list of
+    #    ids into something unusable. .post() does the right thing.
+    @operation(idempotent=False)
+    def node_hardware_details(self, request, uuid):
+        """Return specific hardware_details for each node specified.
+
+        For security purposes we do:
+
+        a) Requests are only fulfilled for the worker assigned to the
+           nodegroup.
+        b) Requests for nodes that are not part of the nodegroup are just
+           ignored.
+
+        This API may be removed in the future when hardware details are moved
+        to be stored in the cluster controllers (nodegroup) instead of the
+        master controller.
+        """
+        system_ids = get_list_from_dict_or_multidict(
+            request.data, 'system_ids', [])
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        if not request.user.is_superuser:
+            check_nodegroup_access(request, nodegroup)
+        value_list = Node.objects.filter(
+            system_id__in=system_ids, nodegroup=nodegroup
+            ).values_list('system_id', 'hardware_details')
+        return HttpResponse(
+            json.dumps(list(value_list)), content_type='application/json')
+
 
 DISPLAYED_NODEGROUP_FIELDS = (
     'ip', 'management', 'interface', 'subnet_mask',
     'broadcast_ip', 'ip_range_low', 'ip_range_high')
 
 
-@api_operations
-class NodeGroupInterfacesHandler(BaseHandler):
-    """NodeGroupInterfaces API."""
-    allowed_methods = ('GET', 'POST')
+class NodeGroupInterfacesHandler(OperationsHandler):
+    """Manage NodeGroupInterfaces.
+
+    A NodeGroupInterface is a network interface attached to a cluster
+    controller, with its network properties.
+    """
+    create = read = update = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def list(self, request, uuid):
         """List of NodeGroupInterfaces of a NodeGroup."""
         nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
         return NodeGroupInterface.objects.filter(nodegroup=nodegroup)
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def new(self, request, uuid):
         """Create a new NodeGroupInterface for this NodeGroup.
 
@@ -1156,9 +1414,13 @@ class NodeGroupInterfacesHandler(BaseHandler):
         return ('nodegroupinterfaces_handler', [uuid])
 
 
-class NodeGroupInterfaceHandler(BaseHandler):
-    """NodeGroupInterface API."""
-    allowed_methods = ('GET', 'PUT')
+class NodeGroupInterfaceHandler(OperationsHandler):
+    """Manage a NodeGroupInterface.
+
+    A NodeGroupInterface is identified by the uuid for its NodeGroup, and
+    the name of the network interface it represents: "eth0" for example.
+    """
+    create = delete = None
     fields = DISPLAYED_NODEGROUP_FIELDS
 
     def read(self, request, uuid, interface):
@@ -1199,6 +1461,14 @@ class NodeGroupInterfaceHandler(BaseHandler):
         else:
             raise ValidationError(form.errors)
 
+    def delete(self, request, uuid, interface):
+        """Delete a specific NodeGroupInterface."""
+        nodegroup = get_object_or_404(NodeGroup, uuid=uuid)
+        nodegroupinterface = get_object_or_404(
+            NodeGroupInterface, nodegroup=nodegroup, interface=interface)
+        nodegroupinterface.delete()
+        return rc.DELETED
+
     @classmethod
     def resource_uri(cls, nodegroup=None, interface=None):
         if nodegroup is None:
@@ -1212,12 +1482,11 @@ class NodeGroupInterfaceHandler(BaseHandler):
         return ('nodegroupinterface_handler', [uuid, interface_name])
 
 
-@api_operations
-class AccountHandler(BaseHandler):
+class AccountHandler(OperationsHandler):
     """Manage the current logged-in user."""
-    allowed_methods = ('POST',)
+    create = read = update = delete = None
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def create_authorisation_token(self, request):
         """Create an authorisation OAuth token and OAuth consumer.
 
@@ -1235,7 +1504,7 @@ class AccountHandler(BaseHandler):
             'consumer_key': consumer.key,
             }
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def delete_authorisation_token(self, request):
         """Delete an authorisation OAuth token and the related OAuth consumer.
 
@@ -1252,36 +1521,46 @@ class AccountHandler(BaseHandler):
         return ('account_handler', [])
 
 
-@api_operations
-class TagHandler(BaseHandler):
-    """Manage individual Tags."""
-    allowed_methods = ('GET', 'DELETE', 'POST', 'PUT')
+class TagHandler(OperationsHandler):
+    """Manage individual Tags.
+
+    Tags are properties that can be associated with a Node and serve as
+    criteria for selecting and allocating nodes.
+
+    A Tag is identified by its name.
+    """
+    create = None
     model = Tag
     fields = (
         'name',
         'definition',
         'comment',
+        'kernel_opts',
         )
 
     def read(self, request, name):
-        """Read a specific Node."""
+        """Read a specific Tag"""
         return Tag.objects.get_tag_or_404(name=name, user=request.user)
 
     def update(self, request, name):
-        """Update a specific `Tag`.
+        """Update a specific Tag.
+
+        :param name: The name of the Tag to be created. This should be a short
+            name, and will be used in the URL of the tag.
+        :param comment: A long form description of what the tag is meant for.
+            It is meant as a human readable description of the tag.
+        :param definition: An XPATH query that will be evaluated against the
+            hardware_details stored for all nodes (output of `lshw -xml`).
         """
         tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
             to_edit=True)
         model_dict = model_to_dict(tag)
-        old_definition = model_dict['definition']
         data = get_overrided_query_dict(model_dict, request.data)
         form = TagForm(data, instance=tag)
         if form.is_valid():
             try:
                 new_tag = form.save(commit=False)
                 new_tag.save()
-                if new_tag.definition != old_definition:
-                    new_tag.populate_nodes()
                 form.save_m2m()
             except DatabaseError as e:
                 raise ValidationError(e)
@@ -1290,44 +1569,123 @@ class TagHandler(BaseHandler):
             raise ValidationError(form.errors)
 
     def delete(self, request, name):
-        """Delete a specific Node."""
+        """Delete a specific Tag."""
         tag = Tag.objects.get_tag_or_404(name=name,
             user=request.user, to_edit=True)
         tag.delete()
         return rc.DELETED
 
-    # XXX: JAM 2012-09-25 This is currently a POST because of bug:
-    #      http://pad.lv/1049933
-    #      Essentially, if you have one 'GET' op, then you can no longer get
-    #      the Tag object itself from a plain 'GET' without op.
-    @api_exported('POST')
+    @operation(idempotent=True)
     def nodes(self, request, name):
         """Get the list of nodes that have this tag."""
         return Tag.objects.get_nodes(name, user=request.user)
 
+    def _get_nodes_for(self, request, param, nodegroup):
+        system_ids = get_list_from_dict_or_multidict(request.data, param)
+        if system_ids:
+            nodes = Node.objects.filter(system_id__in=system_ids)
+            if nodegroup is not None:
+                nodes = nodes.filter(nodegroup=nodegroup)
+        else:
+            nodes = Node.objects.none()
+        return nodes
+
+    @operation(idempotent=False)
+    def rebuild(self, request, name):
+        """Manually trigger a rebuild the tag <=> node mapping.
+
+        This is considered a maintenance operation, which should normally not
+        be necessary. Adding nodes or updating a tag's definition should
+        automatically trigger the appropriate changes.
+        """
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user,
+                                         to_edit=True)
+        tag.populate_nodes()
+        return {'rebuilding': tag.name}
+
+    @operation(idempotent=False)
+    def update_nodes(self, request, name):
+        """Add or remove nodes being associated with this tag.
+
+        :param add: system_ids of nodes to add to this tag.
+        :param remove: system_ids of nodes to remove from this tag.
+        :param definition: (optional) If supplied, the definition will be
+            validated against the current definition of the tag. If the value
+            does not match, then the update will be dropped (assuming this was
+            just a case of a worker being out-of-date)
+        :param nodegroup: A uuid of a nodegroup being processed. This value is
+            optional. If not supplied, the requester must be a superuser. If
+            supplied, then the requester must be the worker associated with
+            that nodegroup, and only nodes that are part of that nodegroup can
+            be updated.
+        """
+        tag = Tag.objects.get_tag_or_404(name=name, user=request.user)
+        nodegroup = None
+        if not request.user.is_superuser:
+            uuid = request.data.get('nodegroup', None)
+            if uuid is None:
+                raise PermissionDenied(
+                    'Must be a superuser or supply a nodegroup')
+            nodegroup = get_one(NodeGroup.objects.filter(uuid=uuid))
+            check_nodegroup_access(request, nodegroup)
+        definition = request.data.get('definition', None)
+        if definition is not None and tag.definition != definition:
+            return HttpResponse(
+                "Definition supplied '%s' "
+                "doesn't match current definition '%s'"
+                % (definition, tag.definition),
+                status=httplib.CONFLICT)
+        nodes_to_add = self._get_nodes_for(request, 'add', nodegroup)
+        tag.node_set.add(*nodes_to_add)
+        nodes_to_remove = self._get_nodes_for(request, 'remove', nodegroup)
+        tag.node_set.remove(*nodes_to_remove)
+        return {
+            'added': nodes_to_add.count(),
+            'removed': nodes_to_remove.count()
+            }
+
     @classmethod
     def resource_uri(cls, tag=None):
         # See the comment in NodeHandler.resource_uri
-        tag_name = 'tag_name'
+        tag_name = 'name'
         if tag is not None:
             tag_name = tag.name
         return ('tag_handler', (tag_name, ))
 
 
-@api_operations
-class TagsHandler(BaseHandler):
+class TagsHandler(OperationsHandler):
     """Manage collection of Tags."""
-    allowed_methods = ('GET', 'POST')
+    create = read = update = delete = None
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def new(self, request):
-        """Create a new `Tag`.
-        """
-        return create_tag(request)
+        """Create a new Tag.
 
-    @api_exported('GET')
+        :param name: The name of the Tag to be created. This should be a short
+            name, and will be used in the URL of the tag.
+        :param comment: A long form description of what the tag is meant for.
+            It is meant as a human readable description of the tag.
+        :param definition: An XPATH query that will be evaluated against the
+            hardware_details stored for all nodes (output of `lshw -xml`).
+        :param kernel_opts: Can be None. If set, nodes associated with this tag
+            will add this string to their kernel options when booting. The
+            value overrides the global 'kernel_opts' setting. If more than one
+            tag is associated with a node, the one with the lowest alphabetical
+            name will be picked (eg 01-my-tag will be taken over 99-tag-name).
+        """
+        if not request.user.is_superuser:
+            raise PermissionDenied()
+        form = TagForm(request.data)
+        if form.is_valid():
+            return form.save()
+        else:
+            raise ValidationError(form.errors)
+
+    @operation(idempotent=True)
     def list(self, request):
         """List Tags.
+
+        Get a listing of all tags that are currently defined.
         """
         return Tag.objects.all()
 
@@ -1336,33 +1694,11 @@ class TagsHandler(BaseHandler):
         return ('tags_handler', [])
 
 
-def create_tag(request):
-    """Service an http request to create a tag.
-
-    :param request: The http request for this node to be created.
-    :return: A `Tag`.
-    :rtype: :class:`maasserver.models.Tag`.
-    :raises: ValidationError
-    """
-    if not request.user.is_superuser:
-        raise PermissionDenied()
-    form = TagForm(request.data)
-    if form.is_valid():
-        new_tag = form.save(commit=False)
-        new_tag.save()
-        new_tag.populate_nodes()
-        form.save_m2m()
-        return new_tag
-    else:
-        raise ValidationError(form.errors)
-
-
-@api_operations
-class MAASHandler(BaseHandler):
+class MAASHandler(OperationsHandler):
     """Manage the MAAS' itself."""
-    allowed_methods = ('POST', 'GET')
+    create = read = update = delete = None
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def set_config(self, request):
         """Set a config value.
 
@@ -1377,7 +1713,7 @@ class MAASHandler(BaseHandler):
         Config.objects.set_config(name, value)
         return rc.ALL_OK
 
-    @api_exported('GET')
+    @operation(idempotent=True)
     def get_config(self, request):
         """Get a config value.
 
@@ -1408,23 +1744,35 @@ def render_api_docs():
     :return: Documentation, in ReST, for the API.
     :rtype: :class:`unicode`
     """
+    from maasserver import urls_api as urlconf
+
     module = sys.modules[__name__]
-    messages = [
-        __doc__.strip(),
-        '',
-        '',
-        'Operations',
-        '----------',
-        '',
-        ]
-    handlers = find_api_handlers(module)
-    for doc in generate_api_docs(handlers):
-        for method in doc.get_methods():
-            messages.append(
-                "%s %s\n  %s\n" % (
-                    method.http_name, doc.resource_uri_template,
-                    method.doc))
-    return '\n'.join(messages)
+    output = StringIO()
+    line = partial(print, file=output)
+
+    line(getdoc(module))
+    line()
+    line()
+    line('Operations')
+    line('----------')
+    line()
+
+    resources = find_api_resources(urlconf)
+    for doc in generate_api_docs(resources):
+        uri_template = doc.resource_uri_template
+        exports = doc.handler.exports.items()
+        for (http_method, operation), function in sorted(exports):
+            line("``%s %s``" % (http_method, uri_template), end="")
+            if operation is not None:
+                line(" ``op=%s``" % operation)
+            line()
+            docstring = getdoc(function)
+            if docstring is not None:
+                for docline in docstring.splitlines():
+                    line("  ", docline, sep="")
+                line()
+
+    return output.getvalue()
 
 
 def reST_to_html_fragment(a_str):
@@ -1469,57 +1817,126 @@ def get_boot_purpose(node):
         return "poweroff"
 
 
+def get_node_from_mac_string(mac_string):
+    """Get a Node object from a MAC address string.
+
+    Returns a Node object or None if no node with the given MAC address exists.
+
+    :param mac_string: MAC address string in the form "12-34-56-78-9a-bc"
+    :return: Node object or None
+    """
+    if mac_string is None:
+        return None
+    macaddress = get_one(MACAddress.objects.filter(mac_address=mac_string))
+    return macaddress.node if macaddress else None
+
+
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 
     Returns a JSON object corresponding to a
     :class:`provisioningserver.kernel_opts.KernelParameters` instance.
 
-    :param mac: MAC address to produce a boot configuration for.
-    """
-    mac = get_mandatory_param(request.GET, 'mac')
+    This is now fairly decoupled from pxelinux's TFTP filename encoding
+    mechanism, with one notable exception. Call this function with (mac, arch,
+    subarch) and it will do the right thing. If details it needs are missing
+    (ie. arch/subarch missing when the MAC is supplied but unknown), then it
+    will as an exception return an HTTP NO_CONTENT (204) in the expectation
+    that this will be translated to a TFTP file not found and pxelinux (or an
+    emulator) will fall back to default-<arch>-<subarch> (in the case of an
+    alternate architecture emulator) or just straight to default (in the case
+    of native pxelinux on i386 or amd64). See bug 1041092 for details and
+    discussion.
 
-    macaddress = get_one(MACAddress.objects.filter(mac_address=mac))
-    if macaddress is None:
-        # Default to i386 as a works-for-all solution. This will not support
-        # non-x86 architectures, but for now this assumption holds.
-        node = None
-        arch, subarch = ARCHITECTURE.i386, "generic"
+    :param mac: MAC address to produce a boot configuration for.
+    :param arch: Architecture name (in the pxelinux namespace, eg. 'arm' not
+        'armhf').
+    :param subarch: Subarchitecture name (in the pxelinux namespace).
+    :param local: The IP address of the cluster controller.
+    :param remote: The IP address of the booting node.
+    """
+    node = get_node_from_mac_string(request.GET.get('mac', None))
+
+    if node:
+        arch, subarch = node.architecture.split('/')
+        preseed_url = compose_preseed_url(node)
+        # The node's hostname may include a domain, but we ignore that
+        # and use the one from the nodegroup instead.
+        hostname = strip_domain(node.hostname)
+        domain = node.nodegroup.name
+    else:
+        try:
+            pxelinux_arch = request.GET['arch']
+        except KeyError:
+            if 'mac' in request.GET:
+                # Request was pxelinux.cfg/01-<mac>, so attempt fall back
+                # to pxelinux.cfg/default-<arch>-<subarch> for arch detection.
+                return HttpResponse(status=httplib.NO_CONTENT)
+            else:
+                # Request has already fallen back, so if arch is still not
+                # provided then use i386.
+                arch = ARCHITECTURE.i386.split('/')[0]
+        else:
+            # Map from pxelinux namespace architecture names to MAAS namespace
+            # architecture names. If this gets bigger, an external lookup table
+            # would make sense. But here is fine for something as trivial as it
+            # is right now.
+            if pxelinux_arch == 'arm':
+                arch = 'armhf'
+            else:
+                arch = pxelinux_arch
+
+        # Use subarch if supplied; otherwise assume 'generic'.
+        try:
+            pxelinux_subarch = request.GET['subarch']
+        except KeyError:
+            subarch = 'generic'
+        else:
+            # Map from pxelinux namespace subarchitecture names to MAAS
+            # namespace subarchitecture names. Right now this happens to be a
+            # 1-1 mapping.
+            subarch = pxelinux_subarch
+
         preseed_url = compose_enlistment_preseed_url()
         hostname = 'maas-enlist'
-    else:
-        node = macaddress.node
-        arch, subarch = node.architecture, "generic"
-        preseed_url = compose_preseed_url(node)
-        hostname = node.hostname
+        domain = Config.objects.get_config('enlistment_domain')
 
     if node is None or node.status == NODE_STATUS.COMMISSIONING:
         series = Config.objects.get_config('commissioning_distro_series')
     else:
         series = node.get_distro_series()
 
+    if node is not None:
+        # We don't care if the kernel opts is from the global setting or a tag,
+        # just get the options
+        _, extra_kernel_opts = node.get_effective_kernel_options()
+    else:
+        extra_kernel_opts = None
+
     purpose = get_boot_purpose(node)
-    domain = 'local.lan'  # TODO: This is probably not enough!
     server_address = get_maas_facing_server_address()
+    cluster_address = get_mandatory_param(request.GET, "local")
 
     params = KernelParameters(
         arch=arch, subarch=subarch, release=series, purpose=purpose,
         hostname=hostname, domain=domain, preseed_url=preseed_url,
-        log_host=server_address, fs_host=server_address)
+        log_host=server_address, fs_host=cluster_address,
+        extra_opts=extra_kernel_opts)
 
     return HttpResponse(
         json.dumps(params._asdict()),
         content_type="application/json")
 
 
-@api_operations
-class BootImagesHandler(BaseHandler):
+class BootImagesHandler(OperationsHandler):
+
+    create = replace = update = delete = None
 
     @classmethod
     def resource_uri(cls):
         return ('boot_images_handler', [])
 
-    @api_exported('POST')
+    @operation(idempotent=False)
     def report_boot_images(self, request):
         """Report images available to net-boot nodes from.
 
@@ -1528,24 +1945,34 @@ class BootImagesHandler(BaseHandler):
             `purpose`, all as in the code that determines TFTP paths for
             these images.
         """
-        check_nodegroup_access(request, NodeGroup.objects.ensure_master())
+        nodegroup_uuid = get_mandatory_param(request.data, "nodegroup")
+        nodegroup = get_object_or_404(NodeGroup, uuid=nodegroup_uuid)
+        check_nodegroup_access(request, nodegroup)
         images = json.loads(get_mandatory_param(request.data, 'images'))
 
         for image in images:
             BootImage.objects.register_image(
+                nodegroup=nodegroup,
                 architecture=image['architecture'],
                 subarchitecture=image.get('subarchitecture', 'generic'),
                 release=image['release'],
                 purpose=image['purpose'])
 
-        if len(images) == 0:
+        # Work out if any nodegroups are missing images.
+        nodegroup_ids_with_images = BootImage.objects.values_list(
+            "nodegroup_id", flat=True)
+        nodegroups_missing_images = NodeGroup.objects.exclude(
+            id__in=nodegroup_ids_with_images).filter(
+                status=NODEGROUP_STATUS.ACCEPTED)
+        if nodegroups_missing_images.exists():
+            accepted_clusters_url = (
+                "%s#accepted-clusters" % absolute_reverse("settings"))
             warning = dedent("""\
-                No boot images have been imported yet.  Either the
-                maas-import-pxe-files script has not run yet, or it failed.
-
-                Try running it manually.  If it succeeds, this message will
-                go away within 5 minutes.
-                """)
+                Some cluster controllers are missing boot images.  Either the
+                import task has not been initiated (for each cluster, the task
+                must be <a href=%s>initiated by hand</a> the first time), or
+                the import task failed.
+                """ % quoteattr(accepted_clusters_url))
             register_persistent_error(COMPONENT.IMPORT_PXE_FILES, warning)
         else:
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
@@ -1556,16 +1983,40 @@ class BootImagesHandler(BaseHandler):
 def describe(request):
     """Return a description of the whole MAAS API.
 
-    Returns a JSON object describing the whole MAAS API.
+    :param request: The http request for this document.  This is used to
+        derive the URL where the client expects to see the MAAS API.
+    :return: A JSON object describing the whole MAAS API.  Links to the API
+        will use the same scheme and hostname that the client used in
+        `request`.
     """
-    module = sys.modules[__name__]
+    from maasserver import urls_api as urlconf
+    resources = [
+        describe_resource(resource)
+        for resource in find_api_resources(urlconf)
+        ]
+    # Make all URIs absolute. Clients - maas-cli in particular - expect that
+    # all handler URIs are absolute, not just paths. The handler URIs returned
+    # by describe_resource() are relative paths.
+    absolute = partial(build_absolute_uri, request)
+    for resource in resources:
+        for handler_type in "anon", "auth":
+            handler = resource[handler_type]
+            if handler is not None:
+                handler["uri"] = absolute(handler["path"])
+    # Package it all up.
     description = {
         "doc": "MAAS API",
-        "handlers": [
-            describe_handler(handler)
-            for handler in find_api_handlers(module)
-            ],
+        "resources": resources,
         }
+    # For backward compatibility, add "handlers" as an alias for all not-None
+    # anon and auth handlers in "resources".
+    description["handlers"] = []
+    description["handlers"].extend(
+        resource["anon"] for resource in description["resources"]
+        if resource["anon"] is not None)
+    description["handlers"].extend(
+        resource["auth"] for resource in description["resources"]
+        if resource["auth"] is not None)
     return HttpResponse(
         json.dumps(description),
         content_type="application/json")

@@ -35,6 +35,7 @@ from twisted.internet.defer import (
     inlineCallbacks,
     succeed,
     )
+from twisted.python import context
 from zope.interface.verify import verifyObject
 
 
@@ -70,7 +71,9 @@ class TestTFTPBackendRegex(TestCase):
         The path is intended to match `re_config_file`, and the components are
         the expected groups from a match.
         """
-        components = {"mac": factory.getRandomMACAddress(b"-")}
+        components = {"mac": factory.getRandomMACAddress(b"-"),
+                      "arch": None,
+                      "subarch": None}
         config_path = compose_config_path(components["mac"])
         return config_path, components
 
@@ -112,13 +115,15 @@ class TestTFTPBackendRegex(TestCase):
         mac = 'aa-bb-cc-dd-ee-ff'
         match = TFTPBackend.re_config_file.match('pxelinux.cfg/01-%s' % mac)
         self.assertIsNotNone(match)
-        self.assertEqual({'mac': mac}, match.groupdict())
+        self.assertEqual({'mac': mac, 'arch': None, 'subarch': None},
+                         match.groupdict())
 
     def test_re_config_file_matches_pxelinux_cfg_with_leading_slash(self):
         mac = 'aa-bb-cc-dd-ee-ff'
         match = TFTPBackend.re_config_file.match('/pxelinux.cfg/01-%s' % mac)
         self.assertIsNotNone(match)
-        self.assertEqual({'mac': mac}, match.groupdict())
+        self.assertEqual({'mac': mac, 'arch': None, 'subarch': None},
+                         match.groupdict())
 
     def test_re_config_file_does_not_match_non_config_file(self):
         self.assertIsNone(
@@ -131,6 +136,29 @@ class TestTFTPBackendRegex(TestCase):
     def test_re_config_file_does_not_match_file_not_in_pxelinux_cfg(self):
         self.assertIsNone(
             TFTPBackend.re_config_file.match('foo/01-aa-bb-cc-dd-ee-ff'))
+
+    def test_re_config_file_with_default(self):
+        match = TFTPBackend.re_config_file.match('pxelinux.cfg/default')
+        self.assertIsNotNone(match)
+        self.assertEqual({'mac': None, 'arch': None, 'subarch': None},
+            match.groupdict())
+
+    def test_re_config_file_with_default_arch(self):
+        arch = factory.make_name('arch', sep='')
+        match = TFTPBackend.re_config_file.match('pxelinux.cfg/default.%s' %
+                                                 arch)
+        self.assertIsNotNone(match)
+        self.assertEqual({'mac': None, 'arch': arch, 'subarch': None},
+            match.groupdict())
+
+    def test_re_config_file_with_default_arch_and_subarch(self):
+        arch = factory.make_name('arch', sep='')
+        subarch = factory.make_name('subarch', sep='')
+        match = TFTPBackend.re_config_file.match(
+            'pxelinux.cfg/default.%s-%s' % (arch, subarch))
+        self.assertIsNotNone(match)
+        self.assertEqual({'mac': None, 'arch': arch, 'subarch': subarch},
+            match.groupdict())
 
 
 class TestTFTPBackend(TestCase):
@@ -186,6 +214,16 @@ class TestTFTPBackend(TestCase):
         mac = factory.getRandomMACAddress(b"-")
         config_path = compose_config_path(mac)
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
+        # python-tx-tftp sets up call context so that backends can discover
+        # more about the environment in which they're running.
+        call_context = {
+            "local": (
+                factory.getRandomIPAddress(),
+                factory.getRandomPort()),
+            "remote": (
+                factory.getRandomIPAddress(),
+                factory.getRandomPort()),
+            }
 
         @partial(self.patch, backend, "get_config_reader")
         def get_config_reader(params):
@@ -193,9 +231,16 @@ class TestTFTPBackend(TestCase):
             params_json_reader = BytesReader(params_json)
             return succeed(params_json_reader)
 
-        reader = yield backend.get_reader(config_path)
+        reader = yield context.call(
+            call_context, backend.get_reader, config_path)
         output = reader.read(10000)
-        expected_params = dict(mac=mac)
+        # The addresses provided by python-tx-tftp in the call context are
+        # passed over the wire as address:port strings.
+        expected_params = {
+            "mac": mac,
+            "local": call_context["local"][0],  # address only.
+            "remote": call_context["remote"][0],  # address only.
+            }
         observed_params = json.loads(output)
         self.assertEqual(expected_params, observed_params)
 

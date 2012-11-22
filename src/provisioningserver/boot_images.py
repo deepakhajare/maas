@@ -19,6 +19,7 @@ __all__ = [
     ]
 
 import json
+from logging import getLogger
 
 from apiclient.maas_client import (
     MAASClient,
@@ -30,8 +31,11 @@ from provisioningserver.auth import (
     get_recorded_maas_url,
     )
 from provisioningserver.config import Config
-from provisioningserver.logging import task_logger
 from provisioningserver.pxe import tftppath
+from provisioningserver.start_cluster_controller import get_cluster_uuid
+
+
+logger = getLogger(__name__)
 
 
 def get_cached_knowledge():
@@ -42,10 +46,10 @@ def get_cached_knowledge():
     """
     maas_url = get_recorded_maas_url()
     if maas_url is None:
-        task_logger.debug("Not reporting boot images: don't have API URL yet.")
+        logger.debug("Not reporting boot images: don't have API URL yet.")
     api_credentials = get_recorded_api_credentials()
     if api_credentials is None:
-        task_logger.debug("Not reporting boot images: don't have API key yet.")
+        logger.debug("Not reporting boot images: don't have API key yet.")
     return maas_url, api_credentials
 
 
@@ -53,7 +57,7 @@ def submit(maas_url, api_credentials, images):
     """Submit images to server."""
     MAASClient(MAASOAuth(*api_credentials), MAASDispatcher(), maas_url).post(
         'api/1.0/boot-images/', 'report_boot_images',
-        images=json.dumps(images))
+        nodegroup=get_cluster_uuid(), images=json.dumps(images))
 
 
 def report_to_server():

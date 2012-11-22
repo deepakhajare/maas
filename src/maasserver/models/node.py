@@ -11,13 +11,21 @@ from __future__ import (
 
 __metaclass__ = type
 __all__ = [
+    "CONSTRAINTS_JUJU_MAP",
+    "CONSTRAINTS_MAAS_MAP",
     "NODE_TRANSITIONS",
     "Node",
     "update_hardware_details",
     ]
 
-import contextlib
+from itertools import (
+    imap,
+    islice,
+    repeat,
+    )
+import math
 import os
+import random
 from string import whitespace
 from uuid import uuid1
 
@@ -27,7 +35,6 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
     )
-from django.db import connection
 from django.db.models import (
     BooleanField,
     CharField,
@@ -38,6 +45,7 @@ from django.db.models import (
     Q,
     )
 from django.shortcuts import get_object_or_404
+from lxml import etree
 from maasserver import DefaultMeta
 from maasserver.enum import (
     ARCHITECTURE,
@@ -58,10 +66,17 @@ from maasserver.fields import (
     )
 from maasserver.models.cleansave import CleanSave
 from maasserver.models.config import Config
+from maasserver.models.dhcplease import DHCPLease
 from maasserver.models.tag import Tag
 from maasserver.models.timestampedmodel import TimestampedModel
-from maasserver.utils import get_db_state
-from maasserver.utils.orm import get_first
+from maasserver.utils import (
+    get_db_state,
+    strip_domain,
+    )
+from maasserver.utils.orm import (
+    get_first,
+    get_one,
+    )
 from piston.models import Token
 from provisioningserver.enum import (
     POWER_TYPE,
@@ -70,11 +85,32 @@ from provisioningserver.enum import (
 from provisioningserver.tasks import (
     power_off,
     power_on,
+    remove_dhcp_host_map,
     )
 
 
 def generate_node_system_id():
     return 'node-%s' % uuid1()
+
+
+# Mapping of constraint names as used by juju to Node field names
+CONSTRAINTS_JUJU_MAP = {
+    'maas-name': 'hostname',
+    'maas-tags': 'tags',
+    'arch': 'architecture',
+    'cpu': 'cpu_count',
+    'mem': 'memory',
+    }
+
+
+# Mapping of constraint names as used by the maas api to Node field names
+CONSTRAINTS_MAAS_MAP = {
+    'name': 'hostname',
+    'tags': 'tags',
+    'arch': 'architecture',
+    'cpu_count': 'cpu_count',
+    'mem': 'memory',
+    }
 
 
 # Information about valid node status transitions.
@@ -164,7 +200,7 @@ class NodeManager(Manager):
         else:
             return query.filter(system_id__in=ids)
 
-    def get_nodes(self, user, perm, ids=None):
+    def get_nodes(self, user, perm, ids=None, prefetch_mac=False):
         """Fetch Nodes on which the User_ has the given permission.
 
         :param user: The user that should be used in the permission check.
@@ -173,6 +209,9 @@ class NodeManager(Manager):
         :type perm: a permission string from NODE_PERMISSION
         :param ids: If given, limit result to nodes with these system_ids.
         :type ids: Sequence.
+        :param prefetch_mac: If set to True, prefetch the macaddress_set
+            values. This is useful for UI stuff that uses MAC addresses in the
+            http links.
 
         .. _User: https://
            docs.djangoproject.com/en/dev/topics/auth/
@@ -193,6 +232,8 @@ class NodeManager(Manager):
                     "Invalid permission check (invalid permission name: %s)." %
                     perm)
 
+        if prefetch_mac:
+            nodes = nodes.prefetch_related('macaddress_set')
         return self.filter_by_ids(nodes, ids)
 
     def get_allocated_visible_nodes(self, token, ids):
@@ -250,21 +291,10 @@ class NodeManager(Manager):
         :type constraints: :class:`dict`
         :return: A matching `Node`, or None if none are available.
         """
-        if constraints is None:
-            constraints = {}
-        available_nodes = (
-            self.get_nodes(for_user, NODE_PERMISSION.VIEW)
-                .filter(status=NODE_STATUS.READY))
-
-        if constraints.get('name'):
-            available_nodes = available_nodes.filter(
-                hostname=constraints['name'])
-        if constraints.get('arch'):
-            # GZ 2012-09-11: This only supports an exact match on arch type,
-            #                using an i386 image on amd64 hardware will wait.
-            available_nodes = available_nodes.filter(
-                architecture=constraints['arch'])
-
+        from maasserver.models.node_constraint_filter import constrain_nodes
+        available_nodes = self.get_nodes(for_user, NODE_PERMISSION.VIEW)
+        available_nodes = available_nodes.filter(status=NODE_STATUS.READY)
+        available_nodes = constrain_nodes(available_nodes, constraints)
         return get_first(available_nodes)
 
     def stop_nodes(self, ids, by_user):
@@ -333,44 +363,57 @@ class NodeManager(Manager):
         return processed_nodes
 
 
-def update_hardware_details(node, xmlbytes):
+_xpath_processor_count = "count(//node[@id='core']/node[@class='processor'])"
+
+# Some machines have a <size> element in their memory <node> with the total
+# amount of memory, and other machines declare the size of the memory in
+# individual memory banks. This expression is mean to cope with both.
+
+_xpath_memory_bytes = (
+    "sum(//node[@id='memory']/size[@units='bytes']"
+        "|//node[starts-with(@id, 'memory:')]"
+            "/node[starts-with(@id, 'bank:')]/size[@units='bytes'])"
+       "div 1024 div 1024")
+
+
+def update_hardware_details(node, xmlbytes, tag_manager):
     """Set node hardware_details from lshw output and update related fields
 
-    This is designed to be called with individual nodes on commissioning and
-    is not optimised for batch updates.
-
-    There are a bunch of suboptimal things here:
-    * Is a function rather than method in hope south migration can reuse.
-    * Doing UPDATE then transaction.commit_unless_managed doesn't work?
-    * Scalar returns from xpath() work in postgres 9.2 or later only.
+    This is a helper function just so it can be used in the south migration
+    to do the correct updates to mem and cpu_count when hardware_details is
+    first set.
     """
+    try:
+        doc = etree.XML(xmlbytes)
+    except etree.XMLSyntaxError as e:
+        raise ValidationError(
+            {'hardware_details': ['Invalid XML: %s' % (e,)]})
     node.hardware_details = xmlbytes
+    # Same document, many queries: use XPathEvaluator.
+    evaluator = etree.XPathEvaluator(doc)
+    cpu_count = evaluator(_xpath_processor_count)
+    memory = evaluator(_xpath_memory_bytes)
+    if not memory or math.isnan(memory):
+        memory = 0
+    node.cpu_count = cpu_count or 0
+    node.memory = memory
+    for tag in tag_manager.all():
+        has_tag = evaluator(tag.definition)
+        if has_tag:
+            node.tags.add(tag)
+        else:
+            node.tags.remove(tag)
     node.save()
-    with contextlib.closing(connection.cursor()) as cursor:
-        cursor.execute("SELECT"
-            " array_length(xpath(%s, hardware_details), 1) AS count,"
-            " (xpath(%s, hardware_details))[1]::text::bigint / 1048576 AS mem"
-            " FROM maasserver_node"
-            " WHERE id = %s",
-            [
-                "//node[@id='core']/node[@class='processor']",
-                "//node[@id='memory']/size[@units='bytes']/text()",
-                node.id,
-            ])
-        cpu_count, memory = cursor.fetchone()
-        node.cpu_count = cpu_count or 0
-        node.memory = memory or 0
-        for tag in Tag.objects.all():
-            cursor.execute(
-                "SELECT xpath_exists(%s, hardware_details)"
-                " FROM maasserver_node WHERE id = %s",
-                [tag.definition,  node.id])
-            has_tag, = cursor.fetchone()
-            if has_tag:
-                node.tags.add(tag)
-            else:
-                node.tags.remove(tag)
-    node.save()
+
+
+# Non-ambiguous characters (i.e. without 'ilousvz1250').
+non_ambiguous_characters = imap(
+    random.choice, repeat('abcdefghjkmnpqrtwxy346789'))
+
+
+def generate_hostname(size):
+    """Generate a hostname using only non-ambiguous characters."""
+    return "".join(islice(non_ambiguous_characters, size))
 
 
 class Node(CleanSave, TimestampedModel):
@@ -388,6 +431,7 @@ class Node(CleanSave, TimestampedModel):
     :ivar power_type: The :class:`POWER_TYPE` that determines how this
         node will be powered on.  If not given, the default will be used as
         configured in the `node_power_type` setting.
+    :ivar nodegroup: The `NodeGroup` this `Node` belongs to.
     :ivar tags: The list of :class:`Tag`s associated with this `Node`.
     :ivar objects: The :class:`NodeManager`.
 
@@ -400,7 +444,7 @@ class Node(CleanSave, TimestampedModel):
         max_length=41, unique=True, default=generate_node_system_id,
         editable=False)
 
-    hostname = CharField(max_length=255, default='', blank=True)
+    hostname = CharField(max_length=255, default='', blank=True, unique=True)
 
     status = IntegerField(
         max_length=10, choices=NODE_STATUS_CHOICES, editable=False,
@@ -422,7 +466,7 @@ class Node(CleanSave, TimestampedModel):
         blank=True, default=None)
 
     architecture = CharField(
-        max_length=10, choices=ARCHITECTURE_CHOICES, blank=False,
+        max_length=31, choices=ARCHITECTURE_CHOICES, blank=False,
         default=ARCHITECTURE.i386)
 
     # Juju expects the following standard constraints, which are stored here
@@ -466,12 +510,34 @@ class Node(CleanSave, TimestampedModel):
 
     def __unicode__(self):
         if self.hostname:
-            return "%s (%s)" % (self.system_id, self.hostname)
+            return "%s (%s)" % (self.system_id, self.fqdn)
         else:
             return self.system_id
 
+    @property
+    def fqdn(self):
+        """Fully qualified domain name for this node.
+
+        If MAAS manages DNS for this node, the domain part of the
+        hostname (if present), is replaced by the domain configured
+        on the cluster controller.
+        If not, simply return the node's hostname.
+        """
+        # Avoid circular imports.
+        from maasserver.dns import is_dns_managed
+        if is_dns_managed(self.nodegroup):
+            # If the hostname field contains a domain, strip it.
+            hostname = strip_domain(self.hostname)
+            # Build the FQDN by using the hostname and nodegroup.name
+            # as the domain name.
+            return '%s.%s' % (hostname, self.nodegroup.name)
+        else:
+            return self.hostname
+
     def tag_names(self):
-        return self.tags.values_list('name', flat=True)
+        # We don't use self.tags.values_list here because this does not
+        # take advantage of the cache.
+        return [tag.name for tag in self.tags.all()]
 
     def clean_status(self):
         """Check a node's status transition against the node-status FSM."""
@@ -586,24 +652,53 @@ class Node(CleanSave, TimestampedModel):
             [self.system_id], user, user_data=commissioning_user_data)
 
     def delete(self):
-        # Delete the related mac addresses first.
-        self.macaddress_set.all().delete()
         # Allocated nodes can't be deleted.
         if self.status == NODE_STATUS.ALLOCATED:
             raise NodeStateViolation(
                 "Cannot delete node %s: node is in state %s."
                 % (self.system_id, NODE_STATUS_CHOICES_DICT[self.status]))
+        nodegroup = self.nodegroup
+        if nodegroup.get_managed_interface() is not None:
+            # Delete the host map(s) in the DHCP server.
+            macs = self.macaddress_set.values_list('mac_address', flat=True)
+            leases = DHCPLease.objects.filter(
+                mac__in=macs, nodegroup=nodegroup)
+            for lease in leases:
+                task_kwargs = dict(
+                    ip_address=lease.ip,
+                    server_address="127.0.0.1",
+                    omapi_key=nodegroup.dhcp_key)
+                remove_dhcp_host_map.apply_async(
+                    queue=nodegroup.uuid, kwargs=task_kwargs)
+        # Delete the related mac addresses.
+        self.macaddress_set.all().delete()
+
         super(Node, self).delete()
 
-    def set_mac_based_hostname(self, mac_address):
-        mac_hostname = mac_address.replace(':', '').lower()
+    def set_random_hostname(self):
+        """Set 5 character `hostname` using non-ambiguous characters.
+
+        Using 5 letters from the set 'abcdefghjkmnpqrtwxy346789' we get
+        9,765,625 combinations (pow(25, 5)).
+
+        Note that having a hostname starting with a number is perfectly
+        valid, see
+        http://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_host_names
+        """
         domain = Config.objects.get_config("enlistment_domain")
         domain = domain.strip("." + whitespace)
-        if len(domain) > 0:
-            self.hostname = "node-%s.%s" % (mac_hostname, domain)
-        else:
-            self.hostname = "node-%s" % mac_hostname
-        self.save()
+        while True:
+            new_hostname = generate_hostname(5)
+            if len(domain) > 0:
+                self.hostname = "%s.%s" % (new_hostname, domain)
+            else:
+                self.hostname = "%s" % new_hostname
+            try:
+                self.save()
+            except ValidationError:
+                pass
+            else:
+                break
 
     def get_effective_power_type(self):
         """Get power-type to use for this node.
@@ -629,6 +724,26 @@ class Node(CleanSave, TimestampedModel):
             return macs[0]
         else:
             return None
+
+    def get_effective_kernel_options(self):
+        """Determine any special kernel parameters for this node.
+
+        :return: (tag, kernel_options)
+            tag is a Tag object or None. If None, the kernel_options came from
+            the global setting.
+            kernel_options, a string indicating extra kernel_options that
+            should be used when booting this node. May be None if no tags match
+            and no global setting has been configured.
+        """
+        # First, see if there are any tags associated with this node that has a
+        # custom kernel parameter
+        tags = self.tags.filter(kernel_opts__isnull=False)
+        tags = tags.order_by('name')[:1]
+        tag = get_one(tags)
+        if tag is not None:
+            return tag, tag.kernel_opts
+        global_value = Config.objects.get_config('kernel_opts')
+        return None, global_value
 
     @property
     def work_queue(self):
@@ -661,6 +776,9 @@ class Node(CleanSave, TimestampedModel):
         power_params.setdefault('system_id', self.system_id)
         power_params.setdefault('virsh', '/usr/bin/virsh')
         power_params.setdefault('ipmipower', '/usr/sbin/ipmipower')
+        power_params.setdefault(
+            'ipmi_chassis_config', '/usr/sbin/ipmi-chassis-config')
+        power_params.setdefault('ipmi_config', 'ipmi.conf')
         power_params.setdefault('power_address', 'qemu://localhost/system')
         power_params.setdefault('username', '')
         power_params.setdefault('power_id', self.system_id)
@@ -698,4 +816,4 @@ class Node(CleanSave, TimestampedModel):
 
     def set_hardware_details(self, xmlbytes):
         """Set the `lshw -xml` output"""
-        update_hardware_details(self, xmlbytes)
+        update_hardware_details(self, xmlbytes, Tag.objects)

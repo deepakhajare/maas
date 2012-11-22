@@ -16,10 +16,7 @@ import json
 
 from django import forms
 from django.contrib.auth.models import User
-from django.core.exceptions import (
-    PermissionDenied,
-    ValidationError,
-    )
+from django.core.exceptions import PermissionDenied
 from django.http import QueryDict
 from maasserver.enum import (
     ARCHITECTURE,
@@ -37,25 +34,25 @@ from maasserver.forms import (
     get_action_form,
     get_node_create_form,
     get_node_edit_form,
-    HostnameFormField,
     initialize_node_group,
     INTERFACES_VALIDATION_ERROR_MESSAGE,
     MACAddressForm,
     NewUserCreationForm,
     NodeActionForm,
     NodeForm,
+    NodeGroupEdit,
     NodeGroupInterfaceForm,
     NodeGroupWithInterfacesForm,
     NodeWithMACAddressesForm,
     ProfileForm,
     remove_None_values,
-    validate_hostname,
     )
 from maasserver.models import (
     Config,
     MACAddress,
     Node,
     NodeGroup,
+    NodeGroupInterface,
     )
 from maasserver.models.config import DEFAULT_CONFIG
 from maasserver.node_action import (
@@ -65,8 +62,13 @@ from maasserver.node_action import (
 from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from netaddr import IPNetwork
 from provisioningserver.enum import POWER_TYPE_CHOICES
-from testtools.matchers import MatchesStructure
+from testtools.matchers import (
+    AllMatch,
+    Equals,
+    MatchesStructure,
+    )
 from testtools.testcase import ExpectedException
 
 
@@ -106,14 +108,17 @@ class NodeWithMACAddressesFormTest(TestCase):
         return query_dict
 
     def make_params(self, mac_addresses=None, architecture=None,
-                    nodegroup=None):
+                    hostname=None, nodegroup=None):
         if mac_addresses is None:
             mac_addresses = [factory.getRandomMACAddress()]
         if architecture is None:
             architecture = factory.getRandomEnum(ARCHITECTURE)
+        if hostname is None:
+            hostname = factory.make_name('hostname')
         params = {
             'mac_addresses': mac_addresses,
             'architecture': architecture,
+            'hostname': hostname,
         }
         if nodegroup is not None:
             params['nodegroup'] = nodegroup
@@ -195,8 +200,8 @@ class NodeWithMACAddressesFormTest(TestCase):
 
     def test_sets_nodegroup_on_new_node_if_requested(self):
         nodegroup = factory.make_node_group(
-            ip_range_low='192.168.14.2', ip_range_high='192.168.14.254',
-            ip='192.168.14.1', subnet_mask='255.255.255.0')
+            network=IPNetwork("192.168.14.0/24"), ip_range_low='192.168.14.2',
+            ip_range_high='192.168.14.254', ip='192.168.14.1')
         form = NodeWithMACAddressesForm(
             self.make_params(nodegroup=nodegroup.get_managed_interface().ip))
         self.assertEqual(nodegroup, form.save().nodegroup)
@@ -206,13 +211,23 @@ class NodeWithMACAddressesFormTest(TestCase):
         # nodes.  You can't change it later.
         original_nodegroup = factory.make_node_group()
         node = factory.make_node(nodegroup=original_nodegroup)
-        factory.make_node_group(
-            ip_range_low='10.0.0.1', ip_range_high='10.0.0.2',
-            ip='10.0.0.1', subnet_mask='255.0.0.0')
+        factory.make_node_group(network=IPNetwork("192.168.1.0/24"))
         form = NodeWithMACAddressesForm(
-            self.make_params(nodegroup='10.0.0.1'), instance=node)
+            self.make_params(nodegroup='192.168.1.0'), instance=node)
         form.save()
         self.assertEqual(original_nodegroup, reload_object(node).nodegroup)
+
+    def test_form_without_hostname_generates_hostname(self):
+        form = NodeWithMACAddressesForm(self.make_params(hostname=''))
+        node = form.save()
+        self.assertTrue(len(node.hostname) > 0)
+
+    def test_form_with_ip_based_hostname_generates_hostname(self):
+        ip_based_hostname = '192-168-12-10.domain'
+        form = NodeWithMACAddressesForm(
+            self.make_params(hostname=ip_based_hostname))
+        node = form.save()
+        self.assertNotEqual(ip_based_hostname, node.hostname)
 
 
 class TestOptionForm(ConfigForm):
@@ -256,10 +271,6 @@ class ConfigFormTest(TestCase):
 
         self.assertItemsEqual(['field1'], form.initial)
         self.assertEqual(value, form.initial['field1'])
-
-
-class FormWithHostname(forms.Form):
-    hostname = HostnameFormField()
 
 
 class NodeEditForms(TestCase):
@@ -330,6 +341,36 @@ class NodeEditForms(TestCase):
         self.assertEqual(
             after_commissioning_action, node.after_commissioning_action)
         self.assertEqual(power_type, node.power_type)
+
+    def test_AdminNodeForm_refuses_to_update_hostname_on_allocated_node(self):
+        old_name = factory.make_name('old-hostname')
+        new_name = factory.make_name('new-hostname')
+        node = factory.make_node(
+            hostname=old_name, status=NODE_STATUS.ALLOCATED)
+        form = AdminNodeForm(
+            data={
+                'hostname': new_name,
+                'architecture': node.architecture,
+                },
+            instance=node)
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            ["Can't change hostname to %s: node is in use." % new_name],
+            form._errors['hostname'])
+
+    def test_AdminNodeForm_accepts_unchanged_hostname_on_allocated_node(self):
+        old_name = factory.make_name('old-hostname')
+        node = factory.make_node(
+            hostname=old_name, status=NODE_STATUS.ALLOCATED)
+        form = AdminNodeForm(
+            data={
+                'hostname': old_name,
+                'architecture': node.architecture,
+            },
+            instance=node)
+        self.assertTrue(form.is_valid(), form._errors)
+        form.save()
+        self.assertEqual(old_name, reload_object(node).hostname)
 
     def test_remove_None_values_removes_None_values_in_dict(self):
         random_input = factory.getRandomString()
@@ -461,36 +502,6 @@ class TestNodeActionForm(TestCase):
             node, {NodeActionForm.input_name: Delete.display})
         with ExpectedException(PermissionDenied, "You cannot delete.*"):
             form.save()
-
-
-class TestHostnameFormField(TestCase):
-
-    def test_validate_hostname_validates_valid_hostnames(self):
-        self.assertIsNone(validate_hostname('host.example.com'))
-        self.assertIsNone(validate_hostname('host.my-example.com'))
-        self.assertIsNone(validate_hostname('my-example.com'))
-        #  No ValidationError.
-
-    def test_validate_hostname_does_not_validate_invalid_hostnames(self):
-        self.assertRaises(ValidationError, validate_hostname, 'invalid-host')
-
-    def test_validate_hostname_does_not_validate_too_long_hostnames(self):
-        self.assertRaises(ValidationError, validate_hostname, 'toolong' * 100)
-
-    def test_hostname_field_validation_cleaned_data_if_hostname_valid(self):
-        form = FormWithHostname({'hostname': 'host.example.com'})
-
-        self.assertTrue(form.is_valid())
-        self.assertEqual('host.example.com', form.cleaned_data['hostname'])
-
-    def test_hostname_field_validation_error_if_invalid_hostname(self):
-        form = FormWithHostname({'hostname': 'invalid-host'})
-
-        self.assertFalse(form.is_valid())
-        self.assertItemsEqual(['hostname'], list(form.errors))
-        self.assertEqual(
-            ["Enter a valid hostname (e.g. host.example.com)."],
-            form.errors['hostname'])
 
 
 class TestUniqueEmailForms(TestCase):
@@ -626,16 +637,22 @@ class TestMACAddressForm(TestCase):
 
 def make_interface_settings():
     """Create a dict of arbitrary interface configuration parameters."""
+    network = factory.getRandomNetwork()
     return {
-        'ip': factory.getRandomIPAddress(),
+        'ip': factory.getRandomIPInNetwork(network),
         'interface': factory.make_name('interface'),
-        'subnet_mask': factory.getRandomIPAddress(),
-        'broadcast_ip': factory.getRandomIPAddress(),
-        'router_ip': factory.getRandomIPAddress(),
-        'ip_range_low': factory.getRandomIPAddress(),
-        'ip_range_high': factory.getRandomIPAddress(),
+        'subnet_mask': str(network.netmask),
+        'broadcast_ip': str(network.broadcast),
+        'router_ip': factory.getRandomIPInNetwork(network),
+        'ip_range_low': factory.getRandomIPInNetwork(network),
+        'ip_range_high': factory.getRandomIPInNetwork(network),
         'management': factory.getRandomEnum(NODEGROUPINTERFACE_MANAGEMENT),
     }
+
+
+nullable_fields = [
+    'subnet_mask', 'broadcast_ip', 'router_ip', 'ip_range_low',
+    'ip_range_high']
 
 
 class TestNodeGroupInterfaceForm(TestCase):
@@ -652,12 +669,24 @@ class TestNodeGroupInterfaceForm(TestCase):
         form = NodeGroupInterfaceForm(data={'ip': factory.getRandomString()})
         self.assertFalse(form.is_valid())
         self.assertEquals(
-            {'ip': ['Enter a valid IPv4 address.']}, form._errors)
+            {'ip': ['Enter a valid IPv4 or IPv6 address.']}, form._errors)
+
+    def test_NodeGroupInterfaceForm_can_save_fields_being_None(self):
+        settings = make_interface_settings()
+        settings['management'] = NODEGROUPINTERFACE_MANAGEMENT.UNMANAGED
+        for field_name in nullable_fields:
+            del settings[field_name]
+        form = NodeGroupInterfaceForm(data=settings)
+        nodegroup = factory.make_node_group()
+        interface = form.save(nodegroup=nodegroup)
+        field_values = [
+            getattr(interface, field_name) for field_name in nullable_fields]
+        self.assertThat(field_values, AllMatch(Equals('')))
 
 
 class TestNodeGroupWithInterfacesForm(TestCase):
 
-    def test_NodeGroupWithInterfacesForm_creates_pending_nodegroup(self):
+    def test_creates_pending_nodegroup(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         form = NodeGroupWithInterfacesForm(
@@ -673,7 +702,17 @@ class TestNodeGroupWithInterfacesForm(TestCase):
                 nodegroup.nodegroupinterface_set.count(),
             ))
 
-    def test_NodeGroupWithInterfacesForm_validates_parameters(self):
+    def test_creates_nodegroup_with_status(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'name': name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertEqual(NODEGROUP_STATUS.ACCEPTED, nodegroup.status)
+
+    def test_validates_parameters(self):
         name = factory.make_name('name')
         too_long_uuid = 'test' * 30
         form = NodeGroupWithInterfacesForm(
@@ -684,7 +723,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
                 ['Ensure this value has at most 36 characters (it has 120).']},
             form._errors)
 
-    def test_NodeGroupWithInterfacesForm_rejects_invalid_json_interfaces(self):
+    def test_rejects_invalid_json_interfaces(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         invalid_interfaces = factory.make_name('invalid_json_interfaces')
@@ -696,7 +735,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             {'interfaces': ['Invalid json value.']},
             form._errors)
 
-    def test_NodeGroupWithInterfacesForm_rejects_invalid_list_interfaces(self):
+    def test_rejects_invalid_list_interfaces(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         invalid_interfaces = json.dumps('invalid interface list')
@@ -708,7 +747,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             {'interfaces': [INTERFACES_VALIDATION_ERROR_MESSAGE]},
             form._errors)
 
-    def test_NodeGroupWithInterfacesForm_rejects_invalid_interface(self):
+    def test_rejects_invalid_interface(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interface = make_interface_settings()
@@ -719,9 +758,10 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid, 'interfaces': interfaces})
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "Enter a valid IPv4 address", form._errors['interfaces'][0])
+            "Enter a valid IPv4 or IPv6 address",
+            form._errors['interfaces'][0])
 
-    def test_NodeGroupWithInterfacesForm_creates_interface_from_params(self):
+    def test_creates_interface_from_params(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interface = make_interface_settings()
@@ -735,7 +775,7 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             nodegroup.nodegroupinterface_set.all()[0],
             MatchesStructure.byEquality(**interface))
 
-    def test_form_checks_presence_of_other_managed_interfaces(self):
+    def test_checks_presence_of_other_managed_interfaces(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interfaces = []
@@ -750,10 +790,10 @@ class TestNodeGroupWithInterfacesForm(TestCase):
             data={'name': name, 'uuid': uuid, 'interfaces': interfaces})
         self.assertFalse(form.is_valid())
         self.assertIn(
-            "Only one managed interface can be configured for this nodegroup",
+            "Only one managed interface can be configured for this cluster",
             form._errors['interfaces'][0])
 
-    def test_NodeGroupWithInterfacesForm_creates_multiple_interfaces(self):
+    def test_creates_multiple_interfaces(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interface1 = make_interface_settings()
@@ -768,7 +808,27 @@ class TestNodeGroupWithInterfacesForm(TestCase):
         nodegroup = NodeGroup.objects.get(uuid=uuid)
         self.assertEqual(2,  nodegroup.nodegroupinterface_set.count())
 
-    def test_NodeGroupWithInterfacesForm_creates_unmanaged_interfaces(self):
+    def test_populates_cluster_name_default(self):
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'name': name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertIn(uuid, nodegroup.cluster_name)
+
+    def test_populates_cluster_name(self):
+        cluster_name = factory.make_name('cluster_name')
+        uuid = factory.getRandomUUID()
+        form = NodeGroupWithInterfacesForm(
+            status=NODEGROUP_STATUS.ACCEPTED,
+            data={'cluster_name': cluster_name, 'uuid': uuid})
+        self.assertTrue(form.is_valid(), form._errors)
+        nodegroup = form.save()
+        self.assertEqual(cluster_name, nodegroup.cluster_name)
+
+    def test_creates_unmanaged_interfaces(self):
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
         interface = make_interface_settings()
@@ -785,3 +845,110 @@ class TestNodeGroupWithInterfacesForm(TestCase):
                 nodegroup.management for nodegroup in
                 nodegroup.nodegroupinterface_set.all()
             ])
+
+
+def make_unrenamable_nodegroup_with_node():
+    """Create a `NodeGroup` that can't be renamed, and `Node`.
+
+    Node groups can't be renamed while they are in an accepted state, have
+    DHCP and DNS management enabled, and have a node that is in allocated
+    state.
+
+    :return: tuple: (`NodeGroup`, `Node`).
+    """
+    name = factory.make_name('original-name')
+    nodegroup = factory.make_node_group(
+        name=name, status=NODEGROUP_STATUS.ACCEPTED)
+    interface = nodegroup.get_managed_interface()
+    interface.management = NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS
+    interface.save()
+    node = factory.make_node(nodegroup=nodegroup, status=NODE_STATUS.ALLOCATED)
+    return nodegroup, node
+
+
+class TestNodeGroupEdit(TestCase):
+
+    def make_form_data(self, nodegroup):
+        """Create `NodeGroupEdit` form data based on `nodegroup`."""
+        return {
+            'name': nodegroup.name,
+            'cluster_name': nodegroup.cluster_name,
+            'status': nodegroup.status,
+        }
+
+    def test_changes_name(self):
+        nodegroup = factory.make_node_group(name=factory.make_name('old-name'))
+        new_name = factory.make_name('new-name')
+        data = self.make_form_data(nodegroup)
+        data['name'] = new_name
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(new_name, reload_object(nodegroup).name)
+
+    def test_refuses_name_change_if_dns_managed_and_nodes_in_use(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        data = self.make_form_data(nodegroup)
+        data['name'] = factory.make_name('new-name')
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertFalse(form.is_valid())
+
+    def test_accepts_unchanged_name(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        original_name = nodegroup.name
+        form = NodeGroupEdit(
+            instance=nodegroup, data=self.make_form_data(nodegroup))
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(original_name, reload_object(nodegroup).name)
+
+    def test_accepts_omitted_name(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        original_name = nodegroup.name
+        data = self.make_form_data(nodegroup)
+        del data['name']
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(original_name, reload_object(nodegroup).name)
+
+    def test_accepts_name_change_if_nodegroup_not_accepted(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        nodegroup.status = NODEGROUP_STATUS.PENDING
+        data = self.make_form_data(nodegroup)
+        data['name'] = factory.make_name('new-name')
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+
+    def test_accepts_name_change_if_dns_managed_but_no_nodes_in_use(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        node.status = NODE_STATUS.READY
+        node.save()
+        data = self.make_form_data(nodegroup)
+        data['name'] = factory.make_name('new-name')
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(data['name'], reload_object(nodegroup).name)
+
+    def test_accepts_name_change_if_nodes_in_use_but_dns_not_managed(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        interface = nodegroup.get_managed_interface()
+        interface.management = NODEGROUPINTERFACE_MANAGEMENT.DHCP
+        interface.save()
+        data = self.make_form_data(nodegroup)
+        data['name'] = factory.make_name('new-name')
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(data['name'], reload_object(nodegroup).name)
+
+    def test_accepts_name_change_if_nodegroup_has_no_interface(self):
+        nodegroup, node = make_unrenamable_nodegroup_with_node()
+        NodeGroupInterface.objects.filter(nodegroup=nodegroup).delete()
+        data = self.make_form_data(nodegroup)
+        data['name'] = factory.make_name('new-name')
+        form = NodeGroupEdit(instance=nodegroup, data=data)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.assertEqual(data['name'], reload_object(nodegroup).name)

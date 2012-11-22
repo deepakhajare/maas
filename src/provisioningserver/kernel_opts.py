@@ -37,6 +37,8 @@ KernelParametersBase = namedtuple(
         "preseed_url",  # URL from which a preseed can be obtained.
         "log_host",  # Host/IP to which syslog can be streamed.
         "fs_host",  # Host/IP on which ephemeral filesystems are hosted.
+        "extra_opts",  # String of extra options to supply, will be appended
+                       # verbatim to the kernel command line
         ))
 
 
@@ -107,6 +109,19 @@ def get_ephemeral_name(release, arch):
     return name
 
 
+def compose_hostname_opts(params):
+    """Return list of hostname/domain options based on `params`.
+
+    The domain is omitted if `params` does not include it.
+    """
+    options = [
+        'hostname=%s' % params.hostname,
+        ]
+    if params.domain is not None:
+        options.append('domain=%s' % params.domain)
+    return options
+
+
 def compose_purpose_opts(params):
     """Return the list of the purpose-specific kernel options."""
     if params.purpose == "commissioning":
@@ -119,13 +134,9 @@ def compose_purpose_opts(params):
             "iscsi_target_ip=%s" % params.fs_host,
             "iscsi_target_port=3260",
             "iscsi_initiator=%s" % params.hostname,
-            ## TODO(smoser): remove hostname after an ephemeral image is
-            ## released with cloud-initramfs-dyn-netconf. see LP: #1046405 for
-            ## more info. instead use the updated 'ip=' line below.
-            "hostname=%s" % params.hostname,
-            # Read by klibc 'ipconfig' in initramfs.
-            "ip=dhcp",  # TODO(smoser) remove this
-            # "ip=::::%s:BOOTIF" % params.hostname, # TODO(smoser) use this
+            # Read by cloud-initramfs-dyn-netconf and klibc's ipconfig
+            # in the initramfs.
+            "ip=::::%s:BOOTIF" % params.hostname,
             # cloud-images have this filesystem label.
             "ro root=LABEL=cloudimg-rootfs",
             # Read by overlayroot package.
@@ -137,13 +148,11 @@ def compose_purpose_opts(params):
         # These are options used by the Debian Installer.
         return [
             "netcfg/choose_interface=auto",
-            "hostname=%s" % params.hostname,
-            "domain=%s" % params.domain,
             # Use the text installer, display only critical messages.
             "text priority=critical",
             compose_preseed_opt(params.preseed_url),
             compose_locale_opt(),
-            ]
+            ] + compose_hostname_opts(params)
 
 
 def compose_arch_opts(params):
@@ -151,8 +160,8 @@ def compose_arch_opts(params):
     if (params.arch, params.subarch) == ("armhf", "highbank"):
         return ["console=ttyAMA0"]
     else:
-        # On Intel send kernel output to both console and ttyS0.
-        return ["console=tty1", "console=ttyS0"]
+        # On Intel there are no working sane console= defaults (LP: #1061977)
+        return []
 
 
 def compose_kernel_command_line(params):
@@ -169,4 +178,6 @@ def compose_kernel_command_line(params):
     #       as it would be nice to have.
     options += compose_logging_opts(params.log_host)
     options += compose_arch_opts(params)
+    if params.extra_opts:
+        options.append(params.extra_opts)
     return ' '.join(options)

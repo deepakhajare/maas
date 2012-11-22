@@ -15,10 +15,12 @@ __all__ = [
     'run',
     ]
 
+from grp import getgrnam
 import httplib
 import json
+from logging import getLogger
 import os
-from subprocess import Popen
+from pwd import getpwnam
 from time import sleep
 from urllib2 import (
     HTTPError,
@@ -30,8 +32,10 @@ from apiclient.maas_client import (
     MAASDispatcher,
     NoAuth,
     )
-from provisioningserver.logging import task_logger
 from provisioningserver.network import discover_networks
+
+
+logger = getLogger(__name__)
 
 
 class ClusterControllerRejected(Exception):
@@ -42,10 +46,16 @@ def add_arguments(parser):
     """For use by :class:`MainScript`."""
     parser.add_argument(
         'server_url', metavar='URL', help="URL to the MAAS region controller.")
+    parser.add_argument(
+        '--user', '-u', metavar='USER', default='maas',
+        help="System user identity that should run the cluster controller.")
+    parser.add_argument(
+        '--group', '-g', metavar='GROUP', default='maas',
+        help="System group that should run the cluster controller.")
 
 
 def log_error(exception):
-    task_logger.info(
+    logger.info(
         "Could not register with region controller: %s."
         % exception.reason)
 
@@ -55,14 +65,21 @@ def make_anonymous_api_client(server_url):
     return MAASClient(NoAuth(), MAASDispatcher(), server_url)
 
 
-def register(server_url, uuid):
+def get_cluster_uuid():
+    """Read this cluster's UUID from the config."""
+    # Import this lazily.  It reads config as a side effect, which can
+    # produce warnings.
+    from celery.app import app_or_default
+    return app_or_default().conf.CLUSTER_UUID
+
+
+def register(server_url):
     """Request Rabbit connection details from the domain controller.
 
     Offers this machine to the region controller as a potential cluster
     controller.
 
     :param server_url: URL to the region controller's MAAS API.
-    :param uuid: UUID for this cluster controller.
     :return: A dict of connection details if this cluster controller has been
         accepted, or `None` if there is no definite response yet.  If there
         is no definite response, retry this call later.
@@ -73,11 +90,11 @@ def register(server_url, uuid):
 
     interfaces = json.dumps(discover_networks())
     client = make_anonymous_api_client(server_url)
+    cluster_uuid = get_cluster_uuid()
     try:
-        # XXX JeroenVermeulen 2012-09-27, bug=1055523: Pass uuid=uuid.
         response = client.post(
             'api/1.0/nodegroups/', 'register',
-            interfaces=interfaces)
+            interfaces=interfaces, uuid=cluster_uuid)
     except HTTPError as e:
         status_code = e.code
         if e.code not in known_responses:
@@ -105,30 +122,21 @@ def register(server_url, uuid):
         raise AssertionError("Unexpected return code: %r" % status_code)
 
 
-def start_celery(connection_details):
+def start_celery(connection_details, user, group):
     broker_url = connection_details['BROKER_URL']
-
-    # XXX JeroenVermeulen 2012-09-24, bug=1055523: Fill in proper
-    # cluster-specific queue name once we have those (based on cluster
-    # uuid).
-    queue = 'celery'
+    uid = getpwnam(user).pw_uid
+    gid = getgrnam(group).gr_gid
 
     # Copy environment, but also tell celeryd what broker to listen to.
     env = dict(os.environ, CELERY_BROKER_URL=broker_url)
+    command = 'celeryd', '--beat', '--queues', get_cluster_uuid()
 
-    queues = [
-        'common',
-        'update_dhcp_queue',
-        queue,
-        ]
-    command = [
-        'celeryd',
-        '--logfile=/var/log/maas/celery.log',
-        '--loglevel=INFO',
-        '--beat',
-        '-Q', ','.join(queues),
-        ]
-    Popen(command, env=env)
+    # Change gid first, just in case changing the uid might deprive
+    # us of the privileges required to setgid.
+    os.setgid(gid)
+    os.setuid(uid)
+
+    os.execvpe(command[0], command, env=env)
 
 
 def request_refresh(server_url):
@@ -136,20 +144,33 @@ def request_refresh(server_url):
     try:
         client.post('api/1.0/nodegroups/', 'refresh_workers')
     except URLError as e:
-        task_logger.warn(
+        logger.warn(
             "Could not request secrets from region controller: %s"
             % e.reason)
 
 
-def start_up(server_url, connection_details):
+def start_up(server_url, connection_details, user, group):
     """We've been accepted as a cluster controller; start doing the job.
 
     This starts up celeryd, listening to the broker that the region
     controller pointed us to, and on the appropriate queue.
     """
-    start_celery(connection_details)
-    sleep(10)
+    # Get the region controller to send out credentials.  If it arrives
+    # before celeryd has started up, we should find the message waiting
+    # in our queue.  Even if we're new and the queue did not exist yet,
+    # the arriving task will create the queue.
     request_refresh(server_url)
+    start_celery(connection_details, user=user, group=group)
+
+
+def set_up_logging():
+    """Set up logging."""
+    # This import has side effects (it imports celeryconfig) and may
+    # produce warnings (if there is no celeryconfig).
+    # Postpone the import so that we don't go through that every time
+    # anything imports this module.
+    from celery.log import setup_logging_subsystem
+    setup_logging_subsystem()
 
 
 def run(args):
@@ -158,10 +179,10 @@ def run(args):
     If this system is still awaiting approval as a cluster controller, this
     command will keep looping until it gets a definite answer.
     """
-    # XXX JeroenVermeulen 2012-09-27, bug=1055523: Get uuid.
-    uuid = None
-    connection_details = register(args.server_url, uuid)
+    set_up_logging()
+    connection_details = register(args.server_url)
     while connection_details is None:
         sleep(60)
         connection_details = register(args.server_url)
-    start_up(args.server_url, connection_details)
+    start_up(
+        args.server_url, connection_details, user=args.user, group=args.group)

@@ -7,6 +7,8 @@ distro-info
 dnsutils
 freeipmi-tools
 isc-dhcp-common
+libjs-yui3-min
+libjs-raphael
 libpq-dev
 postgresql-9.1
 python-amqplib
@@ -23,6 +25,7 @@ python-formencode
 python-httplib2
 python-lockfile
 python-netaddr
+python-netifaces
 python-oauth
 python-oops
 python-oops-amqp

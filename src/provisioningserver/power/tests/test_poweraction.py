@@ -18,6 +18,7 @@ import re
 
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
+from mock import Mock
 from provisioningserver.enum import POWER_TYPE
 import provisioningserver.power.poweraction
 from provisioningserver.power.poweraction import (
@@ -38,7 +39,8 @@ class TestPowerAction(TestCase):
     def configure_templates_dir(self, path=None):
         """Configure POWER_TEMPLATES_DIR to `path`."""
         self.patch(
-            provisioningserver.power.poweraction, 'POWER_TEMPLATES_DIR', path)
+            provisioningserver.power.poweraction, 'get_power_templates_dir',
+            Mock(return_value=path))
 
     def test_init_raises_for_unknown_powertype(self):
         powertype = factory.make_name("powertype", sep='')
@@ -162,6 +164,31 @@ class TestPowerAction(TestCase):
         script = action.render_template(
             action.get_template(), power_change='on',
             power_address='mystystem', power_user='me', power_pass='me',
-            ipmipower='echo')
+            ipmipower='echo', ipmi_chassis_config='echo', config_dir='dir',
+            ipmi_config='file.conf')
         stdout, stderr = action.run_shell(script)
         self.assertIn("Got unknown power state from ipmipower", stderr)
+
+    def configure_power_config_dir(self, path=None):
+        """Configure POWER_CONFIG_DIR to `path`."""
+        self.patch(
+            provisioningserver.power.poweraction, 'get_power_config_dir',
+            Mock(return_value=path))
+
+    def test_config_basedir_defaults_to_local_dir(self):
+        self.configure_power_config_dir()
+        self.assertEqual(
+            os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), 'config'),
+            PowerAction(POWER_TYPE.WAKE_ON_LAN).config_basedir)
+
+    def test_ipmi_script_includes_config_dir(self):
+        conf_dir = factory.make_name('power_confi_dir')
+        self.configure_power_config_dir(conf_dir)
+        action = PowerAction(POWER_TYPE.IPMI)
+        script = action.render_template(
+            action.get_template(), power_change='on',
+            power_address='mystystem', power_user='me', power_pass='me',
+            ipmipower='echo', ipmi_chassis_config='echo', config_dir='dir',
+            ipmi_config='file.conf')
+        self.assertIn(conf_dir, script)

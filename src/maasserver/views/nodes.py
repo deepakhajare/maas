@@ -35,7 +35,6 @@ from django.utils.safestring import mark_safe
 from django.views.generic import (
     CreateView,
     DetailView,
-    ListView,
     UpdateView,
     )
 from maasserver.enum import (
@@ -43,8 +42,10 @@ from maasserver.enum import (
     NODE_STATUS,
     )
 from maasserver.exceptions import (
+    InvalidConstraint,
     MAASAPIException,
     NoRabbit,
+    NoSuchConstraint,
     )
 from maasserver.forms import (
     get_action_form,
@@ -55,12 +56,18 @@ from maasserver.messages import messaging
 from maasserver.models import (
     MACAddress,
     Node,
+    Tag,
     )
+from maasserver.models.node import CONSTRAINTS_JUJU_MAP
+from maasserver.models.node_constraint_filter import constrain_nodes
 from maasserver.preseed import (
     get_enlist_preseed,
     get_preseed,
     )
-from maasserver.views import HelpfulDeleteView
+from maasserver.views import (
+    HelpfulDeleteView,
+    PaginatedListView,
+    )
 
 
 def get_longpoll_context():
@@ -78,19 +85,95 @@ def get_longpoll_context():
         return {}
 
 
-class NodeListView(ListView):
+def _parse_constraints(query_string):
+    """Turn query string from user into constraints dict
+
+    This is basically the same as the juju constraints, but will differ
+    somewhat in error handling. For instance, juju might reject a negative
+    cpu constraint whereas this lets it through to return zero results.
+    """
+    constraints = {}
+    for word in query_string.strip().split():
+        parts = word.split("=", 1)
+        if parts[0] not in CONSTRAINTS_JUJU_MAP:
+            raise NoSuchConstraint(parts[0])
+        if len(parts) != 2:
+            raise InvalidConstraint(parts[0], "", "No constraint value given")
+        if parts[1] and parts[1] != "any":
+            constraints[CONSTRAINTS_JUJU_MAP[parts[0]]] = parts[1]
+    return constraints
+
+
+class NodeListView(PaginatedListView):
 
     context_object_name = "node_list"
 
+    def get(self, request, *args, **kwargs):
+        self.query = request.GET.get("query")
+        self.query_error = None
+        self.sort_by = request.GET.get("sort")
+        self.sort_dir = request.GET.get("dir")
+
+        return super(NodeListView, self).get(request, *args, **kwargs)
+
     def get_queryset(self):
-        # Return node list sorted, newest first.
-        return Node.objects.get_nodes(
-            user=self.request.user,
-            perm=NODE_PERMISSION.VIEW).order_by('-created')
+        # Default sort - newest first, unless sorting params are
+        # present. In addition, to ensure order consistency, when
+        # sorting by non-unique fields (like status), we always
+        # sort by the unique creation date as well
+        if self.sort_by is not None:
+            prefix = '-' if self.sort_dir == 'desc' else ''
+            order_by = (prefix + self.sort_by, '-created')
+        else:
+            order_by = ('-created', )
+
+        # Return the sorted node list.
+        nodes = Node.objects.get_nodes(
+            user=self.request.user, prefetch_mac=True,
+            perm=NODE_PERMISSION.VIEW,).order_by(*order_by)
+        if self.query:
+            try:
+                return constrain_nodes(nodes, _parse_constraints(self.query))
+            except InvalidConstraint as e:
+                self.query_error = e
+                return Node.objects.none()
+        nodes = nodes.prefetch_related('nodegroup')
+        nodes = nodes.prefetch_related('nodegroup__nodegroupinterface_set')
+        return nodes
+
+    def _prepare_sort_links(self):
+        """Returns 2 dicts, with sort fields as keys and
+        links and CSS classes for the that field.
+        """
+
+        fields = ('hostname', 'status')
+        # Build relative URLs for the links, just with the params
+        links = {field: '?' for field in fields}
+        classes = {field: 'sort-none' for field in fields}
+
+        params = self.request.GET.copy()
+        reverse_dir = 'asc' if self.sort_dir == 'desc' else 'desc'
+
+        for field in fields:
+            params['sort'] = field
+            if field == self.sort_by:
+                params['dir'] = reverse_dir
+                classes[field] = 'sort-%s' % self.sort_dir
+            else:
+                params['dir'] = 'asc'
+
+            links[field] += params.urlencode()
+
+        return links, classes
 
     def get_context_data(self, **kwargs):
         context = super(NodeListView, self).get_context_data(**kwargs)
         context.update(get_longpoll_context())
+        context["input_query"] = self.query
+        context["input_query_error"] = self.query_error
+        links, classes = self._prepare_sort_links()
+        context["sort_links"] = links
+        context["sort_classes"] = classes
         return context
 
 
@@ -165,6 +248,13 @@ class NodeView(NodeViewMixin, UpdateView):
             node.error if node.status == NODE_STATUS.FAILED_TESTS else None)
         context['status_text'] = (
             node.error if node.status != NODE_STATUS.FAILED_TESTS else None)
+        kernel_opts = node.get_effective_kernel_options()
+        context['kernel_opts'] = {
+            'is_global': kernel_opts[0] is None,
+            'is_tag': isinstance(kernel_opts[0], Tag),
+            'tag': kernel_opts[0],
+            'value': kernel_opts[1]
+            }
         return context
 
     def dispatch(self, *args, **kwargs):

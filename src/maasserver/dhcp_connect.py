@@ -24,14 +24,14 @@ from maasserver.signals import connect_to_field_change
 
 
 @receiver(post_save, sender=NodeGroupInterface)
-def dns_post_save_NodeGroupInterface(sender, instance, created, **kwargs):
+def dhcp_post_save_NodeGroupInterface(sender, instance, created, **kwargs):
     """Update the DHCP config related to the saved nodegroupinterface."""
     # Circular import.
     from maasserver.dhcp import configure_dhcp
     configure_dhcp(instance.nodegroup)
 
 
-def dhcp_post_edit_status_NodeGroup(instance, old_field):
+def dhcp_post_edit_status_NodeGroup(instance, old_field, **kwargs):
     """The status of a NodeGroup changed."""
     # This could be optimized a bit by detecting if the status change is
     # actually a change from 'do not manage DHCP' to 'manage DHCP'.

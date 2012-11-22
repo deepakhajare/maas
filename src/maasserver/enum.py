@@ -13,10 +13,13 @@ __metaclass__ = type
 __all__ = [
     'ARCHITECTURE',
     'ARCHITECTURE_CHOICES',
+    'ARCHITECTURE_CHOICES_DICT',
+    'COMPONENT',
     'NODEGROUP_STATUS',
     'NODEGROUP_STATUS_CHOICES',
     'NODEGROUPINTERFACE_MANAGEMENT',
     'NODEGROUPINTERFACE_MANAGEMENT_CHOICES',
+    'NODEGROUPINTERFACE_MANAGEMENT_CHOICES_DICT',
     'NODE_PERMISSION',
     'NODE_STATUS',
     'NODE_STATUS_CHOICES',
@@ -27,6 +30,12 @@ __all__ = [
     ]
 
 from collections import OrderedDict
+
+
+class COMPONENT:
+    """Major moving parts of the application that may have failure states."""
+    PSERV = 'provisioning server'
+    IMPORT_PXE_FILES = 'maas-import-pxe-files script'
 
 
 class NODE_STATUS:
@@ -104,19 +113,22 @@ NODE_AFTER_COMMISSIONING_ACTION_CHOICES_DICT = dict(
 class ARCHITECTURE:
     """List of supported architectures."""
     #:
-    i386 = 'i386'
+    i386 = 'i386/generic'
     #:
-    amd64 = 'amd64'
+    amd64 = 'amd64/generic'
     #:
-    armhf = 'armhf'
+    armhf_highbank = 'armhf/highbank'
 
 
 # Architecture names.
 ARCHITECTURE_CHOICES = (
     (ARCHITECTURE.i386, "i386"),
     (ARCHITECTURE.amd64, "amd64"),
-    (ARCHITECTURE.armhf, "armhf"),
+    (ARCHITECTURE.armhf_highbank, "armhf/highbank"),
 )
+
+
+ARCHITECTURE_CHOICES_DICT = OrderedDict(ARCHITECTURE_CHOICES)
 
 
 class DISTRO_SERIES:
@@ -190,3 +202,7 @@ NODEGROUPINTERFACE_MANAGEMENT_CHOICES = (
     (NODEGROUPINTERFACE_MANAGEMENT.DHCP, "Manage DHCP"),
     (NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS, "Manage DHCP and DNS"),
     )
+
+
+NODEGROUPINTERFACE_MANAGEMENT_CHOICES_DICT = (
+    OrderedDict(NODEGROUPINTERFACE_MANAGEMENT_CHOICES))

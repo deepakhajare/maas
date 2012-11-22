@@ -12,43 +12,62 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     "describe_handler",
-    "find_api_handlers",
+    "describe_resource",
+    "find_api_resources",
     "generate_api_docs",
     ]
 
 from inspect import getdoc
 from itertools import izip_longest
-from urlparse import urljoin
 
-from django.conf import settings
+from django.core.urlresolvers import (
+    get_resolver,
+    RegexURLPattern,
+    RegexURLResolver,
+    )
+from piston.authentication import NoAuthentication
 from piston.doc import generate_doc
-from piston.handler import HandlerMetaClass
+from piston.handler import BaseHandler
+from piston.resource import Resource
 
 
-def find_api_handlers(module):
-    """Find the API handlers defined in `module`.
+def accumulate_api_resources(resolver, accumulator):
+    """Accumulate handlers from the given resolver.
 
-    Handlers are of type :class:`HandlerMetaClass`.
+    Handlers are of type :class:`HandlerMetaClass`, and must define a
+    `resource_uri` method.
 
     :rtype: Generator, yielding handlers.
     """
-    try:
-        names = module.__all__
-    except AttributeError:
-        names = sorted(
-            name for name in dir(module)
-            if not name.startswith("_"))
-    for name in names:
-        candidate = getattr(module, name)
-        if isinstance(candidate, HandlerMetaClass):
-            yield candidate
+    p_has_resource_uri = lambda resource: (
+        getattr(resource.handler, "resource_uri", None) is not None)
+    for pattern in resolver.url_patterns:
+        if isinstance(pattern, RegexURLResolver):
+            accumulate_api_resources(pattern, accumulator)
+        elif isinstance(pattern, RegexURLPattern):
+            if isinstance(pattern.callback, Resource):
+                resource = pattern.callback
+                if p_has_resource_uri(resource):
+                    accumulator.add(resource)
+        else:
+            raise AssertionError(
+                "Not a recognised pattern or resolver: %r" % (pattern,))
 
 
-def generate_api_docs(handlers):
+def find_api_resources(urlconf=None):
+    """Find the API resources defined in `urlconf`.
+
+    :rtype: :class:`set` of :class:`Resource` instances.
+    """
+    resolver, accumulator = get_resolver(urlconf), set()
+    accumulate_api_resources(resolver, accumulator)
+    return accumulator
+
+
+def generate_api_docs(resources):
     """Generate ReST documentation objects for the ReST API.
 
-    Yields Piston Documentation objects describing the current registered
-    handlers.
+    Yields Piston Documentation objects describing the given resources.
 
     This also ensures that handlers define 'resource_uri' methods. This is
     easily forgotten and essential in order to generate proper documentation.
@@ -56,7 +75,8 @@ def generate_api_docs(handlers):
     :return: Generates :class:`piston.doc.HandlerDocumentation` instances.
     """
     sentinel = object()
-    for handler in handlers:
+    for resource in resources:
+        handler = type(resource.handler)
         if getattr(handler, "resource_uri", sentinel) is sentinel:
             raise AssertionError(
                 "Missing resource_uri in %s" % handler.__name__)
@@ -95,41 +115,31 @@ def describe_actions(handler):
       restful: Indicates if this is a CRUD/ReSTful action.
 
     """
-    from maasserver.api import dispatch_methods  # Avoid circular imports.
-    operation_methods = getattr(handler, "_available_api_methods", {})
-    for http_method in handler.allowed_methods:
-        desc_base = dict(method=http_method)
-        if http_method in operation_methods:
-            # Default Piston CRUD method has been overridden; inspect
-            # custom operations instead.
-            operations = handler._available_api_methods[http_method]
-            for op, func in operations.items():
-                yield dict(
-                    desc_base, name=op, doc=getdoc(func),
-                    op=op, restful=False)
-        else:
-            # Default Piston CRUD method still stands.
-            name = dispatch_methods[http_method]
-            func = getattr(handler, name)
-            yield dict(
-                desc_base, name=name, doc=getdoc(func),
-                op=None, restful=True)
+    from maasserver.api import OperationsResource
+    getname = OperationsResource.crudmap.get
+    for signature, function in handler.exports.items():
+        http_method, operation = signature
+        name = getname(http_method) if operation is None else operation
+        yield dict(
+            method=http_method, name=name, doc=getdoc(function),
+            op=operation, restful=(operation is None))
 
 
 def describe_handler(handler):
     """Return a serialisable description of a handler.
 
-    :type handler: :class:`BaseHandler` instance that has been decorated by
-        `api_operations`.
+    :type handler: :class:`OperationsHandler` or
+        :class:`AnonymousOperationsHandler` instance or subclass.
     """
-    uri_template = generate_doc(handler).resource_uri_template
-    if uri_template is None:
-        uri_template = settings.DEFAULT_MAAS_URL
-    else:
-        uri_template = urljoin(settings.DEFAULT_MAAS_URL, uri_template)
+    # Want the class, not an instance.
+    if isinstance(handler, BaseHandler):
+        handler = type(handler)
 
-    view_name, uri_params, uri_kw = merge(
-        handler.resource_uri(), (None, (), {}))
+    path = generate_doc(handler).resource_uri_template
+    path = "" if path is None else path
+
+    resource_uri = getattr(handler, "resource_uri", lambda: ())
+    view_name, uri_params, uri_kw = merge(resource_uri(), (None, (), {}))
     assert uri_kw == {}, (
         "Resource URI specifications with keyword parameters are not yet "
         "supported: handler=%r; view_name=%r" % (handler, view_name))
@@ -139,5 +149,27 @@ def describe_handler(handler):
         "doc": getdoc(handler),
         "name": handler.__name__,
         "params": uri_params,
-        "uri": uri_template,
+        "path": path,
         }
+
+
+def describe_resource(resource):
+    """Return a serialisable description of a resource.
+
+    :type resource: :class:`OperationsResource` instance.
+    """
+    authenticate = not any(
+        isinstance(auth, NoAuthentication)
+        for auth in resource.authentication)
+    if authenticate:
+        if resource.anonymous is None:
+            anon = None
+            auth = describe_handler(resource.handler)
+        else:
+            anon = describe_handler(resource.anonymous)
+            auth = describe_handler(resource.handler)
+    else:
+        anon = describe_handler(resource.handler)
+        auth = None
+    name = anon["name"] if auth is None else auth["name"]
+    return {"anon": anon, "auth": auth, "name": name}
