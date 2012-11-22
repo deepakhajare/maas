@@ -1982,6 +1982,12 @@ class BootImagesHandler(OperationsHandler):
         return HttpResponse("OK")
 
 
+def get_content_parameter(request):
+    """Get the "content" parameter from a CommissioningScript POST or PUT."""
+    content_file = get_mandatory_param(request.FILES, 'content')
+    return content_file.read()
+
+
 class CommissioningScriptsHandler(OperationsHandler):
     """Handler for the collection of commissioning scripts."""
 
@@ -1996,8 +2002,7 @@ class CommissioningScriptsHandler(OperationsHandler):
     def create(self, request):
         """Create a new commissioning script."""
         name = get_mandatory_param(request.data, 'name')
-        content_file = get_mandatory_param(request.FILES, 'content')
-        content = Bin(content_file.read())
+        content = Bin(get_content_parameter(request))
         return CommissioningScript.objects.create(name=name, content=content)
 
 
@@ -2012,6 +2017,17 @@ class CommissioningScriptHandler(OperationsHandler):
     fields = ('name', 'content')
 
     create = None
+
+    def read(self, request, name):
+        """Read a commissioning script."""
+        return CommissioningScript.objects.get(name=name).content
+
+    def update(self, request, name):
+        """Update a commissioning script."""
+        content = Bin(get_content_parameter(request))
+        script = CommissioningScript.objects.get(name=name)
+        script.content = content
+        script.save()
 
 
 def describe(request):
