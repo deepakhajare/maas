@@ -1996,7 +1996,7 @@ class CommissioningScriptsHandler(OperationsHandler):
     def create(self, request):
         """Create a new commissioning script."""
         name = get_mandatory_param(request.data, 'name')
-        content_file = get_mandatory_param(request.files, 'content')
+        content_file = get_mandatory_param(request.FILES, 'content')
         content = Bin(content_file.read())
         return CommissioningScript.objects.create(name=name, content=content)
 
