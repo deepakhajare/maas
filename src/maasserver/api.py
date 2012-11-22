@@ -170,6 +170,7 @@ from maasserver.utils import (
     strip_domain,
     )
 from maasserver.utils.orm import get_one
+from metadataserver.models import CommissioningScript
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
@@ -1978,6 +1979,31 @@ class BootImagesHandler(OperationsHandler):
             discard_persistent_error(COMPONENT.IMPORT_PXE_FILES)
 
         return HttpResponse("OK")
+
+
+class CommissioningScriptsHandler(OperationsHandler):
+    """Handler for the collection of commissioning scripts."""
+
+    update = delete = None
+
+    def read(self, request):
+        """List commissioning scripts."""
+
+    def create(self, request):
+        """Create a new commissioning script."""
+
+
+class CommissioningScriptHandler(OperationsHandler):
+    """Handler for a `CommissioningScript`.
+
+    Relies heavily on Piston's built-in CRUD implementations: GET, PUT, and
+    DELETE are provided implicitly.
+    """
+
+    model = CommissioningScript
+    fields = ('name', 'content')
+
+    create = None
 
 
 def describe(request):
