@@ -4474,7 +4474,7 @@ class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         name = factory.make_name('script')
         content = factory.getRandomString()
 
-        with open(self.make_file(content=content), 'rb') as content_file:
+        with open(self.make_file(contents=content), 'rb') as content_file:
             response = self.client.post(
                 self.get_url(),
                 {'name': name, 'content': content_file})
@@ -4505,7 +4505,7 @@ class CommissioningScriptsAPITest(APITestCase):
         self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
 
 
-class CommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
+class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
     """Tests for `CommissioningScriptHandler`."""
 
     def get_url(self, script_name):
