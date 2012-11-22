@@ -4496,13 +4496,13 @@ class CommissioningScriptsAPITest(APITestCase):
 
     def test_GET_is_forbidden(self):
         response = self.client.get(self.get_url())
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_POST_is_forbidden(self):
         response = self.client.post(
             self.get_url(),
             {'name': factory.make_name('script')})
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
 class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
@@ -4523,7 +4523,7 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
 
     def test_PUT_updates_contents(self):
         name = factory.make_name('script')
-        old_content = b'old:%s' % factory.getRandomString()
+        old_content = b'old:%s' % factory.getRandomString().encode('ascii')
         factory.make_commissioning_script(name, old_content)
         new_content = b'new:%s' % factory.getRandomString()
 
@@ -4555,20 +4555,20 @@ class CommissioningScriptAPITest(APITestCase):
         name = factory.make_name('script')
         factory.make_commissioning_script(name)
         response = self.client.get(self.get_url(name))
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_PUT_is_forbidden(self):
         name = factory.make_name('script')
         factory.make_commissioning_script(name)
         response = self.client.put(
             self.get_url(name), {'content': factory.getRandomString()})
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_is_forbidden(self):
         name = factory.make_name('script')
         factory.make_commissioning_script(name)
         response = self.client.put(self.get_url(name))
-        self.assertEqual(httplib.UNAUTHORIZED, response.status_code)
+        self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
 class TestDescribe(AnonAPITestCase):
