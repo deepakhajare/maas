@@ -12,23 +12,12 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'AnonymousOperationsHandler',
-    'get_list_from_dict_or_multidict',
-    'get_mandatory_param',
-    'get_optional_list',
-    'get_overrided_query_dict',
     'operation',
     'OperationsHandler',
     ]
 
-from django.core.exceptions import (
-    PermissionDenied,
-    ValidationError,
-    )
-from django.http import (
-    HttpResponseBadRequest,
-    QueryDict,
-    )
-from formencode.validators import Invalid
+from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseBadRequest
 from piston.handler import (
     AnonymousBaseHandler,
     BaseHandler,
@@ -168,80 +157,3 @@ class AnonymousOperationsHandler(
     """Anonymous base handler that supports operation dispatch."""
 
     __metaclass__ = OperationsHandlerType
-
-
-def get_mandatory_param(data, key, validator=None):
-    """Get the parameter from the provided data dict or raise a ValidationError
-    if this parameter is not present.
-
-    :param data: The data dict (usually request.data or request.GET where
-        request is a django.http.HttpRequest).
-    :param data: dict
-    :param key: The parameter's key.
-    :type key: basestring
-    :param validator: An optional validator that will be used to validate the
-         retrieved value.
-    :type validator: formencode.validators.Validator
-    :return: The value of the parameter.
-    :raises: ValidationError
-    """
-    value = data.get(key, None)
-    if value is None:
-        raise ValidationError("No provided %s!" % key)
-    if validator is not None:
-        try:
-            return validator.to_python(value)
-        except Invalid, e:
-            raise ValidationError("Invalid %s: %s" % (key, e.msg))
-    else:
-        return value
-
-
-def get_optional_list(data, key, default=None):
-    """Get the list from the provided data dict or return a default value.
-    """
-    value = data.getlist(key)
-    if value == []:
-        return default
-    else:
-        return value
-
-
-def get_list_from_dict_or_multidict(data, key, default=None):
-    """Get a list from 'data'.
-
-    If data is a MultiDict, then we use 'getlist' if the data is a plain dict,
-    then we just use __getitem__.
-
-    The rationale is that data POSTed as multipart/form-data gets parsed into a
-    MultiDict, but data POSTed as application/json gets parsed into a plain
-    dict(key:list).
-    """
-    getlist = getattr(data, 'getlist', None)
-    if getlist is not None:
-        return getlist(key, default)
-    return data.get(key, default)
-
-
-def get_overrided_query_dict(defaults, data):
-    """Returns a QueryDict with the values of 'defaults' overridden by the
-    values in 'data'.
-
-    :param defaults: The dictionary containing the default values.
-    :type defaults: dict
-    :param data: The data used to override the defaults.
-    :type data: :class:`django.http.QueryDict`
-    :return: The updated QueryDict.
-    :raises: :class:`django.http.QueryDict`
-    """
-    # Create a writable query dict.
-    new_data = QueryDict('').copy()
-    # Missing fields will be taken from the node's current values.  This
-    # is to circumvent Django's ModelForm (form created from a model)
-    # default behaviour that requires all the fields to be defined.
-    new_data.update(defaults)
-    # We can't use update here because data is a QueryDict and 'update'
-    # does not replaces the old values with the new as one would expect.
-    for k, v in data.items():
-        new_data[k] = v
-    return new_data

@@ -107,12 +107,16 @@ from docutils import core
 from formencode import validators
 from maasserver.api_support import (
     AnonymousOperationsHandler,
-    get_list_from_dict_or_multidict,
-    get_mandatory_param,
-    get_optional_list,
-    get_overrided_query_dict,
     operation,
     OperationsHandler,
+    )
+from maasserver.api_utils import (
+    extract_oauth_key,
+    get_list_from_dict_or_multidict,
+    get_mandatory_param,
+    get_oauth_token,
+    get_optional_list,
+    get_overrided_query_dict,
     )
 from maasserver.apidoc import (
     describe_resource,
@@ -172,54 +176,10 @@ from maasserver.utils import (
     strip_domain,
     )
 from maasserver.utils.orm import get_one
-from piston.models import Token
 from piston.utils import rc
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
 import simplejson as json
-
-
-def extract_oauth_key_from_auth_header(auth_data):
-    """Extract the oauth key from auth data in HTTP header.
-
-    :param auth_data: {string} The HTTP Authorization header.
-
-    :return: The oauth key from the header, or None.
-    """
-    for entry in auth_data.split():
-        key_value = entry.split('=', 1)
-        if len(key_value) == 2:
-            key, value = key_value
-            if key == 'oauth_token':
-                return value.rstrip(',').strip('"')
-    return None
-
-
-def extract_oauth_key(request):
-    """Extract the oauth key from a request's headers.
-
-    Raises :class:`Unauthorized` if no key is found.
-    """
-    auth_header = request.META.get('HTTP_AUTHORIZATION')
-    if auth_header is None:
-        raise Unauthorized("No authorization header received.")
-    key = extract_oauth_key_from_auth_header(auth_header)
-    if key is None:
-        raise Unauthorized("Did not find request's oauth token.")
-    return key
-
-
-def get_oauth_token(request):
-    """Get the OAuth :class:`piston.models.Token` used for `request`.
-
-    Raises :class:`Unauthorized` if no key is found, or if the token is
-    unknown.
-    """
-    try:
-        return Token.objects.get(key=extract_oauth_key(request))
-    except Token.DoesNotExist:
-        raise Unauthorized("Unknown OAuth token.")
-
 
 # Node's fields exposed on the API.
 DISPLAYED_NODE_FIELDS = (
