@@ -12,6 +12,8 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
+import os
+
 from apiclient.creds import convert_tuple_to_string
 from apiclient.testing.credentials import make_api_credentials
 from maastesting.factory import factory
@@ -42,3 +44,16 @@ class TestAuth(PservTestCase):
         nodegroup_uuid = factory.make_name('nodegroupuuid')
         auth.record_nodegroup_uuid(nodegroup_uuid)
         self.assertEqual(nodegroup_uuid, auth.get_recorded_nodegroup_uuid())
+
+    def test_record_maas_url_uses_environment_override(self):
+        self.addCleanup(lambda: os.environ.pop("MAAS_URL"))
+        required_url = factory.make_name("MAAS_URL")
+        unwanted_url = factory.make_name("unwanted")
+        os.environ['MAAS_URL'] = required_url
+        auth.record_maas_url(unwanted_url)
+        self.assertEqual(required_url, auth.get_recorded_maas_url())
+
+    def test_record_maas_url_uses_passed_value_if_environ_not_set(self):
+        required_url = factory.make_name("passed-value")
+        auth.record_maas_url(required_url)
+        self.assertEqual(required_url, auth.get_recorded_maas_url())

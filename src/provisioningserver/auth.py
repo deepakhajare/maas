@@ -18,6 +18,8 @@ __all__ = [
     'record_nodegroup_uuid',
     ]
 
+import os
+
 from apiclient.creds import convert_string_to_tuple
 from provisioningserver import cache
 
@@ -33,6 +35,10 @@ NODEGROUP_UUID_CACHE_KEY = 'nodegroup_uuid'
 
 def record_maas_url(maas_url):
     """Record the MAAS server URL as sent by the server."""
+    # If MAAS_URL exists in the environment, use that instead.
+    env_value =  os.environ.get("MAAS_URL")
+    if env_value is not None:
+        maas_url = env_value
     cache.cache.set(MAAS_URL_CACHE_KEY, maas_url)
 
 
