@@ -43,6 +43,7 @@ from maasserver.testing import (
     )
 from maasserver.utils import map_enum
 import maastesting.factory
+from metadataserver.fields import Bin
 from metadataserver.models import (
     CommissioningScript,
     NodeCommissionResult,
@@ -352,7 +353,8 @@ class Factory(maastesting.factory.Factory):
             name = self.make_name('script')
         if content is None:
             content = b'content:' + self.getRandomString().encode('ascii')
-        return CommissioningScript.objects.create(name=name, content=content)
+        return CommissioningScript.objects.create(
+            name=name, content=Bin(content))
 
 
 # Create factory singleton.
