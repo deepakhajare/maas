@@ -395,7 +395,7 @@ fi
 
 updates=0
 for release in $RELEASES; do
-    for arch in `uniq_major_arches $ARCHES`; do
+    for arch in $(uniq_major_arches $ARCHES); do
         query_local "$arch" "$release" "$BUILD_NAME" ||
             fail "failed to query local for $release/$arch"
         query_remote "$arch" "$release" "$BUILD_NAME" ||
@@ -436,7 +436,7 @@ for release in $RELEASES; do
             name="${l_name}"
         fi
 
-        for subarch in `subarches "$arch" $ARCHES`; do
+        for subarch in $(subarches "$arch" $ARCHES); do
                 # Even if there was no need to update the image, we make sure
                 # it gets installed.
                 debug 1 "adding images for $release/$arch/$subarch to maas"
