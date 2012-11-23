@@ -2020,13 +2020,13 @@ class CommissioningScriptHandler(OperationsHandler):
 
     def read(self, request, name):
         """Read a commissioning script."""
-        script = CommissioningScript.objects.get_object_or_404(name=name)
+        script = get_object_or_404(CommissioningScript, name=name)
         return script.content
 
     def update(self, request, name):
         """Update a commissioning script."""
         content = Bin(get_content_parameter(request))
-        script = CommissioningScript.objects.get_object_or_404(name=name)
+        script = get_object_or_404(CommissioningScript, name=name)
         script.content = content
         script.save()
 
