@@ -10,16 +10,4 @@ from __future__ import (
     )
 
 __metaclass__ = type
-__all__ = [
-    "root",
-    ]
-
-from os.path import (
-    abspath,
-    dirname,
-    join,
-    pardir,
-    )
-
-
-root = abspath(join(dirname(__file__), pardir, pardir, pardir, pardir))
+__all__ = []

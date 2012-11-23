@@ -21,10 +21,9 @@ from os.path import (
     splitext,
     )
 
+from maastesting import root
 from maastesting.testcase import TestCase
 from testtools.matchers import FileExists
-
-from . import root
 
 
 class TestFreshness(TestCase):
