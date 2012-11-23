@@ -4511,12 +4511,17 @@ class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         return reverse('commissioning_scripts_handler')
 
     def test_GET_lists_commissioning_scripts(self):
-        scripts = {factory.make_commissioning_script() for counter in range(3)}
+        # Use lower-case names.  The database and the test may use
+        # different collation orders with different ideas about case
+        # sensitivity.
+        names = {factory.make_name('script').lower() for counter in range(5)}
+        for name in names:
+            factory.make_commissioning_script(name=name)
 
         response = self.client.get(self.get_url())
 
         self.assertEqual(
-            (httplib.OK, sorted([script.name for script in scripts])),
+            (httplib.OK, sorted(names)),
             (response.status_code, json.loads(response.content)))
 
     def test_POST_creates_commissioning_script(self):
