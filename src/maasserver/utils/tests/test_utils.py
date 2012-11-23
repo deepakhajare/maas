@@ -81,11 +81,17 @@ class TestEnum(TestCase):
 
 class TestAbsoluteReverse(DjangoTestCase):
 
-    def test_absolute_reverse_uses_DEFAULT_MAAS_URL(self):
+    def test_absolute_reverse_uses_DEFAULT_MAAS_URL_by_default(self):
         maas_url = 'http://%s' % factory.getRandomString()
         self.patch(settings, 'DEFAULT_MAAS_URL', maas_url)
         absolute_url = absolute_reverse('settings')
         expected_url = settings.DEFAULT_MAAS_URL + reverse('settings')
+        self.assertEqual(expected_url, absolute_url)
+
+    def test_absolute_reverse_uses_given_base_url(self):
+        maas_url = 'http://%s' % factory.getRandomString()
+        absolute_url = absolute_reverse('settings', base_url=maas_url)
+        expected_url = maas_url + reverse('settings')
         self.assertEqual(expected_url, absolute_url)
 
     def test_absolute_reverse_uses_query_string(self):
