@@ -4452,6 +4452,17 @@ class TestBootImagesAPI(APITestCase):
             images=ANY, nodegroup=ANY)
 
 
+def make_file_upload(content=None, name=None):
+    """Create a file-like object for uploading as a file in a POST or PUT."""
+    if content is None:
+        content = factory.getRandomString().encode('ascii')
+    if name is None:
+        name = factory.make_name('file')
+    upload = BytesIO(content)
+    upload.name = name
+    return upload
+
+
 class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
     """Tests for `CommissioningScriptsHandler`."""
 
@@ -4459,14 +4470,12 @@ class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         return reverse('commissioning_scripts_handler')
 
     def test_GET_lists_commissioning_scripts(self):
-        names = {factory.make_name('script') for counter in range(3)}
-        for name in names:
-            factory.make_commissioning_script(name)
+        scripts = {factory.make_commissioning_script() for counter in range(3)}
 
         response = self.client.get(self.get_url())
 
         self.assertEqual(
-            (httplib.OK, sorted(names)),
+            (httplib.OK, sorted([script.name for script in scripts])),
             (response.status_code, json.loads(response.content)))
 
     def test_POST_creates_commissioning_script(self):
@@ -4475,10 +4484,11 @@ class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         name = factory.make_name('script')
         content = factory.getRandomString()
 
-        with open(self.make_file(contents=content), 'rb') as content_file:
-            response = self.client.post(
-                self.get_url(),
-                {'name': name, 'content': content_file})
+        # Every uploaded file also has a name.  But this is completely
+        # unrelated to the name we give to the commissioning script.
+        response = self.client.post(
+            self.get_url(),
+            {'name': name, 'content': make_file_upload(content=content)})
         self.assertEqual(httplib.OK, response.status_code)
 
         returned_script = json.loads(response.content)
@@ -4513,38 +4523,33 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         return reverse('commissioning_script_handler', args=[script_name])
 
     def test_GET_returns_script_contents(self):
-        name = factory.make_name('script')
-        content = factory.getRandomString()
-        factory.make_commissioning_script(name, content)
+        script = factory.make_commissioning_script()
 
-        response = self.client.get(self.get_url(name))
+        response = self.client.get(self.get_url(script.name))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(
-            {'name': name, 'content': content},
+            {'name': script.name, 'content': script.content},
             json.loads(response.content))
 
     def test_PUT_updates_contents(self):
-        name = factory.make_name('script')
         old_content = b'old:%s' % factory.getRandomString().encode('ascii')
-        factory.make_commissioning_script(name, old_content)
-        new_content = BytesIO(
-            b'new:%s' % factory.getRandomString().encode('ascii'))
+        script = factory.make_commissioning_script(content=old_content)
+        new_content = b'new:%s' % factory.getRandomString().encode('ascii')
         new_content.name = factory.make_name('file')
 
         response = self.client.put(
-            self.get_url(name), {'content': new_content})
+            self.get_url(script.name),
+            {'content': make_file_upload(content=new_content)})
         self.assertEqual(httplib.OK, response.status_code)
 
-        stored_script = CommissioningScript.objects.get(name=name)
-        self.assertEqual(new_content, stored_script.content)
+        self.assertEqual(new_content, reload_object(script).content)
 
     def test_DELETE_deletes_script(self):
-        name = factory.make_name('script')
-        factory.make_commissioning_script(name)
-        self.client.delete(self.get_url(name))
+        script = factory.make_commissioning_script()
+        self.client.delete(self.get_url(script.name))
         self.assertItemsEqual(
             [],
-            CommissioningScript.objects.filter(name=name))
+            CommissioningScript.objects.filter(name=script.name))
 
 
 class CommissioningScriptAPITest(APITestCase):
@@ -4556,22 +4561,19 @@ class CommissioningScriptAPITest(APITestCase):
         # It's not inconceivable that commissioning scripts contain
         # credentials of some sort.  There is no need for regular users
         # (consumers of the MAAS) to see these.
-        name = factory.make_name('script')
-        factory.make_commissioning_script(name)
-        response = self.client.get(self.get_url(name))
+        script = factory.make_commissioning_script()
+        response = self.client.get(self.get_url(script.name))
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_PUT_is_forbidden(self):
-        name = factory.make_name('script')
-        factory.make_commissioning_script(name)
+        script = factory.make_commissioning_script()
         response = self.client.put(
-            self.get_url(name), {'content': factory.getRandomString()})
+            self.get_url(script.name), {'content': factory.getRandomString()})
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
     def test_DELETE_is_forbidden(self):
-        name = factory.make_name('script')
-        factory.make_commissioning_script(name)
-        response = self.client.put(self.get_url(name))
+        script = factory.make_commissioning_script()
+        response = self.client.put(self.get_url(script.name))
         self.assertEqual(httplib.FORBIDDEN, response.status_code)
 
 
