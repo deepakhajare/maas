@@ -2030,7 +2030,7 @@ class CommissioningScriptHandler(OperationsHandler):
     def read(self, request, name):
         """Read a commissioning script."""
         script = get_object_or_404(CommissioningScript, name=name)
-        return script.content
+        return HttpResponse(script.content, content_type='application/binary')
 
     def update(self, request, name):
         """Update a commissioning script."""
