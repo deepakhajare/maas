@@ -2659,17 +2659,17 @@ class FileStorageAPITest(FileStorageAPITestMixin, APITestCase):
     def test_add_file_can_overwrite_existing_file_of_same_name(self):
         # Write file one.
         response = self.make_API_POST_request(
-            "add", "foo", factory.make_file_upload(content="file one"))
+            "add", "foo", factory.make_file_upload(content=b"file one"))
         self.assertEqual(httplib.CREATED, response.status_code)
 
         # Write file two with the same name but different contents.
         response = self.make_API_POST_request(
-            "add", "foo", factory.make_file_upload(content="file two"))
+            "add", "foo", factory.make_file_upload(content=b"file two"))
         self.assertEqual(httplib.CREATED, response.status_code)
 
         # Retrieve the file and check its contents are the new contents.
         response = self.make_API_GET_request("get", "foo")
-        self.assertEqual("file two", response.content)
+        self.assertEqual(b"file two", response.content)
 
     def test_get_file_succeeds(self):
         factory.make_file_storage(
