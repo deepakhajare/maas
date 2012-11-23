@@ -1800,12 +1800,11 @@ class CommissioningScriptHandler(OperationsHandler):
 
     This functionality is only available to administrators.
     """
-    # Relies heavily on Piston's built-in CRUD implementations: GET,
-    # PUT, and DELETE are provided implicitly.
 
     model = CommissioningScript
     fields = ('name', 'content')
 
+    # Relies on Piston's built-in DELETE implementation.  There is no POST.
     create = None
 
     def read(self, request, name):
