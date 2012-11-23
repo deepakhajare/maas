@@ -14,9 +14,9 @@ __all__ = []
 
 from random import randint
 
-from maasserver.testing import sample_binary_data
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maastesting.utils import sample_binary_data
 from metadataserver.models import CommissioningScript
 
 

@@ -114,11 +114,11 @@ from maasserver.utils import (
     )
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
-from maastesting import sample_binary_data
 from maastesting.celery import CeleryFixture
 from maastesting.djangotestcase import TransactionTestCase
 from maastesting.fakemethod import FakeMethod
 from maastesting.matchers import ContainsAll
+from maastesting.utils import sample_binary_data
 from metadataserver.models import (
     CommissioningScript,
     NodeKey,

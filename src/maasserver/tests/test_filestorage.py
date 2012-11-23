@@ -15,9 +15,9 @@ __all__ = []
 from io import BytesIO
 
 from maasserver.models import FileStorage
-from maasserver.testing import sample_binary_data
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
+from maastesting.utils import sample_binary_data
 
 
 class FileStorageTest(TestCase):
