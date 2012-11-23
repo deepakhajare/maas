@@ -4527,9 +4527,7 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
 
         response = self.client.get(self.get_url(script.name))
         self.assertEqual(httplib.OK, response.status_code)
-        self.assertEqual(
-            {'name': script.name, 'content': script.content},
-            json.loads(response.content))
+        self.assertEqual(script.content, response.content)
 
     def test_PUT_updates_contents(self):
         old_content = b'old:%s' % factory.getRandomString().encode('ascii')

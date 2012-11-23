@@ -16,6 +16,7 @@ import codecs
 from io import BytesIO
 
 from maasserver.models import FileStorage
+from maasserver.testing import sample_binary_data
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 
@@ -55,20 +56,7 @@ class FileStorageTest(TestCase):
             (storage.filename, storage.content))
 
     def test_stores_binary_data(self):
-        # This horrible binary data could never, ever, under any
-        # encoding known to man be interpreted as text(1).  Switch the
-        # bytes of the byte-order mark around and by design you get an
-        # invalid codepoint; put a byte with the high bit set between bytes
-        # that have it cleared, and you have a guaranteed non-UTF-8
-        # sequence.
-        #
-        # (1) Provided, of course, that man know only about ASCII and
-        # UTF.
-        binary_data = codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00'
-
-        # And yet, because FileStorage supports binary data, it comes
-        # out intact.
-        storage = factory.make_file_storage(filename="x", content=binary_data)
+        storage = factory.make_file_storage(content=sample_binary_data)
         self.assertEqual(binary_data, storage.content)
 
     def test_overwrites_file(self):
