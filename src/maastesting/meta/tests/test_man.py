@@ -50,6 +50,10 @@ class TestFreshness(TestCase):
 
     @property
     def target(self):
+        """The expected filename of the generated man page.
+
+        Derived from ``self.source``.
+        """
         name, ext = splitext(self.source)
         return join(root, "man", basename(name))
 
