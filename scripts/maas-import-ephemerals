@@ -97,7 +97,7 @@ uniq_major_arches() {
     # Eg. armhf/highbank armhf/armadaxp i386/generic amd64/generic ->
     #           "armhf\ni386\namd64\n"
     local arch
-    for arch in "$@"; do echo "$arch"; done|cut -f1 -d/|uniq
+    for arch in "$@"; do echo "${arch%%/*}"; done|uniq
 }
 
 
@@ -110,7 +110,7 @@ subarches() {
     shift
     for candidate in "$@"; do
         case "$candidate" in
-            "$major_arch"/*) echo "$candidate"|cut -f2 -d/ ;;
+            "$major_arch"/*) echo "${candidate#*/}" ;;
             *) ;;
         esac
     done
