@@ -4539,7 +4539,6 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         old_content = b'old:%s' % factory.getRandomString().encode('ascii')
         script = factory.make_commissioning_script(content=old_content)
         new_content = b'new:%s' % factory.getRandomString().encode('ascii')
-        new_content.name = factory.make_name('file')
 
         response = self.client.put(
             self.get_url(script.name),
