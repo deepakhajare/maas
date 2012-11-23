@@ -96,6 +96,7 @@ uniq_major_arches() {
     # pairs supplied in $@
     # Eg. armhf/highbank armhf/armadaxp i386/generic amd64/generic ->
     #           "armhf\ni386\namd64\n"
+    local arch
     for arch in "$@"; do echo "$arch"; done|cut -f1 -d/|uniq
 }
 
@@ -105,7 +106,7 @@ subarches() {
     # given a list of arch/subarch pairs in $2-
     # Eg. armhf armhf/highbank armhf/armadaxp i386/generic ->
     #           "highbank\narmadaxp\n"
-    major_arch="$1"
+    local major_arch="$1" candidate
     shift
     for candidate in "$@"; do
         case "$candidate" in
