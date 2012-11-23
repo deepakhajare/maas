@@ -292,6 +292,7 @@ class TestStartClusterController(PservTestCase):
         env = dict(
             os.environ,
             CELERY_BROKER_URL=connection_details['BROKER_URL'],
-            MAAS_URL=server_url)
+            MAAS_URL=server_url,
+            )
         os.execvpe.assert_called_once_with(ANY, ANY, env=env)
 

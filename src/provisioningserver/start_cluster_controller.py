@@ -127,7 +127,8 @@ def start_celery(server_url, connection_details, user, group):
     uid = getpwnam(user).pw_uid
     gid = getgrnam(group).gr_gid
 
-    # Copy environment, but also tell celeryd what broker to listen to.
+    # Copy environment, but also tell celeryd what broker to listen to
+    # and the URL for the region controller.
     env = dict(
         os.environ, CELERY_BROKER_URL=broker_url, MAAS_URL=server_url)
     command = 'celeryd', '--beat', '--queues', get_cluster_uuid()
