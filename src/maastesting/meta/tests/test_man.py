@@ -34,7 +34,13 @@ from . import root
 
 
 class TestFreshness(TestCase):
-    """Ensure that the man pages are up-to-date."""
+    """Ensure that the man pages are up-to-date.
+
+    The man pages in ``${root}/man`` are generated from sources in
+    ``${root}/docs/man``. They're not generated at package build time because
+    that currently requires a fully built Django+MAAS stack. Keeping the man
+    pages in the tree and regulating them here is a reasonable compromise.
+    """
 
     scenarios = [
         (relpath(filename, root), {"source": filename})
