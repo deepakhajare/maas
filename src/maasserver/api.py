@@ -1906,7 +1906,9 @@ def pxeconfig(request):
             # 1-1 mapping.
             subarch = pxelinux_subarch
 
-        preseed_url = compose_enlistment_preseed_url()
+        nodegroup = find_nodegroup(request)
+        base_url = nodegroup.maas_url if nodegroup is not None else None
+        preseed_url = compose_enlistment_preseed_url(base_url=base_url)
         hostname = 'maas-enlist'
         domain = Config.objects.get_config('enlistment_domain')
 
