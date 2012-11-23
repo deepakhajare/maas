@@ -25,6 +25,7 @@ from datetime import (
     )
 from functools import partial
 import httplib
+from io import BytesIO
 from itertools import izip
 import json
 from operator import itemgetter
@@ -4526,7 +4527,7 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         name = factory.make_name('script')
         old_content = b'old:%s' % factory.getRandomString().encode('ascii')
         factory.make_commissioning_script(name, old_content)
-        new_content = b'new:%s' % factory.getRandomString()
+        new_content = BytesIO(b'new:%s' % factory.getRandomString())
 
         response = self.client.put(
             self.get_url(name), {'content': new_content})
