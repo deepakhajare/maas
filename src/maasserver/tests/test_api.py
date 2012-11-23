@@ -3526,6 +3526,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         factory.make_node_group(maas_url=ng_url, network=network)
         params = self.get_default_params()
 
+        # Simulate that the request targets ip by setting 'SERVER_NAME'.
         response = self.client.get(
             reverse('pxeconfig'), params, SERVER_NAME=ip)
         self.assertThat(
@@ -3550,6 +3551,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         node.nodegroup = nodegroup
         node.save()
 
+        # Simulate that the request targets ip by setting 'SERVER_NAME'.
         response = self.client.get(
             reverse('pxeconfig'), params, SERVER_NAME=ip)
         self.assertThat(
