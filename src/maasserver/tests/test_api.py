@@ -4514,6 +4514,7 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
     def test_GET_returns_script_contents(self):
         name = factory.make_name('script')
         content = factory.getRandomString()
+        factory.make_commissioning_script(name, content)
 
         response = self.client.get(self.get_url(name))
         self.assertEqual(httplib.OK, response.status_code)
