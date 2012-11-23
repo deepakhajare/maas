@@ -42,6 +42,7 @@ class TestFreshness(TestCase):
     pages in the tree and regulating them here is a reasonable compromise.
     """
 
+    # Create a scenario for each source file in docs/man.
     scenarios = [
         (relpath(filename, root), {"source": filename})
         for filename in iglob(join(root, "docs", "man", "*.rst"))
