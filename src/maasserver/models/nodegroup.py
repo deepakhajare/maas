@@ -175,6 +175,10 @@ class NodeGroup(TimestampedModel):
     uuid = CharField(
         max_length=36, unique=True, null=False, blank=False, editable=True)
 
+    # The URL where the region can get reach by the cluster controller.
+    maas_url = CharField(
+        blank=True, editable=False, max_length=255, default='')
+
     def __repr__(self):
         return "<NodeGroup %s>" % self.uuid
 
