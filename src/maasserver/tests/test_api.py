@@ -4523,7 +4523,7 @@ class AdminCommissioningScriptsAPITest(APIv10TestMixin, AdminLoggedInTestCase):
         # This uses Piston's built-in POST code, so there are no tests for
         # corner cases (like "script already exists") here.
         name = factory.make_name('script')
-        content = factory.getRandomString()
+        content = factory.getRandomString().encode('ascii')
 
         # Every uploaded file also has a name.  But this is completely
         # unrelated to the name we give to the commissioning script.
