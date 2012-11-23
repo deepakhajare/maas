@@ -22,13 +22,7 @@ from os.path import (
     )
 
 from maastesting.testcase import TestCase
-from testtools.matchers import (
-    AfterPreprocessing,
-    Equals,
-    FileExists,
-    GreaterThan,
-    MatchesAny,
-    )
+from testtools.matchers import FileExists
 
 from . import root
 
@@ -59,7 +53,8 @@ class TestFreshness(TestCase):
 
     def test_generated_and_up_to_date(self):
         self.assertThat(self.target, FileExists())
-        ref = getmtime(self.source)
-        is_up_to_date = MatchesAny(GreaterThan(ref), Equals(ref))
-        file_is_up_to_date = AfterPreprocessing(getmtime, is_up_to_date)
-        self.assertThat(self.target, file_is_up_to_date)
+        self.assertGreaterEqual(
+            getmtime(self.target), getmtime(self.source),
+            "%s is older than %s" % (
+                relpath(self.target, root),
+                relpath(self.source, root)))
