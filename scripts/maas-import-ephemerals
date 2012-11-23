@@ -96,7 +96,7 @@ uniq_major_arches() {
     # pairs supplied in $@
     # Eg. armhf/highbank armhf/armadaxp i386/generic amd64/generic ->
     #           "armhf\ni386\namd64\n"
-    for arch in "$@"; do echo $arch; done|cut -f1 -d/|uniq
+    for arch in "$@"; do echo "$arch"; done|cut -f1 -d/|uniq
 }
 
 
@@ -109,7 +109,7 @@ subarches() {
     shift
     for candidate in "$@"; do
         case "$candidate" in
-            $major_arch/*) echo "$candidate"|cut -f2 -d/ ;;
+            "$major_arch"/*) echo "$candidate"|cut -f2 -d/ ;;
             *) ;;
         esac
     done
@@ -332,10 +332,10 @@ install_tftp_image() {
     # deletes it.
     tmpdir="$(mktemp -d)"
 
-    if [ -f $src/subarch/$subarch/linux -a \
-            -f $src/subarch/$subarch/initrd.gz ]; then
-        cp $src/subarch/$subarch/linux $tmpdir/linux || return 1
-        cp $src/subarch/$subarch/initrd.gz $tmpdir/initrd.gz || return 1
+    if [ -f "$src/subarch/$subarch/linux" -a \
+            -f "$src/subarch/$subarch/initrd.gz" ]; then
+        cp "$src/subarch/$subarch/linux" "$tmpdir/linux" || return 1
+        cp "$src/subarch/$subarch/initrd.gz" "$tmpdir/initrd.gz" || return 1
     else
         copy_first_available "$src/linux" "$src/kernel" "$tmpdir/linux" ||
             return 1
@@ -436,7 +436,7 @@ for release in $RELEASES; do
             name="${l_name}"
         fi
 
-        for subarch in `subarches $arch $ARCHES`; do
+        for subarch in `subarches "$arch" $ARCHES`; do
                 # Even if there was no need to update the image, we make sure
                 # it gets installed.
                 debug 1 "adding images for $release/$arch/$subarch to maas"
