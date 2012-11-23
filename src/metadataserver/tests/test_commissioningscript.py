@@ -17,6 +17,7 @@ from random import randint
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
 from maastesting.utils import sample_binary_data
+from metadataserver.fields import Bin
 from metadataserver.models import CommissioningScript
 
 
@@ -35,6 +36,6 @@ class TestCommissioningScript(TestCase):
     def test_scripts_may_be_binary(self):
         name = make_script_name()
         CommissioningScript.objects.create(
-            name=name, content=sample_binary_data)
+            name=name, content=Bin(sample_binary_data))
         stored_script = CommissioningScript.objects.get(name=name)
         self.assertEqual(sample_binary_data, stored_script.content)
