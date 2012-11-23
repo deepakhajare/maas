@@ -12,12 +12,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import codecs
 from random import randint
 
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from metadataserver.fields import Bin
+from maastesting.utils import sample_binary_data
 from metadataserver.models import CommissioningScript
 
 
@@ -35,9 +34,7 @@ class TestCommissioningScript(TestCase):
 
     def test_scripts_may_be_binary(self):
         name = make_script_name()
-        # Some binary data that would break just about any kind of text
-        # interpretation.
-        binary = Bin(codecs.BOM64_LE + codecs.BOM64_BE + b'\x00\xff\x00')
-        CommissioningScript.objects.create(name=name, content=binary)
+        CommissioningScript.objects.create(
+            name=name, content=sample_binary_data)
         stored_script = CommissioningScript.objects.get(name=name)
-        self.assertEqual(binary, stored_script.content)
+        self.assertEqual(sample_binary_data, stored_script.content)
