@@ -114,6 +114,7 @@ from maasserver.utils import (
     )
 from maasserver.utils.orm import get_one
 from maasserver.worker_user import get_worker_user
+from maastesting import sample_binary_data
 from maastesting.celery import CeleryFixture
 from maastesting.djangotestcase import TransactionTestCase
 from maastesting.fakemethod import FakeMethod
@@ -4524,10 +4525,15 @@ class AdminCommissioningScriptAPITest(APIv10TestMixin, AdminLoggedInTestCase):
 
     def test_GET_returns_script_contents(self):
         script = factory.make_commissioning_script()
-
         response = self.client.get(self.get_url(script.name))
         self.assertEqual(httplib.OK, response.status_code)
         self.assertEqual(script.content, response.content)
+
+    def test_GET_preserves_binary_data(self):
+        script = factory.make_commissioning_script(content=sample_binary_data)
+        response = self.client.get(self.get_url(script.name))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertEqual(sample_binary_data, response.content)
 
     def test_PUT_updates_contents(self):
         old_content = b'old:%s' % factory.getRandomString().encode('ascii')

@@ -20,6 +20,7 @@ __all__ = [
     "sample_binary_data",
     ]
 
+import codecs
 import httplib
 import os
 from urlparse import urlparse

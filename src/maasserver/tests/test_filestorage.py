@@ -12,7 +12,6 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import codecs
 from io import BytesIO
 
 from maasserver.models import FileStorage
@@ -57,7 +56,7 @@ class FileStorageTest(TestCase):
 
     def test_stores_binary_data(self):
         storage = factory.make_file_storage(content=sample_binary_data)
-        self.assertEqual(binary_data, storage.content)
+        self.assertEqual(sample_binary_data, storage.content)
 
     def test_overwrites_file(self):
         # If a file of the same name has already been stored, the

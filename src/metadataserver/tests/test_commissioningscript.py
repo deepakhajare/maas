@@ -12,13 +12,11 @@ from __future__ import (
 __metaclass__ = type
 __all__ = []
 
-import codecs
 from random import randint
 
 from maasserver.testing import sample_binary_data
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase
-from metadataserver.fields import Bin
 from metadataserver.models import CommissioningScript
 
 
@@ -39,4 +37,4 @@ class TestCommissioningScript(TestCase):
         CommissioningScript.objects.create(
             name=name, content=sample_binary_data)
         stored_script = CommissioningScript.objects.get(name=name)
-        self.assertEqual(binary, stored_script.content)
+        self.assertEqual(sample_binary_data, stored_script.content)
