@@ -144,6 +144,7 @@ from testscenarios import multiply_scenarios
 from testtools.matchers import (
     AfterPreprocessing,
     AllMatch,
+    Annotate,
     Contains,
     Equals,
     Is,
@@ -3781,6 +3782,35 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         parsed_result = json.loads(response.content)
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual({'BROKER_URL': fake_broker_url}, parsed_result)
+
+    def test_register_nodegroup_records_maas_url(self):
+        # When registering a cluster, the URL with which the call was made
+        # (i.e. from the perspective of the cluster) is recorded.
+        self.create_configured_master()
+        name = factory.make_name('name')
+        uuid = factory.getRandomUUID()
+        ip = factory.getRandomIPAddress()
+        response = self.client.post(
+            reverse('nodegroups_handler'),
+            {'op': 'register', 'name': name, 'uuid': uuid, 'interfaces': ''},
+            SERVER_NAME=ip)
+        self.assertThat(
+            {code for code in httplib.responses if code // 100 == 2},
+            Annotate(response, Contains(response.status_code)))
+        nodegroup = NodeGroup.objects.get(uuid=uuid)
+        self.assertEqual("http://%s" % ip, nodegroup.maas_url)
+
+
+class TestUpdateNodeGroupMAASURL(TestCase):
+    """Tests for `update_nodegroup_maas_url`."""
+
+    def test_update_from_request(self):
+        request_factory = RequestFactory(SCRIPT_NAME="/script")
+        request = request_factory.get(
+            "/script/path", SERVER_NAME="example.com")
+        nodegroup = factory.make_node_group()
+        api.update_nodegroup_maas_url(nodegroup, request)
+        self.assertEqual("http://example.com/script", nodegroup.maas_url)
 
 
 def dict_subset(obj, fields):

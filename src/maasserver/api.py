@@ -921,7 +921,8 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
                 form = NodeGroupWithInterfacesForm(
                     data=request.data, status=NODEGROUP_STATUS.PENDING)
                 if form.is_valid():
-                    form.save()
+                    nodegroup = form.save()
+                    update_nodegroup_maas_url(nodegroup, request)
                     return HttpResponse(
                         "Cluster registered.  Awaiting admin approval.",
                         status=httplib.ACCEPTED)
@@ -929,13 +930,22 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
                     raise ValidationError(form.errors)
         else:
             if existing_nodegroup.status == NODEGROUP_STATUS.ACCEPTED:
+                update_nodegroup_maas_url(existing_nodegroup, request)
                 # The nodegroup exists and is validated, return the RabbitMQ
                 return get_celery_credentials()
             elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
                 raise PermissionDenied('Rejected cluster.')
             elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
+                update_nodegroup_maas_url(existing_nodegroup, request)
                 return HttpResponse(
                     "Awaiting admin approval.", status=httplib.ACCEPTED)
+
+
+def update_nodegroup_maas_url(nodegroup, request):
+    """Update `nodegroup.maas_url` from the given `request`."""
+    path = request.META["SCRIPT_NAME"]
+    nodegroup.maas_url = build_absolute_uri(request, path)
+    nodegroup.save()
 
 
 class NodeGroupsHandler(OperationsHandler):
