@@ -3788,9 +3788,9 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             response.status_code,
             {code for code in httplib.responses if code // 100 == 2})
 
-    def test_register_new_nodegroup_records_maas_url(self):
+    def test_register_new_nodegroup_does_not_record_maas_url(self):
         # When registering a cluster, the URL with which the call was made
-        # (i.e. from the perspective of the cluster) is recorded.
+        # (i.e. from the perspective of the cluster) is *not* recorded.
         self.create_configured_master()
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
@@ -3799,8 +3799,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             reverse('nodegroups_handler'),
             {'op': 'register', 'name': name, 'uuid': uuid})
         self.assertSuccess(response)
-        nodegroup = NodeGroup.objects.get(uuid=uuid)
-        update_maas_url.assert_called_once_with(nodegroup, ANY)
+        self.assertEqual([], update_maas_url.call_args_list)
 
     def test_register_accepted_nodegroup_updates_maas_url(self):
         # When registering an existing, accepted, cluster, the URL with which
@@ -3814,9 +3813,9 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         self.assertSuccess(response)
         update_maas_url.assert_called_once_with(nodegroup, ANY)
 
-    def test_register_pending_nodegroup_updates_maas_url(self):
+    def test_register_pending_nodegroup_does_not_update_maas_url(self):
         # When registering an existing, pending, cluster, the URL with which
-        # the call was made is updated.
+        # the call was made is *not* updated.
         self.create_configured_master()
         nodegroup = factory.make_node_group(status=NODEGROUP_STATUS.PENDING)
         update_maas_url = self.patch(api, "update_nodegroup_maas_url")
@@ -3824,7 +3823,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             reverse('nodegroups_handler'),
             {'op': 'register', 'uuid': nodegroup.uuid})
         self.assertSuccess(response)
-        update_maas_url.assert_called_once_with(nodegroup, ANY)
+        self.assertEqual([], update_maas_url.call_args_list)
 
     def test_register_rejected_nodegroup_does_not_update_maas_url(self):
         # When registering an existing, pending, cluster, the URL with which
@@ -3841,7 +3840,6 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
     def test_register_master_nodegroup_does_not_update_maas_url(self):
         # When registering the master cluster, the URL with which the call was
         # made is *not* updated.
-        #self.create_configured_master()
         name = factory.make_name('name')
         update_maas_url = self.patch(api, "update_nodegroup_maas_url")
         response = self.client.post(

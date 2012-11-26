@@ -921,8 +921,7 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
                 form = NodeGroupWithInterfacesForm(
                     data=request.data, status=NODEGROUP_STATUS.PENDING)
                 if form.is_valid():
-                    nodegroup = form.save()
-                    update_nodegroup_maas_url(nodegroup, request)
+                    form.save()
                     return HttpResponse(
                         "Cluster registered.  Awaiting admin approval.",
                         status=httplib.ACCEPTED)
@@ -936,7 +935,6 @@ class AnonNodeGroupsHandler(AnonymousOperationsHandler):
             elif existing_nodegroup.status == NODEGROUP_STATUS.REJECTED:
                 raise PermissionDenied('Rejected cluster.')
             elif existing_nodegroup.status == NODEGROUP_STATUS.PENDING:
-                update_nodegroup_maas_url(existing_nodegroup, request)
                 return HttpResponse(
                     "Awaiting admin approval.", status=httplib.ACCEPTED)
 
