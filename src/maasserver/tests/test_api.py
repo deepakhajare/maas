@@ -144,6 +144,7 @@ from testscenarios import multiply_scenarios
 from testtools.matchers import (
     AfterPreprocessing,
     AllMatch,
+    Annotate,
     Contains,
     Equals,
     Is,
@@ -3784,9 +3785,9 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
 
     def assertSuccess(self, response):
         """Assert that `response` was successful (i.e. HTTP 2xx)."""
-        self.assertIn(
-            response.status_code,
-            {code for code in httplib.responses if code // 100 == 2})
+        self.assertThat(
+            {code for code in httplib.responses if code // 100 == 2},
+            Annotate(response, Contains(response.status_code)))
 
     def test_register_new_nodegroup_does_not_record_maas_url(self):
         # When registering a cluster, the URL with which the call was made
