@@ -3847,6 +3847,9 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
             {'op': 'register', 'name': name, 'uuid': 'master'})
         self.assertSuccess(response)
         self.assertEqual([], update_maas_url.call_args_list)
+        # The new node group's maas_url field remains empty.
+        nodegroup = NodeGroup.objects.get(uuid='master')
+        self.assertEqual("", nodegroup.maas_url)
 
 
 class TestUpdateNodeGroupMAASURL(TransactionTestCase):
