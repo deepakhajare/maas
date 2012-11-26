@@ -3800,7 +3800,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         update_maas_url.assert_called_once_with(nodegroup, ANY)
 
 
-class TestUpdateNodeGroupMAASURL(TestCase):
+class TestUpdateNodeGroupMAASURL(TransactionTestCase):
     """Tests for `update_nodegroup_maas_url`."""
 
     def test_update_from_request(self):
