@@ -3783,22 +3783,21 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         self.assertIn('application/json', response['Content-Type'])
         self.assertEqual({'BROKER_URL': fake_broker_url}, parsed_result)
 
-    def test_register_nodegroup_records_maas_url(self):
+    def test_register_new_nodegroup_records_maas_url(self):
         # When registering a cluster, the URL with which the call was made
         # (i.e. from the perspective of the cluster) is recorded.
         self.create_configured_master()
         name = factory.make_name('name')
         uuid = factory.getRandomUUID()
-        ip = factory.getRandomIPAddress()
+        update_maas_url = self.patch(api, "update_nodegroup_maas_url")
         response = self.client.post(
             reverse('nodegroups_handler'),
-            {'op': 'register', 'name': name, 'uuid': uuid, 'interfaces': ''},
-            SERVER_NAME=ip)
+            {'op': 'register', 'name': name, 'uuid': uuid})
         self.assertThat(
             {code for code in httplib.responses if code // 100 == 2},
             Annotate(response, Contains(response.status_code)))
         nodegroup = NodeGroup.objects.get(uuid=uuid)
-        self.assertEqual("http://%s" % ip, nodegroup.maas_url)
+        update_maas_url.assert_called_once_with(nodegroup, ANY)
 
 
 class TestUpdateNodeGroupMAASURL(TestCase):
