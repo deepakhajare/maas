@@ -29,9 +29,7 @@ from maastesting.utils import (
     )
 from mock import Mock
 from provisioningserver import cache
-from provisioningserver.auth import (
-    NODEGROUP_UUID_CACHE_KEY,
-    )
+from provisioningserver.auth import NODEGROUP_UUID_CACHE_KEY
 from provisioningserver.dhcp import leases as leases_module
 from provisioningserver.dhcp.leases import (
     check_lease_changes,
@@ -132,8 +130,7 @@ class TestUpdateLeases(PservTestCase):
 
     def clear_maas_url(self):
         """Clear the recorded MAAS API URL."""
-        if os.environ.get("MAAS_URL"):
-            os.environ.pop("MAAS_URL")
+        os.environ.pop("MAAS_URL")
 
     def set_api_credentials(self):
         """Set recorded API credentials for the duration of this test."""

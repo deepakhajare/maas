@@ -14,9 +14,8 @@ __all__ = [
     'PservTestCase',
     ]
 
-import os
-
 from apiclient.testing.credentials import make_api_credentials
+from fixtures import EnvironmentVariableFixture
 from maastesting import testcase
 from maastesting.factory import factory
 from provisioningserver.auth import (
@@ -36,9 +35,8 @@ class PservTestCase(testcase.TestCase):
         return 'http://127.0.0.1/%s' % factory.make_name('path')
 
     def set_maas_url(self):
-        url = self.make_maas_url()
-        os.environ["MAAS_URL"] = url
-        self.addCleanup(lambda: os.environ.pop("MAAS_URL"))
+        self.useFixture(
+            EnvironmentVariableFixture("MAAS_URL", self.make_maas_url()))
 
     def set_api_credentials(self):
         record_api_credentials(':'.join(make_api_credentials()))
