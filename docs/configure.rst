@@ -126,8 +126,8 @@ you may wish to change the clock settings::
     d-i     clock-setup/ntp-server  string ntp.ubuntu.com
 
 Having consistent clocks is very important to the working of your MAAS
-system overall. If your nodes however cannot freely access the internet,
-the supplied ntp server is not going to be very useful, and you may
+system overall. If your nodes however cannot freely access the Internet,
+the supplied NTP server is not going to be very useful, and you may
 find it better to run an ntp service on the MAAS controller and substitute
 `ntp.ubuntu.com` in the last line for something else.
 
@@ -152,7 +152,7 @@ uses the rest of the disk for one large root filesystem::
 
 
 Here the root partition must be at least 500 mb, and has effectively no
-maximum size. The swap partition ranges from 64 mb to 3 times the system's
+maximum size. The swap partition ranges from 64 MB to 3 times the system's
 ram.
 Adding `$bootable{ }` to make the partition bootable, and $primary{ }
 marks it as the primary partition. The other specifiers used are:
@@ -171,9 +171,10 @@ marks it as the primary partition. The other specifiers used are:
 *mountpoint{ / }*
 	Where to mount the partition.
 
-For more information on preseed option, you should refer to 
-`the official Ubuntu documentation 
-<https://help.ubuntu.com/12.04/installation-guide/i386/preseed-contents.html>`_
+For more information on preseed options, you should refer to 
+`the official Ubuntu documentation`_
+.. _`the official Ubuntu documentation` 
+https://help.ubuntu.com/12.04/installation-guide/i386/preseed-contents.html
 
 .. note::
   Future versions of MAAS are likely to replace this type of automatic 
