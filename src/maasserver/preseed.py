@@ -41,6 +41,7 @@ GENERIC_FILENAME = 'generic'
 def get_enlist_preseed(nodegroup=None):
     """Return the enlistment preseed.
 
+    :param nodegroup: The nodegroup used to generate the preseed.
     :return: The rendered preseed string.
     :rtype: basestring.
     """
@@ -51,6 +52,7 @@ def get_enlist_preseed(nodegroup=None):
 def get_enlist_userdata(nodegroup=None):
     """Return the enlistment preseed.
 
+    :param nodegroup: The nodegroup used to generate the preseed.
     :return: The rendered enlistment user-data string.
     :rtype: basestring.
     """
@@ -213,9 +215,8 @@ def get_preseed_context(release='', nodegroup=None):
     """Return the node-independent context dictionary to be used to render
     preseed templates.
 
-    :param node: See `get_preseed_filenames`.
-    :param prefix: See `get_preseed_filenames`.
     :param release: See `get_preseed_filenames`.
+    :param nodegroup: The nodegroup used to generate the preseed.
     :return: The context dictionary.
     :rtype: dict.
     """
@@ -243,7 +244,6 @@ def get_node_preseed_context(node, release=''):
     preseed templates.
 
     :param node: See `get_preseed_filenames`.
-    :param prefix: See `get_preseed_filenames`.
     :param release: See `get_preseed_filenames`.
     :return: The context dictionary.
     :rtype: dict.
@@ -267,6 +267,7 @@ def render_enlistment_preseed(prefix, release='', nodegroup=None):
 
     :param prefix: See `get_preseed_filenames`.
     :param release: See `get_preseed_filenames`.
+    :param nodegroup: The nodegroup used to generate the preseed.
     :return: The rendered preseed string.
     :rtype: basestring.
     """
@@ -292,7 +293,10 @@ def render_preseed(node, prefix, release=''):
 
 
 def compose_enlistment_preseed_url(nodegroup=None):
-    """Compose enlistment preseed URL."""
+    """Compose enlistment preseed URL.
+
+    :param nodegroup: The nodegroup used to generate the preseed.
+    """
     # Always uses the latest version of the metadata API.
     base_url = nodegroup.maas_url if nodegroup is not None else None
     version = 'latest'
