@@ -172,9 +172,8 @@ marks it as the primary partition. The other specifiers used are:
 	Where to mount the partition.
 
 For more information on preseed options, you should refer to 
-`the official Ubuntu documentation`_
-.. _`the official Ubuntu documentation` 
-https://help.ubuntu.com/12.04/installation-guide/i386/preseed-contents.html
+`the official Ubuntu documentation 
+<https://help.ubuntu.com/12.04/installation-guide/i386/preseed-contents.html>`_
 
 .. note::
   Future versions of MAAS are likely to replace this type of automatic 
