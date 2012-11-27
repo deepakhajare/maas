@@ -3853,7 +3853,7 @@ class TestAnonNodeGroupsAPI(AnonAPITestCase):
         self.assertEqual("", nodegroup.maas_url)
 
 
-class TestUpdateNodeGroupMAASURL(TransactionTestCase):
+class TestUpdateNodeGroupMAASURL(TestCase):
     """Tests for `update_nodegroup_maas_url`."""
 
     def test_update_from_request(self):
