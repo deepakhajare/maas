@@ -18,13 +18,11 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpRequest
 from django.test.client import RequestFactory
-from maasserver.enum import (
-    NODE_STATUS_CHOICES,
-    NODEGROUPINTERFACE_MANAGEMENT,
-    )
+from maasserver.enum import NODE_STATUS_CHOICES
 from maasserver.models import (
     NodeGroup,
     nodegroupinterface,
+    NodeGroupInterface,
     )
 from maasserver.testing.factory import factory
 from maasserver.testing.testcase import TestCase as DjangoTestCase
@@ -201,24 +199,13 @@ class TestFindNodegroup(DjangoTestCase):
 
     def test_finds_nodegroup_by_network_address(self):
         nodegroup = factory.make_node_group(
-            network=IPNetwork("192.168.28.1/24"),
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
-        self.assertEqual(
-            nodegroup,
-            find_nodegroup(get_request('192.168.28.0')))
-
-    def test_finds_nodegroup_ignores_unmanaged_interfaces(self):
-        # XXX
-        nodegroup = factory.make_node_group(
-            network=IPNetwork("192.168.28.1/24"),
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+            network=IPNetwork("192.168.28.1/24"))
         self.assertEqual(
             nodegroup,
             find_nodegroup(get_request('192.168.28.0')))
 
     def test_find_nodegroup_looks_up_nodegroup_by_controller_ip(self):
-        nodegroup = factory.make_node_group(
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+        nodegroup = factory.make_node_group()
         ip = nodegroup.get_managed_interface().ip
         self.assertEqual(
             nodegroup,
@@ -226,8 +213,7 @@ class TestFindNodegroup(DjangoTestCase):
 
     def test_find_nodegroup_accepts_any_ip_in_nodegroup_subnet(self):
         nodegroup = factory.make_node_group(
-            network=IPNetwork("192.168.41.0/24"),
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+            network=IPNetwork("192.168.41.0/24"))
         self.assertEqual(
             nodegroup,
             find_nodegroup(get_request('192.168.41.199')))
@@ -238,12 +224,19 @@ class TestFindNodegroup(DjangoTestCase):
 
     def test_find_nodegroup_errors_if_multiple_matches(self):
         self.patch(nodegroupinterface, "MINIMUM_NETMASK_BITS", 1)
-        factory.make_node_group(
-            network=IPNetwork("10/8"),
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
-        factory.make_node_group(
-            network=IPNetwork("10.1.1/24"),
-            management=NODEGROUPINTERFACE_MANAGEMENT.DHCP)
+        factory.make_node_group(network=IPNetwork("10/8"))
+        factory.make_node_group(network=IPNetwork("10.1.1/24"))
         self.assertRaises(
             NodeGroup.MultipleObjectsReturned,
             find_nodegroup, get_request('10.1.1.2'))
+
+    def test_find_nodegroup_handles_multiple_matches_on_same_nodegroup(self):
+        self.patch(nodegroupinterface, "MINIMUM_NETMASK_BITS", 1)
+        nodegroup = factory.make_node_group(network=IPNetwork("10/8"))
+        NodeGroupInterface.objects.create(
+            nodegroup=nodegroup, ip='10.0.0.2', subnet_mask='255.0.0.0',
+            broadcast_ip='10.0.0.1', interface='eth71')
+        NodeGroupInterface.objects.create(
+            nodegroup=nodegroup, ip='10.0.0.3', subnet_mask='255.0.0.0',
+            broadcast_ip='10.0.0.2', interface='eth72')
+        self.assertEqual(nodegroup, find_nodegroup(get_request('10.0.0.9')))
