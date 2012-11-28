@@ -734,17 +734,17 @@ class TestEnlistViews(DjangoTestCase):
             response)
 
     def test_get_userdata_detects_request_origin(self):
-        ng_url = 'http://%s' % factory.make_name('host')
+        nodegroup_url = 'http://%s' % factory.make_name('host')
         maas_url = 'http://%s' % factory.make_hostname()
         self.patch(settings, 'DEFAULT_MAAS_URL', maas_url)
         network = IPNetwork("10.1.1/24")
         ip = factory.getRandomIPInNetwork(network)
-        factory.make_node_group(maas_url=ng_url, network=network)
-        ud_url = reverse('enlist-metadata-user-data', args=['latest'])
-        response = self.client.get(ud_url, SERVER_NAME=ip)
+        factory.make_node_group(maas_url=nodegroup_url, network=network)
+        url = reverse('enlist-metadata-user-data', args=['latest'])
+        response = self.client.get(url, SERVER_NAME=ip)
         self.assertThat(
             response.content,
-            MatchesAll(*[Contains(ng_url), Not(Contains(maas_url))]))
+            MatchesAll(Contains(nodegroup_url), Not(Contains(maas_url))))
 
     def test_metadata_list(self):
         # /enlist/latest/metadata request should list available keys
