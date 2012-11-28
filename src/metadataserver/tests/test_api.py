@@ -742,7 +742,6 @@ class TestEnlistViews(DjangoTestCase):
         factory.make_node_group(maas_url=ng_url, network=network)
         ud_url = reverse('enlist-metadata-user-data', args=['latest'])
         response = self.client.get(ud_url, SERVER_NAME=ip)
-        self.assertThat(response.content, Contains(ng_url))
         self.assertThat(
             response.content,
             MatchesAll(*[Contains(ng_url), Not(Contains(maas_url))]))
