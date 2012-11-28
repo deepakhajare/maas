@@ -653,7 +653,7 @@ class TestViews(DjangoTestCase):
             'metadata-enlist-preseed', args=['latest'])
         response = self.client.get(
             anon_enlist_preseed_url, {'op': 'get_enlist_preseed'},
-            SERVER_NAME=ip)
+            REMOTE_ADDR=ip)
         self.assertThat(response.content, Contains(ng_url))
 
     def test_anonymous_get_preseed(self):
