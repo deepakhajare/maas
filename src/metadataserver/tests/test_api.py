@@ -726,7 +726,8 @@ class TestEnlistViews(DjangoTestCase):
         # instance-id must be available
         ud_url = reverse('enlist-metadata-user-data', args=['latest'])
         fake_preseed = factory.getRandomString()
-        self.patch(api, "get_enlist_userdata", lambda: fake_preseed)
+        self.patch(
+            api, "get_enlist_userdata", Mock(return_value= fake_preseed))
         response = self.client.get(ud_url)
         self.assertEqual(
             (httplib.OK, "text/plain", fake_preseed),
