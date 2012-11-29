@@ -40,17 +40,15 @@ class CommissioningScriptManager(Manager):
 
         Each of the scripts will be in the `ARCHIVE_PREFIX` directory.
         """
-        return b'' # TODO: Watch tests fail first.
-
         binary = BytesIO()
         tarball = tarfile.open(mode='w', fileobj=binary)
         for script in self.all().order_by('name'):
             path = os.path.join(ARCHIVE_PREFIX, script.name)
             tarinfo = tarfile.TarInfo(name=path)
             tarball.addfile(tarinfo, BytesIO(script.content))
-        tarfile.close()
+        tarball.close()
         binary.seek(0)
-        return binary
+        return binary.read()
 
 
 class CommissioningScript(Model):
