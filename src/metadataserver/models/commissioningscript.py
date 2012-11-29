@@ -45,6 +45,7 @@ class CommissioningScriptManager(Manager):
         for script in self.all().order_by('name'):
             path = os.path.join(ARCHIVE_PREFIX, script.name)
             tarinfo = tarfile.TarInfo(name=path)
+            tarinfo.size = len(script.content)
             tarball.addfile(tarinfo, BytesIO(script.content))
         tarball.close()
         binary.seek(0)
