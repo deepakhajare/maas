@@ -16,6 +16,7 @@ __all__ = [
     ]
 
 from io import BytesIO
+import os.path
 import tarfile
 
 from django.db.models import (
