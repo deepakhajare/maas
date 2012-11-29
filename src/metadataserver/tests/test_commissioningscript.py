@@ -48,14 +48,14 @@ class TestCommissioningScriptManager(TestCase):
         extracted_script = archive.next()
         self.assertTrue(extracted_script.isfile())
         self.assertEqual(
-            os.join(ARCHIVE_PREFIX, script.name),
+            os.path.join(ARCHIVE_PREFIX, script.name),
             extracted_script.name)
         self.assertEqual(script.content, extracted_script.tobuf())
 
     def test_get_archive_wraps_all_scripts(self):
         scripts = {factory.make_commissioning_script() for counter in range(3)}
         archive = open_tarfile(CommissioningScript.objects.get_archive())
-        self.assertContentEqual(
+        self.assertItemsEqual(
             {os.path.join(ARCHIVE_PREFIX, script.name) for script in scripts},
             archive.getnames())
 
