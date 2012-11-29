@@ -52,7 +52,7 @@ class TestCommissioningScriptManager(TestCase):
             archived_script.name)
         self.assertEqual(
             script.content,
-            archive.extract_file(archived_script).read())
+            archive.extractfile(archived_script).read())
 
     def test_get_archive_wraps_all_scripts(self):
         scripts = {factory.make_commissioning_script() for counter in range(3)}
@@ -67,7 +67,7 @@ class TestCommissioningScriptManager(TestCase):
         archived_script = archive.next()
         self.assertEqual(
             script.content,
-            archive.extract_file(archived_script).read())
+            archive.extractfile(archived_script).read())
 
 
 class TestCommissioningScript(TestCase):
