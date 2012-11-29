@@ -15,6 +15,8 @@ __all__ = [
     'CommissioningScript',
     ]
 
+from io import BytesIO
+import tarfile
 
 from django.db.models import (
     CharField,
@@ -37,6 +39,17 @@ class CommissioningScriptManager(Manager):
 
         Each of the scripts will be in the `ARCHIVE_PREFIX` directory.
         """
+        return b'' # TODO: Watch tests fail first.
+
+        binary = BytesIO()
+        tarball = tarfile.open(mode='w', fileobj=binary)
+        for script in self.all().order_by('name'):
+            path = os.path.join(ARCHIVE_PREFIX, script.name)
+            tarinfo = tarfile.TarInfo(name=path)
+            tarball.addfile(tarinfo, BytesIO(script.content))
+        tarfile.close()
+        binary.seek(0)
+        return binary
 
 
 class CommissioningScript(Model):
