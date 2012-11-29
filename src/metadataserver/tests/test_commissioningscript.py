@@ -45,12 +45,14 @@ class TestCommissioningScriptManager(TestCase):
     def test_get_archive_wraps_scripts_in_tar(self):
         script = factory.make_commissioning_script()
         archive = open_tarfile(CommissioningScript.objects.get_archive())
-        extracted_script = archive.next()
-        self.assertTrue(extracted_script.isfile())
+        archived_script = archive.next()
+        self.assertTrue(archived_script.isfile())
         self.assertEqual(
             os.path.join(ARCHIVE_PREFIX, script.name),
-            extracted_script.name)
-        self.assertEqual(script.content, extracted_script.tobuf())
+            archived_script.name)
+        self.assertEqual(
+            script.content,
+            archive.extract_file(archived_script).read())
 
     def test_get_archive_wraps_all_scripts(self):
         scripts = {factory.make_commissioning_script() for counter in range(3)}
@@ -62,8 +64,10 @@ class TestCommissioningScriptManager(TestCase):
     def test_get_archive_supports_binary_scripts(self):
         script = factory.make_commissioning_script(content=sample_binary_data)
         archive = open_tarfile(CommissioningScript.objects.get_archive())
-        extracted_script = archive.next()
-        self.assertEqual(script.content, extracted_script.tobuf())
+        archived_script = archive.next()
+        self.assertEqual(
+            script.content,
+            archive.extract_file(archived_script).read())
 
 
 class TestCommissioningScript(TestCase):
