@@ -21,6 +21,7 @@ from urlparse import (
     urlparse,
     )
 
+import celery.app
 from maastesting.factory import factory
 from maastesting.testcase import TestCase
 from provisioningserver.pxe.tftppath import compose_config_path
@@ -211,6 +212,9 @@ class TestTFTPBackend(TestCase):
     def test_get_reader_config_file(self):
         # For paths matching re_config_file, TFTPBackend.get_reader() returns
         # a Deferred that will yield a BytesReader.
+        cluster_uuid = factory.getRandomUUID()
+        fake_app_or_default = self.patch(celery.app, 'app_or_default')
+        fake_app_or_default.return_value.conf.CLUSTER_UUID = cluster_uuid
         mac = factory.getRandomMACAddress(b"-")
         config_path = compose_config_path(mac)
         backend = TFTPBackend(self.make_dir(), b"http://example.com/")
@@ -240,6 +244,7 @@ class TestTFTPBackend(TestCase):
             "mac": mac,
             "local": call_context["local"][0],  # address only.
             "remote": call_context["remote"][0],  # address only.
+            "cluster_uuid": cluster_uuid,
             }
         observed_params = json.loads(output)
         self.assertEqual(expected_params, observed_params)
