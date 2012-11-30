@@ -331,10 +331,13 @@ class TestViews(DjangoTestCase):
 
     def test_commissioning_scripts(self):
         script = factory.make_commissioning_script()
-        response = self.client.get(
+        response = self.make_node_client().get(
             reverse('commissioning-scripts', args=['latest']))
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertIn(
+        self.assertEqual(
+            httplib.OK, response.status_code,
+            "Unexpected response %d: %s"
+            % (response.status_code, response.content))
+        self.assertEqual(
             response.content_type,
             {
                 'application/tar',
