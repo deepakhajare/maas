@@ -14,7 +14,9 @@ __all__ = []
 
 from collections import namedtuple
 import httplib
+from io import BytesIO
 import json
+import tarfile
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -679,6 +681,21 @@ class TestViews(DjangoTestCase):
              response["Content-Type"],
              response.content),
             response)
+
+    def test_commissioning_scripts(self):
+        script = factory.make_commissioning_script()
+        response = self.client.get(reverse('commissioning-scripts'))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn(
+            response.content_type,
+            {
+                'application/tar',
+                'application/x-gtar',
+                'application/x-tar',
+                'application/x-tgz',
+            })
+        archive = tarfile.open(fileobj=BytesIO(response.content))
+        self.assertItemsEqual([script.name], archive.getnames())
 
 
 class TestEnlistViews(DjangoTestCase):
