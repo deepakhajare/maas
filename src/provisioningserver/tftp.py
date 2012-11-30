@@ -25,6 +25,7 @@ from urlparse import (
     urlparse,
     )
 
+import celery.app
 from provisioningserver.enum import ARP_HTYPE
 from provisioningserver.kernel_opts import KernelParameters
 from provisioningserver.pxe.config import render_pxe_config
@@ -217,6 +218,8 @@ class TFTPBackend(FilesystemSynchronousBackend):
             params["local"] = local_host
             remote_host, remote_port = get("remote", (None, None))
             params["remote"] = remote_host
+            celery_config = celery.app.app_or_default().conf
+            params["cluster_uuid"] = celery_config.CLUSTER_UUID
             d = self.get_config_reader(params)
             d.addErrback(self.get_page_errback, file_name)
             return d
