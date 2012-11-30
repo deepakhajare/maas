@@ -329,6 +329,22 @@ class TestViews(DjangoTestCase):
             '\n'.join(keys),
             response.content.decode('ascii'))
 
+    def test_commissioning_scripts(self):
+        script = factory.make_commissioning_script()
+        response = self.client.get(
+            reverse('commissioning-scripts', args=['latest']))
+        self.assertEqual(httplib.OK, response.status_code)
+        self.assertIn(
+            response.content_type,
+            {
+                'application/tar',
+                'application/x-gtar',
+                'application/x-tar',
+                'application/x-tgz',
+            })
+        archive = tarfile.open(fileobj=BytesIO(response.content))
+        self.assertItemsEqual([script.name], archive.getnames())
+
     def test_other_user_than_node_cannot_signal_commissioning_result(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
         client = OAuthAuthenticatedClient(factory.make_user())
@@ -682,21 +698,6 @@ class TestViews(DjangoTestCase):
              response["Content-Type"],
              response.content),
             response)
-
-    def test_commissioning_scripts(self):
-        script = factory.make_commissioning_script()
-        response = self.client.get(reverse('commissioning-scripts'))
-        self.assertEqual(httplib.OK, response.status_code)
-        self.assertIn(
-            response.content_type,
-            {
-                'application/tar',
-                'application/x-gtar',
-                'application/x-tar',
-                'application/x-tgz',
-            })
-        archive = tarfile.open(fileobj=BytesIO(response.content))
-        self.assertItemsEqual([script.name], archive.getnames())
 
 
 class TestEnlistViews(DjangoTestCase):
