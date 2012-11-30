@@ -57,6 +57,7 @@ from maasserver.preseed import (
 from maasserver.utils import find_nodegroup
 from maasserver.utils.orm import get_one
 from metadataserver.models import (
+    CommissioningScript,
     NodeCommissionResult,
     NodeKey,
     NodeUserData,
@@ -346,7 +347,6 @@ class CommissioningScriptsHandler(MetadataViewHandler):
     """Return a tar archive containing the commissioning scripts."""
 
     def read(self, request, version, mac=None):
-        return '' # TODO: Watch tests fail first.
         check_version(version)
         return HttpResponse(
             CommissioningScript.objects.get_archive(),
