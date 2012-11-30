@@ -22,6 +22,7 @@ from maasserver.api_auth import api_auth
 from maasserver.api_support import OperationsResource
 from metadataserver.api import (
     AnonMetaDataHandler,
+    CommissioningScriptsHandler,
     EnlistMetaDataHandler,
     EnlistUserDataHandler,
     EnlistVersionIndexHandler,
@@ -42,7 +43,6 @@ index_handler = OperationsResource(
     IndexHandler, authentication=api_auth)
 commissioning_scripts_handler = OperationsResource(
     CommissioningScriptsHandler, authentication=api_auth)
-    
 
 
 # Handlers for anonymous metadata operations.
