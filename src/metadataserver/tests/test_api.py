@@ -36,6 +36,7 @@ from maasserver.testing import reload_object
 from maasserver.testing.factory import factory
 from maasserver.testing.oauthclient import OAuthAuthenticatedClient
 from maastesting.djangotestcase import DjangoTestCase
+from maastesting.matchers import ContainsAll
 from metadataserver import api
 from metadataserver.api import (
     check_version,
@@ -190,8 +191,10 @@ class TestViews(DjangoTestCase):
         client = self.make_node_client()
         url = reverse('metadata-version', args=['latest'])
         items = client.get(url).content.splitlines()
-        self.assertIn('meta-data', items)
-        self.assertIn('maas-commissioning-scripts', items)
+        self.assertThat(items, ContainsAll([
+            'meta-data',
+            'maas-commissioning-scripts',
+            ]))
 
     def test_version_index_does_not_show_user_data_if_not_available(self):
         client = self.make_node_client()
