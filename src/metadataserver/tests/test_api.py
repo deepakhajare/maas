@@ -184,11 +184,12 @@ class TestViews(DjangoTestCase):
         # The test is that we get here without exception.
         pass
 
-    def test_version_index_shows_meta_data(self):
+    def test_version_index_shows_unconditional_entries(self):
         client = self.make_node_client()
         url = reverse('metadata-version', args=['latest'])
         items = client.get(url).content.splitlines()
         self.assertIn('meta-data', items)
+        self.assertIn('maas-commissioning-scripts', items)
 
     def test_version_index_does_not_show_user_data_if_not_available(self):
         client = self.make_node_client()

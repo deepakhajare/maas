@@ -40,6 +40,9 @@ version_index_handler = OperationsResource(
     VersionIndexHandler, authentication=api_auth)
 index_handler = OperationsResource(
     IndexHandler, authentication=api_auth)
+commissioning_scripts_handler = OperationsResource(
+    CommissioningScriptsHandler, authentication=api_auth)
+    
 
 
 # Handlers for anonymous metadata operations.
@@ -58,23 +61,31 @@ enlist_index_handler = OperationsResource(IndexHandler)
 enlist_version_index_handler = OperationsResource(EnlistVersionIndexHandler)
 
 # Normal metadata access, available to a node querying its own metadata.
+#
+# The URL patterns must tolerate redundant leading slashes, because
+# cloud-init tends to add these.
 node_patterns = patterns(
     '',
     url(
-        # could-init adds additional slashes in front of urls.
         r'^/*(?P<version>[^/]+)/meta-data/(?P<item>.*)$',
         meta_data_handler,
         name='metadata-meta-data'),
     url(
-        # could-init adds additional slashes in front of urls.
         r'^/*(?P<version>[^/]+)/user-data$', user_data_handler,
         name='metadata-user-data'),
+    # Commissioning scripts.  This is a blatant MAAS extension to the
+    # metadata API, hence the "maas-" prefix.
+    # Scripts are returned as a tar arhive, but the format is not
+    # reflected in the http filename.  The response's MIME type is
+    # definitive.  We may yet choose to compress the file, without
+    # changing its name on the API.
     url(
-        # could-init adds additional slashes in front of urls.
+        r'^/*(?P<version>[^/]+)/maas-commissioning-scripts',
+        commissioning_scripts_handler, name='commissioning-scripts'),
+    url(
         r'^/*(?P<version>[^/]+)/', version_index_handler,
         name='metadata-version'),
     url(
-        # could-init adds additional slashes in front of urls.
         r'^/*', index_handler, name='metadata'),
     )
 
