@@ -16,6 +16,7 @@ from collections import namedtuple
 import httplib
 from io import BytesIO
 import json
+import os.path
 import tarfile
 
 from django.conf import settings
@@ -51,6 +52,7 @@ from metadataserver.models import (
     NodeKey,
     NodeUserData,
     )
+from metadataserver.models.commissioningscript import ARCHIVE_PREFIX
 from metadataserver.nodeinituser import get_node_init_user
 from mock import Mock
 from netaddr import IPNetwork
@@ -337,8 +339,8 @@ class TestViews(DjangoTestCase):
             httplib.OK, response.status_code,
             "Unexpected response %d: %s"
             % (response.status_code, response.content))
-        self.assertEqual(
-            response.content_type,
+        self.assertIn(
+            response['Content-Type'],
             {
                 'application/tar',
                 'application/x-gtar',
@@ -346,7 +348,9 @@ class TestViews(DjangoTestCase):
                 'application/x-tgz',
             })
         archive = tarfile.open(fileobj=BytesIO(response.content))
-        self.assertItemsEqual([script.name], archive.getnames())
+        self.assertItemsEqual(
+            [os.path.join(ARCHIVE_PREFIX, script.name)],
+            archive.getnames())
 
     def test_other_user_than_node_cannot_signal_commissioning_result(self):
         node = factory.make_node(status=NODE_STATUS.COMMISSIONING)
