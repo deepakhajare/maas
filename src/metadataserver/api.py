@@ -12,6 +12,7 @@ from __future__ import (
 __metaclass__ = type
 __all__ = [
     'AnonMetaDataHandler',
+    'CommissioningScriptsHandler',
     'IndexHandler',
     'MetaDataHandler',
     'UserDataHandler',
@@ -156,7 +157,7 @@ class IndexHandler(MetadataViewHandler):
 class VersionIndexHandler(MetadataViewHandler):
     """Listing for a given metadata version."""
     create = update = delete = None
-    fields = ('meta-data', 'user-data')
+    fields = ('maas-commissioning-scripts', 'meta-data', 'user-data')
 
     # States in which a node is allowed to signal commissioning status.
     # (Only in Commissioning state, however, will it have any effect.)
@@ -339,6 +340,17 @@ class UserDataHandler(MetadataViewHandler):
             logger.info(
                 "No user data registered for node named %s" % node.hostname)
             return HttpResponse(status=httplib.NOT_FOUND)
+
+
+class CommissioningScriptsHandler(MetadataViewHandler):
+    """Return a tar archive containing the commissioning scripts."""
+
+    def read(self, request, version, mac=None):
+        return '' # TODO: Watch tests fail first.
+        check_version(version)
+        return HttpResponse(
+            CommissioningScript.objects.get_archive(),
+            mimetype='application/tar')
 
 
 class EnlistMetaDataHandler(OperationsHandler):
