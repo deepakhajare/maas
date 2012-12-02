@@ -1,10 +1,28 @@
+  <script type="text/javascript">
+  <!--
+  YUI().use('maas.reveal', function (Y) {
+    Y.on('load', function() {
+      Y.all('a.script-name').on('click', function(e) {
+        e.preventDefault();
+        var source = Y.one(e.target).ancestor().ancestor().ancestor();
+        var reveal = new Y.maas.reveal.Reveal({
+          targetNode: source.one('.script-content'),
+          linkNode: e.target,
+          }).reveal();
+      });
+    });
+  });
+  // -->
+  </script>
+
 <h2>Commissioning scripts</h2>
   <table class="list">
     <tbody>
     {% for script in commissioning_scripts %}
       <tr class="script" id="{{ script.name }}">
         <td>
-          <a>{{ script.name}}</a></br>
+          <a href="#" class="script-name">
+            {{ script.name}}</a></br>
         </td>
         <td width="30px">
         <a title="Delete commissioning script {{ script.name }}"
@@ -13,11 +31,12 @@
         </a>
         </td>
       </tr>
-      <tr>
+      <tr class="script-content"
+	  style="overflow: hidden; opacity: 0; display: none;" >
         <td colspan="2" border-width="0"
             style="padding: 0 0;">
-          <div class="size11">
-          <pre align="left">{{ script.content }}</pre>
+          <div class="size10">
+          <pre>{{ script.content }}</pre>
           </div>
         </td>
       </tr>

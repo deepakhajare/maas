@@ -62,6 +62,7 @@ def static_resources(context):
             'js/enums.js',
             'js/power_parameters.js',
             'js/nodes_chart.js',
+            'js/reveal.js',
         ],
     }
 
