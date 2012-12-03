@@ -3318,7 +3318,11 @@ class TestCommissioningTimeout(APIv10TestMixin, LoggedInTestCase):
         response = self.client.post(
             self.get_uri('nodes/'), {'op': 'check_commissioning'})
         self.assertEqual(
-            (httplib.OK, NODE_STATUS.FAILED_TESTS, [node.system_id]),
+            (
+                httplib.OK,
+                NODE_STATUS.FAILED_TESTS,
+                [node.system_id]
+            ),
             (
                 response.status_code,
                 reload_object(node).status,
