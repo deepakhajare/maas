@@ -121,6 +121,10 @@ def find_nodegroup(request):
     from maasserver.models import NodeGroup
     ip_address = request.META['REMOTE_ADDR']
     if ip_address is not None:
+        management_statuses = (
+            NODEGROUPINTERFACE_MANAGEMENT.DHCP,
+            NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS,
+        )
         query = NodeGroup.objects.raw("""
             SELECT *
             FROM maasserver_nodegroup
@@ -132,10 +136,8 @@ def find_nodegroup(request):
             )
             """, [
                 ip_address,
-                (
-                    NODEGROUPINTERFACE_MANAGEMENT.DHCP,
-                    NODEGROUPINTERFACE_MANAGEMENT.DHCP_AND_DNS,
-                )
-                ])
+                management_statuses,
+                ]
+            )
         return get_one(query)
     return None
