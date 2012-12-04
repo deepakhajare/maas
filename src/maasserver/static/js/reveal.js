@@ -71,12 +71,10 @@ module._create_slide_in = function(node, publisher) {
     var anim = new Y.Anim({
         node: node,
         duration: 0.3,
-        to: {opacity: 0.0}
-//        to: {height: 0}
+        to: {height: 0}
     });
     anim.on('end', function () {
         publisher.fire('hidden');
-        node.setStyle('display', 'none');
     });
     return anim;
 };
@@ -90,14 +88,10 @@ module._create_slide_out = function(node, publisher) {
     var anim = new Y.Anim({
         node: node,
         duration: 0.2,
-        to: {opacity: 1.0}
-//        to: {height: parseInt(node.one('.content').getStyle('height'))}
+        to: {height: parseInt(node.one('.content').getStyle('height'))}
     });
     anim.on('end', function () {
         publisher.fire('revealed');
-    });
-    anim.on('start', function () {
-        node.setStyle('display', 'block');
     });
     return anim;
 };
@@ -111,15 +105,15 @@ Y.extend(Reveal, Y.Widget, {
     reveal: function() {
         var target = this.get('targetNode');
         var link = this.get('linkNode');
-        if (parseInt(target.getStyle('opacity')) == 0) {
+        if (parseInt(target.getStyle('height')) == 0) {
             module._create_slide_out(target, this).run();
-            if (s.get('hideText') !== null) {
+            if (this.get('hideText') !== null) {
                 link.set('text', this.get('hideText'));
             }
         }
         else {
             module._create_slide_in(target, this).run();
-            if (s.get('showText') !== null) {
+            if (this.get('showText') !== null) {
                 link.set('text', this.get('showText'));
             }
         }
