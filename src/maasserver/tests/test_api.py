@@ -56,7 +56,7 @@ from maasserver.api import (
     describe,
     DISPLAYED_NODEGROUP_FIELDS,
     extract_constraints,
-    find_cluster_for_pxeconfig_request,
+    find_nodegroup_for_pxeconfig_request,
     store_node_power_parameters,
     )
 from maasserver.enum import (
@@ -3485,8 +3485,8 @@ class TestPXEConfigAPI(AnonAPITestCase):
             compose_preseed_url(node),
             json.loads(response.content)["preseed_url"])
 
-    def find_cluster_for_pxeconfig_request_uses_cluster_uuid(self):
-        # find_cluster_for_pxeconfig_request returns the cluster
+    def find_nodegroup_for_pxeconfig_request_uses_cluster_uuid(self):
+        # find_nodegroup_for_pxeconfig_request returns the nodegroup
         # identified by the cluster_uuid parameter, if given.  It
         # completely ignores the other node or request details, as shown
         # here by passing a uuid for a different cluster.
@@ -3496,7 +3496,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         request = RequestFactory.get(reverse('pxeconfig'), **params)
         self.assertEqual(
             nodegroup,
-            find_cluster_for_pxeconfig_request(request))
+            find_nodegroup_for_pxeconfig_request(request))
 
     def test_preseed_url_for_known_node_uses_nodegroup_maas_url(self):
         ng_url = 'http://%s' % factory.make_name('host')

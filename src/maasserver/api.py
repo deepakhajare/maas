@@ -1598,7 +1598,7 @@ def get_node_from_mac_string(mac_string):
     return macaddress.node if macaddress else None
 
 
-def find_cluster_for_pxeconfig_request(request):
+def find_nodegroup_for_pxeconfig_request(request):
     """Find the nodegroup responsible for a `pxeconfig` request.
 
     Looks for the `cluster_uuid` parameter in the request.  If there is
@@ -1679,7 +1679,7 @@ def pxeconfig(request):
             # 1-1 mapping.
             subarch = pxelinux_subarch
 
-        nodegroup = find_cluster_for_pxeconfig_request(request)
+        nodegroup = find_nodegroup_for_pxeconfig_request(request)
         preseed_url = compose_enlistment_preseed_url(nodegroup=nodegroup)
         hostname = 'maas-enlist'
         domain = Config.objects.get_config('enlistment_domain')
