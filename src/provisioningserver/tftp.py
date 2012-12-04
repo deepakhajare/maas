@@ -218,8 +218,9 @@ class TFTPBackend(FilesystemSynchronousBackend):
             params["local"] = local_host
             remote_host, remote_port = get("remote", (None, None))
             params["remote"] = remote_host
-            # XXX 2012-12-04 JeroenVermeulen: move get_cluster_uuid to a
-            # properly reusable location, and implement without celery.
+            # XXX 2012-12-04 JeroenVermeulen bug=1086239: move
+            # get_cluster_uuid to a properly reusable location, and
+            # implement it without the celery import (and side effects).
             params["cluster_uuid"] = get_cluster_uuid()
             d = self.get_config_reader(params)
             d.addErrback(self.get_page_errback, file_name)
