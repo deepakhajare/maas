@@ -458,21 +458,6 @@ class AnonNodesHandler(AnonymousOperationsHandler):
         """Accept a node's enlistment: not allowed to anonymous users."""
         raise Unauthorized("You must be logged in to accept nodes.")
 
-    @operation(idempotent=False)
-    def check_commissioning(self, request):
-        """Check all commissioning nodes to see if they are taking too long.
-
-        Anything that has been commissioning for longer than
-        settings.COMMISSIONING_TIMEOUT is moved into the FAILED_TESTS status.
-        """
-        interval = timedelta(minutes=settings.COMMISSIONING_TIMEOUT)
-        cutoff = datetime.now() - interval
-        query = Node.objects.filter(
-            status=NODE_STATUS.COMMISSIONING, updated__lte=cutoff)
-        query.update(status=NODE_STATUS.FAILED_TESTS)
-        # Note that Django doesn't call save() on updated nodes here,
-        # but I don't think anything requires its effects anyway.
-
     @classmethod
     def resource_uri(cls, *args, **kwargs):
         return ('nodes_handler', [])
@@ -589,6 +574,23 @@ class NodesHandler(OperationsHandler):
         nodes = nodes.filter(status=NODE_STATUS.DECLARED)
         nodes = [node.accept_enlistment(request.user) for node in nodes]
         return filter(None, nodes)
+
+    @operation(idempotent=False)
+    def check_commissioning(self, request):
+        """Check all commissioning nodes to see if they are taking too long.
+
+        Anything that has been commissioning for longer than
+        settings.COMMISSIONING_TIMEOUT is moved into the FAILED_TESTS status.
+        """
+        interval = timedelta(minutes=settings.COMMISSIONING_TIMEOUT)
+        cutoff = datetime.now() - interval
+        query = Node.objects.filter(
+            status=NODE_STATUS.COMMISSIONING, updated__lte=cutoff)
+        results = list(query)
+        query.update(status=NODE_STATUS.FAILED_TESTS)
+        # Note that Django doesn't call save() on updated nodes here,
+        # but I don't think anything requires its effects anyway.
+        return results
 
     @operation(idempotent=False)
     def release(self, request):
@@ -1598,6 +1600,16 @@ def get_node_from_mac_string(mac_string):
     return macaddress.node if macaddress else None
 
 
+def find_nodegroup_for_pxeconfig_request(request):
+    """Find the nodegroup responsible for a `pxeconfig` request.
+
+    Looks for the `cluster_uuid` parameter in the request.  If there is
+    none, figures it out based on the requesting IP as a compatibility
+    measure.  In that case, the result may be incorrect.
+    """
+    return find_nodegroup(request)
+
+
 def pxeconfig(request):
     """Get the PXE configuration given a node's details.
 
@@ -1621,6 +1633,10 @@ def pxeconfig(request):
     :param subarch: Subarchitecture name (in the pxelinux namespace).
     :param local: The IP address of the cluster controller.
     :param remote: The IP address of the booting node.
+    :param cluster_uuid: UUID of the cluster responsible for this node.
+        If omitted, the call will attempt to figure it out based on the
+        requesting IP address, for compatibility.  Passing `cluster_uuid`
+        is preferred.
     """
     node = get_node_from_mac_string(request.GET.get('mac', None))
 
@@ -1665,7 +1681,7 @@ def pxeconfig(request):
             # 1-1 mapping.
             subarch = pxelinux_subarch
 
-        nodegroup = find_nodegroup(request)
+        nodegroup = find_nodegroup_for_pxeconfig_request(request)
         preseed_url = compose_enlistment_preseed_url(nodegroup=nodegroup)
         hostname = 'maas-enlist'
         domain = Config.objects.get_config('enlistment_domain')
