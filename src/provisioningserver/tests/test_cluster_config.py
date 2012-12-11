@@ -19,7 +19,7 @@ from provisioningserver.cluster_config import (
     get_cluster_variable,
     get_maas_url,
     )
-from provisioningserver.testcase import TestCase
+from provisioningserver.testing.testcase import TestCase
 
 
 class TestClusterConfig(TestCase):
