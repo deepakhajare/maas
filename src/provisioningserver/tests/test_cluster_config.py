@@ -14,12 +14,12 @@ __all__ = []
 
 from fixtures import EnvironmentVariableFixture
 from maastesting.factory import factory
+from maastesting.testcase import TestCase
 from provisioningserver.cluster_config import (
     get_cluster_uuid,
     get_cluster_variable,
     get_maas_url,
     )
-from provisioningserver.testing.testcase import TestCase
 
 
 class TestClusterConfig(TestCase):
