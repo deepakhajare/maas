@@ -1611,7 +1611,7 @@ def find_nodegroup_for_pxeconfig_request(request):
     if uuid is None:
         return find_nodegroup(request)
     else:
-        return NodeGroup.get(uuid=uuid)
+        return NodeGroup.objects.get(uuid=uuid)
 
 
 def pxeconfig(request):
