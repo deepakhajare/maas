@@ -3506,7 +3506,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
         params = self.get_mac_params()
         nodegroup = factory.make_node_group()
         params['cluster_uuid'] = nodegroup.uuid
-        request = RequestFactory().get(reverse('pxeconfig'), **params)
+        request = RequestFactory().get(reverse('pxeconfig'), params)
         self.assertEqual(
             nodegroup,
             find_nodegroup_for_pxeconfig_request(request))
