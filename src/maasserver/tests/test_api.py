@@ -3498,7 +3498,7 @@ class TestPXEConfigAPI(AnonAPITestCase):
             compose_preseed_url(node),
             json.loads(response.content)["preseed_url"])
 
-    def find_nodegroup_for_pxeconfig_request_uses_cluster_uuid(self):
+    def test_find_nodegroup_for_pxeconfig_request_uses_cluster_uuid(self):
         # find_nodegroup_for_pxeconfig_request returns the nodegroup
         # identified by the cluster_uuid parameter, if given.  It
         # completely ignores the other node or request details, as shown
