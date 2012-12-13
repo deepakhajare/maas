@@ -351,8 +351,8 @@ class TestViews(DjangoTestCase):
                 'application/x-tgz',
             })
         archive = tarfile.open(fileobj=BytesIO(response.content))
-        self.assertItemsEqual(
-            [os.path.join(ARCHIVE_PREFIX, script.name)],
+        self.assertIn(
+            os.path.join(ARCHIVE_PREFIX, script.name),
             archive.getnames())
 
     def test_other_user_than_node_cannot_signal_commissioning_result(self):
