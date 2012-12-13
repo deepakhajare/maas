@@ -82,7 +82,7 @@ class Migration(DataMigration):
             'power_parameters': ('maasserver.fields.JSONObjectField', [], {'default': "u''", 'blank': 'True'}),
             'power_type': ('django.db.models.fields.CharField', [], {'default': "u''", 'max_length': '10', 'blank': 'True'}),
             'status': ('django.db.models.fields.IntegerField', [], {'default': '0', 'max_length': '10'}),
-            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-7aa50e22-44f0-11e2-8a6a-fa163e5288ba'", 'unique': 'True', 'max_length': '41'}),
+            'system_id': ('django.db.models.fields.CharField', [], {'default': "u'node-5b8f2212-444f-11e2-a886-3c970e0e56dc'", 'unique': 'True', 'max_length': '41'}),
             'tags': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['maasserver.Tag']", 'symmetrical': 'False'}),
             'token': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['piston.Token']", 'null': 'True'}),
             'updated': ('django.db.models.fields.DateTimeField', [], {})
@@ -119,10 +119,13 @@ class Migration(DataMigration):
         },
         u'metadataserver.nodecommissionresult': {
             'Meta': {'unique_together': "((u'node', u'name'),)", 'object_name': 'NodeCommissionResult'},
+            'created': ('django.db.models.fields.DateTimeField', [], {}),
             'data': ('django.db.models.fields.CharField', [], {'max_length': '1048576'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'node': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.Node']"})
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
+            'node': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['maasserver.Node']"}),
+            'status': ('django.db.models.fields.CharField', [], {'default': "u'OK'", 'max_length': '100'}),
+            'updated': ('django.db.models.fields.DateTimeField', [], {})
         },
         u'metadataserver.nodekey': {
             'Meta': {'object_name': 'NodeKey'},
@@ -156,7 +159,7 @@ class Migration(DataMigration):
             'is_approved': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'key': ('django.db.models.fields.CharField', [], {'max_length': '18'}),
             'secret': ('django.db.models.fields.CharField', [], {'max_length': '32'}),
-            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1355381041L'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1355311840L'}),
             'token_type': ('django.db.models.fields.IntegerField', [], {}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'tokens'", 'null': 'True', 'to': "orm['auth.User']"}),
             'verifier': ('django.db.models.fields.CharField', [], {'max_length': '10'})
