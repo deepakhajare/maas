@@ -191,7 +191,7 @@ class VersionIndexHandler(MetadataViewHandler):
         """Store commissioning result files for `node`."""
         for name, uploaded_file in request.FILES.items():
             raw_content = uploaded_file.read()
-            if name == "01-lshw.out":
+            if name == "00-maas-01-lshw.out":
                 node.set_hardware_details(raw_content)
             contents = raw_content.decode('utf-8')
             NodeCommissionResult.objects.store_data(node, name, contents)
