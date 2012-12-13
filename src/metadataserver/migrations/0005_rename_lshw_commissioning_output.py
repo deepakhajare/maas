@@ -7,8 +7,8 @@ from south.v2 import DataMigration
 
 
 def rename_commissioning_results(orm, old_name, new_name):
-    """Rename any `CommissioningResult` called `old_name` to `new_name`."""
-    orm['metadataserver.CommissioningResult'].filter(name=old_name).update(
+    """Rename any `NodeCommissionResult` called `old_name` to `new_name`."""
+    orm['metadataserver.NodeCommissionResult'].filter(name=old_name).update(
         name=new_name)
 
 
