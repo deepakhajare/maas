@@ -75,7 +75,7 @@ class TestCommissioningScriptManager(TestCase):
         content = factory.getRandomString().encode('ascii')
         self.patch(cs_module, 'BUILTIN_COMMISSIONING_SCRIPTS', {path: content})
         archive = open_tarfile(CommissioningScript.objects.get_archive())
-        self.assertIn(name, archive.getnames())
+        self.assertIn(path, archive.getnames())
         self.assertEqual(content, archive.extractfile(path).read())
 
 
