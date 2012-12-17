@@ -145,7 +145,7 @@ main() {
 
    # Download and extract commissioning scripts.  It will contain a
    # commissioning.d directory, so this is how $SCRIPTS_D is created.
-   maas-get --conf="${CRED_CFG}" maas-commissioning-scripts -C "${TEMP_DIR}" -x
+   maas-get --conf="${CRED_CFG}" maas-commissioning-scripts | tar -C "${TEMP_DIR}" -x
 
    # Just get a count of how many scripts there are for progress reporting.
    for script in "${SCRIPTS_D}/"*; do
