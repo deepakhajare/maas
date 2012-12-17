@@ -444,6 +444,7 @@ from email.utils import parsedate
 import mimetypes
 import os.path
 import random
+import socket
 import string
 import sys
 import urllib2
