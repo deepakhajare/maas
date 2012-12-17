@@ -1,10 +1,12 @@
 #!/bin/sh
 #
 # This script carries inside it multiple files.  When executed, it creates
-# the files into a temporary directory, and then calls the 'main' function.
+# the files into a temporary directory, downloads and extracts commissioning
+# scripts from the metadata service, and then processes the scripts.
 #
-# main does a run-parts of all "scripts" and then calls home to maas with
-# maas-signal, posting output of each of the files added with add_script().
+# The commissioning scripts get run by a close equivalent of run-parts.
+# For each, the main script calls home to maas with maas-signal, posting
+# the script's output as a separate file.
 #
 ####  IPMI setup  ######
 # If IPMI network settings have been configured statically, you can
@@ -19,7 +21,7 @@ IPMI_CHANGE_STATIC_TO_DHCP="false"
 
 #### script setup ######
 TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX")
-SCRIPTS_D="${TEMP_D}/scripts"
+SCRIPTS_D="${TEMP_D}/commissioning.d"
 IPMI_CONFIG_D="${TEMP_D}/ipmi.d"
 BIN_D="${TEMP_D}/bin"
 OUT_D="${TEMP_D}/out"
@@ -40,10 +42,6 @@ writefile() {
 add_bin() {
    cat > "${BIN_D}/$1"
    chmod "${2:-755}" "${BIN_D}/$1"
-}
-add_script() {
-   cat > "${SCRIPTS_D}/$1"
-   chmod "${2:-755}" "${SCRIPTS_D}/$1"
 }
 add_ipmi_config() {
    cat > "${IPMI_CONFIG_D}/$1"
@@ -145,6 +143,10 @@ main() {
       signal "--power-type=ipmi" "--power-parameters=${power_settings}" WORKING "finished [maas-ipmi-autodetect]"
    fi
 
+   # Download and extract commissioning scripts.  It will contain a
+   # commissioning.d directory, so this is how $SCRIPTS_D is created.
+   maas-get --conf="${CRED_CFG}" maas-commissioning-scripts -C "${TEMP_DIR}" -x
+
    # Just get a count of how many scripts there are for progress reporting.
    for script in "${SCRIPTS_D}/"*; do
       [ -x "$script" -a -f "$script" ] || continue
@@ -193,10 +195,6 @@ load_modules() {
 }
 
 ### begin writing files ###
-add_script "00-maas-01-lshw" <<"END_LSHW"
-#!/bin/sh
-lshw -xml
-END_LSHW
 
 add_ipmi_config "01-user-privileges.ipmi" <<"END_IPMI_USER_PRIVILEGES"
 Section User3
@@ -330,20 +328,131 @@ if __name__ == '__main__':
     main()
 END_MAAS_IPMI_AUTODETECT
 
+
+add_bin "maas_api_helper.py" <<"END_MAAS_API_HELPER"
+import oauth.oauth as oauth
+import sys
+import time
+import urllib2
+import yaml
+
+__all__ = [
+    'geturl',
+    'read_config',
+    ]
+
+
+def read_config(url, creds):
+    if url.startswith("http://") or url.startswith("https://"):
+        cfg_str = urllib2.urlopen(urllib2.Request(url=url))
+    else:
+        if url.startswith("file://"):
+            url = url[7:]
+        cfg_str = open(url,"r").read()
+
+    cfg = yaml.safe_load(cfg_str)
+
+    # Support reading cloud-init config for MAAS datasource.
+    if 'datasource' in cfg:
+        cfg = cfg['datasource']['MAAS']
+
+    for key in creds.keys():
+        if key in cfg and creds[key] == None:
+            creds[key] = cfg[key]
+
+
+def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret,
+                  clockskew=0):
+    """Build OAuth headers using given credentials."""
+    consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
+    token = oauth.OAuthToken(token_key, token_secret)
+
+    timestamp = int(time.time()) + clockskew
+
+    params = {
+        'oauth_version': "1.0",
+        'oauth_nonce': oauth.generate_nonce(),
+        'oauth_timestamp': timestamp,
+        'oauth_token': token.key,
+        'oauth_consumer_key': consumer.key,
+    }
+    req = oauth.OAuthRequest(http_url=url, parameters=params)
+    req.sign_request(
+        oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
+    return(req.to_header())
+
+
+def authenticate_headers(headers, creds, clockskew):
+    """Update and sign a dict of request headers."""
+    if creds.get('consumer_key', None) != None:
+        headers.update(oauth_headers(
+            url,
+            consumer_key=creds['consumer_key'],
+            token_key=creds['token_key'],
+            token_secret=creds['token_secret'],
+            consumer_secret=creds['consumer_secret'],
+            clockskew=clockskew))
+
+
+def warn(msg):
+    sys.stderr.write(msg + "\n")
+
+
+def geturl(url, creds, headers=None, data=None):
+    # Takes a dict of creds to be passed through to oauth_headers,
+    #   so it should have consumer_key, token_key, ...
+    if headers is None:
+        headers = {}
+    else:
+        headers = dict(headers)
+
+    clockskew = 0
+
+    exc = Exception("Unexpected Error")
+    for naptime in (1, 1, 2, 4, 8, 16, 32):
+        authenticate_headers(headers, creds, clockskew)
+        try:
+            req = urllib2.Request(url=url, data=data, headers=headers)
+            return urllib2.urlopen(req).read()
+        except urllib2.HTTPError as exc:
+            if 'date' not in exc.headers:
+                warn("date field not in %d headers" % exc.code)
+                pass
+            elif exc.code in (401, 403):
+                date = exc.headers['date']
+                try:
+                    ret_time = time.mktime(parsedate(date))
+                    clockskew = int(ret_time - time.time())
+                    warn("updated clock skew to %d" % clockskew)
+                except:
+                    warn("failed to convert date '%s'" % date)
+        except Exception as exc:
+            pass
+
+        warn("request to %s failed. sleeping %d.: %s" % (url, naptime, exc))
+        time.sleep(naptime)
+
+    raise exc
+
+END_MAAS_API_HELPER
+
+
 add_bin "maas-signal" <<"END_MAAS_SIGNAL"
 #!/usr/bin/python
 
 from email.utils import parsedate
 import mimetypes
-import oauth.oauth as oauth
 import os.path
 import random
 import string
 import sys
-import time
 import urllib2
-import yaml
 import json
+
+from maas_api_helper import (
+    geturl,
+    read_config,
+    )
 
 MD_VERSION = "2012-03-01"
 VALID_STATUS = ("OK", "FAILED", "WORKING")
@@ -398,89 +507,6 @@ def encode_multipart_data(data, files):
     return body, headers
 
 
-def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret,
-                  clockskew=0):
-    consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
-    token = oauth.OAuthToken(token_key, token_secret)
-
-    timestamp = int(time.time()) + clockskew
-
-    params = {
-        'oauth_version': "1.0",
-        'oauth_nonce': oauth.generate_nonce(),
-        'oauth_timestamp': timestamp,
-        'oauth_token': token.key,
-        'oauth_consumer_key': consumer.key,
-    }
-    req = oauth.OAuthRequest(http_url=url, parameters=params)
-    req.sign_request(oauth.OAuthSignatureMethod_PLAINTEXT(),
-        consumer, token)
-    return(req.to_header())
-
-
-def geturl(url, creds, headers=None, data=None):
-    # Takes a dict of creds to be passed through to oauth_headers,
-    #   so it should have consumer_key, token_key, ...
-    if headers is None:
-        headers = {}
-    else:
-        headers = dict(headers)
-
-    clockskew = 0
-
-    def warn(msg):
-        sys.stderr.write(msg + "\n")
-
-    exc = Exception("Unexpected Error")
-    for naptime in (1, 1, 2, 4, 8, 16, 32):
-        if creds.get('consumer_key', None) != None:
-            headers.update(oauth_headers(url,
-                consumer_key=creds['consumer_key'],
-                token_key=creds['token_key'],
-                token_secret=creds['token_secret'],
-                consumer_secret=creds['consumer_secret'],
-                clockskew=clockskew))
-        try:
-            req = urllib2.Request(url=url, data=data, headers=headers)
-            return(urllib2.urlopen(req).read())
-        except urllib2.HTTPError as exc:
-            if 'date' not in exc.headers:
-                warn("date field not in %d headers" % exc.code)
-                pass
-            elif (exc.code == 401 or exc.code == 403):
-                date = exc.headers['date']
-                try:
-                    ret_time = time.mktime(parsedate(date))
-                    clockskew = int(ret_time - time.time())
-                    warn("updated clock skew to %d" % clockskew)
-                except:
-                    warn("failed to convert date '%s'" % date)
-        except Exception as exc:
-            pass
-
-        warn("request to %s failed. sleeping %d.: %s" % (url, naptime, exc))
-        time.sleep(naptime)
-
-    raise exc
-
-
-def read_config(url, creds):
-    if url.startswith("http://") or url.startswith("https://"):
-        cfg_str = urllib2.urlopen(urllib2.Request(url=url))
-    else:
-        if url.startswith("file://"):
-            url = url[7:]
-        cfg_str = open(url,"r").read()
-
-    cfg = yaml.safe_load(cfg_str)
-
-    # Support reading cloud-init config for MAAS datasource.
-    if 'datasource' in cfg:
-        cfg = cfg['datasource']['MAAS']
-
-    for key in creds.keys():
-        if key in cfg and creds[key] == None:
-            creds[key] = cfg[key]
 
 def fail(msg):
     sys.stderr.write("FAIL: %s" % msg)
@@ -594,6 +620,45 @@ def main():
 if __name__ == '__main__':
     main()
 END_MAAS_SIGNAL
+
+add_bin "maas-get" <<END_MAAS_GET
+#!/usr/bin/python
+from maas_api_helper import (
+    geturl,
+    read_config,
+    )
+
+MD_VERSION = "2012-03-01"
+
+def main():
+    """Authenticate, and download file from MAAS metadata API."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="GET file from MAAS metadata API.")
+    parser.add_argument(
+        "--config", metavar="file",
+        help="Config file containing MAAS API credentials", default=None)
+    parser.add_argument("--apiver", metavar="version",
+        help="Use given API version", default=MD_VERSION)
+    parser.add_argument('path')
+ 
+    args = parser.parse_args()
+
+    creds = {}
+    read_config(args.config, creds)
+    url = "%s/%s/%s" % (
+        creds['metadata_url'],
+        args.apiver,
+        path,
+        )
+
+    sys.stdout.write(geturl(url, creds))
+
+if __name__ == '__main__':
+    main()
+END_MAAS_GET
+
 
 main
 exit
