@@ -215,7 +215,7 @@ configure the software::
 
 The configuration script should then bring up a screen where you can 
 enter the IP address of the region controller. Additionally, you will need
-to run the `maas-import-pxe-files` script to install the distro image files
+to run the ``maas-import-pxe-files`` script to install the distro image files
 locally for commissioning::
 
   $ maas-cli maas node-groups import-boot-images
