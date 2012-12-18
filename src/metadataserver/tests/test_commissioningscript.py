@@ -82,7 +82,7 @@ class TestCommissioningScriptManager(TestCase):
         for counter in range(3):
             factory.make_commissioning_script()
         archive = open_tarfile(CommissioningScript.objects.get_archive())
-        self.assertEqual({info.mode for info in archive.getmembers()}, {0755})
+        self.assertEqual({0755}, {info.mode for info in archive.getmembers()})
 
 
 class TestCommissioningScript(TestCase):
