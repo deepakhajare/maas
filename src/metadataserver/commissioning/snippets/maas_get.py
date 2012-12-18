@@ -30,7 +30,7 @@ def main():
         'consumer_key': None,
         'token_key': None,
         'token_secret': None,
-        'consumer_secret': None,
+        'consumer_secret': '',
         'metadata_url': None,
     }
     read_config(args.config, creds)
