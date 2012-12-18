@@ -330,6 +330,7 @@ END_MAAS_IPMI_AUTODETECT
 
 
 add_bin "maas_api_helper.py" <<"END_MAAS_API_HELPER"
+from email.utils import parsedate
 import oauth.oauth as oauth
 import sys
 import time
@@ -348,7 +349,7 @@ def read_config(url, creds):
     else:
         if url.startswith("file://"):
             url = url[7:]
-        cfg_str = open(url,"r").read()
+        cfg_str = open(url, "r").read()
 
     cfg = yaml.safe_load(cfg_str)
 
@@ -382,7 +383,7 @@ def oauth_headers(url, consumer_key, token_key, token_secret, consumer_secret,
     return(req.to_header())
 
 
-def authenticate_headers(headers, creds, clockskew):
+def authenticate_headers(url, headers, creds, clockskew):
     """Update and sign a dict of request headers."""
     if creds.get('consumer_key', None) != None:
         headers.update(oauth_headers(
@@ -410,7 +411,7 @@ def geturl(url, creds, headers=None, data=None):
 
     exc = Exception("Unexpected Error")
     for naptime in (1, 1, 2, 4, 8, 16, 32):
-        authenticate_headers(headers, creds, clockskew)
+        authenticate_headers(url, headers, creds, clockskew)
         try:
             req = urllib2.Request(url=url, data=data, headers=headers)
             return urllib2.urlopen(req).read()
@@ -433,14 +434,12 @@ def geturl(url, creds, headers=None, data=None):
         time.sleep(naptime)
 
     raise exc
-
 END_MAAS_API_HELPER
 
 
 add_bin "maas-signal" <<"END_MAAS_SIGNAL"
 #!/usr/bin/python
 
-from email.utils import parsedate
 import mimetypes
 import os.path
 import random
@@ -508,7 +507,6 @@ def encode_multipart_data(data, files):
     return body, headers
 
 
-
 def fail(msg):
     sys.stderr.write("FAIL: %s" % msg)
     sys.exit(1)
@@ -521,7 +519,6 @@ def main():
     interpreted as consumer_key, token_key, token_secret, consumer_secret.
     """
     import argparse
-    import pprint
 
     parser = argparse.ArgumentParser(
         description='Send signal operation and optionally post files to MAAS')
@@ -574,10 +571,10 @@ def main():
 
     for ent in args.posts:
         try:
-           (key, val) = ent.split("=", 2)
+            (key, val) = ent.split("=", 2)
         except ValueError:
-           sys.stderr.write("'%s' had no '='" % ent)
-           sys.exit(1)
+            sys.stderr.write("'%s' had no '='" % ent)
+            sys.exit(1)
         params[key] = val
 
     if args.power_parms is not None:
@@ -624,12 +621,16 @@ END_MAAS_SIGNAL
 
 add_bin "maas-get" <<END_MAAS_GET
 #!/usr/bin/python
+
+import sys
+
 from maas_api_helper import (
     geturl,
     read_config,
     )
 
 MD_VERSION = "2012-03-01"
+
 
 def main():
     """Authenticate, and download file from MAAS metadata API."""
@@ -643,7 +644,7 @@ def main():
     parser.add_argument("--apiver", metavar="version",
         help="Use given API version", default=MD_VERSION)
     parser.add_argument('path')
- 
+
     args = parser.parse_args()
 
     creds = {}
@@ -651,7 +652,7 @@ def main():
     url = "%s/%s/%s" % (
         creds['metadata_url'],
         args.apiver,
-        path,
+        args.path,
         )
 
     sys.stdout.write(geturl(url, creds))
