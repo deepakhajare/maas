@@ -175,7 +175,7 @@ main() {
       signal WORKING "starting ${name} [$cur/$total]"
       "$script" > "${OUT_D}/${name}.out" 2> "${OUT_D}/${name}.err"
       ret=$?
-      signal-result \
+      signal_result \
          "$ret" "finished $name [$cur/$total]: $ret" \
          "${OUT_D}/${name}.out" \
          "${OUT_D}/${name}.err"
