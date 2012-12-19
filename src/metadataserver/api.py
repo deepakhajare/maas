@@ -213,8 +213,9 @@ class VersionIndexHandler(MetadataViewHandler):
         :param status: A commissioning status code.  This can be "OK" (to
             signal that commissioning has completed successfully), or "FAILED"
             (to signal failure), or "WORKING" (for progress reports).
-        :param script_result: If this call uploads files, this will be stored
-            as the return value for the script which produced these files.
+        :param script_result: If this call uploads files, this parameter must
+            be provided and will be stored as the return value for the script
+            which produced these files.
         :param error: An optional error string.  If given, this will be stored
             (overwriting any previous error string), and displayed in the MAAS
             UI.  If not given, any previous error string will be cleared.
