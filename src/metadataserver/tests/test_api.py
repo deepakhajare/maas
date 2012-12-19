@@ -163,7 +163,6 @@ class TestViews(DjangoTestCase):
         params = {
             'op': 'signal',
             'status': 'OK',
-
         }
         params.update(kwargs)
         params.update({
