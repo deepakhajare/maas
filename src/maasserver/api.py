@@ -1869,8 +1869,8 @@ class CommissioningResultsHandler(OperationsHandler):
             commissioning results related to the nodes with these system ids
             will be returned.
         :type system_id: iterable
-        :param name: An optional list of names.  Only the
-            commissioning results with the specified names will be returned.
+        :param name: An optional list of names.  Only the commissioning
+            results with the specified names will be returned.
         :type name: iterable
         """
         # Get filters from request.
