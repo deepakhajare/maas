@@ -95,7 +95,7 @@ signal_result() {
    fi
    maas-signal \
       "--config=${CRED_CFG}" \
-      "--script_result=$result" \
+      "--script-result=$result" \
       $files \
       WORKING "$message"
 }
