@@ -24,7 +24,7 @@ from maasserver.api import (
     CommissioningScriptsHandler,
     describe,
     FilesHandler,
-    MAASHandler,
+    MaasHandler,
     NodeGroupHandler,
     NodeGroupInterfaceHandler,
     NodeGroupInterfacesHandler,
@@ -66,7 +66,7 @@ commissioning_scripts_handler = AdminRestrictedResource(
 
 
 # Admin handlers.
-maas_handler = AdminRestrictedResource(MAASHandler, authentication=api_auth)
+maas_handler = AdminRestrictedResource(MaasHandler, authentication=api_auth)
 nodegroupinterface_handler = AdminRestrictedResource(
     NodeGroupInterfaceHandler, authentication=api_auth)
 nodegroupinterfaces_handler = AdminRestrictedResource(

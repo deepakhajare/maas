@@ -60,8 +60,11 @@ __all__ = [
     "api_doc",
     "api_doc_title",
     "BootImagesHandler",
+    "CommissioningScriptHandler",
+    "CommissioningScriptsHandler",
     "FilesHandler",
     "get_oauth_token",
+    "MaasHandler",
     "NodeGroupsHandler",
     "NodeGroupInterfaceHandler",
     "NodeGroupInterfacesHandler",
@@ -1463,8 +1466,8 @@ class TagsHandler(OperationsHandler):
         return ('tags_handler', [])
 
 
-class MAASHandler(OperationsHandler):
-    """Manage the MAAS' itself."""
+class MaasHandler(OperationsHandler):
+    """Manage the MAAS server."""
     create = read = update = delete = None
 
     @operation(idempotent=False)
@@ -1492,6 +1495,10 @@ class MAASHandler(OperationsHandler):
         name = get_mandatory_param(request.GET, 'name')
         value = Config.objects.get_config(name)
         return HttpResponse(json.dumps(value), content_type='application/json')
+
+    @classmethod
+    def resource_uri(cls, *args, **kwargs):
+        return ('maas_handler', [])
 
 
 # Title section for the API documentation.  Matches in style, format,
@@ -1776,7 +1783,7 @@ def get_content_parameter(request):
 
 
 class CommissioningScriptsHandler(OperationsHandler):
-    """Management of custom commissioning scripts.
+    """Manage custom commissioning scripts.
 
     This functionality is only available to administrators.
     """
@@ -1824,9 +1831,13 @@ class CommissioningScriptsHandler(OperationsHandler):
         content = Bin(get_content_parameter(request))
         return CommissioningScript.objects.create(name=name, content=content)
 
+    @classmethod
+    def resource_uri(cls):
+        return ('commissioning_scripts_handler', [])
+
 
 class CommissioningScriptHandler(OperationsHandler):
-    """A CommissioningScript.
+    """Manage a custom commissioning script.
 
     This functionality is only available to administrators.
     """
@@ -1842,12 +1853,26 @@ class CommissioningScriptHandler(OperationsHandler):
         script = get_object_or_404(CommissioningScript, name=name)
         return HttpResponse(script.content, content_type='application/binary')
 
+    def delete(self, request, name):
+        """Delete a commissioning script."""
+        script = get_object_or_404(CommissioningScript, name=name)
+        script.delete()
+        return rc.DELETED
+
     def update(self, request, name):
         """Update a commissioning script."""
         content = Bin(get_content_parameter(request))
         script = get_object_or_404(CommissioningScript, name=name)
         script.content = content
         script.save()
+
+    @classmethod
+    def resource_uri(cls, script=None):
+        # See the comment in NodeHandler.resource_uri
+        script_name = 'name'
+        if script is not None:
+            script_name = script.name
+        return ('commissioning_script_handler', (script_name, ))
 
 
 def describe(request):
