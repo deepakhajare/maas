@@ -4706,11 +4706,9 @@ class CommissioningScriptAPITest(APITestCase):
 class NodeCommissionResultHandlerAPITest(APITestCase):
 
     def test_list_returns_commissioning_results(self):
-        commissioning_results = []
-        for i in range(3):
-            node = factory.make_node()
-            result = factory.make_node_commission_result(node)
-            commissioning_results.append(result)
+        commissioning_results = [
+            factory.make_node_commission_result()
+            for counter in range(3)]
         url = reverse('commissioning_results_handler')
         response = self.client.get(url, {'op': 'list'})
         self.assertEqual(httplib.OK, response.status_code, response.content)
@@ -4734,11 +4732,9 @@ class NodeCommissionResultHandlerAPITest(APITestCase):
             ])
 
     def test_list_can_be_filtered_by_node(self):
-        commissioning_results = []
-        for i in range(3):
-            node = factory.make_node()
-            result = factory.make_node_commission_result(node)
-            commissioning_results.append(result)
+        commissioning_results = [
+            factory.make_node_commission_result()
+            for counter in range(3)]
         url = reverse('commissioning_results_handler')
         response = self.client.get(
             url,
@@ -4758,11 +4754,9 @@ class NodeCommissionResultHandlerAPITest(APITestCase):
             [result.get('data') for result in parsed_results])
 
     def test_list_can_be_filtered_by_name(self):
-        commissioning_results = []
-        for i in range(3):
-            node = factory.make_node()
-            result = factory.make_node_commission_result(node)
-            commissioning_results.append(result)
+        commissioning_results = [
+            factory.make_node_commission_result()
+            for counter in range(3)]
         url = reverse('commissioning_results_handler')
         response = self.client.get(
             url,
