@@ -879,6 +879,10 @@ class CommissioningScriptForm(forms.Form):
     def clean_content(self):
         content = self.cleaned_data['content']
         name = content.name
+        if re.search('\s', name):
+            raise forms.ValidationError("Name contains whitespace.")
+        if re.search('["\']', name):
+            raise forms.ValidationError("Name contains quote or apostrophe.")
         if CommissioningScript.objects.filter(name=name).exists():
             raise forms.ValidationError(
                 "A script with that name already exists.")
