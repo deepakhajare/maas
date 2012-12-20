@@ -62,6 +62,7 @@ __all__ = [
     "BootImagesHandler",
     "CommissioningScriptHandler",
     "CommissioningScriptsHandler",
+    "CommissioningResultsHandler",
     "FilesHandler",
     "get_oauth_token",
     "MaasHandler",
@@ -181,7 +182,10 @@ from maasserver.utils import (
     )
 from maasserver.utils.orm import get_one
 from metadataserver.fields import Bin
-from metadataserver.models import CommissioningScript
+from metadataserver.models import (
+    CommissioningScript,
+    NodeCommissionResult,
+    )
 from piston.utils import rc
 from provisioningserver.enum import POWER_TYPE
 from provisioningserver.kernel_opts import KernelParameters
@@ -1804,7 +1808,8 @@ class CommissioningScriptsHandler(OperationsHandler):
         By convention the name should consist of a two-digit number, a dash,
         and a brief descriptive identifier consisting only of ASCII
         characters.  You don't need to follow this convention, but not doing
-        so opens you up to risks w.r.t. encoding and ordering.
+        so opens you up to risks w.r.t. encoding and ordering.  The name must
+        not contain any whitespace, quotes, or apostrophes.
 
         A commissioning node will run each of the scripts in lexicographical
         order.  There are no promises about how non-ASCII characters are
@@ -1822,7 +1827,7 @@ class CommissioningScriptsHandler(OperationsHandler):
 
         :param name: Unique identifying name for the script.  Names should
             follow the pattern of "25-burn-in-hard-disk" (all ASCII, and with
-            numbers greater than zero).
+            numbers greater than zero, and generally no "weird" characters).
         :param content: A script file, to be uploaded in binary form.  Note:
             this is not a normal parameter, but a file upload.  Its filename
             is ignored; MAAS will know it by the name you pass to the request.
@@ -1873,6 +1878,40 @@ class CommissioningScriptHandler(OperationsHandler):
         if script is not None:
             script_name = script.name
         return ('commissioning_script_handler', (script_name, ))
+
+
+class CommissioningResultsHandler(OperationsHandler):
+    """Read the collection of NodeCommissionResult in the MAAS."""
+    create = read = update = delete = None
+
+    model = NodeCommissionResult
+    fields = ('name', 'script_result', 'updated', 'created', 'node', 'data')
+
+    @operation(idempotent=True)
+    def list(self, request):
+        """List NodeCommissionResult visible to the user, optionally filtered.
+
+        :param system_id: An optional list of system ids.  Only the
+            commissioning results related to the nodes with these system ids
+            will be returned.
+        :type system_id: iterable
+        :param name: An optional list of names.  Only the commissioning
+            results with the specified names will be returned.
+        :type name: iterable
+        """
+        # Get filters from request.
+        system_ids = get_optional_list(request.GET, 'system_id')
+        names = get_optional_list(request.GET, 'name')
+        nodes = Node.objects.get_nodes(
+            request.user, NODE_PERMISSION.VIEW, ids=system_ids)
+        results = NodeCommissionResult.objects.filter(node_id__in=nodes)
+        if names is not None:
+            results = results.filter(name__in=names)
+        return results
+
+    @classmethod
+    def resource_uri(cls):
+        return ('commissioning_results_handler', [])
 
 
 def describe(request):
