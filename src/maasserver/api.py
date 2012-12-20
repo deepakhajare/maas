@@ -1910,7 +1910,7 @@ class CommissioningResultsHandler(OperationsHandler):
         return results
 
     @classmethod
-    def resource_uri(cls):
+    def resource_uri(cls, result=None):
         return ('commissioning_results_handler', [])
 
 
