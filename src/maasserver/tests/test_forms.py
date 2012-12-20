@@ -978,15 +978,17 @@ class TestCommissioningScriptForm(TestCase):
         uploaded_file = SimpleUploadedFile(
             content=factory.getRandomString(), name=name)
         form = CommissioningScriptForm(files={'content': uploaded_file})
+        self.assertFalse(form.is_valid())
         self.assertEqual(
-            (False, {'content': ["Name contains whitespace."]}),
-            (form.is_valid(), form._errors))
+            ["Name contains disallowed characters (e.g. space or quotes)."],
+            form._errors['content'])
 
     def test_rejects_quotes_in_name(self):
         name = factory.make_name("l'horreur")
         uploaded_file = SimpleUploadedFile(
             content=factory.getRandomString(), name=name)
         form = CommissioningScriptForm(files={'content': uploaded_file})
+        self.assertFalse(form.is_valid())
         self.assertEqual(
-            (False, {'content': ["Name contains quote or apostrophe."]}),
-            (form.is_valid(), form._errors))
+            ["Name contains disallowed characters (e.g. space or quotes)."],
+            form._errors['content'])
