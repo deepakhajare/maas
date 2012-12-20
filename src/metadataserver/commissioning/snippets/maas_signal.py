@@ -138,7 +138,7 @@ def main():
         "error": args.message,
         }
 
-    if args.script_result:
+    if args.script_result is not None:
         params['script_result'] = args.script_result
 
     for ent in args.posts:
