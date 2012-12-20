@@ -13,6 +13,10 @@ __metaclass__ = type
 __all__ = []
 
 from io import BytesIO
+from math import (
+    ceil,
+    floor,
+    )
 import os.path
 from random import randint
 import tarfile
@@ -86,12 +90,12 @@ class TestCommissioningScriptManager(TestCase):
         self.assertEqual({0755}, {info.mode for info in archive.getmembers()})
 
     def test_get_archive_initializes_file_timestamps(self):
-        start_time = time.time()
+        start_time = floor(time.time())
         script = factory.make_commissioning_script()
         path = os.path.join(ARCHIVE_PREFIX, script.name)
         archive = open_tarfile(CommissioningScript.objects.get_archive())
         timestamp = archive.getmember(path).mtime
-        end_time = time.time()
+        end_time = ceil(time.time())
         self.assertGreaterEqual(timestamp, start_time)
         self.assertLessEqual(timestamp, end_time)
 
